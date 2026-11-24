@@ -1,0 +1,23 @@
+[package]
+name = "payable_registry_v2_1"
+version = "0.1.0"
+edition = "2021"
+description = "PayOnce payable_registry v2.1 (Concordium Trusted Agents hackathon, testnet only). Structured on-chain payables: Rail A (CCD) pays atomically in the contract; Rail B (PLT) reserves before the money with a co-signed confirm. Zero balance across transactions; holds no funds."
+
+[lib]
+# cdylib: the deployable wasm module. rlib: lets the integration tests in
+# tests/ link the contract's types (plan P1 §6.1 deliverable).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+concordium-std = "11"
+
+[dev-dependencies]
+concordium-smart-contract-testing = "5.0"
+concordium-contracts-common = "10"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"

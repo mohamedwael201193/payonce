@@ -133,24 +133,37 @@ On the dashboard, five attacks each name the layer that refuses them:
   that is the open D6 item (a seller-direction gap, not a
   payment-mechanics gap): a seller who is not the deployer registering on
   v2 is not yet proven.
-- **v2 `pay_ccd` does not record its own tx hash in the view.** The
-  contract records the transfer hash only on the PLT path
-  (`PltConfirmed`); the (owner,10) view shows `txHash: null`. A receipt
-  built from the view alone cannot pin the CCD payment tx — the verifier
-  re-derives it from the supplied tx, so nothing is broken. Candidate for
-  the v2.1 redeploy (with the −18 fix below).
-- **−18 stray-balance griefing (v2, must-fix before the public flip).** A
-  direct CCD donation to `<13150,0>` would brick every later `pay_ccd`
-  with −18, and the donated CCD would be stuck (no withdraw entrypoint).
-  Remedy: assert `self_balance() == balance_before` instead of `== 0`,
-  shipped as a v2.1 redeploy (v2 cannot be upgraded), plus a live drill.
-  A sweep entrypoint is rejected (no admin key). The same flaw exists in
-  v1 `<13149,0>`.
-- **Two-clean-builds reproducibility not done.** The deployed module hash
-  matches this single build's `.wasm.v1` sha256 exactly, but the
-  two-clean-builds check was not run. Before the public flip, re-run the
-  build twice from clean on the pinned toolchain and record both hashes.
-  A verifiable build is blocked (no Docker on the build VM).
+- **v2 `pay_ccd` does not record its own tx hash in the view — fixed in
+  v2.1.** The v2 contract records the transfer hash only on the PLT path
+  (`PltConfirmed`); the (owner,10) view on v2 shows `txHash: null`. A receipt
+  built from the v2 view alone cannot pin the CCD payment tx — the verifier
+  re-derives it from the supplied tx, so nothing is broken. **v2.1
+  `<13152,0>` closes this:** the new `record_payment_tx` entrypoint stores
+  the pay hash in the view, verified live — the p10 view's `txHash` is
+  `d0f30224…`, re-read as the `pay_ccd` call (payer B, 0.5 CCD, exactly
+  500,000 microCCD to payee1); the p11 view holds `880dcdd4…`, the EUDemo
+  transfer. A receipt built from the v2.1 view pins the payment tx.
+- **−18 stray-balance griefing (v2) — CLOSED by the v2.1 redeploy, with a
+  corrected severity.** The v2 judgment's premise ("a direct CCD donation
+  to `<13150,0>` would brick every later `pay_ccd`") was WRONG: the
+  griefing vector was **never live-exploitable** — no transaction exists
+  that can put CCD into the contract (the SDK's transfer serialization
+  throws for a contract address; an update with attached CCD to a
+  non-payable entrypoint is chain-rejected — live probe `90cc8c30…` →
+  RejectedReceive −2147483636, balance stayed 0; `pay_ccd` forwards
+  exactly). The v2.1 fix (assert `self_balance() == balance_before`
+  instead of `== 0`) is therefore **defense-in-depth for an unreachable
+  balance**, not the closure of a live vulnerability — and it works live:
+  the pay succeeds under the new assertion at balance 0, the dust case is
+  proven by engine test M04. The same flaw exists in v1 `<13149,0>`.
+  A sweep entrypoint is rejected (no admin key).
+- **Two-clean-builds reproducibility — CLOSED for v2.1, still open for v2.**
+  The v2.1 judge's independent clean rebuild produced the same wasm sha256
+  (`a299ab6b…`) as the deployed module; the merge lead's own clean build
+  matched it too (a third build). For v2 the deployed module hash matches
+  this single build's `.wasm.v1` sha256 exactly, but the two-clean-builds
+  check was not run. A verifiable build is blocked (no Docker on the
+  build VM).
 - **No official registry badge yet.** The seller and buyer are not yet
   registered on the official `<12802,0>` (that needs publicly hosted agent
   cards). There is no "Verified by Concordium" label anywhere in this repo
@@ -167,6 +180,20 @@ On the dashboard, five attacks each name the layer that refuses them:
   at most once, exactly, to the payee its issuer stored.
 - **The seller company check runs in the verifier, not in the contract** —
   contracts cannot verify V&A proofs.
+- **The v2.1 flip is blocked on the API server, not on the contract.**
+  v2.1 `<13152,0>` is live and verified, but the deploy target stays v2
+  `<13150,0>` until the API server's v2.1-switch fix lands and is
+  re-verified on v2.1: the server's "switchable with no code change" claim
+  is false as documented — the contract name defaults to
+  `payable_registry_v2` while v2.1's on-chain name is
+  `payable_registry_v2_1` (the documented switch 500s every payable read),
+  and payment-tx/document resolution is v2-scoped (on v2.1 it served the
+  v2 pay tx `7c204f0b…` instead of the v2.1 view's `txHash d0f30224…`;
+  verify after_pay blocked 5/10). The fix: document all three switch
+  knobs (INDEX, MODULE, NAME) + fail fast at startup if the configured
+  name/module doesn't match the on-chain instance + registry-scope the
+  resolution (prefer the view's `txHash` when present) + re-verify on v2.1
+  (payable 10 returns `d0f30224…`, verify 10/10, receipt 10/10).
 - **Ceiling.** The independent assessment of this idea family is ≈ 9.0 on
   the idea lens, set by the CCD-only atomicity above. This repo maximises
   within that ceiling and claims nothing beyond it.

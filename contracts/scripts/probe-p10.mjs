@@ -1,0 +1,41 @@
+import { ConcordiumGRPCNodeClient } from '@concordium/web-sdk/nodejs';
+import { credentials } from '@grpc/grpc-js';
+import { AccountAddress, ContractAddress, ReceiveName, Parameter } from '@concordium/web-sdk';
+const client = new ConcordiumGRPCNodeClient('grpc.testnet.concordium.com', 20000, credentials.createSsl());
+const CONTRACT = ContractAddress.create(13152n, 0n);
+const owner = AccountAddress.fromBase58('42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB');
+const b = AccountAddress.fromBase58('4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs');
+const payee1 = AccountAddress.fromBase58('4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin');
+const ab = (a) => Buffer.from(a.decodedAddress);
+const u64le = (n) => { const x = Buffer.alloc(8); x.writeBigUInt64LE(BigInt(n)); return x; };
+const keyParam = (seller, id) => Buffer.concat([ab(seller), u64le(id)]);
+const res = await client.invokeContract({ contract: CONTRACT, method: ReceiveName.fromString('payable_registry_v2_1.get_payable'), parameter: Parameter.fromBuffer(keyParam(owner, 10)) });
+const raw = Buffer.from(res.returnValue?.buffer ?? []);
+console.log('p10 raw len:', raw.length);
+let p = 1 + 32 + 8 + 32 + 8 + 1;
+const assetTag = raw[1 + 32 + 8 + 32 + 8];
+if (assetTag === 1) { const len = raw.readUInt32LE(p); p += 4 + len; }
+p += 8 + 32 + 8;
+const expFlag = raw[p++]; if (expFlag) p += 32;
+const legFlag = raw[p++]; if (legFlag) p += 32;
+const st = raw[p++];
+console.log('p10 status tag:', st, '(0=Unpaid 1=Reserved 2=Paid 3=Voided)');
+if (st === 2) {
+  const payer = raw.subarray(p, p + 32).toString('hex'); p += 32;
+  const reFlag = raw[p++]; if (reFlag) p += 8;
+  const at = Number(raw.readBigUInt64LE(p)); p += 8;
+  const txFlag = raw[p++];
+  const tx = txFlag ? raw.subarray(p, p + 32).toString('hex') : null;
+  console.log('p10 payer:', payer);
+  console.log('p10 paid at (ms):', at, new Date(at).toISOString());
+  console.log('p10 txHash recorded:', tx);
+}
+const j = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+const oi = j(await client.getAccountInfo(owner));
+const bi = j(await client.getAccountInfo(b));
+const p1i = j(await client.getAccountInfo(payee1));
+console.log('owner nonce:', oi.accountNonce, 'CCD:', Number(oi.accountAmount.microCcdAmount) / 1e6);
+console.log('B nonce:', bi.accountNonce, 'CCD:', Number(bi.accountAmount.microCcdAmount) / 1e6);
+console.log('payee1 CCD:', Number(p1i.accountAmount.microCcdAmount) / 1e6);
+const inst = j(await client.getInstanceInfo(CONTRACT));
+console.log('contract balance microCCD:', inst.amount.microCcdAmount ?? inst.amount);
