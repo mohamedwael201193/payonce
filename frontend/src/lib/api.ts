@@ -92,7 +92,11 @@ const invoiceItemSchema = z.object({
   asset: z.enum(['ccd', 'eudemo']),
   amount_display: z.string(),
   due: z.string(),
-  status: z.string(),
+  // The live API returns "Paid"/"Unpaid" (capitalized); the dev stub and
+  // every consumer in this app use lowercase 'paid'/'unpaid'. Normalize at
+  // the parse boundary so the console tabs, row labels, receipt checker
+  // and rail links all see the same values against either source.
+  status: z.string().transform((s) => s.toLowerCase()),
   label: z.string(),
 })
 
