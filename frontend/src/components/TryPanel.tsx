@@ -117,7 +117,7 @@ export function TryPanel({
         explorerUrl: res.explorer_url ?? null,
         knownLimit:
           kind === 'unlisted_seller'
-            ? 'The chain accepted this invoice, because anyone can register one. The co-signer would also approve it today (dry run: approve). The vendor check is not enforced by the chain or the co-signer yet (planned, P3 §15).'
+            ? 'The co-signer refuses a payable whose seller is not on the buyer’s on-chain vendor list — the live dry run above refuses it (no-approval). On the EUDemo rail the chain refuses it too (−19: reserve_plt always needs an approval row). On the CCD rail the chain refuses only in strict mode (−19), and strict mode is off in this demo run, so the CCD rail is not stopped on chain. No fraud payable exists on this registry to try live — no second seller holds an Active agent token.'
             : undefined,
       })
     } catch (e) {
