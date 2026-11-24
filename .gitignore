@@ -12,3 +12,5 @@ secrets/
 **/secrets/
 
 **/node_modules
+concordium-out/
+**/concordium-out

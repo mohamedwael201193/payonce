@@ -10,6 +10,14 @@ the commands below.
 
 - Instance: **`<13149,0>`** (v1 registry), module
   `9b5b27fa7e6d4f40b5a94563b396d8760e2c6eca90eefa91949859be7ae71d24`.
+- **v2: `<13150,0>`**, module
+  `c8083a94f57495ecc0ac6b7f18eb7f5944989897929c095e638b6362d55685a8`,
+  14 entrypoints, config `cis8004=<12802,0>`, `reservation_secs=3600`.
+  Deploy tx `edb6d1af6166f3e17fe4623c1af85d41bc2020b09d8773a380be8e018dc6e5f3`,
+  init tx `50d007af74c64a20d280afff20276c49e379188c764564a43695cbce2370ee50`.
+  Full 25-tx live matrix (10 successes + 15 rejects, exact codes) with
+  hashes: `contracts/CONTRACT_REPORT.md` §4 — re-read it yourself with
+  `node contracts/scripts/verify-matrix.mjs` (read-only, no re-sends).
 - Balance: **0** after every step (asserted by the Rust tests and by the
   verifier). The contract never holds funds across transactions; each CCD
   payment is forwarded in the same transaction.
@@ -65,23 +73,25 @@ node services/verify-payable.mjs 2 7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9
 The agent key alone cannot move funds: the node rejects an agent-only
 transfer ("Verification failed"). The co-signer refuses wrong payee, wrong
 amount, wrong or missing memo, unreserved payables, and re-reserves (its
-decision table is `services/cosigner/test/` — 35 cases).
+decision table is `contracts/cosigner/test/` — 35 cases).
 
 ## 4. Run the tests yourself
 
 ```sh
-# Contract (v1: 26 tests; v2: 77 tests incl. the full 27-code reject matrix)
+# Contract (v1: 26 tests; v2: 80 tests incl. the full 27-code reject matrix)
 cd contracts/payable_registry && cargo test --release
+cd contracts/payable_registry_v2 && cargo concordium test   # 80 tests (Chain engine)
 
-# Co-signer decision table
-node --test services/cosigner/test/
+# Co-signer decision table (35 cases)
+node --test contracts/cosigner/test/decide.test.mjs
 
-# Frontend (Playwright)
-cd site && npm run build && npx playwright test
+# Frontend
+cd frontend && npm ci && npm run build && npm test
 ```
 
-Two clean builds of the v2 wasm must give the same sha256 (recorded in
-`contracts/payable_registry_v2/DEPLOY.md`).
+Two clean builds of the v2 wasm must give the same sha256 — not yet done
+(see §6). The deployed module hash matches this single build's `.wasm.v1`
+sha256 exactly (`contracts/CONTRACT_REPORT.md` §3).
 
 ## 5. What "try to break it" shows
 
@@ -96,9 +106,27 @@ On the dashboard, five attacks each name the layer that refuses them:
 
 ## 6. Known limits (honest — read before judging)
 
-- **v2 is not yet deployed.** The v2 contract, co-signer v2 and verifier v2
-  in this repo are code + tests; the live instance is still v1 `<13149,0>`.
-  Nothing in this guide claims otherwise.
+- **v2 is live, but its success path is not yet proven on chain.** The v2
+  contract `<13150,0>` is deployed and its 25-tx matrix is live (10
+  successes + 15 rejects with the exact codes). What is NOT live: a
+  successful `pay_ccd` / `reserve_plt` / `confirm_plt` — those paths are
+  proven only in the Chain engine. The blocker was a missing second signer;
+  it is now unblocked (the seller-B key derives from the seed via the SDK's
+  HD wallet — see `contracts/CONTRACT_REPORT.md` §6 note) and a live
+  happy-path run is pending. No public claim of a working v2 payment until
+  then.
+- **−18 stray-balance griefing (v2, must-fix before the public flip).** A
+  direct CCD donation to `<13150,0>` would brick every later `pay_ccd`
+  with −18, and the donated CCD would be stuck (no withdraw entrypoint).
+  Remedy: assert `self_balance() == balance_before` instead of `== 0`,
+  shipped as a v2.1 redeploy (v2 cannot be upgraded), plus a live drill.
+  A sweep entrypoint is rejected (no admin key). The same flaw exists in
+  v1 `<13149,0>`.
+- **Two-clean-builds reproducibility not done.** The deployed module hash
+  matches this single build's `.wasm.v1` sha256 exactly, but the
+  two-clean-builds check was not run. Before the public flip, re-run the
+  build twice from clean on the pinned toolchain and record both hashes.
+  A verifiable build is blocked (no Docker on the build VM).
 - **No official registry badge yet.** The seller and buyer are not yet
   registered on the official `<12802,0>` (that needs publicly hosted agent
   cards). There is no "Verified by Concordium" label anywhere in this repo
