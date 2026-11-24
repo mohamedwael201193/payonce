@@ -1,0 +1,278 @@
+{
+  "runAt": "2026-11-24T08:09:53.499Z",
+  "network": "testnet",
+  "railA": {
+    "registerTx": "81bc15952c924fafd28adbf9e027686b6755a594fa04600d8fbe749453018cb9",
+    "settleTx": "74a06a175440a7a0031e67a0662d2e35d7404b8bf69105276b0966ff87dc6283",
+    "verify": {
+      "checks": [
+        {
+          "name": "x402-9-checks",
+          "ok": true,
+          "detail": "scheme verify passed"
+        },
+        {
+          "name": "payable-exists",
+          "ok": true,
+          "detail": "status=Unpaid asset=CCD amount=500000"
+        },
+        {
+          "name": "payable-status",
+          "ok": true,
+          "detail": "status=Unpaid"
+        },
+        {
+          "name": "amount-is-stored",
+          "ok": true,
+          "detail": "amount=500000"
+        },
+        {
+          "name": "payee-is-stored",
+          "ok": true,
+          "detail": "payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        }
+      ],
+      "view": {
+        "id": 8,
+        "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+        "amount": "500000",
+        "asset": "CCD",
+        "dueMs": "1798286400000",
+        "due": "2026-12-26T12:00:00.000Z",
+        "docHash": "24751b37241f3371cdb6956955c3046b3e35d9e8f012a8cc4d8c6beea2a7ecc7",
+        "agentRegistry": {
+          "index": "13144",
+          "subindex": "0"
+        },
+        "agentToken": "1",
+        "status": "Unpaid",
+        "record": null
+      }
+    },
+    "checks": [
+      {
+        "id": "X402-A1",
+        "name": "tx-finalized",
+        "ok": true,
+        "detail": "status=finalized"
+      },
+      {
+        "id": "X402-A2",
+        "name": "transfer-to-is-payee",
+        "ok": true,
+        "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+      },
+      {
+        "id": "X402-A3",
+        "name": "transfer-amount-is-stored",
+        "ok": true,
+        "detail": "amount=500000"
+      },
+      {
+        "id": "X402-A4",
+        "name": "transfer-from-is-buyer",
+        "ok": true,
+        "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+      },
+      {
+        "id": "X402-A5",
+        "name": "transfer-before-due",
+        "ok": true,
+        "detail": "block=2026-11-24T08:08:43.593Z due=2026-12-26T12:00:00.000Z"
+      },
+      {
+        "id": "X402-A6",
+        "name": "doc-hash-matches",
+        "ok": true,
+        "detail": "doc=24751b37241f3371…"
+      },
+      {
+        "id": "X402-A7",
+        "name": "contract-payable-stays-unpaid",
+        "ok": true,
+        "detail": "x402 direct transfer does not call pay_ccd — documented, not hidden"
+      },
+      {
+        "id": "X402-A8",
+        "name": "sponsor-paid-the-fee",
+        "ok": true,
+        "detail": "sponsor=42jaZZgd… cost=4939617 senderCost=0"
+      }
+    ],
+    "blockTime": {
+      "slotTime": "2026-11-24T08:08:43.593Z",
+      "height": "51224557"
+    }
+  },
+  "railB": {
+    "registerTx": "206169234e4a113dfd51e5c75daf6b5b16383c99b436870ae0775b681aa11d23",
+    "transferTx": "441b470f6d900996a7fef45ac34b8ed4511f8dbd8df37c9cc76edfc67b1fc4c3",
+    "verify": {
+      "checks": [
+        {
+          "name": "x402-9-checks",
+          "ok": true,
+          "detail": "scheme verify passed"
+        },
+        {
+          "name": "payable-exists",
+          "ok": true,
+          "detail": "status=Reserved asset=EUDemo amount=10000"
+        },
+        {
+          "name": "payable-status",
+          "ok": true,
+          "detail": "status=Reserved"
+        },
+        {
+          "name": "amount-is-stored",
+          "ok": true,
+          "detail": "amount=10000"
+        },
+        {
+          "name": "payee-is-stored",
+          "ok": true,
+          "detail": "payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        {
+          "name": "memo-is-payable-id",
+          "ok": true,
+          "detail": "memo payable:9 present"
+        },
+        {
+          "name": "memo-canonical",
+          "ok": true,
+          "detail": "memo=payable:9 canonical=true"
+        }
+      ],
+      "view": {
+        "id": 9,
+        "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+        "amount": "10000",
+        "asset": "EUDemo",
+        "dueMs": "1798286400000",
+        "due": "2026-12-26T12:00:00.000Z",
+        "docHash": "051c766ebd86e322f0c69ab64990287723c5cf2065eba7f2c59db65805fe4458",
+        "agentRegistry": {
+          "index": "13144",
+          "subindex": "0"
+        },
+        "agentToken": "1",
+        "status": "Reserved",
+        "record": {
+          "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+          "expiresMs": "1795507991593",
+          "expires": "2026-11-24T08:13:11.593Z",
+          "txHash": null
+        }
+      }
+    },
+    "gateConfirm": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    },
+    "confirmTx": "9e93cdddf497f361fca2f6117f69cbbfcfd73350dbf61308dac669a60377a052",
+    "verifyPlt": {
+      "checks": [
+        {
+          "id": "PLT-01",
+          "name": "tx-finalized",
+          "status": "PASS",
+          "detail": "status=finalized"
+        },
+        {
+          "id": "PLT-02",
+          "name": "exactly-one-token-transfer",
+          "status": "PASS",
+          "detail": "TokenTransfer events=1"
+        },
+        {
+          "id": "PLT-03",
+          "name": "token-is-eudemo",
+          "status": "PASS",
+          "detail": "tokenId=EUDemo"
+        },
+        {
+          "id": "PLT-04",
+          "name": "transfer-from-is-payer",
+          "status": "PASS",
+          "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+        },
+        {
+          "id": "PLT-05",
+          "name": "transfer-to-is-payee",
+          "status": "PASS",
+          "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        {
+          "id": "PLT-06",
+          "name": "transfer-amount-is-stored",
+          "status": "PASS",
+          "detail": "amount=10000, stored=10000"
+        },
+        {
+          "id": "PLT-07",
+          "name": "memo-is-canonical-payable-id",
+          "status": "PASS",
+          "detail": "memo=\"payable:9\", expected=\"payable:9\""
+        },
+        {
+          "id": "PLT-08",
+          "name": "memo-bytes-canonical",
+          "status": "PASS",
+          "detail": "memo bytes must be exactly the canonical CBOR encoding of the payable id"
+        },
+        {
+          "id": "PLT-09",
+          "name": "transfer-before-due",
+          "status": "PASS",
+          "detail": "block time=2026-11-24T08:08:59.593Z, due=2026-12-26T12:00:00.000Z"
+        },
+        {
+          "id": "PLT-13",
+          "name": "reservation-precedes-transfer-inside-window",
+          "status": "PASS",
+          "detail": "reserved by 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs at 2026-11-24T08:08:11.593Z, expires 2026-11-24T08:13:11.593Z"
+        },
+        {
+          "id": "PLT-10",
+          "name": "registry-status-paid",
+          "status": "PASS",
+          "detail": "status=Paid"
+        },
+        {
+          "id": "PLT-11",
+          "name": "stored-tx-hash-matches",
+          "status": "PASS",
+          "detail": "stored tx=441b470f6d900996…, checked tx=441b470f6d900996…"
+        },
+        {
+          "id": "PLT-12",
+          "name": "paid-at-is-confirm-block-time",
+          "status": "PASS",
+          "detail": "view paid_at=2026-11-24T08:09:09.593Z, confirm block time=2026-11-24T08:09:09.593Z"
+        },
+        {
+          "id": "PLT-14",
+          "name": "registry-balance-zero",
+          "status": "PASS",
+          "detail": "balance=0 microCCD"
+        },
+        {
+          "id": "PLT-15",
+          "name": "doc-hash-matches",
+          "status": "PASS",
+          "detail": "sha256(doc)=051c766ebd86e322…, stored=051c766ebd86e322…"
+        }
+      ],
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "total": 15,
+      "allPass": true
+    }
+  }
+}

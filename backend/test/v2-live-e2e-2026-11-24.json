@@ -1,0 +1,296 @@
+{
+  "runAt": "2026-11-24T08:37:16.813Z",
+  "network": "testnet",
+  "contract": "<13150,0>",
+  "roles": {
+    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "sellerAgentToken": 1476,
+    "sellerAgentTokenNote": "token 1476 on official CIS-8004 <12802,0>, owner=deployer, Active (probed live)",
+    "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "payerNote": "B pays; payer != seller. Seller-B roles impossible: B owns no agent token on <12802,0> (agentOf 1/1261 = other owners); see rolesNote.",
+    "rolesNote": "Parent asked seller=B/payer=owner; mirrored because B cannot register on v2 without an official-registry agent token (D6 open). All guards exercised identically.",
+    "payeeCcd": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+    "payeePlt": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+  },
+  "approve": {
+    "tx": "6a6264acc1aa5a0b2b708f77d9c39d7a5d931a254b60c53c8150d65f347f7462",
+    "summary": {
+      "status": "finalized",
+      "blockHash": "87716cb87ae9e3db9569fbe517f64318e35e03f14342b111f3101dbc461a917c",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "9166787",
+      "costCcd": "9.166787",
+      "energy": "1179"
+    },
+    "event": {
+      "event": "VendorApproved",
+      "schemaVersion": 2,
+      "buyer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "tier": 2,
+      "legalRef": null,
+      "perPayableCap": "100000000",
+      "periodCap": "1000000000",
+      "periodSecs": "86400"
+    },
+    "vendor": {
+      "tier": 2,
+      "legalRef": null,
+      "perPayableCap": "100000000",
+      "periodCap": "1000000000",
+      "periodSecs": "86400"
+    }
+  },
+  "railA": {
+    "registerTx": "e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9",
+    "registerSummary": {
+      "status": "finalized",
+      "blockHash": "a1df0bbd4440b5e46771daf9cb1700d02f9649cbbee8f429bd50baac73101a26",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "16327610",
+      "costCcd": "16.32761",
+      "energy": "2100"
+    },
+    "registerEvent": {
+      "event": "Registered",
+      "schemaVersion": 2,
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payableId": 10,
+      "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+      "amount": "500000",
+      "asset": "CCD",
+      "dueMs": "1798286400000",
+      "docHash": "c9fef19aa010ed3da158678cbfcafb5005699e55eef81ca1104f3250d8addb7f",
+      "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "legalRef": null
+    },
+    "payTx": "7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197",
+    "paySummary": {
+      "status": "finalized",
+      "blockHash": "4f5657f79fedba411ecc5ea47de85bf9f509cd88ef2104d1d5d89527b6ccad85",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "19554257",
+      "costCcd": "19.554257",
+      "energy": "2515"
+    },
+    "payEvent": {
+      "event": "Paid",
+      "schemaVersion": 2,
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payableId": 10,
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "amount": "500000",
+      "asset": "CCD"
+    },
+    "paidView": {
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "id": 10,
+      "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+      "amount": "500000",
+      "asset": "CCD",
+      "dueMs": "1798286400000",
+      "due": "2026-12-26T12:00:00.000Z",
+      "docHash": "c9fef19aa010ed3da158678cbfcafb5005699e55eef81ca1104f3250d8addb7f",
+      "agentToken": "1476",
+      "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "legalRef": null,
+      "status": "Paid",
+      "record": {
+        "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "reservationExpiresMs": null,
+        "reservationExpires": null,
+        "paidAtMs": "1795509465593",
+        "paidAt": "2026-11-24T08:37:45.593Z",
+        "txHash": null
+      }
+    },
+    "payee1DeltaMicroCcd": "500000",
+    "contractBalanceAfter": "0"
+  },
+  "railB": {
+    "registerTx": "129f8943fd5c8a08241fe608899792acde712fe1ae3d9ee1d0eb067d2a790851",
+    "registerSummary": {
+      "status": "finalized",
+      "blockHash": "0501b5f3a369fc3213e336232e803627f9d0fe1cf2b9df53e6517461f6d21706",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "16739688",
+      "costCcd": "16.739688",
+      "energy": "2153"
+    },
+    "registerEvent": {
+      "event": "Registered",
+      "schemaVersion": 2,
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payableId": 11,
+      "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+      "amount": "10000",
+      "asset": "EUDemo",
+      "dueMs": "1798286400000",
+      "docHash": "f02ed5c9305f7334ebf73d5797eeb21dd941508c7c09fb947cb1699201e2938d",
+      "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "legalRef": null
+    },
+    "reserveTx": "a36aa1e0d2ea71a4702075cd0d94752fac7f088dfb52d4038322b7e617180f0d",
+    "reserveSummary": {
+      "status": "finalized",
+      "blockHash": "098844ba2fd8dab40ab110fb881e256e17bbdacf2b00154e13e1d50e2efbda67",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "17400567",
+      "costCcd": "17.400567",
+      "energy": "2238"
+    },
+    "reserveEvent": {
+      "event": "Reserved",
+      "schemaVersion": 2,
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payableId": 11,
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "expiresMs": "1795513081593",
+      "expires": "2026-11-24T09:38:01.593Z"
+    },
+    "transferTx": "690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214",
+    "transferSummary": {
+      "status": "finalized",
+      "blockHash": "875d18717c9d14901a428420886abd9580e7eade5f0ed848405efdad8b78e624",
+      "outcome": "tokenUpdate",
+      "rejectReason": null,
+      "costMicroCcd": "5652463",
+      "costCcd": "5.652463",
+      "energy": "727"
+    },
+    "confirmTx": "adf55f61c1345d14f05c6c0ee59b996dae8aaef06213e485a17cfb96376100c2",
+    "confirmSummary": {
+      "status": "finalized",
+      "blockHash": "43f0994e939db92579c0a86cc0659bae9b8a29e5c7c44eb4becd2cdfa5d68d97",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "12906587",
+      "costCcd": "12.906587",
+      "energy": "1660"
+    },
+    "confirmEvent": {
+      "event": "PltConfirmed",
+      "schemaVersion": 2,
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payableId": 11,
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "txHash": "690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214",
+      "reservationExpiresMs": "1795513081593",
+      "reservationExpires": "2026-11-24T09:38:01.593Z"
+    },
+    "paidView": {
+      "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "id": 11,
+      "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+      "amount": "10000",
+      "asset": "EUDemo",
+      "dueMs": "1798286400000",
+      "due": "2026-12-26T12:00:00.000Z",
+      "docHash": "f02ed5c9305f7334ebf73d5797eeb21dd941508c7c09fb947cb1699201e2938d",
+      "agentToken": "1476",
+      "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "legalRef": null,
+      "status": "Paid",
+      "record": {
+        "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "reservationExpiresMs": "1795513081593",
+        "reservationExpires": "2026-11-24T09:38:01.593Z",
+        "paidAtMs": "1795509499593",
+        "paidAt": "2026-11-24T08:38:19.593Z",
+        "txHash": "690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214"
+      }
+    },
+    "payee2DeltaEudemo": "10000",
+    "contractBalanceAfter": "0"
+  },
+  "gates": {
+    "reserve": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    },
+    "transfer": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    },
+    "confirm": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    }
+  },
+  "preChecks": {
+    "config": {
+      "cis8004": "<12802,0>",
+      "reservation_secs": 3600
+    },
+    "agentToken": {
+      "token": 1476,
+      "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "status": "Active"
+    }
+  },
+  "balancesBefore": {
+    "owner": {
+      "ccdMicro": "143843572035",
+      "nonce": "189",
+      "eudemo": "30000000"
+    },
+    "B": {
+      "ccdMicro": "174204247",
+      "nonce": "59",
+      "eudemo": "207410000"
+    },
+    "payee1": {
+      "ccdMicro": "157083844",
+      "nonce": "9",
+      "eudemo": "0"
+    },
+    "payee2": {
+      "ccdMicro": "184475707",
+      "nonce": "46",
+      "eudemo": "100050000"
+    }
+  },
+  "funding": {
+    "tx": "7faad552535756b759700ea59f082e2a376e5b5875dfff75df05079c3881fdc4",
+    "summary": {
+      "status": "finalized",
+      "blockHash": "069a8ec04a5afb8637bc0c1282dbd59e0fb54e78207d3280a50059c4df6cfb6f",
+      "outcome": "transfer",
+      "rejectReason": null,
+      "costMicroCcd": "3895302",
+      "costCcd": "3.895302",
+      "energy": "501"
+    },
+    "amountMicroCcd": "100000000"
+  },
+  "balancesAfter": {
+    "owner": {
+      "ccdMicro": "143706609435",
+      "nonce": "192",
+      "eudemo": "30000000"
+    },
+    "B": {
+      "ccdMicro": "109023586",
+      "nonce": "64",
+      "eudemo": "207400000"
+    },
+    "payee1": {
+      "ccdMicro": "157583844",
+      "nonce": "9",
+      "eudemo": "0"
+    },
+    "payee2": {
+      "ccdMicro": "184475707",
+      "nonce": "46",
+      "eudemo": "100060000"
+    }
+  }
+}

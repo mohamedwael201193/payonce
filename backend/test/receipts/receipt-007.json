@@ -1,0 +1,127 @@
+{
+  "receiptId": "8e5404fae74e278fa40d9fb36834cfeea5d4fac98562ed64d128554aa7260aaa",
+  "payableId": 7,
+  "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+  "amount": "10000",
+  "asset": "EUDemo",
+  "due": "2026-12-26T12:00:00.000Z",
+  "docHash": "df4737adefb4fab386f42abb272ece551e98c081c370e1e0d51c9df0c8546f05",
+  "registerTx": "b2455eff33f845fa9f0746f2b958907b04304779aca4496854404a8d7c3bb210",
+  "reserveTx": "68264db84609e70279f49ceb777789928fed7c2b02261ddf0f42d58ddce0ce25",
+  "transferTx": "1badea8286a6beb49ff46fbe5c51fed66e3d630fc8a3b206eac9801d0864c04b",
+  "confirmTx": "459734c3a20cc15d503b7ca10b2fed3aec363109813dd95f6347d829890a6068",
+  "blockTimes": {
+    "register": "2026-11-24T07:58:49.593Z",
+    "reserve": "2026-11-24T08:00:09.593Z",
+    "transfer": "2026-11-24T08:01:47.593Z",
+    "confirm": "2026-11-24T08:01:57.593Z"
+  },
+  "paidAt": "2026-11-24T08:01:57.593Z",
+  "verifier": {
+    "checks": [
+      {
+        "id": "PLT-01",
+        "name": "tx-finalized",
+        "status": "PASS",
+        "detail": "status=finalized"
+      },
+      {
+        "id": "PLT-02",
+        "name": "exactly-one-token-transfer",
+        "status": "PASS",
+        "detail": "TokenTransfer events=1"
+      },
+      {
+        "id": "PLT-03",
+        "name": "token-is-eudemo",
+        "status": "PASS",
+        "detail": "tokenId=EUDemo"
+      },
+      {
+        "id": "PLT-04",
+        "name": "transfer-from-is-payer",
+        "status": "PASS",
+        "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+      },
+      {
+        "id": "PLT-05",
+        "name": "transfer-to-is-payee",
+        "status": "PASS",
+        "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+      },
+      {
+        "id": "PLT-06",
+        "name": "transfer-amount-is-stored",
+        "status": "PASS",
+        "detail": "amount=10000, stored=10000"
+      },
+      {
+        "id": "PLT-07",
+        "name": "memo-is-canonical-payable-id",
+        "status": "PASS",
+        "detail": "memo=\"payable:7\", expected=\"payable:7\""
+      },
+      {
+        "id": "PLT-08",
+        "name": "memo-bytes-canonical",
+        "status": "PASS",
+        "detail": "memo bytes must be exactly the canonical CBOR encoding of the payable id"
+      },
+      {
+        "id": "PLT-09",
+        "name": "transfer-before-due",
+        "status": "PASS",
+        "detail": "block time=2026-11-24T08:01:47.593Z, due=2026-12-26T12:00:00.000Z"
+      },
+      {
+        "id": "PLT-13",
+        "name": "reservation-precedes-transfer-inside-window",
+        "status": "PASS",
+        "detail": "reserved by 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs at 2026-11-24T08:00:09.593Z, expires 2026-11-24T08:05:09.593Z"
+      },
+      {
+        "id": "PLT-10",
+        "name": "registry-status-paid",
+        "status": "PASS",
+        "detail": "status=Paid"
+      },
+      {
+        "id": "PLT-11",
+        "name": "stored-tx-hash-matches",
+        "status": "PASS",
+        "detail": "stored tx=1badea8286a6beb4…, checked tx=1badea8286a6beb4…"
+      },
+      {
+        "id": "PLT-12",
+        "name": "paid-at-is-confirm-block-time",
+        "status": "PASS",
+        "detail": "view paid_at=2026-11-24T08:01:57.593Z, confirm block time=2026-11-24T08:01:57.593Z"
+      },
+      {
+        "id": "PLT-14",
+        "name": "registry-balance-zero",
+        "status": "PASS",
+        "detail": "balance=0 microCCD"
+      },
+      {
+        "id": "PLT-15",
+        "name": "doc-hash-matches",
+        "status": "PASS",
+        "detail": "sha256(doc)=df4737adefb4fab3…, stored=df4737adefb4fab3…"
+      }
+    ],
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "total": 15,
+    "allPass": true
+  },
+  "nonce": "0de51f23049ea98c0b8b78fdf6e9044e",
+  "issuedAt": "2026-11-24T08:06:04.330Z",
+  "network": "testnet",
+  "registry": "<13149,0>",
+  "footer": "Testnet receipt. It is not a legal invoice, a tax document or proof of delivery.",
+  "recordHash": "810828fc31333f7e3f6f2c5412bad1f3c23ee157f5839a435fd373b9e02ffee4"
+}

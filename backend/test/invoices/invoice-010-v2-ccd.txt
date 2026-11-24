@@ -1,0 +1,6 @@
+PAYONCE TEST INVOICE — payable 10 (v2 Rail A, CCD)
+Seller: 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB
+Payee: 4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin
+Amount: 0.5 CCD (500000 microCCD)
+Due: 2026-12-26T12:00:00.000Z
+Test only — Concordium testnet, no real goods or services.

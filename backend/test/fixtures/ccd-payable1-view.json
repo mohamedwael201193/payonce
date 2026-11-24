@@ -1,0 +1,22 @@
+{
+  "id": 1,
+  "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+  "amount": "500000",
+  "asset": "CCD",
+  "dueMs": "1795582163985",
+  "due": "2026-11-25T04:49:23.985Z",
+  "docHash": "1fe1a05da704afa2d453362cc695f035f096c82029fc1ac709aedbe0b06b3a6e",
+  "agentRegistry": {
+    "index": "13144",
+    "subindex": "0"
+  },
+  "agentToken": "1",
+  "status": "Paid",
+  "record": {
+    "payer": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "paidAtMs": "1795495811593",
+    "paidAt": "2026-11-24T04:50:11.593Z",
+    "txHash": null
+  }
+}

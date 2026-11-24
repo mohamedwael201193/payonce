@@ -1,0 +1,105 @@
+{
+  "receiptId": "3cdc8c6c5479a338a51e97774f710f57d6246fa08acebbbcb9bf1f7569f51ff4",
+  "payableId": 10,
+  "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "payer": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+  "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+  "amount": "500000",
+  "asset": "CCD",
+  "due": "2026-12-26T12:00:00.000Z",
+  "docHash": "597af5d6b1370c76653e9c38c1d4b49ad15648150fc4f2e8527521d8e2120c05",
+  "registerTx": "895d1d6dc6cdda63520e15ba54aa0b20835691b013dca1b7559cd1392fe14e15",
+  "payTx": "83b11affd8df0571bd379234b3aa2094d497942f7d94222b3441e2633e20fba5",
+  "blockTimes": {
+    "register": "2026-11-24T09:43:03.593Z",
+    "pay": "2026-11-24T09:43:17.593Z"
+  },
+  "paidAt": "2026-11-24T09:43:17.593Z",
+  "verifier": {
+    "checks": [
+      {
+        "id": "CCD-01",
+        "name": "tx-finalized",
+        "status": "PASS",
+        "detail": "status=finalized"
+      },
+      {
+        "id": "CCD-02",
+        "name": "tx-is-contract-update",
+        "status": "PASS",
+        "detail": "type=update"
+      },
+      {
+        "id": "CCD-03",
+        "name": "update-targets-registry",
+        "status": "PASS",
+        "detail": "receiveName=payable_registry.pay_ccd"
+      },
+      {
+        "id": "CCD-04",
+        "name": "parameter-binds-payable-id (F10)",
+        "status": "PASS",
+        "detail": "parameter id=10, requested=10"
+      },
+      {
+        "id": "CCD-05",
+        "name": "paid-event-binds-payable-id (F10)",
+        "status": "PASS",
+        "detail": "Paid event id=10"
+      },
+      {
+        "id": "CCD-06",
+        "name": "paid-event-payer-is-sender",
+        "status": "PASS",
+        "detail": "payer=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB, sender=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+      },
+      {
+        "id": "CCD-07",
+        "name": "paid-event-amount-is-stored",
+        "status": "PASS",
+        "detail": "event amount=500000, stored=500000"
+      },
+      {
+        "id": "CCD-08",
+        "name": "transferred-to-stored-payee",
+        "status": "PASS",
+        "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, amount=500000, stored payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, stored amount=500000"
+      },
+      {
+        "id": "CCD-09",
+        "name": "registry-status-paid",
+        "status": "PASS",
+        "detail": "status=Paid"
+      },
+      {
+        "id": "CCD-10",
+        "name": "registry-balance-zero",
+        "status": "PASS",
+        "detail": "balance=0 microCCD"
+      },
+      {
+        "id": "CCD-11",
+        "name": "payment-before-due",
+        "status": "PASS",
+        "detail": "block time=2026-11-24T09:43:17.593Z, due=2026-12-26T12:00:00.000Z"
+      },
+      {
+        "id": "CCD-12",
+        "name": "doc-hash-matches",
+        "status": "PASS",
+        "detail": "sha256(doc)=597af5d6b1370c76…, stored=597af5d6b1370c76…"
+      }
+    ],
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "total": 12,
+    "allPass": true
+  },
+  "nonce": "37b5faaa69ff7b410a5a2783dfc17014",
+  "issuedAt": "2026-11-24T09:57:12.857Z",
+  "network": "testnet",
+  "registry": "<13149,0>",
+  "footer": "Testnet receipt. It is not a legal invoice, a tax document or proof of delivery.",
+  "recordHash": "b59aaa77df4622363ec2f2f6f97abcd7df1c726c18576ebd10332f75de242798"
+}

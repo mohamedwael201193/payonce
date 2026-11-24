@@ -40,7 +40,7 @@ jobs:
           path: contracts/payable_registry_v2/out/payable_registry_v2.wasm.sha256
 
   js:
-    name: js (co-signer + verifier fixtures, no network)
+    name: js (offline suites: co-signer + verifier fixtures, no network)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,12 +48,16 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: node --test cosigner/test/ verifier/test/
-        env:
-          # No network access in this job: fixtures only.
-          NO_NETWORK: "1"
+          cache-dependency-path: backend/package-lock.json
+      - name: Backend offline suites (decide + verifier negatives + co-signer server + invoice adapter)
+        run: npm ci && node --test test/decide.test.mjs test/verify-negatives.test.mjs test/cosigner-server.test.mjs test/invoice-adapter.test.mjs
+        working-directory: backend
+      - name: Co-signer decision table (contract)
+        run: node --test test/decide.test.mjs
+        working-directory: contracts/cosigner
+      # NOT in this job (need live testnet reads / a secret — run by hand like job 4):
+      # backend facilitator / receipt / mcp suites (live gRPC reads) and
+      # backend easypost (needs the EASYPOST_TEST_API_KEY repo secret).
 
   secrets:
     name: secrets scan (fails on seed / private-key shapes)

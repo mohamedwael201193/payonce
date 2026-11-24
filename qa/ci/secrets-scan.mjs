@@ -35,10 +35,19 @@ const TX_HASH = /\b[0-9a-f]{64}\b/g;
 const ALLOWLIST_FILES = new Set(['.gitignore', 'package-lock.json']);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'out', 'target', 'dist', '.next']);
 
+// Documented public values that are NOT secrets (see qa/gate-g0.md #7):
+// '0100000000000000' = CIS-8004 agent token id 1 as 8-byte LE hex, from the
+// recorded run (plan P3 §16) — a public on-chain token id, not a credential.
+// Strip it like tx hashes (to a single '0', so the labelled-token
+// pattern's 16+ char requirement cannot match it) so the dev stub +
+// gate-g0.md prose do not trip the scan.
+const PUBLIC_VALUES = ['0100000000000000'];
+
 function findingsInText(text, where) {
   const hits = [];
   // Strip tx hashes first so evidence files do not trip the scan.
-  const stripped = text.replace(TX_HASH, '0'.repeat(64));
+  let stripped = text.replace(TX_HASH, '0'.repeat(64));
+  for (const v of PUBLIC_VALUES) stripped = stripped.split(v).join('0');
   for (const p of PATTERNS) {
     if (p.name.startsWith('Vercel token')) continue; // too broad; covered by labelled-token pattern
     if (p.re.test(stripped)) hits.push({ pattern: p.name, where });

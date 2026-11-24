@@ -1,0 +1,6 @@
+PAYONCE TEST INVOICE — payable 10 (MCP Rail A, CCD)
+Seller: 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs
+Payee: 4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg
+Amount: 0.5 CCD (500000 microCCD)
+Due: 2026-12-26T12:00:00.000Z
+Test only — Concordium testnet, no real goods or services.

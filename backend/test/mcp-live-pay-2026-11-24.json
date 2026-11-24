@@ -1,0 +1,226 @@
+{
+  "runAt": "2026-11-24T09:53:08.473Z",
+  "network": "testnet",
+  "railA": {
+    "registerTx": "895d1d6dc6cdda63520e15ba54aa0b20835691b013dca1b7559cd1392fe14e15",
+    "pay": {
+      "tool": "pay_payable",
+      "network": "testnet",
+      "payableId": 10,
+      "rail": "ccd",
+      "paymentTxHash": "83b11affd8df0571bd379234b3aa2094d497942f7d94222b3441e2633e20fba5",
+      "paymentBlockTime": "2026-11-24T09:43:17.593Z",
+      "status": "Paid",
+      "verifier": {
+        "checks": [
+          {
+            "id": "CCD-01",
+            "name": "tx-finalized",
+            "status": "PASS",
+            "detail": "status=finalized"
+          },
+          {
+            "id": "CCD-02",
+            "name": "tx-is-contract-update",
+            "status": "PASS",
+            "detail": "type=update"
+          },
+          {
+            "id": "CCD-03",
+            "name": "update-targets-registry",
+            "status": "PASS",
+            "detail": "receiveName=payable_registry.pay_ccd"
+          },
+          {
+            "id": "CCD-04",
+            "name": "parameter-binds-payable-id (F10)",
+            "status": "PASS",
+            "detail": "parameter id=10, requested=10"
+          },
+          {
+            "id": "CCD-05",
+            "name": "paid-event-binds-payable-id (F10)",
+            "status": "PASS",
+            "detail": "Paid event id=10"
+          },
+          {
+            "id": "CCD-06",
+            "name": "paid-event-payer-is-sender",
+            "status": "PASS",
+            "detail": "payer=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB, sender=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+          },
+          {
+            "id": "CCD-07",
+            "name": "paid-event-amount-is-stored",
+            "status": "PASS",
+            "detail": "event amount=500000, stored=500000"
+          },
+          {
+            "id": "CCD-08",
+            "name": "transferred-to-stored-payee",
+            "status": "PASS",
+            "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, amount=500000, stored payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, stored amount=500000"
+          },
+          {
+            "id": "CCD-09",
+            "name": "registry-status-paid",
+            "status": "PASS",
+            "detail": "status=Paid"
+          },
+          {
+            "id": "CCD-10",
+            "name": "registry-balance-zero",
+            "status": "PASS",
+            "detail": "balance=0 microCCD"
+          },
+          {
+            "id": "CCD-11",
+            "name": "payment-before-due",
+            "status": "PASS",
+            "detail": "block time=2026-11-24T09:43:17.593Z, due=2026-12-26T12:00:00.000Z"
+          },
+          {
+            "id": "CCD-12",
+            "name": "doc-hash-matches",
+            "status": "PASS",
+            "detail": "sha256(doc)=597af5d6b1370c76…, stored=597af5d6b1370c76…"
+          }
+        ],
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "total": 12,
+        "allPass": true
+      },
+      "warning": null
+    }
+  },
+  "railB": {
+    "registerTx": "d028c9fb9e2523f10166a963179c65b930e654a6749edae4575ee1bd8310d70d",
+    "firstAttempt": {
+      "outcome": "PARTIAL — reserve + transfer landed, confirm submit REJECTED by the node (maxEnergy 10000 NRG x rate ~78 CCD max cost exceeded B balance ~60 CCD at that moment)",
+      "reserveTx": "unknown (tool threw before returning it) — view shows Reserved by B, expires 2026-11-24T09:48:27Z",
+      "transferTx": "unknown (same) — EFFECT VERIFIED: payee2 EUDemo 100060000 -> 100070000 (+10000), B EUDemo 207400000 -> 207390000 (-10000)",
+      "fundingTx": "79baa1a3b32e975866992fa319149556f04e99363def44d30daf00ee7a3c9578 (owner -> B +50 CCD, 3.877027 CCD fee)",
+      "fix": "MCP server: maxEnergy 6000n on pay/reserve/confirm sends (~47 CCD max cost); Rail B fee check raised to 100 CCD up front so the tool refuses BEFORE reserving",
+      "redo": "expire the dead reservation, then re-run pay_payable for payable 11 via MCP (fresh reserve/transfer/confirm). payee2 will receive a SECOND 10000 EUDemo for payable 11 — test artifact, recorded honestly; the redo transfer is the confirmed one.",
+      "expireTxFailed": "2cd0eab5b98cf40b18457fac3f2dd2bb501bbd955c94c883bc0d97a9b896d971 (REJECTED on-chain -13 NotExpired: its block slot time 09:47:41Z was before the reservation expiry 09:48:27Z — the contract guard worked correctly; 4.991382 CCD fee)",
+      "expireTx": "c18c159d46e710d26ad4cf7ec2dd47ba4a07dc19284b78619c6189d341ac59ab (success, 8.760068 CCD fee; payable 11 back to Unpaid)",
+      "redoFundingTx": "8db3ac9d523912705b8b53ff17e3d950f0f202fbdc4784eb4ef2d3943c2207b0 (owner -> B +50 CCD)"
+    },
+    "pay": {
+      "tool": "pay_payable",
+      "network": "testnet",
+      "payableId": 11,
+      "rail": "eudemo",
+      "reserveTxHash": "39312e6d15bc4e4f043d71b28ee6885bd7eada0f67248320d3d37007d82306e2",
+      "transferTxHash": "6986b1913c4d57a7d613c3694a741424ec0ebf8bcaaaa447005c3b8fd64909c2",
+      "transferBlockTime": "2026-11-24T09:53:31.593Z",
+      "confirmTxHash": "8464b885b9368fc08eb19eac290894f4c522b1329d4f3f08df23b8e7b71e0189",
+      "confirmBlockTime": "2026-11-24T09:53:41.593Z",
+      "status": "Paid",
+      "verifier": {
+        "checks": [
+          {
+            "id": "PLT-01",
+            "name": "tx-finalized",
+            "status": "PASS",
+            "detail": "status=finalized"
+          },
+          {
+            "id": "PLT-02",
+            "name": "exactly-one-token-transfer",
+            "status": "PASS",
+            "detail": "TokenTransfer events=1"
+          },
+          {
+            "id": "PLT-03",
+            "name": "token-is-eudemo",
+            "status": "PASS",
+            "detail": "tokenId=EUDemo"
+          },
+          {
+            "id": "PLT-04",
+            "name": "transfer-from-is-payer",
+            "status": "PASS",
+            "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+          },
+          {
+            "id": "PLT-05",
+            "name": "transfer-to-is-payee",
+            "status": "PASS",
+            "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+          },
+          {
+            "id": "PLT-06",
+            "name": "transfer-amount-is-stored",
+            "status": "PASS",
+            "detail": "amount=10000, stored=10000"
+          },
+          {
+            "id": "PLT-07",
+            "name": "memo-is-canonical-payable-id",
+            "status": "PASS",
+            "detail": "memo=\"payable:11\", expected=\"payable:11\""
+          },
+          {
+            "id": "PLT-08",
+            "name": "memo-bytes-canonical",
+            "status": "PASS",
+            "detail": "memo bytes must be exactly the canonical CBOR encoding of the payable id"
+          },
+          {
+            "id": "PLT-09",
+            "name": "transfer-before-due",
+            "status": "PASS",
+            "detail": "block time=2026-11-24T09:53:31.593Z, due=2026-12-26T12:00:00.000Z"
+          },
+          {
+            "id": "PLT-13",
+            "name": "reservation-precedes-transfer-inside-window",
+            "status": "PASS",
+            "detail": "reserved by 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs at 2026-11-24T09:53:23.593Z, expires 2026-11-24T09:58:23.593Z"
+          },
+          {
+            "id": "PLT-10",
+            "name": "registry-status-paid",
+            "status": "PASS",
+            "detail": "status=Paid"
+          },
+          {
+            "id": "PLT-11",
+            "name": "stored-tx-hash-matches",
+            "status": "PASS",
+            "detail": "stored tx=6986b1913c4d57a7…, checked tx=6986b1913c4d57a7…"
+          },
+          {
+            "id": "PLT-12",
+            "name": "paid-at-is-confirm-block-time",
+            "status": "PASS",
+            "detail": "view paid_at=2026-11-24T09:53:41.593Z, confirm block time=2026-11-24T09:53:41.593Z"
+          },
+          {
+            "id": "PLT-14",
+            "name": "registry-balance-zero",
+            "status": "PASS",
+            "detail": "balance=0 microCCD"
+          },
+          {
+            "id": "PLT-15",
+            "name": "doc-hash-matches",
+            "status": "PASS",
+            "detail": "sha256(doc)=1ffc9d057b7c3c9b…, stored=1ffc9d057b7c3c9b…"
+          }
+        ],
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "total": 15,
+        "allPass": true
+      },
+      "warning": null
+    },
+    "duplicateNote": "payee2 received 10000 EUDemo TWICE for payable 11: the first-attempt transfer (hash unknown — the MCP tool threw before returning it; effect verified via balances: payee2 100060000 -> 100070000) plus the redo transfer 6986b1913c4d57a7d613c3694a741424ec0ebf8bcaaaa447005c3b8fd64909c2, which is the one pinned by the confirm and the verifier. Same class of test artifact as payables 7/9 in the v1 E2E."
+  },
+  "fundingTx": "8db3ac9d523912705b8b53ff17e3d950f0f202fbdc4784eb4ef2d3943c2207b0"
+}

@@ -1,0 +1,22 @@
+{
+  "id": 2,
+  "seller": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+  "amount": "10000",
+  "asset": "EUDemo",
+  "dueMs": "1795582171426",
+  "due": "2026-11-25T04:49:31.426Z",
+  "docHash": "3b5b27da5b8ade35549d1e4ccaa6af19129a63e2f47b94a0cd524c194352529a",
+  "agentRegistry": {
+    "index": "13144",
+    "subindex": "0"
+  },
+  "agentToken": "1",
+  "status": "Paid",
+  "record": {
+    "payer": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n",
+    "paidAtMs": "1795495937593",
+    "paidAt": "2026-11-24T04:52:17.593Z",
+    "txHash": "7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"
+  }
+}

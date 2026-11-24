@@ -31,7 +31,14 @@ no trust in us.
 - `contracts/payable_registry_v2/` — v2 (27 reject codes, H1/H2/race fixes).
   Live on testnet at `<13150,0>` (module `c8083a94…`, 80/80 Rust tests,
   35/35 co-signer cases, 25/25 live matrix — see `contracts/CONTRACT_REPORT.md`).
-- `services/` — co-signer, keyless verifier, live scripts, scoped prover.
+- `services/` — v1 co-signer, live scripts, scoped prover. (The v1 keyless
+  verifier there is superseded — it does not run from a fresh clone; the
+  working verifier is `backend/src/verifier/`.)
+- `backend/` — the live backend: keyless verifier (F10 binding fix, 12 CCD /
+  15 PLT checks), deterministic co-signer (decision gate + server),
+  x402 facilitator (Doris's 9 checks + 4 safeguards), x402 flows, MCP tool
+  server, Art. 12 receipt verifier, EasyPost test capture, D5 invoice
+  adapter (OFF by default). 110/110 tests — see `backend/BACKEND_REPORT.md`.
 - `design/` — the "dawn teal / ink" design system (tokens, landing +
   dashboard mockups, generated assets). The static mockups are the design
   reference; the live app is `frontend/`.
@@ -55,8 +62,11 @@ cd contracts/payable_registry_v2 && cargo concordium test   # 80 tests (Chain en
 # Co-signer decision table (35 cases)
 node --test contracts/cosigner/test/decide.test.mjs
 
+# Backend (110 tests: verifier, co-signer, facilitator, x402, MCP, receipts)
+cd backend && npm ci && node --test test/*.test.mjs
+
 # Keyless verifier (no keys needed — reads the chain only)
-node services/verify-payable.mjs <payable-id> <tx-hash>
+cd backend && node src/verifier/verify-payable.mjs <payable-id> <tx-hash> --rail ccd
 
 # Frontend (69 unit tests; 18/18 contrast pairs; 34/34 headless click-test)
 cd frontend && npm ci && npm run build && npm test && npm run check:contrast
@@ -68,10 +78,11 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
 - v1 registry live at `<13149,0>`; both payment rails proven on testnet
   (see `VERIFY.md` for the hashes).
 - v2 contract live at `<13150,0>` (80/80 + 35/35 + 25/25 live matrix); the
-  live success path (a successful `pay_ccd` / `reserve_plt` / `confirm_plt`
-  on chain) is still open — it needs a second signer, now unblocked via the
-  backend's derived keys (see `contracts/CONTRACT_REPORT.md` §6 note).
-- Verifier v2 + live backend: in progress (backend merge next).
+  live success path is proven on chain — the 8-tx happy path ran
+  2026-11-24 ~08:36–08:38 UTC (roles mirrored: seller = owner, payer = B;
+  see `backend/BACKEND_REPORT.md` §6). Gate G0 #1 is MET.
+- Verifier v2 + live backend: merged (110/110 tests; F10 proven live by an
+  independent re-run; MCP live pay Rail A 12/12 + Rail B 15/15).
 - Known limits are listed in `VERIFY.md` — including what is *not* yet live.
 
 ## Rules

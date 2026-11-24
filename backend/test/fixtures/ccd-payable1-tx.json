@@ -1,0 +1,104 @@
+{
+  "status": "finalized",
+  "blockHash": "5d0bd9ea749bb5408ea4add64d59c2e0f339e13661295c22c7e44ac389079e20",
+  "summary": {
+    "index": "0",
+    "energyCost": {
+      "value": "2078",
+      "__type": "ccd_energy"
+    },
+    "hash": "00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6",
+    "type": "accountTransaction",
+    "cost": "16205257",
+    "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "transactionType": "update",
+    "events": [
+      {
+        "tag": "Interrupted",
+        "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "events": []
+      },
+      {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+          "index": "13144",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "instigator": {
+          "type": "AddressContract",
+          "address": {
+            "index": "13149",
+            "subindex": "0",
+            "__type": "ccd_contract_address"
+          }
+        },
+        "amount": "0",
+        "message": "080100000000000000",
+        "receiveName": "CIS-8004.agentOf",
+        "events": []
+      },
+      {
+        "tag": "Resumed",
+        "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "success": true
+      },
+      {
+        "tag": "Interrupted",
+        "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "events": []
+      },
+      {
+        "tag": "Transferred",
+        "from": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "amount": "500000",
+        "to": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin"
+      },
+      {
+        "tag": "Resumed",
+        "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "success": true
+      },
+      {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "instigator": {
+          "type": "AddressAccount",
+          "address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+        },
+        "amount": "500000",
+        "message": "0100000000000000",
+        "receiveName": "payable_registry.pay_ccd",
+        "events": [
+          "0101000000000000008f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210620a1070000000000"
+        ]
+      }
+    ]
+  }
+}
