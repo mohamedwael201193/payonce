@@ -104,16 +104,16 @@ test('job step lists match P3 §16.8', () => {
   assert.deepEqual(EUDEMO_STEPS, ['check_wallet', 'reserve', 'co_sign_decide', 'submit_transfer', 'wait_finality', 'confirm', 'verify']);
 });
 
-test('rate-limit windows enforce and report the remainder', () => {
+test('rate-limit windows enforce and report the remainder', async () => {
   const key = `unit-test-${Date.now()}`;
-  assert.equal(leftInWindow(key, 60_000, 3), 3);
-  assert.deepEqual(hitWindow(key, 60_000, 3).allowed, true);
-  assert.deepEqual(hitWindow(key, 60_000, 3).allowed, true);
-  assert.deepEqual(hitWindow(key, 60_000, 3).allowed, true);
-  const fourth = hitWindow(key, 60_000, 3);
+  assert.equal(await leftInWindow(key, 60_000, 3), 3);
+  assert.deepEqual((await hitWindow(key, 60_000, 3)).allowed, true);
+  assert.deepEqual((await hitWindow(key, 60_000, 3)).allowed, true);
+  assert.deepEqual((await hitWindow(key, 60_000, 3)).allowed, true);
+  const fourth = await hitWindow(key, 60_000, 3);
   assert.equal(fourth.allowed, false);
   assert.equal(fourth.left, 0);
-  assert.equal(leftInWindow(key, 60_000, 3), 0);
+  assert.equal(await leftInWindow(key, 60_000, 3), 0);
 });
 
 test('co-signer decide() refuses a transfer with the wrong amount (live logic, synthetic snapshot)', async () => {

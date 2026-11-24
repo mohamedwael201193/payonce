@@ -25,9 +25,11 @@ import {
   recordedRefusals, judgeFiles,
 } from './docs.mjs';
 import {
-  loadJobs, saveJobs, loadCounters, saveCounters,
+  loadJobs, loadCounters, saveCounters,
   hitWindow, leftInWindow,
 } from './store.mjs';
+import { initStore } from './db.mjs';
+import { reconcile } from './reconcile.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
@@ -36,6 +38,23 @@ import {
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
   txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash,
 } from './config.mjs';
+
+// ---- startup readiness: migrate + seed + reconcile once, before serving.
+// The listen block awaits it (fail fast on a dead DB); the request handler
+// awaits it too, so the test-import path (server.listen without the main
+// block) gets the same guarantee. Reconcile never throws — a recovery
+// failure is logged and reported in its summary, never a 500.
+let readyPromise = null;
+function ready() {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await initStore();
+      const summary = await reconcile();
+      console.log(`[startup] reconcile: ${summary.line}`);
+    })();
+  }
+  return readyPromise;
+}
 
 // ---- error envelope (P3 §16.1) ----
 function apiError(res, status, code, layer, message, extra = {}) {
@@ -81,15 +100,15 @@ async function readBody(req, limit = 64 * 1024) {
 
 // ---- known payables (matrix + happy path + this server's fresh ids) ----
 const KNOWN_IDS = [1, 2, 3, 4, 5, 10, 11];
-function knownIds() {
-  const counters = loadCounters();
+async function knownIds() {
+  const counters = await loadCounters();
   return [...new Set([...KNOWN_IDS, ...(counters.freshIds ?? [])])].sort((a, b) => a - b);
 }
 
 let statsCache = null;
 async function scanPayables(c) {
   const rows = [];
-  for (const id of knownIds()) {
+  for (const id of await knownIds()) {
     try {
       const view = await getPayableOrNull(c, SELLER, id);
       if (view) rows.push(view);
@@ -208,8 +227,8 @@ async function handleHealth(req, res) {
     wallet_eudemo: walletEudemo,
     co_signer: { status: 'ok' },
     budget: {
-      new_invoices_left_this_hour: leftInWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour),
-      attack_sends_left_this_hour: leftInWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour),
+      new_invoices_left_this_hour: await leftInWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour),
+      attack_sends_left_this_hour: await leftInWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour),
     },
   });
 }
@@ -219,7 +238,7 @@ async function handleStats(req, res) {
   if (statsCache && now - statsCache.at < 20_000) return sendJson(res, 200, statsCache.body);
   const c = await grpc();
   const rows = await scanPayables(c);
-  const counters = loadCounters();
+  const counters = await loadCounters();
   const refusedHashes = new Set([...recordedRefusals().keys(), ...counters.liveRefusals.map((r) => r.txHash)]);
   const body = {
     payables_total: rows.length,
@@ -249,7 +268,7 @@ async function handleInvoices(req, res) {
 }
 
 async function payableFacts(c, view, chainTimeMs) {
-  const { txs, source } = paymentTxsFor(view.id, view);
+  const { txs, source } = await paymentTxsFor(view.id, view);
   let paymentTx = '';
   if (view.status === 'Paid') {
     if (view.asset === 'EUDemo' && view.record?.txHash) paymentTx = view.record.txHash;
@@ -295,7 +314,7 @@ async function handleDocument(req, res, id) {
   const c = await grpc();
   const view = await getPayableOrNull(c, SELLER, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
-  const doc = docForPayable(id);
+  const doc = await docForPayable(id);
   if (!doc) return notFound(res, `No lab document is stored for payable ${id}. Only lab documents are served here.`);
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end(doc);
@@ -310,7 +329,7 @@ async function handleVerify(req, res, id) {
   const view = await getPayableOrNull(c, SELLER, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const now = await chainNow(c);
-  const docBytes = docSha256 ? null : docForPayable(id);
+  const docBytes = docSha256 ? null : await docForPayable(id);
   const { chain } = await backend();
   const payerInfo = await getAccount(c, PAYER_ADDRESS);
   const payerBalances = {
@@ -320,11 +339,11 @@ async function handleVerify(req, res, id) {
 
   if (mode === 'before_pay') {
     const result = await verifyBeforePay(c, { view, docBytes, docSha256, chainTimeMs: now.slotMs, payerBalances });
-    const counters = loadCounters();
+    const counters = await loadCounters();
     counters.verifierRuns += 1;
     if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
     counters.lastVerifierRunAt = new Date().toISOString();
-    saveCounters(counters);
+    await saveCounters(counters);
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: result.verdict,
       passed: result.passed, total: result.total,
@@ -334,7 +353,7 @@ async function handleVerify(req, res, id) {
   }
 
   // after_pay: the payment tx comes from the store / evidence index.
-  const { txs } = paymentTxsFor(id, view);
+  const { txs } = await paymentTxsFor(id, view);
   const balance = await getRegistryBalance(c);
   if (view.status !== 'Paid') {
     return sendJson(res, 200, {
@@ -369,11 +388,11 @@ async function handleVerify(req, res, id) {
   const result = view.asset === 'CCD'
     ? await verifyCcdV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256 })
     : await verifyPltV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256 });
-  const counters = loadCounters();
+  const counters = await loadCounters();
   counters.verifierRuns += 1;
   if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
   counters.lastVerifierRunAt = new Date().toISOString();
-  saveCounters(counters);
+  await saveCounters(counters);
   const failed = result.checks.find((ch) => ch.status === 'fail');
   sendJson(res, 200, {
     payable_id: id, mode, verdict: result.allPass ? 'paid' : 'blocked',
@@ -389,21 +408,21 @@ async function handleCreatePayable(req, res) {
   const body = await readBody(req).catch(() => ({}));
   const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
   if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
-  const attempt = hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
+  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
-  const budget = hitWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour);
+  const budget = await hitWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour);
   if (!budget.allowed) {
     return apiError(res, 429, 'budget_exhausted', 'app', 'The demo’s budget for new invoices is used up for this hour. Use a lab invoice.', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
   }
   const c = await grpc();
   const { v2enc } = await backend();
-  const counters = loadCounters();
+  const counters = await loadCounters();
   const id = counters.nextFreshId;
   const amount = asset === 'ccd' ? FRESH_CCD_MICRO : FRESH_EUDEMO_BASE;
   const payee = asset === 'ccd' ? PAYEE_CCD : PAYEE_EUDEMO;
   const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
   const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller: SELLER, due: dueMs });
-  const docHash = storeDocument(id, docText);
+  const docHash = await storeDocument(id, docText);
   const sig = await signers();
   let sent;
   try {
@@ -422,14 +441,14 @@ async function handleCreatePayable(req, res) {
   const rr = rejectOf(status);
   if (rr) {
     const info = rejectInfo(rr.rejectReason);
-    const counters2 = loadCounters();
+    const counters2 = await loadCounters();
     counters2.liveRefusals.push({ txHash: sent.txHash, code: info.code, at: new Date().toISOString() });
-    saveCounters(counters2);
+    await saveCounters(counters2);
     return apiError(res, 409, 'chain_refused', 'chain', `The chain refused the registration (${info.code} ${info.name}).`, { reject: info, fee_testnet_ccd: feeOf(status), tx_hash: sent.txHash, explorer_url: txUrl(sent.txHash) });
   }
   counters.nextFreshId = id + 1;
   counters.freshIds = [...(counters.freshIds ?? []), id];
-  saveCounters(counters);
+  await saveCounters(counters);
   statsCache = null;
   sendJson(res, 201, {
     payable_id: id,
@@ -446,7 +465,7 @@ async function handlePay(req, res, id) {
   const rail = body.rail === 'eudemo' ? 'eudemo' : body.rail === 'ccd' ? 'ccd' : null;
   if (!rail) return badRequest(res, 'rail must be "ccd" or "eudemo".');
   const docSha256 = typeof body.doc_sha256 === 'string' ? body.doc_sha256 : null;
-  const attempt = hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
+  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   const c = await grpc();
   const view = await getPayableOrNull(c, SELLER, id);
@@ -467,7 +486,7 @@ async function handlePay(req, res, id) {
   if (view.status === 'Voided') {
     return apiError(res, 409, 'wrong_status', 'chain', `Payable ${id} is Voided and cannot be paid.`);
   }
-  const { job, created } = createOrReturnJob(id, rail);
+  const { job, created } = await createOrReturnJob(id, rail);
   if (created) void runJob(job);
   sendJson(res, 200, {
     job_id: job.job_id, payable_id: job.payable_id, rail: job.rail,
@@ -476,14 +495,14 @@ async function handlePay(req, res, id) {
 }
 
 async function handleGetJob(req, res, jobId) {
-  const jobs = loadJobs();
+  const jobs = await loadJobs();
   const job = jobs[jobId];
   if (!job) return notFound(res, `No job ${jobId}.`);
   sendJson(res, 200, job);
 }
 
 async function handleJobEvents(req, res, jobId) {
-  const jobs = loadJobs();
+  const jobs = await loadJobs();
   const job = jobs[jobId];
   if (!job) return notFound(res, `No job ${jobId}.`);
   res.writeHead(200, {
@@ -497,8 +516,8 @@ async function handleJobEvents(req, res, jobId) {
     return res.end();
   }
   subscribeJob(jobId, res);
-  const beat = setInterval(() => {
-    const current = loadJobs()[jobId];
+  const beat = setInterval(async () => {
+    const current = (await loadJobs())[jobId];
     if (!current || current.state !== 'running') {
       clearInterval(beat);
       try {
@@ -565,7 +584,7 @@ async function handleDryRun(req, res) {
   const decision = decide(snapshot, {
     kind: 'transfer', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce,
     recipient: to, amount, token: 'EUDemo', memo: memoHex, headerExpirySeconds, operations: 1,
-  }, ledgerForDecide(`${SELLER}:${payableId}`));
+  }, await ledgerForDecide(`${SELLER}:${payableId}`));
   sendJson(res, 200, {
     decision: decision.decision,
     reason: decision.code,
@@ -586,7 +605,7 @@ async function handleAttack(req, res, kind) {
   // Sends cost a testnet fee: budget them. Prechecks and dry runs do not.
   const willSend = (kind === 'pay_twice' && mode !== 'precheck_only') || (kind === 'wrong_amount');
   if (willSend && kind !== 'wrong_amount') {
-    const budget = hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
+    const budget = await hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
     if (!budget.allowed) return rateLimited(res, Math.ceil(budget.resetMs / 1000), 'The demo’s budget for attack sends is used up for this hour.');
   }
   if (willSend && kind === 'wrong_amount') {
@@ -594,11 +613,11 @@ async function handleAttack(req, res, kind) {
     const c = await grpc();
     const view = await getPayableOrNull(c, SELLER, payableId);
     if (view?.asset === 'CCD' && view.status === 'Unpaid') {
-      const budget = hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
+      const budget = await hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
       if (!budget.allowed) return rateLimited(res, Math.ceil(budget.resetMs / 1000), 'The demo’s budget for attack sends is used up for this hour.');
     }
   }
-  const attempt = hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
+  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   let result;
   if (kind === 'pay_twice') result = await attackPayTwice(payableId, mode);
@@ -664,6 +683,11 @@ const routes = [
 ];
 
 const server = createServer(async (req, res) => {
+  try {
+    await ready();
+  } catch (e) {
+    return internal(res, new Error(`store unavailable: ${e.message}`));
+  }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -683,8 +707,13 @@ const server = createServer(async (req, res) => {
 });
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  server.listen(PORT, HOST, () => {
-    console.log(`payonce-api listening on http://${HOST}:${PORT} (registry <${REGISTRY.index},${REGISTRY.subindex}>, ${NETWORK})`);
+  ready().then(() => {
+    server.listen(PORT, HOST, () => {
+      console.log(`payonce-api listening on http://${HOST}:${PORT} (registry <${REGISTRY.index},${REGISTRY.subindex}>, ${NETWORK})`);
+    });
+  }).catch((e) => {
+    console.error(`[startup] FATAL: store init failed: ${e.message}`);
+    process.exit(1);
   });
 }
 

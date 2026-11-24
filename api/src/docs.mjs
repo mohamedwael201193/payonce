@@ -15,13 +15,12 @@
 // (test/*.json + the contract matrix result): real tx hashes, real
 // refusals, real receipts — labelled "Recorded run, 24 Nov 2026".
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { BACKEND_DIR } from './backend.mjs';
-import { DATA_DIR } from './config.mjs';
+import { storeDocumentRecord, storedDocumentRecord } from './store.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
-const DOCS_DIR = join(DATA_DIR, 'documents');
 
 export function matrixDocBytes(id) {
   return Buffer.from(`payonce-live-matrix-${id}`, 'utf8');
@@ -44,15 +43,15 @@ export function generateLabDocument({ id, asset, amount, payee, seller, due }) {
   ].join('\n');
 }
 
-export function storeDocument(id, text) {
-  mkdirSync(DOCS_DIR, { recursive: true });
-  writeFileSync(join(DOCS_DIR, `${id}.txt`), text, 'utf8');
-  return sha256Hex(Buffer.from(text, 'utf8'));
+/** Store a lab document for a fresh payable (Postgres payonce_documents
+ *  when DATABASE_URL is set, api/data/documents/ otherwise). Returns its
+ *  SHA-256 hex — the hash that is registered on chain. */
+export async function storeDocument(id, text) {
+  return storeDocumentRecord(id, text);
 }
 
-export function storedDocument(id) {
-  const p = join(DOCS_DIR, `${id}.txt`);
-  return existsSync(p) ? readFileSync(p) : null;
+export async function storedDocument(id) {
+  return storedDocumentRecord(id);
 }
 
 const V2_INVOICE_FILES = {
@@ -61,8 +60,8 @@ const V2_INVOICE_FILES = {
 };
 
 /** Document bytes for a payable id, or null when no lab document exists. */
-export function docForPayable(id) {
-  const stored = storedDocument(id);
+export async function docForPayable(id) {
+  const stored = await storedDocument(id);
   if (stored) return stored;
   if (V2_INVOICE_FILES[id]) {
     const p = join(BACKEND_DIR, V2_INVOICE_FILES[id]);

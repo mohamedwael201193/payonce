@@ -69,7 +69,7 @@ export function JudgesPage() {
             <div>
               <dt className="text-muted">Payable registry</dt>
               <dd>
-                <a href={`${INST_BASE}13150/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
+                <a href={`${INST_BASE}13150/0`} target="_blank" rel="noreferrer" className="font-medium text-brand-700">
                   &lt;13150,0&gt; on the explorer
                 </a>
               </dd>
@@ -95,7 +95,7 @@ export function JudgesPage() {
             <div>
               <dt className="text-muted">Official CIS-8004 registry</dt>
               <dd>
-                <a href={`${INST_BASE}12802/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
+                <a href={`${INST_BASE}12802/0`} target="_blank" rel="noreferrer" className="font-medium text-brand-700">
                   &lt;12802,0&gt; on the explorer
                 </a>{' '}
                 <span className="text-muted">
@@ -155,7 +155,7 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
               <ul className="mt-2 space-y-1">
                 {files.data.map((f) => (
                   <li key={f.name}>
-                    <a href={f.url} className="font-medium text-teal-700">
+                    <a href={f.url} className="font-medium text-brand-700">
                       {f.name}
                     </a>{' '}
                     <span className="font-mono text-xs text-muted">SHA-256: {f.sha256}</span>

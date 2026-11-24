@@ -1,83 +1,104 @@
-// PayOnce API server — server-side store (JSON files under data/).
-// Jobs, receipts, verifier-run counters, live-refusal records and
-// rate-limit windows. Nothing here holds keys. Everything the frontend
-// needs after a payment (the payment tx hash for a CCD pay — the v2
-// contract does not record it, F5) is recovered from this store first,
-// then from the recorded evidence index.
-// Files are written atomically (tmp + rename) so a crash never leaves a
-// half-written job behind.
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
-import { DATA_DIR, FRESH_ID_START } from './config.mjs';
+// PayOnce API server — server-side store (facade).
+// Backend is selected by src/db.mjs: Postgres when DATABASE_URL is set,
+// the original JSON files under api/data/ otherwise (local dev + tests).
+// Every function is async and self-initialising (the first call runs the
+// migration + seed for Postgres); the server also awaits initStore()
+// explicitly at startup so a dead DB fails fast instead of failing the
+// first request.
+// What lives here: pay jobs, receipts, verifier-run counters, live-refusal
+// records, rate-limit windows, the co-signer ledger, lab documents.
+// Nothing here holds keys. The payables themselves live ON CHAIN (the
+// registry is the payable store); this store holds only server-side state.
+// Single-row saves (saveJob/saveReceipt) are the hot path: a whole-table
+// rewrite would lose a concurrent job's update. Bulk saves are kept for
+// the rare whole-store writes.
+import { initStore, isPostgres } from './db.mjs';
+import * as json from './jsonstore.mjs';
+import * as pgstore from './pgstore.mjs';
 
-mkdirSync(DATA_DIR, { recursive: true });
-
-function loadJson(name, fallback) {
-  try {
-    const p = join(DATA_DIR, name);
-    return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : fallback;
-  } catch {
-    return fallback;
-  }
+function impl() {
+  return isPostgres() ? pgstore : json;
 }
 
-function saveJson(name, value) {
-  const p = join(DATA_DIR, name);
-  const tmp = `${p}.tmp`;
-  writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf8');
-  renameSync(tmp, p);
+/** Ensure the backend is ready (migrate + seed for Postgres). */
+export async function ready() {
+  return initStore();
 }
 
-// ---- jobs ----
-export function loadJobs() {
-  return loadJson('jobs.json', {});
-}
-export function saveJobs(jobs) {
-  saveJson('jobs.json', jobs);
-}
 export function runningJobFor(jobs, payableId, rail) {
   return Object.values(jobs).find(
     (j) => j.payable_id === payableId && j.rail === rail && j.state === 'running',
   ) ?? null;
 }
 
-// ---- receipts ----
-export function loadReceipts() {
-  return loadJson('receipts.json', {});
+// ---- jobs ----
+export async function loadJobs() {
+  await initStore();
+  return impl().loadJobs();
 }
-export function saveReceipts(receipts) {
-  saveJson('receipts.json', receipts);
+export async function saveJob(job) {
+  await initStore();
+  return impl().saveJob(job);
+}
+export async function saveJobs(jobs) {
+  await initStore();
+  return impl().saveJobs(jobs);
+}
+
+// ---- receipts ----
+export async function loadReceipts() {
+  await initStore();
+  return impl().loadReceipts();
+}
+export async function saveReceipt(receipt) {
+  await initStore();
+  return impl().saveReceipt(receipt);
+}
+export async function saveReceipts(receipts) {
+  await initStore();
+  return impl().saveReceipts(receipts);
 }
 
 // ---- counters ----
-export function loadCounters() {
-  return loadJson('counters.json', {
-    verifierRuns: 0,
-    verifierPassed: 0,
-    verifierFailed: 0,
-    lastVerifierRunAt: null,
-    liveRefusals: [], // { txHash, code, at } — refusals this server observed live
-    nextFreshId: FRESH_ID_START,
-    freshIds: [], // payable ids this server created (for the /api/invoices scan)
-  });
+export async function loadCounters() {
+  await initStore();
+  return impl().loadCounters();
 }
-export function saveCounters(c) {
-  saveJson('counters.json', c);
+export async function saveCounters(c) {
+  await initStore();
+  return impl().saveCounters(c);
 }
 
-// ---- rate limits (in-memory sliding windows; the budget numbers in
-// /api/health are the caller's remaining quota) ----
-const windows = new Map(); // key -> [epochMs, ...]
-export function hitWindow(key, windowMs, limit) {
-  const now = Date.now();
-  const arr = (windows.get(key) ?? []).filter((t) => now - t < windowMs);
-  if (arr.length >= limit) return { allowed: false, left: 0, resetMs: windowMs - (now - arr[0]) };
-  arr.push(now);
-  windows.set(key, arr);
-  return { allowed: true, left: limit - arr.length, resetMs: windowMs };
+// ---- rate limits ----
+export async function hitWindow(key, windowMs, limit) {
+  await initStore();
+  return impl().hitWindow(key, windowMs, limit);
 }
-export function leftInWindow(key, windowMs, limit) {
-  const now = Date.now();
-  const arr = (windows.get(key) ?? []).filter((t) => now - t < windowMs);
-  return Math.max(0, limit - arr.length);
+export async function leftInWindow(key, windowMs, limit) {
+  await initStore();
+  return impl().leftInWindow(key, windowMs, limit);
+}
+
+// ---- co-signer ledger ----
+export async function appendLedgerEntry(entry) {
+  await initStore();
+  return impl().appendLedgerEntry(entry);
+}
+export async function ledgerRows() {
+  await initStore();
+  return impl().ledgerRows();
+}
+export async function resolveLedgerTransfer(payableKey, txHash) {
+  await initStore();
+  return impl().resolveLedgerTransfer(payableKey, txHash);
+}
+
+// ---- lab documents ----
+export async function storeDocumentRecord(id, text) {
+  await initStore();
+  return impl().storeDocumentRecord(id, text);
+}
+export async function storedDocumentRecord(id) {
+  await initStore();
+  return impl().storedDocumentRecord(id);
 }

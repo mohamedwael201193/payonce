@@ -85,7 +85,7 @@ export function CheckStep({
         <AlertInline>
           We could not read the testnet just now. Nothing was paid. Try again.
           <span className="ml-2">
-            <button type="button" onClick={onCheck} className="font-medium text-teal-700 underline underline-offset-2">
+            <button type="button" onClick={onCheck} className="font-medium text-brand-700 underline underline-offset-2">
               Retry
             </button>
           </span>

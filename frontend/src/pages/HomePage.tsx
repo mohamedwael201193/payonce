@@ -5,7 +5,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { AppHeader } from '../components/AppHeader'
 import { BudgetNote } from '../components/BudgetNote'
 import { DashboardPreview } from '../components/DashboardPreview'
 import { Hero } from '../components/Hero'
@@ -233,13 +232,52 @@ export function HomePage() {
 
   return (
     <div id="top" className="min-h-screen bg-paper pb-24 md:pb-0">
-      <div className="bg-sky-0">
-        <AppHeader dark skipTarget="#invoice" />
-      </div>
       <main id="main">
         <Hero />
-        <div id="invoice" className="mx-auto max-w-[1101px] scroll-mt-4 px-4 pt-4 sm:px-6">
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Floating dashboard card — the live flow, over the clouds (video
+            mockup): a slim anchor sidebar + the real invoice flow. The card
+            pulls up over the hero's cloud band and into the cream section. */}
+        <div className="relative z-10 mx-auto max-w-[1101px] px-4 sm:px-6">
+          <div
+            id="invoice"
+            className="relative -mt-[140px] scroll-mt-4 overflow-hidden rounded-[12px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]"
+          >
+            <div className="flex">
+              <nav
+                aria-label="Dashboard"
+                className="hidden w-[200px] shrink-0 flex-col border-r border-line bg-paper px-3 py-5 lg:flex"
+              >
+                <p className="px-3 pb-3 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+                  Dashboard
+                </p>
+                <a
+                  href="#invoice"
+                  className="rounded-[4px] px-3 py-2 text-sm font-medium text-ink hover:bg-paper-2"
+                >
+                  Pick an invoice
+                </a>
+                <a href="#check" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Check
+                </a>
+                <a href="#pay" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Pay
+                </a>
+                <a href="#receipt" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Receipt
+                </a>
+                <a href="#try" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Try to break it
+                </a>
+                <a href="#console" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Live console
+                </a>
+                <Link to="/judges" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  For judges
+                </Link>
+                <p className="mt-auto px-3 pt-6 text-xs text-muted">Testnet · Concordium</p>
+              </nav>
+              <div className="min-w-0 flex-1 p-4 sm:p-6">
+                <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-3" aria-live="polite">
               {pageError ? <AlertInline>{pageError}</AlertInline> : null}
               <InvoiceStep onLoaded={onLoaded} onNumber={onNumber} onFresh={onFresh} budgetLeft={budgetLeft} />
@@ -308,7 +346,7 @@ export function HomePage() {
                   explorerBase={explorerBase}
                 />
               </div>
-              <div ref={resultRef}>
+              <div id="receipt" ref={resultRef} className="scroll-mt-4">
                 <ReceiptStep receipt={receipt} explorerBase={explorerBase} reverifySignal={reverifyTick} />
               </div>
             </div>
@@ -341,7 +379,7 @@ export function HomePage() {
                   </li>
                 </ul>
                 <p className="mt-3 text-sm">
-                  <Link to="/judges" className="font-medium text-teal-700">
+                  <Link to="/judges" className="font-medium text-brand-700">
                     Details: For judges →
                   </Link>
                 </p>
@@ -352,9 +390,12 @@ export function HomePage() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
         {/* Live console — the payables console, below the flow (design F10f:
             the compact hero cannot hold it and steps 1–3 must fit at 1440×900). */}
-        <section aria-labelledby="console-title" className="mx-auto max-w-[1101px] px-4 pt-16 sm:px-6">
+        <section id="console" aria-labelledby="console-title" className="mx-auto max-w-[1101px] scroll-mt-4 px-4 pt-16 sm:px-6">
           <p className="text-sm font-medium tracking-[0.02em] text-ink">
             <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
             Live console

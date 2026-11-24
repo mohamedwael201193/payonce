@@ -1,0 +1,105 @@
+{
+  "active": true,
+  "capabilities": {
+    "extensions": [
+      {
+        "uri": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+        "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
+        "required": false,
+        "params": {
+          "tokenAddress": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9XawpXHMjTN5ocrA5a",
+          "owner": {
+            "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+          },
+          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+          "contracts": {
+            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+          },
+          "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
+          "verification": {
+            "service": "Concordium Agent Registry",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a",
+            "mcp": "https://agent-registry-mcp.concordium.com/mcp",
+            "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
+          }
+        }
+      }
+    ],
+    "pushNotifications": false,
+    "streaming": false
+  },
+  "defaultInputModes": [
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "text/plain"
+  ],
+  "description": "PayOnce seller agent on Concordium testnet. It registers invoices as on-chain payables on the PayOnce payable registry (contract 13150, subindex 0) and receives exactly one payment per payable, only to the account recorded on chain. In CCD the registry contract forwards the payment atomically; in EUDemo a reservation plus a co-signed transfer settles it. Demo agent for the Concordium Trusted Agents hackathon — testnet only, no real-world value.",
+  "documentationUrl": "https://payonce-tau.vercel.app",
+  "name": "PayOnce Seller",
+  "provider": {
+    "organization": "PayOnce",
+    "url": "https://payonce-tau.vercel.app"
+  },
+  "registrations": [
+    {
+      "agentId": 1476,
+      "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0"
+    }
+  ],
+  "services": [
+    {
+      "endpoint": "https://payonce-tau.vercel.app/.well-known/agent-card.json",
+      "name": "A2A",
+      "version": "1.0"
+    },
+    {
+      "endpoint": "https://payonce-api.onrender.com",
+      "name": "PayOnce API",
+      "version": "1.0"
+    }
+  ],
+  "skills": [
+    {
+      "description": "Register an invoice as an on-chain payable on the PayOnce registry, recording payee, amount, asset and due date.",
+      "id": "register-payable",
+      "name": "Register a payable",
+      "tags": [
+        "invoice",
+        "payable",
+        "concordium"
+      ]
+    },
+    {
+      "description": "Accept exactly one payment per payable — in CCD the registry contract forwards it atomically; in EUDemo a reservation plus a co-signed transfer settles it.",
+      "id": "receive-payment-once",
+      "name": "Receive payment exactly once",
+      "tags": [
+        "payment",
+        "ccd",
+        "eudemo",
+        "x402"
+      ]
+    },
+    {
+      "description": "Re-verify any PayOnce receipt against the chain: the payment transaction, the registry state and the anchored record.",
+      "id": "verify-receipt",
+      "name": "Verify a receipt",
+      "tags": [
+        "receipt",
+        "verification"
+      ]
+    }
+  ],
+  "supportedInterfaces": [
+    {
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0",
+      "url": "https://payonce-tau.vercel.app"
+    }
+  ],
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "version": "1.0.0",
+  "x402Support": true
+}

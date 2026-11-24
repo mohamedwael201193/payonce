@@ -40,7 +40,7 @@ export function StepTimeline({ job, explorerBase }: { job: JobSnapshot; explorer
               {status === 'ok' ? (
                 <span className="inline-block h-4 w-4 rounded-full bg-verified-bg text-center text-[10px] leading-4 text-verified">✓</span>
               ) : status === 'running' || status === 'retrying' ? (
-                <Loader2 className="h-4 w-4 animate-spin text-teal-700" />
+                <Loader2 className="h-4 w-4 animate-spin text-brand-700" />
               ) : status === 'failed' || status === 'refused' ? (
                 <span className="inline-block h-4 w-4 rounded-full bg-refused-bg text-center text-[10px] leading-4 text-refused">✕</span>
               ) : (

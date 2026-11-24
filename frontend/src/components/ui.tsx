@@ -106,7 +106,7 @@ export function PrimaryButton({
         onClick={disabled ? undefined : onClick}
         aria-disabled={disabled ? 'true' : undefined}
         aria-describedby={disabled && disabledReason && reasonId ? reasonId : undefined}
-        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] bg-teal-600 px-5 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] bg-brand-600 px-5 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       >
         {children}
       </button>
@@ -143,7 +143,7 @@ export function SecondaryButton({
         onClick={disabled ? undefined : onClick}
         aria-disabled={disabled ? 'true' : undefined}
         aria-describedby={disabled && disabledReason && reasonId ? reasonId : undefined}
-        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] border border-line bg-card px-5 py-2.5 text-[15px] font-medium text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] border border-line bg-card px-5 py-2.5 text-[15px] font-medium text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       >
         {children}
       </button>
@@ -184,7 +184,7 @@ export function HashLink({
       href={`${explorerBase}${hash}`}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1 font-mono text-sm text-teal-700 underline decoration-line underline-offset-2 hover:decoration-teal-700"
+      className="inline-flex items-center gap-1 font-mono text-sm text-brand-700 underline decoration-line underline-offset-2 hover:decoration-brand-700"
       aria-label={`Open transaction ${hash} on the explorer (new tab)`}
     >
       {text}
@@ -207,7 +207,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
           setCopied(false)
         }
       }}
-      className="inline-flex items-center gap-1 rounded-[4px] border border-line bg-card px-2 py-1 text-xs font-medium text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-teal-600"
+      className="inline-flex items-center gap-1 rounded-[4px] border border-line bg-card px-2 py-1 text-xs font-medium text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-brand-600"
       aria-label={`Copy ${label}`}
     >
       {copied ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}

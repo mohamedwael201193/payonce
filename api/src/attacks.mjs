@@ -57,10 +57,10 @@ function base(kind, payableId) {
   return { kind, payable_id: payableId, layer: 'chain', live: false, tx_sent: false, outcome: '', plain: '' };
 }
 
-function recordLiveRefusal(txHash, code) {
-  const c = loadCounters();
+async function recordLiveRefusal(txHash, code) {
+  const c = await loadCounters();
   c.liveRefusals.push({ txHash, code, at: new Date().toISOString() });
-  saveCounters(c);
+  await saveCounters(c);
 }
 
 export async function attackPayTwice(payableId, mode) {
@@ -105,7 +105,7 @@ export async function attackPayTwice(payableId, mode) {
   const status = await waitFinalized(c, sent.txHash);
   const fee = feeOf(status);
   const rr = rejectOf(status);
-  recordLiveRefusal(sent.txHash, rr?.rejectReason ?? null);
+  await recordLiveRefusal(sent.txHash, rr?.rejectReason ?? null);
   if (!rr) {
     return {
       ...res, layer: 'chain', live: true, tx_sent: true, outcome: 'unexpected_success',
@@ -150,7 +150,7 @@ export async function attackWrongAmount(payableId) {
     const status = await waitFinalized(c, sent.txHash);
     const fee = feeOf(status);
     const rr = rejectOf(status);
-    recordLiveRefusal(sent.txHash, rr?.rejectReason ?? null);
+    await recordLiveRefusal(sent.txHash, rr?.rejectReason ?? null);
     if (!rr) {
       return {
         ...res, layer: 'chain', live: true, tx_sent: true, outcome: 'unexpected_success',
@@ -186,7 +186,7 @@ export async function attackWrongAmount(payableId) {
     recipient: view.payee, amount: wrongAmount, token: 'EUDemo',
     memo: chain.encodeCborMemo(canonicalMemoV2(SELLER, payableId)).toString('hex'),
     headerExpirySeconds: Math.floor((Date.now() + 3540_000) / 1000), operations: 1,
-  }, ledgerForDecide(`${SELLER}:${payableId}`));
+  }, await ledgerForDecide(`${SELLER}:${payableId}`));
   return {
     ...res,
     layer: 'co_signer',

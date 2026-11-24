@@ -111,7 +111,14 @@ export function TryPanel({
         stoppedLayer: res.layer,
         stoppedText: res.plain,
         reject: res.reject ? { code: res.reject.code, name: res.reject.name } : null,
-        real: res.live ? 'Real' : COPY.recordedRunLabel,
+        // M3 (#9 verdict): a precheck sends nothing, so it is live — never
+        // label it with the recorded-run date.
+        real:
+          kind === 'pay_twice' && precheckOnly
+            ? 'Live pre-check (nothing sent)'
+            : res.live
+              ? 'Real'
+              : COPY.recordedRunLabel,
         fee: res.fee_testnet_ccd ?? null,
         txHash: res.tx_hash ?? null,
         explorerUrl: res.explorer_url ?? null,
@@ -200,7 +207,7 @@ export function TryPanel({
   const unpaidLoaded = facts && facts.status.kind !== 'paid'
 
   return (
-    <aside aria-labelledby="try-panel-title" className="rounded-none border border-line bg-card p-6">
+    <aside id="try" aria-labelledby="try-panel-title" className="scroll-mt-4 rounded-none border border-line bg-card p-6">
       <h2 id="try-panel-title" className="text-xl font-medium tracking-[-0.01em] text-ink">
         Try to break it.
       </h2>
@@ -217,7 +224,7 @@ export function TryPanel({
           disabledReason={!docText || !facts ? 'Load an invoice first (step 1).' : null}
           className="w-full justify-start"
         >
-          Tamper with the invoice
+          {busy === 'tamper' ? 'Checking the tampered file…' : 'Tamper with the invoice'}
         </PrimaryButton>
         <PrimaryButton
           id="attack-pay-twice"
@@ -229,14 +236,14 @@ export function TryPanel({
           disabledReason={!paidId && !hasPaidInSession ? 'Pay an invoice first, or use Watch the recorded run.' : null}
           className="w-full justify-start"
         >
-          Pay it twice
+          {busy === 'pay_twice' ? 'Sending a second payment…' : 'Pay it twice'}
         </PrimaryButton>
         <label className="flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={precheckOnly}
             onChange={(e) => setPrecheckOnly(e.target.checked)}
-            className="h-4 w-4 accent-teal-600"
+            className="h-4 w-4 accent-brand-600"
           />
           Stop before sending (no fee) — show the app pre-check instead
         </label>
@@ -247,7 +254,7 @@ export function TryPanel({
           disabledReason={!unpaidLoaded ? 'Load an unpaid invoice first.' : null}
           className="w-full justify-start"
         >
-          Wrong amount
+          {busy === 'wrong_amount' ? 'Sending the wrong amount…' : 'Wrong amount'}
         </PrimaryButton>
         <PrimaryButton
           id="attack-unlisted"
@@ -255,7 +262,7 @@ export function TryPanel({
           disabled={busy !== null}
           className="w-full justify-start"
         >
-          Pay a fraudster’s invoice
+          {busy === 'unlisted_seller' ? 'Checking the seller…' : 'Pay a fraudster’s invoice'}
         </PrimaryButton>
         <PrimaryButton
           id="attack-injection"
@@ -264,7 +271,7 @@ export function TryPanel({
           disabledReason={!docText || !facts ? 'Load an invoice first (step 1).' : null}
           className="w-full justify-start"
         >
-          Injection: tell the agent to pay another account
+          {busy === 'injection' ? 'Testing the injection…' : 'Injection: tell the agent to pay another account'}
         </PrimaryButton>
       </div>
 
@@ -279,7 +286,7 @@ export function TryPanel({
           disabled={!facts || busy !== null}
           disabledReason={!facts ? 'Load an invoice first (step 1).' : null}
         >
-          Watch the recorded run
+          {busy === 'recorded' ? 'Loading the recorded run…' : 'Watch the recorded run'}
         </SecondaryButton>
         <p className="mt-2 text-xs text-muted">Recorded run, 24 Nov 2026 — labelled, never shown as live.</p>
         {recorded ? (

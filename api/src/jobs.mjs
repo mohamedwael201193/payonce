@@ -37,7 +37,7 @@ import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2 } from '
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { appendEntry, ledgerForDecide, resolveTransfer } from './ledger.mjs';
 import { docForPayable, recordedPaymentTx } from './docs.mjs';
-import { loadJobs, saveJobs, loadReceipts, saveReceipts, loadCounters, saveCounters, runningJobFor } from './store.mjs';
+import { loadJobs, saveJob, saveReceipt, loadCounters, saveCounters, runningJobFor } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo, shortHash } from './config.mjs';
 
 export const CCD_STEPS = ['check_status', 'check_agent', 'submit', 'wait_finality', 'read_back', 'verify'];
@@ -57,14 +57,9 @@ function emit(jobId, data) {
     try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { /* client gone */ }
   }
 }
-function emitStep(job, step) {
+async function emitStep(job, step) {
   emit(job.job_id, { type: 'step', step });
-  saveJobs(loadJobsWith(job));
-}
-function loadJobsWith(job) {
-  const jobs = loadJobs();
-  jobs[job.job_id] = job;
-  return jobs;
+  await saveJob(job);
 }
 
 // ---- job creation ----
@@ -84,30 +79,29 @@ export function newJob(payableId, rail) {
   };
 }
 
-export function createOrReturnJob(payableId, rail) {
-  const jobs = loadJobs();
+export async function createOrReturnJob(payableId, rail) {
+  const jobs = await loadJobs();
   const running = runningJobFor(jobs, payableId, rail);
   if (running) return { job: running, created: false };
   const job = newJob(payableId, rail);
-  jobs[job.job_id] = job;
-  saveJobs(jobs);
+  await saveJob(job);
   return { job, created: true };
 }
 
 function stepOf(job, name) {
   return job.steps.find((s) => s.step === name);
 }
-function setStep(job, name, status, detail, extra = {}) {
+async function setStep(job, name, status, detail, extra = {}) {
   const s = stepOf(job, name);
   Object.assign(s, { status, detail, ...extra });
-  emitStep(job, s);
+  await emitStep(job, s);
   return s;
 }
-function finishJob(job, state, outcome) {
+async function finishJob(job, state, outcome) {
   job.state = state;
   job.outcome = outcome;
   job.finished_at = new Date().toISOString();
-  saveJobs(loadJobsWith(job));
+  await saveJob(job);
   emit(job.job_id, { type: 'done', outcome, receipt_url: `/api/receipts/${job.payable_id}` });
 }
 
@@ -156,12 +150,12 @@ async function payerBalances(c, view) {
   };
 }
 
-function recordVerifierRun(result) {
-  const c = loadCounters();
+async function recordVerifierRun(result) {
+  const c = await loadCounters();
   c.verifierRuns += 1;
   if (result.allPass) c.verifierPassed += 1; else c.verifierFailed += 1;
   c.lastVerifierRunAt = new Date().toISOString();
-  saveCounters(c);
+  await saveCounters(c);
 }
 
 function buildReceipt(job, view, txs, verifier, paymentTxSource) {
@@ -179,10 +173,8 @@ function buildReceipt(job, view, txs, verifier, paymentTxSource) {
   };
 }
 
-function storeReceipt(receipt) {
-  const receipts = loadReceipts();
-  receipts[receipt.payable_id] = receipt;
-  saveReceipts(receipts);
+async function storeReceipt(receipt) {
+  await saveReceipt(receipt);
 }
 
 // ---- pre-flight: the 9 before-pay checks, split across the first steps ----
@@ -201,30 +193,30 @@ async function runCcd(job) {
   const { v2enc, decideMod } = await backend();
   const decide = decideMod.decide;
   const sig = await signers();
-  const docBytes = docForPayable(job.payable_id);
+  const docBytes = await docForPayable(job.payable_id);
   try {
-    setStep(job, 'check_status', 'running', 'Reading the payable from the test registry…');
+    await setStep(job, 'check_status', 'running', 'Reading the payable from the test registry…');
     let view = await getPayableOrNull(c, SELLER, job.payable_id);
     if (!view) {
-      setStep(job, 'check_status', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_status', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
     const { result } = await preflight(c, job, view, docBytes);
     const byId = Object.fromEntries(result.checks.map((ch) => [ch.id, ch]));
     if (view.status === 'Paid') {
-      setStep(job, 'check_status', 'refused', `Payable ${job.payable_id} is already Paid by ${view.record?.payer?.slice(0, 8)}… at ${view.record?.paidAt ?? '—'}.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_status', 'refused', `Payable ${job.payable_id} is already Paid by ${view.record?.payer?.slice(0, 8)}… at ${view.record?.paidAt ?? '—'}.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
     if (result.verdict !== 'ready') {
       const bad = result.checks.find((ch) => ch.status === 'fail');
-      setStep(job, 'check_status', 'refused', `Check failed (${bad?.id ?? result.blockedReason}): ${bad?.detail ?? 'not ready to pay'}.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_status', 'refused', `Check failed (${bad?.id ?? result.blockedReason}): ${bad?.detail ?? 'not ready to pay'}.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
-    setStep(job, 'check_status', 'ok', `Unpaid, due ${view.due}, doc ${byId.doc.status === 'ok' ? 'matches' : 'not supplied'}.`, { layer: 'chain' });
-    setStep(job, 'check_agent', 'running', 'Checking the seller agent and the payer balance…');
-    setStep(job, 'check_agent', 'ok', `Agent token ${view.agentToken} Active on <12802,0>; payer balance covers the payment.`, { layer: 'chain' });
+    await setStep(job, 'check_status', 'ok', `Unpaid, due ${view.due}, doc ${byId.doc.status === 'ok' ? 'matches' : 'not supplied'}.`, { layer: 'chain' });
+    await setStep(job, 'check_agent', 'running', 'Checking the seller agent and the payer balance…');
+    await setStep(job, 'check_agent', 'ok', `Agent token ${view.agentToken} Active on <12802,0>; payer balance covers the payment.`, { layer: 'chain' });
 
-    setStep(job, 'submit', 'running', `Sending pay_ccd for ${fmtCcd(view.amount)} from the demo payer…`);
+    await setStep(job, 'submit', 'running', `Sending pay_ccd for ${fmtCcd(view.amount)} from the demo payer…`);
     const pay = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'pay_ccd',
       parameterHex: v2enc.encodeV2PayableKey({ seller: SELLER, id: job.payable_id }),
@@ -232,50 +224,50 @@ async function runCcd(job) {
     });
     stepOf(job, 'submit').txHash = pay.txHash;
     stepOf(job, 'submit').explorerUrl = txUrl(pay.txHash);
-    setStep(job, 'submit', 'ok', `pay_ccd sent: ${shortHash(pay.txHash)}`, { layer: 'chain' });
+    await setStep(job, 'submit', 'ok', `pay_ccd sent: ${shortHash(pay.txHash)}`, { layer: 'chain' });
 
-    setStep(job, 'wait_finality', 'running', 'Waiting for the testnet to finalize the payment…');
+    await setStep(job, 'wait_finality', 'running', 'Waiting for the testnet to finalize the payment…');
     const status = await waitFinalized(c, pay.txHash);
     const fee = feeOf(status);
     const rr = rejectOf(status);
     if (rr) {
       const info = rejectInfo(rr.rejectReason);
-      setStep(job, 'wait_finality', 'refused', `The chain refused the payment (${info.name}). Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
-      const counters = loadCounters();
+      await setStep(job, 'wait_finality', 'refused', `The chain refused the payment (${info.name}). Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
+      const counters = await loadCounters();
       counters.liveRefusals.push({ txHash: pay.txHash, code: info.code, at: new Date().toISOString() });
-      saveCounters(counters);
-      return finishJob(job, 'refused', 'refused');
+      await saveCounters(counters);
+      return await finishJob(job, 'refused', 'refused');
     }
-    setStep(job, 'wait_finality', 'ok', `Finalized. Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain' });
+    await setStep(job, 'wait_finality', 'ok', `Finalized. Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain' });
 
-    setStep(job, 'read_back', 'running', 'Reading the payable back from the registry…');
+    await setStep(job, 'read_back', 'running', 'Reading the payable back from the registry…');
     view = await getPayable(c, SELLER, job.payable_id);
     const balance = await getRegistryBalance(c);
     if (view.status !== 'Paid') {
-      setStep(job, 'read_back', 'failed', `Payable is ${view.status} after a finalized pay_ccd — not Paid.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'read_back', 'failed', `Payable is ${view.status} after a finalized pay_ccd — not Paid.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    setStep(job, 'read_back', 'ok', `Status Paid by ${view.record?.payer?.slice(0, 8)}…; registry balance ${balance} microCCD.`, { layer: 'chain' });
+    await setStep(job, 'read_back', 'ok', `Status Paid by ${view.record?.payer?.slice(0, 8)}…; registry balance ${balance} microCCD.`, { layer: 'chain' });
 
-    setStep(job, 'verify', 'running', 'Running the verifier on the payment transaction…');
+    await setStep(job, 'verify', 'running', 'Running the verifier on the payment transaction…');
     const blockTime = await getBlockTime(c, status.blockHash);
     const verification = await verifyCcdV2(c, {
       payableId: job.payable_id, txHash: pay.txHash, summary: status, blockTime, view, balance, docBytes,
     });
-    recordVerifierRun(verification);
+    await recordVerifierRun(verification);
     const receipt = buildReceipt(job, view, [['Payment', pay.txHash]], verification, 'server_store');
-    storeReceipt(receipt);
+    await storeReceipt(receipt);
     if (!verification.allPass) {
       const failed = verification.checks.filter((ch) => ch.status === 'fail').map((ch) => ch.id).join(', ');
-      setStep(job, 'verify', 'failed', `Payment is Paid on chain, but verification failed (${failed}). Receipt stored; see /api/receipts/${job.payable_id}.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'verify', 'failed', `Payment is Paid on chain, but verification failed (${failed}). Receipt stored; see /api/receipts/${job.payable_id}.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    setStep(job, 'verify', 'ok', `Verifier: ${verification.passed}/${verification.total} checks pass.`, { layer: 'chain' });
-    return finishJob(job, 'succeeded', 'paid');
+    await setStep(job, 'verify', 'ok', `Verifier: ${verification.passed}/${verification.total} checks pass.`, { layer: 'chain' });
+    return await finishJob(job, 'succeeded', 'paid');
   } catch (e) {
     const step = job.steps.find((s) => s.status === 'running') ?? stepOf(job, 'submit');
-    setStep(job, step.step, 'failed', `Error: ${e.message}`, { layer: 'server' });
-    return finishJob(job, 'failed', 'failed');
+    await setStep(job, step.step, 'failed', `Error: ${e.message}`, { layer: 'server' });
+    return await finishJob(job, 'failed', 'failed');
   }
 }
 
@@ -285,38 +277,38 @@ async function runEudemo(job) {
   const { v2enc, v2ev, chain, decideMod } = await backend();
   const decide = decideMod.decide;
   const sig = await signers();
-  const docBytes = docForPayable(job.payable_id);
+  const docBytes = await docForPayable(job.payable_id);
   const payableKey = `${SELLER}:${job.payable_id}`;
   try {
-    setStep(job, 'check_wallet', 'running', 'Reading the payable, the payer wallet and the vendor approval…');
+    await setStep(job, 'check_wallet', 'running', 'Reading the payable, the payer wallet and the vendor approval…');
     let view = await getPayableOrNull(c, SELLER, job.payable_id);
     if (!view) {
-      setStep(job, 'check_wallet', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_wallet', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
     if (view.asset !== 'EUDemo') {
-      setStep(job, 'check_wallet', 'refused', `Payable ${job.payable_id} is a ${view.asset} payable, not EUDemo.`, { layer: 'app' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_wallet', 'refused', `Payable ${job.payable_id} is a ${view.asset} payable, not EUDemo.`, { layer: 'app' });
+      return await finishJob(job, 'refused', 'refused');
     }
     const { result } = await preflight(c, job, view, docBytes);
     if (view.status === 'Paid') {
-      setStep(job, 'check_wallet', 'refused', `Payable ${job.payable_id} is already Paid.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_wallet', 'refused', `Payable ${job.payable_id} is already Paid.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
     if (result.verdict !== 'ready') {
       const bad = result.checks.find((ch) => ch.status === 'fail');
-      setStep(job, 'check_wallet', 'refused', `Check failed (${bad?.id ?? result.blockedReason}): ${bad?.detail ?? 'not ready to pay'}.`, { layer: 'chain' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'check_wallet', 'refused', `Check failed (${bad?.id ?? result.blockedReason}): ${bad?.detail ?? 'not ready to pay'}.`, { layer: 'chain' });
+      return await finishJob(job, 'refused', 'refused');
     }
-    setStep(job, 'check_wallet', 'ok', `EUDemo ${fmtEudemo(view.amount)}; payer wallet covers amount + fees; vendor approval on chain.`, { layer: 'chain' });
+    await setStep(job, 'check_wallet', 'ok', `EUDemo ${fmtEudemo(view.amount)}; payer wallet covers amount + fees; vendor approval on chain.`, { layer: 'chain' });
 
     // Gate 1: reserve.
-    setStep(job, 'reserve', 'running', 'Co-signer gate: deciding the reservation…');
+    await setStep(job, 'reserve', 'running', 'Co-signer gate: deciding the reservation…');
     let snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
-    let decision = decide(snapshot, { kind: 'reserve_plt', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, numSignatures: 1, nonce: snapshot.nextNonce }, ledgerForDecide(payableKey));
+    let decision = decide(snapshot, { kind: 'reserve_plt', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, numSignatures: 1, nonce: snapshot.nextNonce }, await ledgerForDecide(payableKey));
     if (decision.decision !== 'SIGN') {
-      setStep(job, 'reserve', 'refused', `Co-signer refused the reservation (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'reserve', 'refused', `Co-signer refused the reservation (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
+      return await finishJob(job, 'refused', 'refused');
     }
     const reserve = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'reserve_plt',
@@ -328,58 +320,58 @@ async function runEudemo(job) {
     const reserveRr = rejectOf(reserveStatus);
     if (reserveRr) {
       const info = rejectInfo(reserveRr.rejectReason);
-      setStep(job, 'reserve', 'refused', `The chain refused the reservation (${info.name}). Fee: ${feeOf(reserveStatus) ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'reserve', 'refused', `The chain refused the reservation (${info.name}). Fee: ${feeOf(reserveStatus) ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
+      return await finishJob(job, 'refused', 'refused');
     }
     const reserveUpd = updatedEvent(reserveStatus, 'reserve_plt');
     const reservedEvent = reserveUpd ? v2ev.decodeLoggedEventsV2(reserveUpd).find((e) => e.event === 'Reserved') : null;
     if (!reservedEvent) {
-      setStep(job, 'reserve', 'failed', `reserve_plt finalized (${shortHash(reserve.txHash)}) but no Reserved event was logged — stopping before any transfer.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'reserve', 'failed', `reserve_plt finalized (${shortHash(reserve.txHash)}) but no Reserved event was logged — stopping before any transfer.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
     view = await getPayable(c, SELLER, job.payable_id);
     if (view.status !== 'Reserved' || view.record?.payer !== PAYER_ADDRESS) {
-      setStep(job, 'reserve', 'failed', `Payable is ${view.status} after reserve ${shortHash(reserve.txHash)}, not Reserved by the demo payer — stopping before any transfer.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'reserve', 'failed', `Payable is ${view.status} after reserve ${shortHash(reserve.txHash)}, not Reserved by the demo payer — stopping before any transfer.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
     const expiresMs = Number(view.record.expiresMs);
-    setStep(job, 'reserve', 'ok', `Reserved until ${view.record.expires} (reservation ${shortHash(reserve.txHash)}).`, { layer: 'chain' });
+    await setStep(job, 'reserve', 'ok', `Reserved until ${view.record.expires} (reservation ${shortHash(reserve.txHash)}).`, { layer: 'chain' });
 
     // Gate 2: transfer.
     const headerExpirySeconds = Math.floor((expiresMs - 60_000) / 1000);
     const memo = canonicalMemoV2(SELLER, job.payable_id);
-    setStep(job, 'co_sign_decide', 'running', 'Co-signer gate: deciding the transfer…');
+    await setStep(job, 'co_sign_decide', 'running', 'Co-signer gate: deciding the transfer…');
     snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
     decision = decide(snapshot, {
       kind: 'transfer', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce,
       recipient: view.payee, amount: view.amount, token: 'EUDemo',
       memo: chain.encodeCborMemo(memo).toString('hex'), headerExpirySeconds, operations: 1,
-    }, ledgerForDecide(payableKey));
+    }, await ledgerForDecide(payableKey));
     if (decision.decision !== 'SIGN') {
-      setStep(job, 'co_sign_decide', 'refused', `Co-signer refused the transfer (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'co_sign_decide', 'refused', `Co-signer refused the transfer (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
+      return await finishJob(job, 'refused', 'refused');
     }
-    setStep(job, 'co_sign_decide', 'ok', 'Co-signer approved the transfer (reserve + transfer gates: SIGN).', { layer: 'co_signer' });
+    await setStep(job, 'co_sign_decide', 'ok', 'Co-signer approved the transfer (reserve + transfer gates: SIGN).', { layer: 'co_signer' });
 
-    setStep(job, 'submit_transfer', 'running', `Sending the EUDemo transfer (${fmtEudemo(view.amount)}) with memo ${memo}…`);
+    await setStep(job, 'submit_transfer', 'running', `Sending the EUDemo transfer (${fmtEudemo(view.amount)}) with memo ${memo}…`);
     const transfer = await sendTokenTransfer(c, {
       from: sig.sellerB, recipient: view.payee, amount: view.amount, memo, expirySeconds: headerExpirySeconds,
     });
     stepOf(job, 'submit_transfer').txHash = transfer.txHash;
     stepOf(job, 'submit_transfer').explorerUrl = txUrl(transfer.txHash);
-    appendEntry({
+    await appendEntry({
       ts: new Date().toISOString(), kind: 'transfer', payableKey, txHash: transfer.txHash,
       headerExpiry: headerExpirySeconds, reservationExpires: view.record.expiresMs, decision: 'SIGN', state: 'unresolved',
     });
-    setStep(job, 'submit_transfer', 'ok', `Transfer sent: ${shortHash(transfer.txHash)}`, { layer: 'chain' });
+    await setStep(job, 'submit_transfer', 'ok', `Transfer sent: ${shortHash(transfer.txHash)}`, { layer: 'chain' });
 
-    setStep(job, 'wait_finality', 'running', 'Waiting for the transfer to finalize, then verifying it…');
+    await setStep(job, 'wait_finality', 'running', 'Waiting for the transfer to finalize, then verifying it…');
     const transferStatus = await waitFinalized(c, transfer.txHash);
     const transferBlockTime = await getBlockTime(c, transferStatus.blockHash);
     const transferEvent = (transferStatus.summary?.events ?? []).find((e) => e.tag === 'TokenTransfer');
     if (!transferEvent) {
-      setStep(job, 'wait_finality', 'failed', `Transfer ${shortHash(transfer.txHash)} finalized but no TokenTransfer event was logged — stopping before confirm.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'wait_finality', 'failed', `Transfer ${shortHash(transfer.txHash)} finalized but no TokenTransfer event was logged — stopping before confirm.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
     const reserveCtx = { blockTime: await getBlockTime(c, reserveStatus.blockHash), logged: reserveUpd ? v2ev.decodeLoggedEventsV2(reserveUpd) : [] };
     const transferCheck = await verifyPltTransferV2({
@@ -387,27 +379,27 @@ async function runEudemo(job) {
     });
     if (!transferCheck.allPass) {
       const failed = transferCheck.checks.filter((ch) => ch.status === 'fail').map((ch) => ch.id).join(', ');
-      setStep(job, 'wait_finality', 'failed', `Transfer failed verification (${failed}) — refusing to confirm (reserve ${shortHash(reserve.txHash)}).`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'wait_finality', 'failed', `Transfer failed verification (${failed}) — refusing to confirm (reserve ${shortHash(reserve.txHash)}).`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    setStep(job, 'wait_finality', 'ok', `Transfer finalized and verified (${transferCheck.passed}/${transferCheck.total} checks).`, { layer: 'chain' });
+    await setStep(job, 'wait_finality', 'ok', `Transfer finalized and verified (${transferCheck.passed}/${transferCheck.total} checks).`, { layer: 'chain' });
 
     // Gate 3: confirm. The confirm_plt entrypoint requires the RESERVING
     // PAYER as sender (-17 NotPayer otherwise): on v2 the payer (B)
     // confirms, not the seller. (v1's "confirm by seller" was the old
     // mirrored role — in v1 the seller WAS B. The v2 E2E proves the payer
     // sends it.) The gate's request sender is the agent account too.
-    setStep(job, 'confirm', 'running', 'Co-signer gate: deciding the confirm…');
+    await setStep(job, 'confirm', 'running', 'Co-signer gate: deciding the confirm…');
     snapshot = await buildSnapshotV2(c, {
       seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null,
       signatureThreshold: 1, transferTxHash: transfer.txHash, reserveTxHash: reserve.txHash,
     });
     decision = decide(snapshot, {
       kind: 'confirm', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce, txHash: transfer.txHash,
-    }, ledgerForDecide(payableKey));
+    }, await ledgerForDecide(payableKey));
     if (decision.decision !== 'SIGN') {
-      setStep(job, 'confirm', 'refused', `Co-signer refused the confirm (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'confirm', 'refused', `Co-signer refused the confirm (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
+      return await finishJob(job, 'refused', 'refused');
     }
     const confirm = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'confirm_plt',
@@ -419,59 +411,59 @@ async function runEudemo(job) {
     const confirmRr = rejectOf(confirmStatus);
     if (confirmRr) {
       const info = rejectInfo(confirmRr.rejectReason);
-      setStep(job, 'confirm', 'refused', `The chain refused the confirm (${info.name}). Fee: ${feeOf(confirmStatus) ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
-      return finishJob(job, 'refused', 'refused');
+      await setStep(job, 'confirm', 'refused', `The chain refused the confirm (${info.name}). Fee: ${feeOf(confirmStatus) ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
+      return await finishJob(job, 'refused', 'refused');
     }
     const confirmUpd = updatedEvent(confirmStatus, 'confirm_plt');
     const confirmedEvent = confirmUpd ? v2ev.decodeLoggedEventsV2(confirmUpd).find((e) => e.event === 'PltConfirmed') : null;
     if (!confirmedEvent) {
-      setStep(job, 'confirm', 'failed', `confirm_plt finalized (${shortHash(confirm.txHash)}) but no PltConfirmed event was logged.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'confirm', 'failed', `confirm_plt finalized (${shortHash(confirm.txHash)}) but no PltConfirmed event was logged.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    resolveTransfer(payableKey, transfer.txHash);
+    await resolveTransfer(payableKey, transfer.txHash);
     view = await getPayable(c, SELLER, job.payable_id);
     const balance = await getRegistryBalance(c);
     if (view.status !== 'Paid') {
-      setStep(job, 'confirm', 'failed', `Payable is ${view.status} after a finalized confirm — not Paid.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'confirm', 'failed', `Payable is ${view.status} after a finalized confirm — not Paid.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    setStep(job, 'confirm', 'ok', `Confirmed: ${shortHash(confirm.txHash)}. Status Paid.`, { layer: 'chain' });
+    await setStep(job, 'confirm', 'ok', `Confirmed: ${shortHash(confirm.txHash)}. Status Paid.`, { layer: 'chain' });
 
-    setStep(job, 'verify', 'running', 'Running the verifier on the transfer…');
+    await setStep(job, 'verify', 'running', 'Running the verifier on the transfer…');
     const confirmBlockTime = await getBlockTime(c, confirmStatus.blockHash);
     const verification = await verifyPltV2(c, {
       payableId: job.payable_id, txHash: transfer.txHash, summary: transferStatus, blockTime: transferBlockTime,
       view, balance, docBytes, reserve: reserveCtx, confirm: { blockTime: confirmBlockTime },
     });
-    recordVerifierRun(verification);
+    await recordVerifierRun(verification);
     const receipt = buildReceipt(job, view, [
       ['Reservation', reserve.txHash],
       ['Transfer', transfer.txHash],
       ['Confirm', confirm.txHash],
     ], verification, 'chain');
-    storeReceipt(receipt);
+    await storeReceipt(receipt);
     if (!verification.allPass) {
       const failed = verification.checks.filter((ch) => ch.status === 'fail').map((ch) => ch.id).join(', ');
-      setStep(job, 'verify', 'failed', `Payment is Paid on chain, but verification failed (${failed}). Receipt stored; see /api/receipts/${job.payable_id}.`, { layer: 'chain' });
-      return finishJob(job, 'failed', 'failed');
+      await setStep(job, 'verify', 'failed', `Payment is Paid on chain, but verification failed (${failed}). Receipt stored; see /api/receipts/${job.payable_id}.`, { layer: 'chain' });
+      return await finishJob(job, 'failed', 'failed');
     }
-    setStep(job, 'verify', 'ok', `Verifier: ${verification.passed}/${verification.total} checks pass.`, { layer: 'chain' });
-    return finishJob(job, 'succeeded', 'paid');
+    await setStep(job, 'verify', 'ok', `Verifier: ${verification.passed}/${verification.total} checks pass.`, { layer: 'chain' });
+    return await finishJob(job, 'succeeded', 'paid');
   } catch (e) {
     const step = job.steps.find((s) => s.status === 'running') ?? job.steps[job.steps.length - 1];
-    setStep(job, step.step, 'failed', `Error: ${e.message}`, { layer: 'server' });
-    return finishJob(job, 'failed', 'failed');
+    await setStep(job, step.step, 'failed', `Error: ${e.message}`, { layer: 'server' });
+    return await finishJob(job, 'failed', 'failed');
   }
 }
 
-export function failJob(job, message) {
+export async function failJob(job, message) {
   const step = job.steps.find((s) => s.status === 'running') ?? job.steps[job.steps.length - 1];
   if (step.status === 'pending' || step.status === 'running') {
     step.status = 'failed';
     step.detail = message;
     step.layer = 'server';
   }
-  finishJob(job, 'failed', 'failed');
+  await finishJob(job, 'failed', 'failed');
 }
 
 /** Run a job. Setup errors (no gRPC, no wallet) fail the job instead of
@@ -481,6 +473,6 @@ export async function runJob(job) {
     if (job.rail === 'ccd') return await runCcd(job);
     return await runEudemo(job);
   } catch (e) {
-    return failJob(job, `Could not start the payment: ${e.message}`);
+    return await failJob(job, `Could not start the payment: ${e.message}`);
   }
 }

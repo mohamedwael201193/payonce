@@ -9,7 +9,7 @@
 // 5 stages from a real after-pay verify call, 0.9 s apart, replay button.
 import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'framer-motion'
-import { ArrowRight, CheckCircle2, Fingerprint, Receipt, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
+import { ArrowRight, Bug, CheckCircle2, Receipt, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useConfig, useInvoices, useReceipt, useStats } from '../hooks/useApi'
 import { api } from '../lib/api'
@@ -20,54 +20,54 @@ import type { VerifyResponse } from '../lib/types'
 
 const FEATURES = [
   {
-    icon: Fingerprint,
-    title: 'Document hash match',
-    body: 'The invoice file must match the hash stored on chain.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Badge and LEI',
-    body: 'Seller identity is shown with its badge, and LEI state is shown when present.',
-  },
-  {
     icon: Wallet,
     title: 'Pay once',
     body: 'The contract refuses a second payment, a wrong amount, or a changed payee.',
   },
   {
+    icon: ShieldCheck,
+    title: 'Verify before you pay',
+    body: 'Check the document hash, the seller’s agent token and the unpaid status before Pay is enabled.',
+  },
+  {
+    icon: Bug,
+    title: 'Try to break it',
+    body: 'Send a wrong amount, a tampered file or a second payment, and watch each one stop.',
+  },
+  {
     icon: Receipt,
-    title: 'Verified receipt',
-    body: 'Every payment gets a receipt with the transaction hash, block, and payee.',
+    title: 'Receipts you can re-verify',
+    body: 'Every payment gets a receipt with the transaction hash, block and payee — check it again on chain any time.',
   },
 ]
 
 const STEPS = [
   {
     n: '01',
-    title: 'Register the payable',
-    body: 'The seller stores amount, payee and document hash on chain.',
+    title: 'Pick an invoice',
+    body: 'Choose a payable from the live registry, load an invoice file, or create a fresh one from the demo budget.',
   },
   {
     n: '02',
-    title: 'Verify before paying',
-    body: 'The payer checks hash, badge, LEI and unpaid status; a failed check disables Pay and states why.',
+    title: 'Check the invoice',
+    body: 'Nine checks run against the chain — document hash, agent token and unpaid status — before Pay is enabled.',
   },
   {
     n: '03',
-    title: 'Pay once, get a receipt',
-    body: 'Rail A pays in one transaction; Rail B (testnet) runs reserve, co-sign, confirm.',
+    title: 'Pay once',
+    body: 'One transaction on Rail A, or reserve, co-sign and confirm on Rail B. The receipt is yours to re-verify.',
   },
 ]
 
-function Terrain({ position = 'center' }: { position?: string }) {
+function Terrain({ src, position = 'center' }: { src: string; position?: string }) {
   return (
     <img
-      src="/assets/dawn-terrain.webp"
+      src={src}
       alt=""
       aria-hidden="true"
       loading="lazy"
-      width={1600}
-      height={900}
+      width={1920}
+      height={1280}
       className="absolute inset-0 h-full w-full object-cover"
       style={{ objectPosition: position }}
     />
@@ -81,7 +81,7 @@ export function Features() {
       <div className="text-center">
         <p className="text-sm font-medium tracking-[0.02em] text-ink">
           <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
-          What the chain checks
+          Built for clarity
         </p>
         <h2 id="features-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
           Four checks before a single cent moves.
@@ -95,15 +95,17 @@ export function Features() {
         {FEATURES.map((f, i) => (
           <motion.div
             key={f.title}
-            className="border border-line bg-card p-6"
+            className="flex min-h-[220px] flex-col justify-between border border-line bg-card p-6"
             initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
           >
-            <f.icon className="h-5 w-5 text-teal-700" aria-hidden="true" />
-            <h3 className="mt-4 text-[20px] leading-tight font-normal tracking-[-0.01em] text-ink">{f.title}</h3>
-            <p className="mt-2 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{f.body}</p>
+            <f.icon className="h-5 w-5 text-brand-700" aria-hidden="true" />
+            <div>
+              <h3 className="text-[20px] leading-tight font-normal tracking-[-0.01em] text-ink">{f.title}</h3>
+              <p className="mt-2 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{f.body}</p>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -112,7 +114,8 @@ export function Features() {
 }
 
 /** Step 01 visual: the real payables list; one row highlights for 1.2 s, cycling, only while in view. */
-function StepVisual01() {
+function StepVisual01({ tall = false }: { tall?: boolean }) {
+  void tall
   const invoices = useInvoices()
   const reduceMotion = useReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
@@ -126,7 +129,7 @@ function StepVisual01() {
   }, [inView, reduceMotion, items.length])
   return (
     <div ref={ref} className="relative h-[132px] overflow-hidden rounded-[6px] border border-line">
-      <Terrain position="center 20%" />
+      <Terrain src="/assets/step-sunset-field.webp" position="center 20%" />
       <div className="absolute inset-0 bg-white/55" aria-hidden="true" />
       <ul className="relative">
         {items.slice(0, 3).map((inv, i) => (
@@ -152,7 +155,8 @@ function StepVisual01() {
 }
 
 /** Step 02 visual: 3 sources → centre tile "9 checks"; amber dots travel the wires (SMIL). */
-function StepVisual02() {
+function StepVisual02({ tall = false }: { tall?: boolean }) {
+  void tall
   const config = useConfig()
   const reduceMotion = useReducedMotion()
   const sources = [
@@ -166,10 +170,12 @@ function StepVisual02() {
     'M 108 122 C 150 122, 150 86, 186 86',
   ]
   return (
-    <div className="relative h-[132px] overflow-hidden rounded-[6px] border border-line bg-paper">
+    <div className="relative h-[132px] overflow-hidden rounded-[6px] border border-line">
+      <Terrain src="/assets/step-sunset-hills.webp" position="center 40%" />
+      <div className="absolute inset-0 bg-white/75" aria-hidden="true" />
       <svg viewBox="0 0 280 148" className="absolute inset-0 h-full w-full" role="img" aria-label="Three sources — invoice file, registry, agent registry — feed the 9 checks">
         {paths.map((d) => (
-          <path key={d} d={d} fill="none" stroke="#0F766E" strokeWidth="1.5" opacity="0.55" />
+          <path key={d} d={d} fill="none" stroke="#B4430F" strokeWidth="1.5" opacity="0.55" />
         ))}
         {reduceMotion
           ? paths.map((d, i) => <circle key={d} r="3" fill="#F2B872" cx={150} cy={[26, 74, 122][i]} />)
@@ -180,17 +186,17 @@ function StepVisual02() {
             ))}
         {sources.map((s) => (
           <g key={s.label}>
-            <rect x={s.x} y={s.y - 10} width="100" height="22" rx="4" fill="#FFFFFF" stroke="#D5E0DE" />
-            <text x={s.x + 8} y={s.y + 4} fontSize="10" fill="#0B1F24" fontFamily="Inter, system-ui, sans-serif">
+            <rect x={s.x} y={s.y - 10} width="100" height="22" rx="4" fill="#FFFFFF" stroke="#E7DDCB" />
+            <text x={s.x + 8} y={s.y + 4} fontSize="10" fill="#171310" fontFamily="Inter, system-ui, sans-serif">
               {s.label}
             </text>
           </g>
         ))}
-        <rect x="186" y="52" width="86" height="44" rx="6" fill="#0B1F24" />
+        <rect x="186" y="52" width="86" height="44" rx="6" fill="#171310" />
         <text x="229" y="70" fontSize="12" fill="#FFFFFF" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif">
           9 checks
         </text>
-        <text x="229" y="86" fontSize="9" fill="#A7DCD0" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif">
+        <text x="229" y="86" fontSize="9" fill="#FDBA74" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif">
           before Pay
         </text>
       </svg>
@@ -199,30 +205,34 @@ function StepVisual02() {
 }
 
 /** Step 03 visual: the two rails, with links to the real paid examples. */
-function StepVisual03() {
+function StepVisual03({ tall = false }: { tall?: boolean }) {
   const invoices = useInvoices()
   const items = invoices.data ?? []
   const ccd = items.find((i) => i.status === 'paid' && i.asset === 'ccd')
   const eudemo = items.find((i) => i.status === 'paid' && i.asset === 'eudemo')
   return (
-    <div className="relative h-[132px] overflow-hidden rounded-[6px] border border-line">
-      <Terrain position="center 80%" />
+    <div
+      className={`relative overflow-hidden rounded-[6px] border border-line ${
+        tall ? 'h-full min-h-[280px]' : 'h-[132px]'
+      }`}
+    >
+      <Terrain src="/assets/step-sunset-grass.webp" position="center 80%" />
       <div className="absolute inset-0 bg-white/55" aria-hidden="true" />
       <div className="relative grid h-full grid-cols-2 gap-2 p-2">
         <div className="rounded-[4px] bg-white/90 p-2.5">
-          <p className="text-[11px] font-semibold tracking-[0.06em] text-teal-700 uppercase">Rail A · CCD</p>
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-brand-700 uppercase">Rail A · CCD</p>
           <p className="mt-1 text-[13px] leading-snug text-body">One transaction. The contract is the payment.</p>
           {ccd ? (
-            <Link to={`/receipt/${ccd.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-teal-700">
+            <Link to={`/receipt/${ccd.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-brand-700">
               Payable {ccd.payable_id} · {ccd.amount_display} →
             </Link>
           ) : null}
         </div>
         <div className="rounded-[4px] bg-white/90 p-2.5">
-          <p className="text-[11px] font-semibold tracking-[0.06em] text-teal-700 uppercase">Rail B · EUDemo</p>
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-brand-700 uppercase">Rail B · EUDemo</p>
           <p className="mt-1 text-[13px] leading-snug text-body">Reserve, co-sign, confirm. Testnet demo token.</p>
           {eudemo ? (
-            <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-teal-700">
+            <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-brand-700">
               Payable {eudemo.payable_id} · {eudemo.amount_display} →
             </Link>
           ) : null}
@@ -236,8 +246,6 @@ function StepVisual03() {
 function ReceiptChecker() {
   const invoices = useInvoices()
   const reduceMotion = useReducedMotion()
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { amount: 0.5, once: true })
   const paid = (invoices.data ?? []).filter((i) => i.status === 'paid')
   const target = paid[0]
   const [result, setResult] = useState<VerifyResponse | null>(null)
@@ -245,8 +253,12 @@ function ReceiptChecker() {
   const [shown, setShown] = useState(0)
   const [run, setRun] = useState(0)
 
+  // Fetch as soon as a paid invoice exists (read-only verify). The old
+  // inView gate never fired when the page was jumped to the bottom before
+  // layout settled, so the checker stayed empty. The staged reveal still
+  // plays as the user arrives; Replay re-runs it.
   useEffect(() => {
-    if (!inView || !target) return
+    if (!target) return
     let cancelled = false
     setResult(null)
     setError(null)
@@ -272,7 +284,7 @@ function ReceiptChecker() {
     return () => {
       cancelled = true
     }
-  }, [inView, target, run, reduceMotion])
+  }, [target, run, reduceMotion])
 
   const check = (id: string) => result?.checks.find((c) => c.id === id)
   const doc = check('doc')
@@ -289,7 +301,7 @@ function ReceiptChecker() {
                 : 'Hash: not run',
           detail: doc?.detail ?? '—',
         },
-        { label: 'Badge verified', detail: check('agent')?.detail ?? '—' },
+        { label: 'Seller agent active on the official registry', detail: check('agent')?.detail ?? '—' },
         {
           label: result.verdict === 'paid' ? 'Paid once: yes' : (status?.label ?? 'Status'),
           detail: status?.detail ?? '—',
@@ -302,7 +314,7 @@ function ReceiptChecker() {
     : []
 
   return (
-    <div ref={ref}>
+    <div>
       <p className="text-[13px] tracking-[0.02em] text-muted">Receipt checker</p>
       {!target ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">
@@ -318,7 +330,7 @@ function ReceiptChecker() {
         <ol className="mt-6 space-y-2.5">
           {stages.slice(0, shown).map((s, i) => (
             <li key={s.label} className="flex items-start gap-2 text-[14px] leading-snug">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
               <span>
                 <span className="font-medium text-ink">{s.label}.</span>{' '}
                 <span className="text-body">{s.detail}</span>
@@ -344,7 +356,7 @@ function ReceiptChecker() {
           <RotateCcw className="h-4 w-4" aria-hidden="true" /> Replay
         </button>
         {target ? (
-          <Link to={`/receipt/${target.payable_id}`} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700">
+          <Link to={`/receipt/${target.payable_id}`} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700">
             Open the full receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         ) : null}
@@ -366,7 +378,7 @@ export function HowItWorks() {
   const visuals = [StepVisual01, StepVisual02, StepVisual03]
 
   return (
-    <section aria-labelledby="how-title" className="mx-auto max-w-[1101px] px-4 pb-[114px] sm:px-6">
+    <section id="how" aria-labelledby="how-title" className="mx-auto max-w-[1101px] scroll-mt-4 px-4 pb-[114px] sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-sm font-medium tracking-[0.02em] text-ink">
@@ -389,7 +401,7 @@ export function HowItWorks() {
           return (
             <motion.div
               key={s.n}
-              className="border border-line bg-card p-6"
+              className={`border border-line bg-card p-6 ${i === 2 ? 'flex flex-col md:row-span-2' : ''}`}
               initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
@@ -398,8 +410,8 @@ export function HowItWorks() {
               <p className="text-[13px] tracking-[0.02em] text-muted">{s.n}</p>
               <h3 className="mt-4 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">{s.title}</h3>
               <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{s.body}</p>
-              <div className="mt-5">
-                <Visual />
+              <div className={i === 2 ? 'mt-5 flex-1' : 'mt-5'}>
+                <Visual tall={i === 2} />
               </div>
             </motion.div>
           )
@@ -413,7 +425,7 @@ export function HowItWorks() {
           transition={{ duration: 0.6, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="absolute inset-0" aria-hidden="true">
-            <Terrain position="center 60%" />
+            <Terrain src="/assets/wide-wheat.webp" position="center 60%" />
             <div className="absolute inset-0 bg-white/60" />
           </div>
           <div className="relative">
@@ -451,7 +463,7 @@ export function HowItWorks() {
                     Due {formatUtcDateTime(latestPaid.due)} · {COPY.labInvoiceLabel}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-teal-700">
+                    <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-brand-700">
                       Confirm receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Link>
                     {latestReceipt.data?.txs[0] ? (
@@ -459,7 +471,7 @@ export function HowItWorks() {
                         href={latestReceipt.data.txs[0].explorer_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-mono text-xs text-teal-700"
+                        className="font-mono text-xs text-brand-700"
                       >
                         {latestReceipt.data.txs[0].tx_hash.slice(0, 8)}…{latestReceipt.data.txs[0].tx_hash.slice(-6)} ↗
                       </a>
@@ -479,24 +491,25 @@ export function HowItWorks() {
             </div>
           </div>
         </motion.div>
-        {/* Visual slot — receipt checker (live 5-stage verify). */}
-        <motion.div
-          className="border border-line bg-card p-6"
-          initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <ReceiptChecker />
-        </motion.div>
       </div>
+      {/* Receipt checker — full width below the grid (live 5-stage verify). */}
+      <motion.div
+        className="handles mt-6 border border-line bg-card p-6"
+        initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.6, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <i aria-hidden="true" />
+        <ReceiptChecker />
+      </motion.div>
     </section>
   )
 }
 
 export function CtaBand() {
   return (
-    <section aria-labelledby="cta-title" className="bg-ink-dark-bg">
+    <section aria-labelledby="cta-title" className="bg-sky-0">
       <div className="mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-6 px-4 py-16 sm:px-6">
         <h2 id="cta-title" className="max-w-[520px] text-[32px] leading-[1.1] font-normal tracking-[-0.02em] text-white">
           Verify your first invoice in about a minute.

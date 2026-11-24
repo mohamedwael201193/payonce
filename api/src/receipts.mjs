@@ -18,12 +18,12 @@ import {
 } from './chain-v2.mjs';
 import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.mjs';
 import { docForPayable, recordedPaymentTx } from './docs.mjs';
-import { loadReceipts, saveReceipts, loadCounters, saveCounters } from './store.mjs';
+import { loadReceipts, saveReceipt, loadCounters, saveCounters } from './store.mjs';
 import { REGISTRY, txUrl } from './config.mjs';
 
 /** Payment transactions for a paid payable, from the store then evidence. */
-export function paymentTxsFor(payableId, view) {
-  const receipts = loadReceipts();
+export async function paymentTxsFor(payableId, view) {
+  const receipts = await loadReceipts();
   const stored = receipts[payableId];
   if (stored?.txs?.length) {
     return {
@@ -62,9 +62,9 @@ export async function buildReceiptFor(payableId) {
   const c = await grpc();
   const view = await getPayableOrNull(c, SELLER, payableId);
   if (!view || view.status !== 'Paid') return null;
-  const { txs, source } = paymentTxsFor(payableId, view);
+  const { txs, source } = await paymentTxsFor(payableId, view);
   if (txs.length === 0) return null;
-  const docBytes = docForPayable(payableId);
+  const docBytes = await docForPayable(payableId);
   const balance = await getRegistryBalance(c);
 
   let verifier = null;
@@ -100,12 +100,12 @@ export async function buildReceiptFor(payableId) {
         };
       }
     }
-    const counters = loadCounters();
+    const counters = await loadCounters();
     counters.verifierRuns += 1;
     if (verifier && verifier.passed === verifier.total) counters.verifierPassed += 1;
     else counters.verifierFailed += 1;
     counters.lastVerifierRunAt = new Date().toISOString();
-    saveCounters(counters);
+    await saveCounters(counters);
   } catch (e) {
     // The verifier failing to run is reported as a null verifier, never as
     // a fake pass — the receipt still names its transactions.
@@ -124,8 +124,6 @@ export async function buildReceiptFor(payableId) {
     verifier,
     payment_tx_source: source,
   };
-  const receipts = loadReceipts();
-  receipts[payableId] = receipt;
-  saveReceipts(receipts);
+  await saveReceipt(receipt);
   return receipt;
 }

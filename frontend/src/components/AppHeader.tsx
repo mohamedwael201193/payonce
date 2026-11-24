@@ -1,9 +1,13 @@
-// AppHeader — P3 §4 region A + design §3 nav.
+// AppHeader — P3 §4 region A + design §3 nav, video-matched (VIDEO_ANALYSIS.md).
 // Wordmark "PayOnce" (own generated mark), TESTNET badge, status pill,
-// nav (Home, For judges), "Connect wallet" (ghost) and "Verify an invoice"
-// (primary). Nav is NOT sticky (P2 §1: header scrolls away with the page).
-// "Connect wallet" is a landing affordance (design §5): in the app it opens
-// the verify flow — it never asks a judge to sign anything.
+// CENTER pill nav in a translucent rounded bar (active item = solid white
+// pill, like the video's Product pill), right: "Connect wallet" (ghost) and
+// "Verify an invoice" (solid white). The header sits OVER the sunset sky on
+// the home page (rendered by Hero) and over the deep-ember band on the
+// judges/receipt pages. Nav is NOT sticky: the header scrolls away.
+// "Connect wallet" is a landing affordance: in the app it opens the verify
+// flow — it never asks a judge to sign anything. The CTAs point at
+// "/#invoice" so they work from every page, not just home.
 import { Link, NavLink } from 'react-router-dom'
 import { useHealth } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
@@ -62,12 +66,15 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
           {COPY.testnetBadge}
         </span>
       </div>
-      <nav aria-label="Main" className="flex flex-wrap items-center gap-1">
+      <nav
+        aria-label="Main"
+        className="hidden items-center gap-1 rounded-full border border-white/25 bg-white/15 p-1 backdrop-blur md:flex"
+      >
         <NavLink
           to="/"
           end
           className={({ isActive }) =>
-            `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : dark ? 'text-white/90 hover:bg-white/10' : 'text-ink hover:bg-paper-2'}`
+            `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : 'text-white/90 hover:bg-white/10'}`
           }
         >
           Home
@@ -75,28 +82,30 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
         <NavLink
           to="/judges"
           className={({ isActive }) =>
-            `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : dark ? 'text-white/90 hover:bg-white/10' : 'text-ink hover:bg-paper-2'}`
+            `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : 'text-white/90 hover:bg-white/10'}`
           }
         >
           For judges
         </NavLink>
+      </nav>
+      <div className="flex items-center gap-2">
         <a
-          href="#invoice"
+          href="/#invoice"
           title="No wallet needed — judges verify without signing anything."
           className="hidden rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-[14px] font-medium text-white hover:bg-white/25 sm:inline-flex"
         >
           Connect wallet
         </a>
         <a
-          href="#invoice"
-          className="hidden rounded-full bg-white px-3.5 py-1.5 text-[14px] font-medium text-ink sm:inline-flex"
+          href="/#invoice"
+          className="inline-flex rounded-full bg-white px-3.5 py-1.5 text-[14px] font-medium text-ink"
         >
           Verify an invoice
         </a>
         <span className="ml-2 hidden lg:block">
           <StatusPill />
         </span>
-      </nav>
+      </div>
     </header>
   )
 }

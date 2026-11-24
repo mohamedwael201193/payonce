@@ -151,7 +151,7 @@ export function InvoiceStep({
           </label>
           <select
             id="lab-invoice"
-            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink focus-visible:outline-2 focus-visible:outline-teal-600"
+            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink focus-visible:outline-2 focus-visible:outline-brand-600"
             defaultValue=""
             onChange={(e) => {
               const id = Number.parseInt(e.target.value, 10)
@@ -177,7 +177,7 @@ export function InvoiceStep({
           onClick={() => setShowMoreWays((v) => !v)}
           aria-expanded={showMoreWays}
           aria-controls="invoice-more-ways"
-          className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-teal-600"
+          className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brand-600"
         >
           {showMoreWays ? (
             <ChevronUp className="h-4 w-4" aria-hidden="true" />
@@ -201,7 +201,7 @@ export function InvoiceStep({
               const f = e.dataTransfer.files?.[0]
               if (f) void loadFile(f)
             }}
-            className="flex min-h-[88px] w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line bg-paper px-4 py-3 text-sm text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-teal-600"
+            className="flex min-h-[88px] w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line bg-paper px-4 py-3 text-sm text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-brand-600"
           >
             <FileUp className="h-5 w-5" aria-hidden="true" />
             Drop a file here, or choose one
@@ -228,7 +228,7 @@ export function InvoiceStep({
             value={paste}
             onChange={(e) => setPaste(e.target.value)}
             placeholder="Paste the invoice text here…"
-            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-teal-600"
+            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand-600"
           />
           <div className="mt-2">
             <SecondaryButton onClick={() => void loadText(paste)} disabled={!paste.trim() || busy} disabledReason={!paste.trim() ? 'Paste the invoice text first.' : null}>
@@ -251,7 +251,7 @@ export function InvoiceStep({
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             placeholder="e.g. 2"
-            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-teal-600 sm:w-40"
+            className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-brand-600 sm:w-40"
           />
         </div>
         <SecondaryButton
