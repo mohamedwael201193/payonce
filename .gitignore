@@ -7,3 +7,5 @@ target/
 .env.*
 secrets/
 **/secrets/
+
+**/node_modules
