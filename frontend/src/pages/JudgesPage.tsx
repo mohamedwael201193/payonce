@@ -1,8 +1,9 @@
 // "For judges" panel — P3 §17. Contracts, transactions, verifier re-run,
 // known limits, build status, downloads. Every link uses the
 // /testnet/transaction/ pattern (never the plural /transactions/ path).
-// All transaction hashes below are the real recorded hashes from PAYABLE_LOG.md
-// as cited in P3 §17.
+// All transaction hashes below are real recorded hashes from the v2 live
+// runs (contracts/CONTRACT_REPORT.md §4, backend/BACKEND_REPORT.md §6,
+// api/API_REPORT.md §5). The registry is v2 <13150,0>.
 import { useConfig } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { useQuery } from '@tanstack/react-query'
@@ -15,31 +16,29 @@ const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
 const INST_BASE = 'https://ccdexplorer.io/testnet/instance/'
 
 const SAMPLE_TXS: Array<{ label: string; hash: string }> = [
-  { label: 'CCD — payable 1 registered', hash: 'd898683668cd8d55fdb2c0ab2505c2d547e137b7955e131b8863d82ad01efb2d' },
-  { label: 'CCD — payable 1 paid', hash: '00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6' },
-  { label: 'CCD — second payment refused (-5)', hash: 'a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848' },
-  { label: 'CCD — wrong amount refused (-6)', hash: '52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c' },
-  { label: 'CCD — unknown id refused (-3)', hash: 'd906c0b3b8bf6333cd0522fed0b39eabae168a2e35029edd9ac5a5b5874dae28' },
-  { label: 'CCD — payable 4 paid', hash: '78377f18f61f6ef475bc9176240e876ed18d31e461ffbeb43858a4fb17551a6e' },
-  { label: 'EUDemo — reserve', hash: 'ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1' },
-  { label: 'EUDemo — co-signed transfer, memo payable:2', hash: '7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef' },
-  { label: 'EUDemo — second reservation refused (-16)', hash: 'ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35' },
-  { label: 'EUDemo — confirm by seller', hash: '212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde' },
-  { label: 'EUDemo — reused hash refused (-12)', hash: '02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b' },
-  { label: 'EUDemo — stranger confirm refused (-17)', hash: '8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a' },
-  { label: 'EUDemo — expiry inside window refused (-13)', hash: '8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7' },
-  { label: 'EUDemo — expiry after window', hash: '492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760' },
+  { label: 'CCD — payable 10 registered', hash: 'e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9' },
+  { label: 'CCD — payable 10 paid', hash: '7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197' },
+  { label: 'CCD — second payment refused (-5)', hash: '7d37ec8e82fdc02192ffa3d14f794174fbf8ceee849f5bdb28b107b84199dd72' },
+  { label: 'CCD — wrong amount refused (-6)', hash: '925993da7905ddee5f74d0a133d20299d4fbb010c9998acb11e558d5cdf704f2' },
+  { label: 'CCD — unknown id refused (-3)', hash: '780bd33bc5a6af120b06242d5be8a43792e1b54bd3fa701031ab09d5a47613e3' },
+  { label: 'EUDemo — payable 11 registered', hash: '129f8943fd5c8a08241fe608899792acde712fe1ae3d9ee1d0eb067d2a790851' },
+  { label: 'EUDemo — reserve (by the payer)', hash: 'a36aa1e0d2ea71a4702075cd0d94752fac7f088dfb52d4038322b7e617180f0d' },
+  { label: 'EUDemo — co-signed transfer, memo payable:<owner>:11', hash: '690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214' },
+  { label: 'EUDemo — confirm by the reserving payer', hash: 'adf55f61c1345d14f05c6c0ee59b996dae8aaef06213e485a17cfb96376100c2' },
+  { label: 'EUDemo — confirm by the wrong account refused (-17)', hash: '7ded67fd78341574bb64b68adf21197ccad3ba1cd88f6ce1edcf55db94bdcc37' },
+  { label: 'EUDemo — reserve by the wrong payer refused (-21)', hash: '00f6cbd5271fd233861b4704c1a98c5d5fb3b308e8a5d35a1803af11758bed2e' },
+  { label: 'EUDemo — register without expected payer refused (-22)', hash: 'ac9eab3c75fbfc5604a2b2173c2c2d85b6496d842bec8320c4f76c1c8fecd543' },
 ]
 
 const KNOWN_LIMITS = [
   'Only the CCD route moves money inside the contract’s own transaction. The EUDemo route depends on the co-signer’s decision and on the node’s 2-of-3 rule. The contract cannot see PLT transfers.',
-  'H1: anyone can register a payable from a seller account that holds an Active agent token. The chain accepts it. The co-signer also approves a registered EUDemo payable without a vendor list. The vendor list is checked only by this web app before its pay buttons. A judge who pays through another client is not stopped.',
-  'H2: on the EUDemo route, confirm_plt records a payer-asserted transaction hash. The contract checks only that it is unused. The seller reads “paid” from the status, which is the weak spot. The verifier, not the status, is the check to trust.',
-  'Race: if a transfer finalises but its confirm lands after a third party releases the reservation, the invoice can be paid again. The co-signer’s 60 s margin is in place. The transaction-expiry bound is not built.',
-  'Seller identity: no LEI and no company proof. The seller’s agent is on our test instance, not on the official registry.',
-  'One lab identity seed and one machine hold the keys. The co-signer is a function inside the lab server, not a separate service.',
-  'Gas for the agent wallet is paid by the lab seller account.',
-  'Refused transactions still cost a fee. The fee for a successful CCD payment (16.2 testnet CCD in the run) is larger than the 0.5 CCD invoice. These are testnet fees, not mainnet estimates.',
+  'H1: the vendor list is on chain — buyer B approved the demo seller (tier 2, 100 CCD per payable, 1,000 CCD per day, 24 h period) — and the co-signer refuses any payable whose seller is not on it (live dry run on the dashboard, code no-approval). On the EUDemo rail the chain refuses an unlisted seller too (−19: reserve_plt always needs an approval row). On the CCD rail the chain refuses only in strict mode (−19), and strict mode is off in this demo run, so a CCD payment to an unlisted seller is not stopped on chain.',
+  'H2: on the EUDemo route the seller names the expected payer at registration, and only the reserving payer can confirm — a confirm from any other account reverts (−17, proven live in the smoke run). The contract still cannot see the PLT transfer itself, so the verifier — not the status — is the check to trust: it re-reads the transfer (payee, amount, memo) from the chain.',
+  'Race: the co-signer co-signs only while at least 60 s of the reservation remain and binds the transfer’s header expiry to reservation expiry − 60 s. A transfer that finalises after a third party releases the reservation can still only be confirmed by the reserving payer while the reservation is live.',
+  'Seller identity: the seller holds an Active agent token (1476) on the official registry <12802,0>, cross-checked by the contract at registration and at payment. No LEI and no company proof — the seller is the owner’s own identity, not a company. The company-identity check runs in the verifier, not in the contract (contracts cannot verify V&A proofs).',
+  'One testnet seed holds the keys (in-process, testnet only; a new seed is required before any publish). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
+  'Each party pays its own testnet fees (no sponsored transactions in this demo run).',
+  'Refused transactions still cost a fee. The fee for a successful CCD payment (19.6 testnet CCD in the v2 run) is larger than the 0.5 CCD invoice. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
   'Not in this flow: age proof for alcohol and similar, consent anchor (V&A). Both come from earlier lab phases and are not part of this idea’s flow.',
@@ -70,37 +69,38 @@ export function JudgesPage() {
             <div>
               <dt className="text-muted">Payable registry</dt>
               <dd>
-                <a href={`${INST_BASE}13149/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
-                  &lt;13149,0&gt; on the explorer
+                <a href={`${INST_BASE}13150/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
+                  &lt;13150,0&gt; on the explorer
                 </a>
               </dd>
             </div>
             <div>
               <dt className="text-muted">Module ref</dt>
               <dd className="font-mono text-xs text-ink break-all">
-                9b5b27fa7e6d4f40b5a94563b396d8760e2c6eca90eefa91949859be7ae71d24
+                c8083a94f57495ecc0ac6b7f18eb7f5944989897929c095e638b6362d55685a8
               </dd>
             </div>
             <div>
-              <dt className="text-muted">Module deploy transaction (409.514174 testnet CCD)</dt>
+              <dt className="text-muted">Module deploy transaction (612.779703 testnet CCD)</dt>
               <dd>
-                <HashLink hash="94987a8e9e31432ca63c84c775982790c158218c296dcf1638fa00116a58eb2e" explorerBase={TX_BASE} />
+                <HashLink hash="edb6d1af6166f3e17fe4623c1af85d41bc2020b09d8773a380be8e018dc6e5f3" explorerBase={TX_BASE} />
               </dd>
             </div>
             <div>
-              <dt className="text-muted">Init transaction (7.751697 testnet CCD)</dt>
+              <dt className="text-muted">Init transaction (8.234425 testnet CCD)</dt>
               <dd>
-                <HashLink hash="3ee0408419e0d340336653fae5e301ad09e702f5b8a3094f763eb3aaea1c5721" explorerBase={TX_BASE} />
+                <HashLink hash="50d007af74c64a20d280afff20276c49e379188c764564a43695cbce2370ee50" explorerBase={TX_BASE} />
               </dd>
             </div>
             <div>
-              <dt className="text-muted">Test CIS-8004 instance</dt>
+              <dt className="text-muted">Official CIS-8004 registry</dt>
               <dd>
-                <a href={`${INST_BASE}13144/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
-                  &lt;13144,0&gt; on the explorer
+                <a href={`${INST_BASE}12802/0`} target="_blank" rel="noreferrer" className="font-medium text-teal-700">
+                  &lt;12802,0&gt; on the explorer
                 </a>{' '}
                 <span className="text-muted">
-                  — our instance of the official module, with lab tokens. It is not the official registry &lt;12802,0&gt;.
+                  — the official registry. The seller’s agent token 1476 is registered there (Active, owned by the
+                  deployer) and is cross-checked by the contract at registration and at payment.
                 </span>
               </dd>
             </div>
@@ -127,18 +127,22 @@ export function JudgesPage() {
           </h2>
           <div className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
             <p className="text-muted">
-              Requirements: Node.js, and the packages the script imports (@concordium/web-sdk 12.0.3, @grpc/grpc-js).
-              The script was run from the lab folder on 24 Nov 2026. A standalone copy needs its own npm install;
-              packaging is not done.
+              Requirements: Node.js, and npm install in <code className="font-mono text-ink">api/</code> and in{' '}
+              <code className="font-mono text-ink">backend/</code> (the script imports the backend modules from there).
+              The script is read-only: no keys, no .env, no sends. It was run from the repo on 24 Nov 2026.
             </p>
             <pre className="mt-3 overflow-x-auto rounded-md bg-ink p-4 font-mono text-[13px] leading-relaxed text-paper">
-              {`node verify-payable.mjs 2 7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef
-node verify-payable.mjs 1 00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6`}
+              {`cd api && npm install
+cd ../backend && npm install
+cd ../api
+node src/verify-payable-v2.mjs 10 7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197 --doc ../backend/test/invoices/invoice-010-v2-ccd.txt
+node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214 --doc ../backend/test/invoices/invoice-011-v2-eudemo.txt`}
             </pre>
             <p className="mt-3 text-muted">
-              Expected output: <code className="font-mono text-ink">ALL CHECKS PASS (12/12)</code> for payable 2,{' '}
-              <code className="font-mono text-ink">(10/10)</code> for payable 1. Payable 2 was re-run on 24 Nov:
-              12/12, 13.6 s. Payable 1 is from the log, not re-run for this spec.
+              Expected output: <code className="font-mono text-ink">ALL CHECKS PASS (10/10)</code> for payable 10,{' '}
+              <code className="font-mono text-ink">ALL CHECKS PASS (12/12)</code> for payable 11. Both were re-run on 24
+              Nov 2026. Without <code className="font-mono text-ink">--doc</code> the document check is reported as
+              NOT RUN, not as a failure.
             </p>
             <p className="mt-3 text-muted">
               Note: the invoice documents are read by the verifier for the document check. A missing file shows as a
@@ -171,9 +175,10 @@ node verify-payable.mjs 1 00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc45
             Tests
           </h2>
           <p className="mt-4 rounded-none border border-line bg-card p-6 text-sm text-muted">
-            26 Rust integration tests pass (<code className="font-mono text-ink">cargo test --release</code> in{' '}
-            <code className="font-mono text-ink">contracts/payable_registry</code>). Co-signer refusal cases: 7 (no
-            transaction).
+            80 Rust tests pass (<code className="font-mono text-ink">cargo concordium test</code> in{' '}
+            <code className="font-mono text-ink">contracts/payable_registry_v2</code>). Co-signer decision cases: 35
+            (pure function, no transaction). Backend suite: 110 tests. API server suite: 26 tests (unit 10 + live
+            read-only 16).
           </p>
         </section>
 
