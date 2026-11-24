@@ -373,7 +373,10 @@ export function HowItWorks() {
   const items = invoices.data ?? []
   const paid = items.filter((i) => i.status === 'paid')
   const dueSoon = items.filter((i) => i.status !== 'paid')
-  const latestPaid = paid[0]
+  // The invoices list carries no paid_at, so the most recently created paid
+  // payable (highest id) is the latest payment: ids are sequential and the
+  // paid set was paid in id order (1006 paid 15:08 UTC, after 1005 13:20 UTC).
+  const latestPaid = [...paid].sort((a, b) => b.payable_id - a.payable_id)[0]
   const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null)
   const visuals = [StepVisual01, StepVisual02, StepVisual03]
 
