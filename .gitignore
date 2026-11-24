@@ -10,6 +10,7 @@ dist/
 .env.*
 secrets/
 **/secrets/
+.vercel/
 
 **/node_modules
 concordium-out/
