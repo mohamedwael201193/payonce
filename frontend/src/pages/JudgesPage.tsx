@@ -7,6 +7,7 @@
 import { useConfig } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
 import { Footer } from '../components/Sections'
 import { HashLink } from '../components/ui'
@@ -50,12 +51,17 @@ export function JudgesPage() {
   const build = config.data?.build
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="page-enter min-h-screen bg-paper">
       <div className="bg-sky-0">
         <AppHeader dark />
       </div>
       <main id="main" className="mx-auto max-w-[860px] px-4 py-12 sm:px-6">
-        <h1 className="text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">For judges</h1>
+        <p>
+          <Link to="/" className="font-medium text-brand-700">
+            ← Back to home
+          </Link>
+        </p>
+        <h1 className="mt-4 text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">For judges</h1>
         <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.5] text-muted">
           Everything on this page can be checked without us: contracts and transactions on the explorer, and a keyless
           verifier you can run yourself. No keys, no .env, read-only.
@@ -158,7 +164,7 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
                     <a href={f.url} className="font-medium text-brand-700">
                       {f.name}
                     </a>{' '}
-                    <span className="font-mono text-xs text-muted">SHA-256: {f.sha256}</span>
+                    <span className="font-mono text-xs break-all text-muted">SHA-256: {f.sha256}</span>
                   </li>
                 ))}
               </ul>
@@ -213,23 +219,23 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
           </h2>
           <dl className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
             <div className="flex gap-3 py-1.5">
-              <dt className="w-72 shrink-0 text-muted">Vendor list enforced by the co-signer</dt>
+              <dt className="w-32 shrink-0 text-muted sm:w-72">Vendor list enforced by the co-signer</dt>
               <dd className="text-ink">{build?.vendor_list_enforced_by_co_signer ? 'Yes' : 'Not yet (planned)'}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
-              <dt className="w-72 shrink-0 text-muted">Named payer on invoice</dt>
+              <dt className="w-32 shrink-0 text-muted sm:w-72">Named payer on invoice</dt>
               <dd className="text-ink">{build?.named_payer_on_invoice ? 'Yes' : 'Not yet (planned)'}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
-              <dt className="w-72 shrink-0 text-muted">Confirm by</dt>
+              <dt className="w-32 shrink-0 text-muted sm:w-72">Confirm by</dt>
               <dd className="text-ink">{build?.confirm_by ?? '—'}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
-              <dt className="w-72 shrink-0 text-muted">Transaction expiry bounded by the reservation</dt>
+              <dt className="w-32 shrink-0 text-muted sm:w-72">Transaction expiry bounded by the reservation</dt>
               <dd className="text-ink">{build?.header_expiry_bound ? 'Yes' : 'Not yet (planned)'}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
-              <dt className="w-72 shrink-0 text-muted">Co-signer runs as</dt>
+              <dt className="w-32 shrink-0 text-muted sm:w-72">Co-signer runs as</dt>
               <dd className="text-ink">{build?.co_signer_runs_as ?? '—'}</dd>
             </div>
           </dl>

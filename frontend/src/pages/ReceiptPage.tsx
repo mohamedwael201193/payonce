@@ -31,12 +31,17 @@ export function ReceiptPage() {
   const unpaid = payable.data?.status.kind !== 'paid'
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="page-enter min-h-screen bg-paper">
       <div className="bg-sky-0">
         <AppHeader dark />
       </div>
       <main id="main" className="mx-auto max-w-[860px] px-4 py-12 sm:px-6">
-        <h1 className="text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">
+        <p>
+          <Link to="/" className="font-medium text-brand-700">
+            ← Back to home
+          </Link>
+        </p>
+        <h1 className="mt-4 text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">
           Receipt — payable {valid ? id : '—'}
         </h1>
         {!valid ? (

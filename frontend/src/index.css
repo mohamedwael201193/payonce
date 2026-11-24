@@ -298,6 +298,29 @@ body {
     transform: translateY(-10px);
   }
 }
+
+/* Page-enter — a short fade + rise on every route change (design fix round
+   2: tab switches read as a transition, not a hard cut). The global
+   prefers-reduced-motion kill-switch below disables it. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: page-in 0.35s ease-out;
+}
+
+/* Hatched bar — the video's Forecast bars (diagonal hatch). Used by the
+   Cash-overview chart for unpaid-due bars; pure CSS, no image. */
+.bar-hatch {
+  background: repeating-linear-gradient(45deg, #ffffff 0 2px, #d8cfbc 2px 5px);
+}
 .animate-float {
   animation: float-y 6s ease-in-out infinite;
 }

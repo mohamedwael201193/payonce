@@ -5,9 +5,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { Activity, Bug, CheckCircle2, FileText, LayoutDashboard, Receipt as ReceiptIcon, Scale, Wallet } from 'lucide-react'
 import { BudgetNote } from '../components/BudgetNote'
 import { DashboardPreview } from '../components/DashboardPreview'
 import { Hero } from '../components/Hero'
+import { HeroOverview } from '../components/HeroOverview'
+import { Logo } from '../components/Logo'
 import { InvoiceStep } from '../components/InvoiceStep'
 import { CheckStep } from '../components/CheckStep'
 import { PayStep } from '../components/PayStep'
@@ -32,6 +35,9 @@ export function HomePage() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
   const [reverifyTick, setReverifyTick] = useState(0)
+  // Sidebar active section (video card's sidebar highlights the current
+  // item). Anchors are real links; the highlight follows the last click.
+  const [activeSection, setActiveSection] = useState('invoice')
   const resultRef = useRef<HTMLDivElement>(null)
 
   const explorerBase = config.data?.explorer.tx ?? 'https://ccdexplorer.io/testnet/transaction/'
@@ -231,12 +237,14 @@ export function HomePage() {
   }
 
   return (
-    <div id="top" className="min-h-screen bg-paper pb-24 md:pb-0">
+    <div id="top" className="page-enter min-h-screen bg-paper pb-24 md:pb-0">
       <main id="main">
         <Hero />
         {/* Floating dashboard card — the live flow, over the clouds (video
-            mockup): a slim anchor sidebar + the real invoice flow. The card
-            pulls up over the hero's cloud band and into the cream section. */}
+            mockup): the video card's Cash-overview window on top (live
+            data), the real invoice flow below it, a slim anchor sidebar
+            on the left. The card pulls up over the hero's cloud band and
+            into the cream section. */}
         <div className="relative z-10 mx-auto max-w-[1101px] px-4 sm:px-6">
           <div
             id="invoice"
@@ -247,39 +255,52 @@ export function HomePage() {
                 aria-label="Dashboard"
                 className="hidden w-[200px] shrink-0 flex-col border-r border-line bg-paper px-3 py-5 lg:flex"
               >
+                <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home" className="mb-4 px-3">
+                  <Logo size={28} />
+                </Link>
                 <p className="px-3 pb-3 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
                   Dashboard
                 </p>
-                <a
-                  href="#invoice"
-                  className="rounded-[4px] px-3 py-2 text-sm font-medium text-ink hover:bg-paper-2"
+                {[
+                  { id: 'invoice', href: '#invoice', label: 'Pick an invoice', icon: FileText },
+                  { id: 'check', href: '#check', label: 'Check', icon: CheckCircle2 },
+                  { id: 'pay', href: '#pay', label: 'Pay', icon: Wallet },
+                  { id: 'receipt', href: '#receipt', label: 'Receipt', icon: ReceiptIcon },
+                  { id: 'try', href: '#try', label: 'Try to break it', icon: Bug },
+                  { id: 'console', href: '#console', label: 'Live console', icon: Activity },
+                ].map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    aria-current={activeSection === item.id ? 'true' : undefined}
+                    onClick={() => setActiveSection(item.id)}
+                    className={`flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-sm hover:bg-paper-2 ${
+                      activeSection === item.id ? 'bg-paper-2 font-medium text-ink' : 'text-body'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                    {item.label}
+                  </a>
+                ))}
+                <Link
+                  to="/dashboard"
+                  className="flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2"
                 >
-                  Pick an invoice
-                </a>
-                <a href="#check" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
-                  Check
-                </a>
-                <a href="#pay" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
-                  Pay
-                </a>
-                <a href="#receipt" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
-                  Receipt
-                </a>
-                <a href="#try" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
-                  Try to break it
-                </a>
-                <a href="#console" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
-                  Live console
-                </a>
-                <Link to="/dashboard" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  <LayoutDashboard className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                   Dashboard
                 </Link>
-                <Link to="/judges" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                <Link
+                  to="/judges"
+                  className="flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2"
+                >
+                  <Scale className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                   For judges
                 </Link>
                 <p className="mt-auto px-3 pt-6 text-xs text-muted">Testnet · Concordium</p>
               </nav>
-              <div className="min-w-0 flex-1 p-5 sm:p-8">
+              <div className="min-w-0 flex-1">
+                <HeroOverview />
+                <div className="p-5 sm:p-8">
                 <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-6" aria-live="polite">
               {pageError ? <AlertInline>{pageError}</AlertInline> : null}
@@ -395,6 +416,7 @@ export function HomePage() {
         </div>
       </div>
     </div>
+  </div>
   </div>
         {/* Live console — the payables console, below the flow (design F10f:
             the compact hero cannot hold it and steps 1–3 must fit at 1440×900). */}

@@ -6,14 +6,16 @@
 // No invented percentages, no mock users, no fake activity.
 import { useMemo, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { ArrowRight, Download, LayoutDashboard, Receipt, Scale, Search, Wallet } from 'lucide-react'
+import { ArrowRight, Download, Home, LayoutDashboard, Receipt, Scale, Search, Wallet } from 'lucide-react'
 import { useConfig, useInvoices, useStats } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
+import { Logo } from '../components/Logo'
 import { activityFeed, dashboardStats, derivedStatus, donutSegments, filterInvoices, invoicesToCsv } from '../lib/dashboard'
 import { formatUtcDateTime } from '../lib/format'
 import { CountUp, Donut, InvoiceStatusPill, Reveal, Sparkline } from '../components/polish'
 
 const NAV = [
+  { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/#invoice', label: 'Pay an invoice', icon: Wallet, end: false },
   { to: '/#console', label: 'Live console', icon: Scale, end: false },
@@ -24,9 +26,8 @@ function Sidebar() {
   return (
     <aside className="shrink-0 bg-gradient-to-b from-sky-0 via-sky-1 to-sky-2 text-white lg:min-h-screen lg:w-[260px]">
       <div className="flex items-center gap-3 px-5 pt-5 pb-6 lg:px-6 lg:pt-8">
-        <Link to="/" className="flex items-center gap-2.5" aria-label="PayOnce home">
-          <img src="/assets/payonce-mark.webp" alt="" width={32} height={32} className="h-8 w-8 rounded-[4px]" />
-          <span className="text-[18px] font-medium tracking-[-0.01em]">PayOnce</span>
+        <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home">
+          <Logo dark size={32} />
         </Link>
         <span className="rounded-full border border-white/40 bg-white/15 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em]">
           {COPY.testnetBadge}
@@ -90,7 +91,7 @@ export function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-paper lg:flex">
+    <div className="page-enter min-h-screen bg-paper lg:flex">
       <Sidebar />
       <main id="main" className="min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10">
         <Reveal>

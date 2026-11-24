@@ -18,6 +18,7 @@ import { derivedStatus } from '../lib/dashboard'
 import { formatUtcDateTime } from '../lib/format'
 import { EXPLORER_HOME } from '../lib/tokens'
 import { CountUp, InvoiceStatusPill, Reveal } from './polish'
+import { Logo } from './Logo'
 import type { VerifyResponse } from '../lib/types'
 
 const FEATURES = [
@@ -651,10 +652,9 @@ export function Footer() {
     <footer className="border-t border-line bg-paper">
       <div className="mx-auto grid max-w-[1101px] grid-cols-2 gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div>
-          <p className="flex items-center gap-2 text-[17px] font-medium text-ink">
-            <img src="/assets/payonce-mark.webp" alt="" width={24} height={24} className="h-6 w-6 rounded-[4px]" />
-            PayOnce
-          </p>
+          <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home">
+            <Logo size={24} />
+          </Link>
           <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-muted">
             Payments, settled. Every invoice paid once. Every payment provable.
           </p>
