@@ -1,0 +1,9 @@
+node_modules/
+target/
+*.private.json
+*.private.txt
+*.private.*
+.env
+.env.*
+secrets/
+**/secrets/

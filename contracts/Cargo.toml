@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["payable_registry", "cis8004_mock"]
+
+[profile.release]
+opt-level = "z"
+codegen-units = 1
+lto = true
+panic = "abort"

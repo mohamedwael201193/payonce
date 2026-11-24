@@ -1,0 +1,13 @@
+[package]
+name = "payable_registry"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+concordium-std = "11"
+
+[dev-dependencies]
+concordium-smart-contract-testing = "5"
