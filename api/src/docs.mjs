@@ -97,7 +97,7 @@ export function evidenceIndex() {
   const v1 = loadJsonIfExists(join(BACKEND_DIR, 'test/live-e2e-2026-11-24.json'));
   const x402 = loadJsonIfExists(join(BACKEND_DIR, 'test/x402-e2e-2026-11-24.json'));
   const mcp = loadJsonIfExists(join(BACKEND_DIR, 'test/mcp-live-pay-2026-11-24.json'));
-  const matrix = loadJsonIfExists('/home/hatch/workspace/payonce-build/contract/scripts/matrix-v2-result.json');
+  const matrix = loadJsonIfExists(join(BACKEND_DIR, '../contracts/scripts/matrix-v2-result.json'));
 
   // Payment txs for the v2 happy path (from the recorded run, not guessed).
   const paymentTx = {};
