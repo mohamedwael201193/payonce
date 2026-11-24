@@ -43,6 +43,8 @@ in the repo. Use the backend verifier above.)
 
 ## 2. Rail A (CCD) — the contract *is* the payment
 
+**v1 (superseded — the deployed registry is v2 `<13150,0>`):**
+
 | What | Transaction | Expected |
 |---|---|---|
 | Payable stored as structured on-chain fields; seller agent cross-called (Active, owner = seller) | `d898683668cd8d55fdb2c0ab2505c2d547e137b7955e131b8863d82ad01efb2d` | Finalized |
@@ -50,6 +52,17 @@ in the repo. Use the backend verifier above.)
 | Second payment reverts (-5), money does not move | `a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848` | Rejected |
 | Wrong amount reverts (-6) | `52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c` | Rejected |
 | Unknown id reverts (-3) | `d906c0b3b8bf6333cd0522fed0b39eabae168a2e35029edd9ac5a5b5874dae28` | Rejected |
+
+**v2 (deployed — `<13150,0>`, live on the deployed stack):**
+
+| What | Transaction | Expected |
+|---|---|---|
+| Payable 10 registered (CCD 0.5, payee1) | `e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9` | Finalized |
+| `pay_ccd` forwards 500,000 microCCD to the stored payee in the same tx | `7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197` | Finalized; verifier 10/10 |
+| Second payment reverts (-5), money does not move | `7d37ec8e82fdc02192ffa3d14f794174fbf8ceee849f5bdb28b107b84199dd72` | Rejected |
+| Wrong amount reverts (-6) | `a5e6c6b2589b5dfd89e7c59b54e36ceec232f2bb6fc961cf37a4ee96f2dfc584` | Rejected |
+| Payable 1005 created + paid on the deployed stack (register) | `e7e62bf6f99f99c2cda51c2c273ba129168248bbeef414690a1923c05509d002` | Finalized |
+| Payable 1005 paid live via the UI (0.5 CCD, fee 21.182163 CCD) | `244949231ace2927d3466263aad3dba9996fab7ca8b94e12be8943205ce5326d` | Finalized; verifier 10/10 |
 
 The verifier binds the transaction to the payable id (it reads the `pay_ccd`
 parameter and the contract's `Paid` event). Proof: checking payable 1
@@ -63,6 +76,8 @@ node src/verifier/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e46
 
 ## 3. Rail B (EUDemo) — the guard precedes the payment
 
+**v1 (superseded — the deployed registry is v2 `<13150,0>`):**
+
 | What | Transaction | Expected |
 |---|---|---|
 | `reserve_plt` by the 2-of-3 agent account (sponsored) | `ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1` | Finalized |
@@ -73,6 +88,15 @@ node src/verifier/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e46
 | Stranger confirm rejected (-17) | `8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a` | Rejected |
 | Early expiry rejected (-13) | `8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7` | Rejected |
 | Expiry by a third party after the window | `492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760` | Finalized |
+
+**v2 (deployed — `<13150,0>`, live on the deployed stack):**
+
+| What | Transaction | Expected |
+|---|---|---|
+| Payable 11 registered (EUDemo 0.01, payee2) | `129f8943fd5c8a08241fe608899792acde712fe1ae3d9ee1d0eb067d2a790851` | Finalized |
+| `reserve_plt` (window exactly 3600 s) | `a36aa1e0d2ea71a4702075cd0d94752fac7f088dfb52d4038322b7e617180f0d` | Finalized |
+| Co-signed 0.01 EUDemo to the stored payee, memo `payable:<owner>:11` | `690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214` | Finalized; verifier 12/12 |
+| `confirm_plt`, tx hash pinned (PltConfirmed) | `adf55f61c1345d14f05c6c0ee59b996dae8aaef06213e485a17cfb96376100c2` | Finalized |
 
 ```sh
 cd backend
@@ -114,7 +138,13 @@ On the dashboard, five attacks each name the layer that refuses them:
 
 1. Pay the same payable twice → **Chain** refuses (-5).
 2. Pay a fraudster's payable (seller not on the buyer's vendor list) →
-   **Chain** refuses (-19) / **Co-signer** refuses.
+   **Co-signer** refuses (live dry run: `no-approval` — the vendor list IS
+   enforced by the co-signer on v2). **Chain** refuses (-19) on the EUDemo
+   rail (`reserve_plt` always needs an approval row); on the CCD rail the
+   chain refuses (-19) **only in strict mode, which is off in this demo
+   run** — so on CCD the co-signer is the layer that stops it, not the
+   chain. No fraud payable exists on this registry to try live (no second
+   seller holds an Active agent token).
 3. Confirm with a junk hash → **Chain** refuses (-12/-17).
 4. Pay after the reservation window → **Chain** refuses (-24).
 5. Agent key alone tries to move funds → **the node** rejects it.
