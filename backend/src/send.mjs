@@ -35,7 +35,14 @@ export const PAYEE2_ADDRESS = '4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1T
 export const REGISTRY = { index: 13149n, subindex: 0n };
 
 function loadEnv() {
-  return parse(readFileSync(ENV_PATH, 'utf8'));
+  // Locally the .env file wins when present. Deployed services have no
+  // local .env file: fall back to process.env (Render env vars). Keys
+  // never leave this module's memory either way.
+  try {
+    return parse(readFileSync(ENV_PATH, 'utf8'));
+  } catch {
+    return process.env;
+  }
 }
 
 /** Account signers, built in-process. Keys never leave this module's memory. */
