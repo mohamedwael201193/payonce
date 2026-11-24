@@ -98,6 +98,47 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
   independent re-run; MCP live pay Rail A 12/12 + Rail B 15/15).
 - Known limits are listed in `VERIFY.md` — including what is *not* yet live.
 
+## Age proof (V&A, G8) — testnet
+
+- The `/verify-age` page proves 18+ (and EU nationality) with a
+  zero-knowledge presentation from the holder's Concordium credential,
+  checked by the official testnet verifier — without revealing the birthday.
+  Payments of 1 CCD or 1.00 EUDemo and up need a fresh verified 18+ proof
+  for the payer (see `api/src/age-proof.mjs`).
+- Filing is IN MEMORY (Batch C fix-back — the spec's `age_proof` body field
+  does not exist): a proof gets on file only inside `POST
+  /api/age-proof/verify`, after the official verifier returns 200 for a
+  presentation the prover built. No client claim is ever trusted. Filed
+  proofs live in process memory with a ≤10-minute freshness window; a
+  server restart loses them and the payer simply re-verifies (the verify
+  call is free). No store persistence.
+- Statements are derived from the request actually proven (a
+  nationality-only proof claims no age and files nothing); the filed record
+  is bound to the presentation's credential holder, resolved on chain via
+  `getAccountInfo(credId)`, and must equal the payer.
+- `POST /api/age-proof/verify-presentation` verifies a client-supplied
+  presentation straight against the official verifier — verification only,
+  nothing filed. That is the live-400 leg: a tampered presentation returns
+  the real HTTP 400 through the API without the prover sidecar.
+- BLOCKED (not hidden): the prover sidecar file (`prover-C3.private.json`)
+  is not in this workspace, so the live 403 rules and the full live loop
+  (verify → file → pay succeeds) cannot run until it is provisioned on the
+  API host. The planner's live run (G7) has since been attempted separately
+  (see `~/workspace/payonce-build/road-to-1/batch-c/g7-live-proof/`):
+  injection PASS live with 0 dispatches, but tool-calling reliability 0/10
+  on the v1-hardcoded verifier bug — the reliability gate was NOT passed at
+  that time; the verifier fix was done separately
+  (`~/workspace/payonce-build/road-to-1/batch-c/verifier-fix/`). Update
+  (~00:00): the separate verifier-fix is reported DONE, G7 reliability
+  10/10 live, now in independent judgment (3 judges) — this repo claims
+  nothing about the G7 reliability gate; its status is that judgment's to
+  call. Until the
+  sidecar is provisioned the age routes fail closed with 503
+  `prover_unavailable` and age-gated pays stay 409.
+- Precision: no under-18-holder test has ever been run — the proven live
+  rejections are forbidden shapes (prover 403) and a tampered presentation
+  (verifier 400). No copy here claims otherwise.
+
 ## Rules
 
 - No mocks, no fake hashes, no stubbed flows.

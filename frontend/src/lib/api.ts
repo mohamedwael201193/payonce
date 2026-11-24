@@ -3,6 +3,9 @@
 // (three tries, §7.5) on node_busy / chain_unreachable / HTTP 429.
 import { z } from 'zod'
 import type {
+  AgeProofHealth,
+  AgeProofPolicyDecision,
+  AgeProofVerifyResult,
   ApiConfig,
   ApiErrorBody,
   AttackResult,
@@ -219,6 +222,146 @@ const recordedSchema = z.object({
 const judgeFilesSchema = z.object({
   files: z.array(z.object({ name: z.string(), url: z.string(), sha256: z.string() })),
 })
+
+// ---- Age proof (G8) ----
+// The policy-check 403 and the verify 400 are meaningful RESULTS, not
+// errors, so these helpers use raw fetch (no retry, no error-envelope
+// mapping) and return the status alongside the parsed body.
+const ageProofHealthSchema = z.object({
+  service: z.string(),
+  prover_available: z.boolean(),
+  prover: z.object({
+    service: z.string(),
+    network: z.string(),
+    attributes_held: z.array(z.string()),
+    issuer_did: z.string().nullable(),
+    allow_list: z.array(z.string()),
+    refuses: z.array(z.string()),
+  }),
+  anchored_run: z.object({
+    vra: z.string(),
+    vaa: z.string(),
+    record_sha256: z.string(),
+    statements: z.array(z.string()),
+  }),
+  proven_rejections: z.array(z.string()),
+  checked_at: z.string(),
+})
+
+const ageProofPolicySchema = z.object({
+  allowed: z.boolean(),
+  rule: z.string(),
+  reason: z.string(),
+})
+
+const ageProofVerifySchema = z.object({
+  valid: z.boolean(),
+  statements: z.array(z.string()).optional(),
+  filed_for_payable: z.number().nullable().optional(),
+  holder: z.string().nullable().optional(),
+  binding: z.string().optional(),
+  verified_at: z.string().optional(),
+  verifier_status: z.number().optional(),
+  reason: z.string().optional(),
+})
+
+const ageProofVerifyPresentationSchema = z.object({
+  valid: z.boolean(),
+  filed_for_payable: z.number().nullable().optional(),
+  verified_at: z.string().optional(),
+  verifier_status: z.number().optional(),
+})
+
+async function rawJson(path: string, init?: RequestInit): Promise<{ status: number; body: unknown }> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    })
+  } catch {
+    throw new ApiError(0, {
+      code: 'chain_unreachable',
+      layer: 'server',
+      message: 'The testnet is not answering. Showing the last verified data.',
+      retryable: true,
+    })
+  }
+  return { status: res.status, body: await res.json().catch(() => null) }
+}
+
+function ageProofError(status: number, body: unknown): ApiError {
+  const parsed = errorBodySchema.safeParse((body as { error?: unknown } | null)?.error ?? body)
+  return new ApiError(
+    status,
+    parsed.success
+      ? (parsed.data as ApiErrorBody)
+      : { code: 'internal', layer: 'server', message: 'Something went wrong on our side.', retryable: false },
+  )
+}
+
+export const ageProofApi = {
+  health: async (): Promise<AgeProofHealth> => {
+    const { status, body } = await rawJson('/api/age-proof/health')
+    if (status !== 200) throw ageProofError(status, body)
+    const parsed = ageProofHealthSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new ApiError(status, {
+        code: 'internal',
+        layer: 'server',
+        message: 'Something went wrong on our side.',
+        retryable: false,
+      })
+    }
+    return parsed.data
+  },
+  policyCheck: async (request: unknown): Promise<{ status: number; decision: AgeProofPolicyDecision }> => {
+    const { status, body } = await rawJson('/api/age-proof/policy-check', {
+      method: 'POST',
+      body: JSON.stringify({ request }),
+    })
+    if (status !== 200 && status !== 403) throw ageProofError(status, body)
+    const parsed = ageProofPolicySchema.safeParse(body)
+    if (!parsed.success) throw ageProofError(status, body)
+    return { status, decision: parsed.data }
+  },
+  verify: async (
+    request: unknown,
+    payableId?: number,
+    payer?: string,
+  ): Promise<{ status: number; result: AgeProofVerifyResult }> => {
+    // M3 fix-back: the payable id AND the payer both travel with the
+    // request — without them the API verifies but files nothing, so the
+    // pay-flow gate can never open. Either may be omitted for a
+    // verify-only call (no filing).
+    const { status, body } = await rawJson('/api/age-proof/verify', {
+      method: 'POST',
+      body: JSON.stringify({
+        request,
+        ...(payableId ? { payable_id: payableId } : {}),
+        ...(payer ? { payer } : {}),
+      }),
+    })
+    if (status !== 200 && status !== 400 && status !== 403) throw ageProofError(status, body)
+    const parsed = ageProofVerifySchema.safeParse(body)
+    if (!parsed.success) throw ageProofError(status, body)
+    return { status, result: parsed.data }
+  },
+  // F2a: verify-only path for a client-supplied presentation, straight to
+  // the official verifier. Nothing is filed, the gate is untouched.
+  verifyPresentation: async (
+    presentation: unknown,
+  ): Promise<{ status: number; result: { valid: boolean; verifier_status?: number } }> => {
+    const { status, body } = await rawJson('/api/age-proof/verify-presentation', {
+      method: 'POST',
+      body: JSON.stringify({ presentation }),
+    })
+    if (status !== 200 && status !== 400) throw ageProofError(status, body)
+    const parsed = ageProofVerifyPresentationSchema.safeParse(body)
+    if (!parsed.success) throw ageProofError(status, body)
+    return { status, result: parsed.data }
+  },
+}
 
 const RETRYABLE_CODES = new Set(['node_busy', 'chain_unreachable'])
 const RETRY_DELAYS_MS = [1000, 2000, 4000]

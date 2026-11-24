@@ -14,7 +14,7 @@
     "verifier": {
       "passed": 10,
       "total": 10,
-      "checked_at": "2026-11-24T10:56:52.834Z"
+      "checked_at": "2026-11-24T20:53:04.173Z"
     },
     "payment_tx_source": "server_store"
   },
@@ -43,7 +43,7 @@
     "verifier": {
       "passed": 14,
       "total": 14,
-      "checked_at": "2026-11-24T10:56:54.232Z"
+      "checked_at": "2026-11-24T20:53:05.774Z"
     },
     "payment_tx_source": "chain"
   },
@@ -140,6 +140,101 @@
       "passed": 14,
       "total": 14,
       "checked_at": "2026-11-24T10:58:23.617Z"
+    },
+    "payment_tx_source": "chain"
+  },
+  "1005": {
+    "payable_id": 1005,
+    "amount_display": "0.500000 CCD",
+    "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+    "payer_label": "Demo payer account (lab)",
+    "txs": [
+      {
+        "label": "Payment",
+        "tx_hash": "244949231ace2927d3466263aad3dba9996fab7ca8b94e12be8943205ce5326d",
+        "explorer_url": "https://ccdexplorer.io/testnet/transaction/244949231ace2927d3466263aad3dba9996fab7ca8b94e12be8943205ce5326d"
+      }
+    ],
+    "verifier": {
+      "passed": 10,
+      "total": 10,
+      "checked_at": "2026-11-24T19:59:33.511Z"
+    },
+    "payment_tx_source": "server_store"
+  },
+  "1006": {
+    "payable_id": 1006,
+    "amount_display": "0.500000 CCD",
+    "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+    "payer_label": "Demo payer account (lab)",
+    "txs": [
+      {
+        "label": "Payment",
+        "tx_hash": "279e84c3eadc21ec7bef7e4d37ae559cd88988a13e90df71e053926b6aeacbc0",
+        "explorer_url": "https://ccdexplorer.io/testnet/transaction/279e84c3eadc21ec7bef7e4d37ae559cd88988a13e90df71e053926b6aeacbc0"
+      }
+    ],
+    "verifier": {
+      "passed": 10,
+      "total": 10,
+      "checked_at": "2026-11-24T19:59:41.725Z"
+    },
+    "payment_tx_source": "server_store"
+  },
+  "1012": {
+    "payable_id": 1012,
+    "amount_display": "0.01 EUDemo",
+    "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+    "payer_label": "Demo payer account (lab)",
+    "txs": [
+      {
+        "label": "Transfer",
+        "tx_hash": "0a2ad8ba32637dc39154fcf17033c7f201fc1c0ac252cd6cbeb926d035ef944b",
+        "explorer_url": "https://ccdexplorer.io/testnet/transaction/0a2ad8ba32637dc39154fcf17033c7f201fc1c0ac252cd6cbeb926d035ef944b"
+      }
+    ],
+    "verifier": {
+      "passed": 13,
+      "total": 14,
+      "checked_at": "2026-11-24T20:52:27.382Z"
+    },
+    "payment_tx_source": "chain"
+  },
+  "1014": {
+    "payable_id": 1014,
+    "amount_display": "0.01 EUDemo",
+    "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+    "payer_label": "Demo payer account (lab)",
+    "txs": [
+      {
+        "label": "Transfer",
+        "tx_hash": "db7fdf9625db4d4fceedf1b1c01483da3efbfbab1d84697ed3a83ac5d084e9ef",
+        "explorer_url": "https://ccdexplorer.io/testnet/transaction/db7fdf9625db4d4fceedf1b1c01483da3efbfbab1d84697ed3a83ac5d084e9ef"
+      }
+    ],
+    "verifier": {
+      "passed": 13,
+      "total": 14,
+      "checked_at": "2026-11-24T20:52:28.962Z"
+    },
+    "payment_tx_source": "chain"
+  },
+  "1015": {
+    "payable_id": 1015,
+    "amount_display": "0.01 EUDemo",
+    "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+    "payer_label": "Demo payer account (lab)",
+    "txs": [
+      {
+        "label": "Transfer",
+        "tx_hash": "1b543d8bfbe783eaea41085a9ac644694faf857aa80501da9e858dce198272eb",
+        "explorer_url": "https://ccdexplorer.io/testnet/transaction/1b543d8bfbe783eaea41085a9ac644694faf857aa80501da9e858dce198272eb"
+      }
+    ],
+    "verifier": {
+      "passed": 13,
+      "total": 14,
+      "checked_at": "2026-11-24T20:52:30.266Z"
     },
     "payment_tx_source": "chain"
   }

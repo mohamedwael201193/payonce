@@ -198,3 +198,41 @@ export interface JudgeFile {
   url: string
   sha256: string
 }
+
+export interface AgeProofHealth {
+  service: string
+  prover_available: boolean
+  prover: {
+    service: string
+    network: string
+    attributes_held: string[]
+    issuer_did: string | null
+    allow_list: string[]
+    refuses: string[]
+  }
+  anchored_run: {
+    vra: string
+    vaa: string
+    record_sha256: string
+    statements: string[]
+  }
+  proven_rejections: string[]
+  checked_at: string
+}
+
+export interface AgeProofPolicyDecision {
+  allowed: boolean
+  rule: string
+  reason: string
+}
+
+export interface AgeProofVerifyResult {
+  valid: boolean
+  statements?: string[]
+  filed_for_payable?: number | null
+  holder?: string | null
+  binding?: string
+  verified_at?: string
+  verifier_status?: number
+  reason?: string
+}
