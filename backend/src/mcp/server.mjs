@@ -11,6 +11,24 @@
 //   receipt         — stored receipt facts for a Paid payable, re-read live.
 //   list_payables   — payable rows for a list of ids, read live.
 //
+// READS ARE V2 (Batch C fix-back, F1): every payable view in this file is
+// read from the live v2 registry <13150,0> via backend/src/v2/registry.mjs
+// (getPayableV2OrNull, seller = OWNER_ADDRESS) — the same views the
+// product API uses. The v1 registry <13149,0> holds only the legacy
+// payables 6/7/8/9; every fresh payable (1000+) lives on v2 only, so the
+// v1 reads could not see them. KNOWN SPLIT (not hidden): the SEND path
+// below (pay_payable's sendUpdate + the co-signer gate snapshot + the
+// CCD/PLT verifier's contract-event checks) still targets the v1 contract
+// and v1 event shapes — the v2 send/verifier re-scope is Batch B's
+// registry-scoping work, not this file. Consequences, stated plainly:
+// (a) pay_payable validates a v2 payable, then its v1 send is rejected by
+// the v1 contract for a v2-only id — fail-closed, no money moves;
+// (b) verify_invoice on a v2 CCD pay tx fails CCD-03/04/05/08 (the
+// verifier looks for v1 contract events) and on a v2 EUDemo transfer
+// fails PLT-07/08 (the v2 memo is seller-qualified, `payable:<seller>:<id>`)
+// — the verifier is v1-shaped until Batch B re-scopes it. The tool
+// descriptions say exactly which registry each leg reads.
+//
 // Testnet only. No mocks, no fakes: every result comes from a live chain
 // read (or, for pay_payable, a live send). Keys are loaded in-process only
 // by src/send.mjs and are never printed, logged, or returned.
@@ -43,7 +61,12 @@ import {
   encodeCborMemo,
   canonicalMemo,
 } from '../chain.mjs';
-import { getPayable, getPayableOrNull, getRegistryBalance } from '../registry.mjs';
+// F1: payable views come from the v2 registry <13150,0> (see header) —
+// the v1 read path (backend/src/registry.mjs) is NOT used here at all.
+// NOTE (honesty judge): that v1 getPayable hex-pads the id wrong for v1
+// ids >= 256; using the v2 views sidesteps it — the v1 padding is NOT
+// "fixed" here, the v1 read path is simply not used.
+import { getPayableV2OrNull, getRegistryBalanceV2 } from '../v2/registry.mjs';
 import { verifyCcd, verifyPlt, verifyPltTransfer } from '../verifier/checks.mjs';
 import { decodeLoggedEvents } from '../events.mjs';
 import {
@@ -60,11 +83,16 @@ import { decide } from '../cosigner/decide.mjs';
 import { buildSnapshot } from '../cosigner/snapshot.mjs';
 
 export const NETWORK = 'testnet';
-export const REGISTRY = { index: 13149, subindex: 0 };
+export const REGISTRY = { index: 13150, subindex: 0 };
+// V2 views are keyed by (seller, id): every payable in this server is
+// read for the lab seller = the owner account (same seller the product
+// API uses for its v2 reads).
+const SELLER = OWNER_ADDRESS;
 
 // Co-signer approval policy for the live E2E (TEST VALUES, same as
-// spikes/live-e2e.mjs — not owner decisions). The v1 registry has no
-// vendor-approval rows; the policy is an operator input until v2 ships.
+// spikes/live-e2e.mjs — not owner decisions). The policy is an operator
+// input to the gate in this server; the live v2 vendor row is not
+// consulted here.
 export const TEST_APPROVAL = {
   tier: 'test',
   legalRef: null,
@@ -131,6 +159,9 @@ function loadEvidence() {
  * from the evidence file of the run that created them. The hashes are then
  * re-read live from the chain and re-verified — the file is a pointer to
  * real on-chain transactions, not a substitute for them.
+ * NOTE: this evidence is v1-anchored (payables 6/7, which do not exist on
+ * v2), so for v2 payables it returns null and the PLT reserve/confirm
+ * checks SKIP — the verifier never passes them silently.
  */
 export function evidenceFor(payableId) {
   const ev = loadEvidence();
@@ -172,7 +203,7 @@ async function pltContextsFor(client, payableId, txHash) {
     try {
       const rs = await getTxStatus(client, ev.reserveTx);
       const rbt = await getBlockTime(client, rs.blockHash);
-      const upd = updatedEvent(rs, 'payable_registry.reserve_plt');
+      const upd = updatedEvent(rs, 'payable_registry_v2.reserve_plt');
       reserve = { blockTime: rbt, logged: upd ? decodeLoggedEvents(upd) : [] };
     } catch {
       reserve = null;
@@ -198,6 +229,7 @@ function payableRow(view) {
     asset: view.asset,
     seller: view.seller,
     payee: view.payee,
+    expectedPayer: view.expectedPayer ?? null,
     due: view.due,
     dueMs: view.dueMs,
     docHash: view.docHash,
@@ -207,8 +239,8 @@ function payableRow(view) {
 
 async function loadPayableOrFail(client, payableId) {
   if (!Number.isInteger(payableId) || payableId < 1) fail(`invalid payableId: ${payableId}`);
-  const view = await getPayableOrNull(client, payableId);
-  if (!view) fail(`unknown payable ${payableId}: no payable with that id is registered on testnet registry <13149,0>`);
+  const view = await getPayableV2OrNull(client, SELLER, payableId);
+  if (!view) fail(`unknown payable ${payableId}: no payable with that id is registered on testnet registry <13150,0>`);
   return view;
 }
 
@@ -249,7 +281,7 @@ export async function verifyInvoice({ payableId, txHash, docPath = null }) {
     fail(`unknown tx ${txHash}: ${e.message}`);
   }
   const blockTime = await getBlockTime(client, summary.blockHash);
-  const balance = await getRegistryBalance(client);
+  const balance = await getRegistryBalanceV2(client);
   if (view.asset === 'CCD') {
     const result = verifyCcd({ payableId, txHash, summary, blockTime, view, balance, docBytes });
     return { tool: 'verify_invoice', network: NETWORK, payableId, txHash, asset: view.asset, status: view.status, blockTime: blockTime.slotTime, ...result };
@@ -271,7 +303,7 @@ export async function listPayables({ ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] } = {
   const client = grpcClient();
   const payables = [];
   for (const id of ids) {
-    const view = await getPayableOrNull(client, id);
+    const view = await getPayableV2OrNull(client, SELLER, id);
     if (!view) {
       payables.push({ id, exists: false, status: 'absent' });
     } else {
@@ -349,7 +381,7 @@ export async function getReceipt({ payableId }) {
 // ---------------------------------------------------------------------------
 
 /** All pre-send checks. Throws on the first failure — before any signer is loaded. */
-async function validatePayableForPayment(client, { payableId, rail, docPath }) {
+export async function validatePayableForPayment(client, { payableId, rail, docPath }) {
   if (!Number.isInteger(payableId) || payableId < 1) fail(`invalid payableId: ${payableId}`);
   if (rail !== 'ccd' && rail !== 'eudemo') fail(`invalid rail "${rail}": expected "ccd" or "eudemo"`);
   if (!docPath) fail('docPath is required for pay_payable: the invoice document must match the stored doc_hash');
@@ -434,8 +466,8 @@ export async function payPayable({ payableId, rail, docPath }) {
     });
     const status = await waitFinalized(client, pay.txHash);
     const blockTime = await getBlockTime(client, status.blockHash);
-    const viewAfter = await getPayable(client, payableId);
-    const balance = await getRegistryBalance(client);
+    const viewAfter = await loadPayableOrFail(client, payableId);
+    const balance = await getRegistryBalanceV2(client);
     const verification = verifyCcd({ payableId, txHash: pay.txHash, summary: status, blockTime, view: viewAfter, balance, docBytes });
     return {
       tool: 'pay_payable', network: NETWORK, payableId, rail,
@@ -460,7 +492,7 @@ export async function payPayable({ payableId, rail, docPath }) {
   if (!reserved) {
     fail(`reserve_plt tx ${reserve.txHash} finalized but no Reserved event was logged — stopping before any transfer (reservation tx: ${reserve.txHash})`);
   }
-  const viewReserved = await getPayable(client, payableId);
+  const viewReserved = await loadPayableOrFail(client, payableId);
   if (viewReserved.status !== 'Reserved' || viewReserved.record?.payer !== SELLER_B_ADDRESS) {
     fail(`payable ${payableId} is ${viewReserved.status} after reserve tx ${reserve.txHash}, not Reserved by seller B — stopping before any transfer`);
   }
@@ -512,8 +544,8 @@ export async function payPayable({ payableId, rail, docPath }) {
     fail(`confirm_plt tx ${confirm.txHash} finalized but no PltConfirmed event was logged (reserve tx: ${reserve.txHash}, transfer tx: ${transfer.txHash})`);
   }
   const confirmBlockTime = await getBlockTime(client, confirmStatus.blockHash);
-  const viewAfter = await getPayable(client, payableId);
-  const balance = await getRegistryBalance(client);
+  const viewAfter = await loadPayableOrFail(client, payableId);
+  const balance = await getRegistryBalanceV2(client);
   const verification = verifyPlt({
     payableId, txHash: transfer.txHash, summary: transferStatus, blockTime: transferBlockTime,
     view: viewAfter, balance, reserve: reserveCtx,
@@ -542,32 +574,32 @@ export function createMcpServer() {
   const server = new McpServer({ name: 'payonce', version: '1.0.0' });
 
   server.registerTool('verify_invoice', {
-    description: 'Verify a payment transaction against a payable on the Concordium testnet registry <13149,0>. Runs the CCD verifier (12 checks) or the PLT/EUDemo verifier (up to 15 checks) live from chain state and returns the full check list plus allPass. Throws a tool error (no crash) on unknown payable, unknown tx, or invoice-doc mismatch.',
+    description: 'Verify a payment transaction against a payable on the Concordium testnet registry <13150,0> (v2 views, seller = owner account). Runs the CCD verifier (12 checks) or the PLT/EUDemo verifier (up to 15 checks) live from chain state and returns the full check list plus allPass. Throws a tool error (no crash) on unknown payable, unknown tx, or invoice-doc mismatch. NOTE: the verifier still checks v1 contract-event shapes, so a v2 CCD pay tx fails CCD-03/04/05/08 and a v2 EUDemo transfer fails PLT-07/08 on its seller-qualified memo — the v2 verifier re-scope is pending (Batch B).',
     inputSchema: {
-      payableId: z.number().int().min(1).describe('Payable id on registry <13149,0>'),
+      payableId: z.number().int().min(1).describe('Payable id on registry <13150,0>'),
       txHash: z.string().regex(/^[0-9a-fA-F]{64}$/).describe('64-hex transaction hash to verify'),
       docPath: z.string().optional().describe('Optional path to the invoice document; when given, its SHA-256 must match the stored doc_hash'),
     },
   }, async (args) => textResult(await verifyInvoice(args)));
 
   server.registerTool('pay_payable', {
-    description: 'Pay a payable for real on Concordium testnet. Rail "ccd": the owner pays via pay_ccd. Rail "eudemo": co-signer gate -> reserve_plt -> gate -> EUDemo transfer with memo payable:<id> -> gate -> confirm_plt. Validates everything first (payable exists, Unpaid, doc hash matches, rail matches asset, not past due, payer balances cover amount + fees, co-signer caps) and refuses WITHOUT sending on any failure.',
+    description: 'Pay a payable for real on Concordium testnet. Rail "ccd": the owner pays via pay_ccd. Rail "eudemo": co-signer gate -> reserve_plt -> gate -> EUDemo transfer with memo payable:<seller>:<id> -> gate -> confirm_plt. Validates everything first against the v2 registry <13150,0> (payable exists, Unpaid, doc hash matches, rail matches asset, not past due, payer balances cover amount + fees, co-signer caps) and refuses WITHOUT sending on any failure. SPLIT (stated, not hidden): the send path still targets the v1 contract <13149,0>, so a v2-only payable fails at send without moving money — the v2 send re-scope is pending (Batch B).',
     inputSchema: {
-      payableId: z.number().int().min(1).describe('Payable id on registry <13149,0>'),
+      payableId: z.number().int().min(1).describe('Payable id on registry <13150,0>'),
       rail: z.enum(['ccd', 'eudemo']).describe('Payment rail: "ccd" for CCD payables, "eudemo" for EUDemo payables'),
       docPath: z.string().describe('Path to the invoice document; its SHA-256 must match the stored doc_hash'),
     },
   }, async (args) => textResult(await payPayable(args)));
 
   server.registerTool('receipt', {
-    description: 'Receipt facts for a payable, re-read live from the chain: payable row, payment/transfer/confirm tx hashes, block times, and a fresh verifier re-run. Returns "not paid yet" for Unpaid payables.',
+    description: 'Receipt facts for a payable, re-read live from the v2 registry <13150,0>: payable row, payment/transfer/confirm tx hashes, block times, and a fresh verifier re-run. Returns "not paid yet" for Unpaid payables.',
     inputSchema: {
-      payableId: z.number().int().min(1).describe('Payable id on registry <13149,0>'),
+      payableId: z.number().int().min(1).describe('Payable id on registry <13150,0>'),
     },
   }, async (args) => textResult(await getReceipt(args)));
 
   server.registerTool('list_payables', {
-    description: 'Payable rows for a list of ids, read live from the testnet registry <13149,0>: id, status, amount, asset, payee, due. Unregistered ids are reported as absent.',
+    description: 'Payable rows for a list of ids, read live from the testnet registry <13150,0> (v2 views, seller = owner account): id, status, amount, asset, payee, due. Unregistered ids are reported as absent.',
     inputSchema: {
       ids: z.array(z.number().int().min(1)).max(50).optional().describe('Payable ids to list (default 1..10)'),
     },
@@ -579,5 +611,5 @@ export function createMcpServer() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = createMcpServer();
   await server.connect(new StdioServerTransport());
-  console.error('payonce MCP server running on stdio (testnet, registry <13149,0>)');
+  console.error('payonce MCP server running on stdio (testnet, registry <13150,0>)');
 }

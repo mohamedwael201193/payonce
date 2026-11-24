@@ -126,6 +126,10 @@ export const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       return send(res, 200, {
         service: 'scoped-prover', network: NETWORK, credId: HELD.credId, attributesHeld: HELD_TAGS,
+        // The issuer DID is public (it names the identity provider on
+        // chain); the API health passes it through so the /verify-age page
+        // can build demo requests without hardcoding an IdP.
+        issuerDid: `did:ccd:${NETWORK.toLowerCase()}:idp:${HELD.issuer}`,
         allowList: [
           `dob AttributeInRange lower=${AGE_LOWER} upper=today-18y or today-21y (+0 or +1 day)`,
           'nationality AttributeInSet, set exactly the EU 27',

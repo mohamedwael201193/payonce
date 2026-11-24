@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Activity, Bug, CheckCircle2, FileText, LayoutDashboard, Receipt as ReceiptIcon, Scale, Wallet } from 'lucide-react'
+import { Activity, Bug, CheckCircle2, FileText, LayoutDashboard, Receipt as ReceiptIcon, Scale, ShieldCheck, Wallet } from 'lucide-react'
 import { BudgetNote } from '../components/BudgetNote'
 import { DashboardPreview } from '../components/DashboardPreview'
 import { Hero } from '../components/Hero'
@@ -295,6 +295,13 @@ export function HomePage() {
                 >
                   <Scale className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                   For judges
+                </Link>
+                <Link
+                  to="/verify-age"
+                  className="flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2"
+                >
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                  Verify age
                 </Link>
                 <p className="mt-auto px-3 pt-6 text-xs text-muted">Testnet · Concordium</p>
               </nav>

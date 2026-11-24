@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ReceiptPage } from './pages/ReceiptPage'
 import { JudgesPage } from './pages/JudgesPage'
+import { AgeProofPage } from './pages/AgeProofPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/receipt/:payableId" element={<ReceiptPage />} />
           <Route path="/judges" element={<JudgesPage />} />
+          <Route path="/verify-age" element={<AgeProofPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

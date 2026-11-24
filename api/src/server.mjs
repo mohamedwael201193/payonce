@@ -9,6 +9,7 @@
 // read-only endpoint works without them.
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
+import { CredentialRegistrationId } from '@concordium/web-sdk';
 import { backend } from './backend.mjs';
 import {
   grpc, chainNow, getPayable, getPayableOrNull, getConfig as getChainConfig,
@@ -31,6 +32,9 @@ import {
 import { initStore } from './db.mjs';
 import { reconcile } from './reconcile.mjs';
 import { ledgerForDecide } from './ledger.mjs';
+import {
+  createAgeProofHandlers, ageGateCheck,
+} from './age-proof.mjs';
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
@@ -83,6 +87,36 @@ function clientIp(req) {
   if (typeof fwd === 'string' && fwd) return fwd.split(',')[0].trim();
   return req.socket?.remoteAddress ?? 'unknown';
 }
+
+// ---- V&A age proof (G8): prover proxy + pay-flow gate. The prover is a
+// loopback sidecar on the API host (PROVER_URL, default 127.0.0.1:8788);
+// until its secret sidecar file is provisioned, every age-proof route
+// fails closed with 503 prover_unavailable and age-gated pays stay 409 —
+// except POST /api/age-proof/verify-presentation (F2a), which needs no
+// prover: it sends a client-supplied presentation straight to the official
+// verifier for verification only (nothing filed, gate untouched).
+//
+// M2 holder binding: a presentation's credential is identified by its
+// credId (did:ccd:<net>:cred:<hex> in credentialSubject.id); the account
+// address is resolved on chain below (the SDK accepts a credId as the
+// account identifier). A proof is filed only when that holder equals the
+// payer; an unresolvable holder files nothing (fail closed).
+async function resolveHolderAccount(credIdHex) {
+  try {
+    const c = await grpc();
+    const info = await c.getAccountInfo(CredentialRegistrationId.fromHexString(credIdHex));
+    const j = JSON.parse(JSON.stringify(info, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    const address = j?.accountAddress;
+    return typeof address === 'string' && address ? address : null;
+  } catch {
+    return null;
+  }
+}
+const ageProof = createAgeProofHandlers({
+  readBody, sendJson, apiError, rateLimited, hitWindow, clientIp,
+  attemptsPerMinutePerIp: LIMITS.attemptsPerMinutePerIp,
+  resolveHolderAccount,
+});
 
 async function readBody(req, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
@@ -486,6 +520,16 @@ async function handlePay(req, res, id) {
   if (view.status === 'Voided') {
     return apiError(res, 409, 'wrong_status', 'chain', `Payable ${id} is Voided and cannot be paid.`);
   }
+  // G8 age gate: payables >= 1 CCD or >= 1.00 EUDemo need a fresh
+  // (<=10 min) verified 18+ presentation for the payer on file for this
+  // payable — filed only via POST /api/age-proof/verify, never trusted
+  // from a client claim. Below the threshold age proof is optional.
+  const gate = ageGateCheck(view, PAYER_ADDRESS);
+  if (gate) {
+    return apiError(res, gate.status, gate.code, gate.layer, gate.message, {
+      verify_url: gate.verify_url, payable_id: gate.payable_id,
+    });
+  }
   const { job, created } = await createOrReturnJob(id, rail);
   if (created) void runJob(job);
   sendJson(res, 200, {
@@ -659,7 +703,7 @@ const routes = [
   ['GET', /^\/$/, async (req, res) => sendJson(res, 200, {
     service: 'payonce-api', network: NETWORK,
     registry: `<${REGISTRY.index},${REGISTRY.subindex}> (${REGISTRY.name})`,
-    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files'],
+    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files', 'GET /api/age-proof/health', 'POST /api/age-proof/policy-check', 'POST /api/age-proof/verify', 'POST /api/age-proof/verify-presentation'],
   })],
   ['GET', /^\/api\/config$/, handleConfig],
   ['GET', /^\/api\/health$/, handleHealth],
@@ -680,6 +724,10 @@ const routes = [
   ['GET', /^\/api\/recorded\/(\d+)$/, (req, res, m) => handleRecorded(req, res, Number(m[1]))],
   ['GET', /^\/api\/judges\/files$/, (req, res) => handleJudgeFiles(req, res, null)],
   ['GET', /^\/api\/judges\/files\/([^/]+)$/, (req, res, m) => handleJudgeFiles(req, res, decodeURIComponent(m[1]))],
+  ['GET', /^\/api\/age-proof\/health$/, (req, res) => ageProof.handleHealth(req, res)],
+  ['POST', /^\/api\/age-proof\/policy-check$/, (req, res) => ageProof.handlePolicyCheck(req, res)],
+  ['POST', /^\/api\/age-proof\/verify$/, (req, res) => ageProof.handleVerify(req, res)],
+  ['POST', /^\/api\/age-proof\/verify-presentation$/, (req, res) => ageProof.handleVerifyPresentation(req, res)],
 ];
 
 const server = createServer(async (req, res) => {
