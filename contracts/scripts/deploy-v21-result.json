@@ -1,0 +1,25 @@
+{
+  "moduleRef": "a299ab6b6a9e056f02898b6da0c9e56eca987d5364a3cb4e3a99ab65d02a77eb",
+  "contract": "<13152,0>",
+  "wasmBytes": 73815,
+  "wasmSha256": "06d5f344167d3b30a87bed2247442fb450333850b275c69b98546ef435c84ca9",
+  "wasmPrefixedSha256": "a299ab6b6a9e056f02898b6da0c9e56eca987d5364a3cb4e3a99ab65d02a77eb",
+  "deployTx": "c986439093f28567aa80e82b2791a5e0d97202ce472b8973bbbc8b82b43afcf6",
+  "initTx": "99a826e64611c6ccacdf4303504451895c93ac9254ad8217bcfaa7d2a784ff27",
+  "log": [
+    {
+      "label": "deploy-module",
+      "hash": "c986439093f28567aa80e82b2791a5e0d97202ce472b8973bbbc8b82b43afcf6",
+      "status": "finalized",
+      "energyUsed": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"93513e62a15477ec88f3e1fefc391b4cf01066790cfbecea144effc2981ef76b\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"81365\",\"__type\":\"ccd_energy\"},\"hash\":\"c986439093f28567aa80e82b2791a5e0d97202ce472b8973bbbc8b82b43afcf6\",\"type\":\"accountTransaction\",\"cost\":\"631753567\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"deployModule\",\"moduleDeployed\":{\"tag\":\"ModuleDeployed\",\"contents\":\"a299ab6b6a9e056f02898b6da0c9e56eca987d5364a3cb4e3a99ab65d02a77eb\"}}}}"
+    },
+    {
+      "label": "init-contract",
+      "hash": "99a826e64611c6ccacdf4303504451895c93ac9254ad8217bcfaa7d2a784ff27",
+      "status": "finalized",
+      "energyUsed": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"df301162f27fe8947bc8c6c7bcbcc8590d7c5a518f67f27e77364bd039c8544a\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1064\",\"__type\":\"ccd_energy\"},\"hash\":\"99a826e64611c6ccacdf4303504451895c93ac9254ad8217bcfaa7d2a784ff27\",\"type\":\"accountTransaction\",\"cost\":\"8261363\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"initContract\",\"contractInitialized\":{\"tag\":\"ContractInitialized\",\"address\":{\"index\":\"13152\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"amount\":\"0\",\"initName\":\"init_payable_registry_v2_1\",\"events\":[],\"contractVersion\":1,\"ref\":\"a299ab6b6a9e056f02898b6da0c9e56eca987d5364a3cb4e3a99ab65d02a77eb\"}}}}"
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "runAt": "2026-11-24T10:50:10.963Z",
+  "network": "testnet",
+  "contract": "<13152,0>",
+  "roles": {
+    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "sellerAgentToken": 1476,
+    "sellerNote": "token 1476 on official CIS-8004 <12802,0>, Active (probed live on v2)",
+    "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "payerNote": "B pays; payer != seller. Seller-B roles impossible: B owns no agent token on <12802,0> (D6 open). All guards exercised identically.",
+    "payeeCcd": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+    "payeePlt": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+  },
+  "derivation": {
+    "account": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "identity": 1,
+    "counter": 1,
+    "matchesChainVerifyKey": true
+  },
+  "dustDrill": {
+    "note": "Plain-transfer donation is impossible (Transfer recipient is a 32-byte account address; see header). This step proves the equivalent live fact: dust cannot enter via any transaction.",
+    "contractBalanceBeforeMicroCcd": "0",
+    "balanceZeroBefore": true,
+    "attachedCcdProbe": {
+      "sent": true,
+      "hash": "90cc8c30cf00520694ee7b33d94523ff631b5760d456b64bd6a555767ed15ceb",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"730\",\"__type\":\"ccd_energy\"},\"hash\":\"90cc8c30cf00520694ee7b33d94523ff631b5760d456b64bd6a555767ed15ceb\",\"type\":\"accountTransaction\",\"cost\":\"5668041\",\"sender\":\"4MvdMEG",
+      "costMicroCcd": "5668041",
+      "energy": "730",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13152",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2_1.record_payment_tx",
+        "rejectReason": -2147483636,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060a000000000000001111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "contractBalanceAfterProbeMicroCcd": "0",
+    "balanceStillZero": true,
+    "pass": true
+  },
+  "approve": {
+    "hash": "99b6278ad6d54649cc7bb1a439d25d5587c63f5e48896889dcf363d3aeab8119",
+    "costMicroCcd": "10047184",
+    "energy": "1294",
+    "pass": true
+  },
+  "railA": {
+    "register": {
+      "hash": "c42c0581e8a90c22ab9af00289c0176d76313ebbf90b763e0ca0fc5e6715880d",
+      "costMicroCcd": "16351909",
+      "energy": "2106",
+      "pass": true
+    },
+    "pay": {
+      "hash": "d0f30224c57f811b53c5ddf11a4cdbb45e0f8fbd78d30b38397c255b9952919e",
+      "costMicroCcd": "19574151",
+      "energy": "2521",
+      "pass": true,
+      "rejectReason": null,
+      "contractBalanceAfterMicroCcd": "0",
+      "balanceEqualsBalanceBefore": true,
+      "view": {
+        "seller": "8f069b2c09e4…",
+        "id": 10,
+        "payee": "e51d96dd31e0…",
+        "amount": 500000,
+        "asset": "Ccd",
+        "due": 1798286400000,
+        "docHash": "c448e0268481…",
+        "token": 1476,
+        "expected": "ba99a32ebd8b…",
+        "legal": null,
+        "status": "Paid payer=ba99a32e… at=1795518109593 tx=none",
+        "payer": "ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4",
+        "txHash": null
+      },
+      "payee1DeltaMicroCcd": 500000,
+      "payeeDeltaOk": true
+    },
+    "record": {
+      "notPayer": {
+        "hash": "6e5a358d39166c3a09ddcee1c66535a79d96c584da1b851e7f0e4cec69643f9e",
+        "pass": true
+      },
+      "zeroHash": {
+        "hash": "e16a7032dfeb17ba0a56464876cb970de19fe03f4e23fe35206a93221ae07923",
+        "pass": true
+      },
+      "success": {
+        "hash": "a3ae4f704d4b6c96760217a92d97ce3930abb9e670ea3459a63d1d13af370f11",
+        "costMicroCcd": "11561250",
+        "energy": "1489",
+        "pass": true
+      },
+      "doubleRecord": {
+        "hash": "054d7689099b6cef348deabc31d25050b2f344d8926e48f77360cb678135541a",
+        "pass": true
+      },
+      "viewAfter": {
+        "seller": "8f069b2c09e4…",
+        "id": 10,
+        "payee": "e51d96dd31e0…",
+        "amount": 500000,
+        "asset": "Ccd",
+        "due": 1798286400000,
+        "docHash": "c448e0268481…",
+        "token": 1476,
+        "expected": "ba99a32ebd8b…",
+        "legal": null,
+        "status": "Paid payer=ba99a32e… at=1795518109593 tx=d0f30224c57f…",
+        "payer": "ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4",
+        "txHash": "d0f30224c57f811b53c5ddf11a4cdbb45e0f8fbd78d30b38397c255b9952919e"
+      },
+      "viewTxHashEqualsPayHash": true
+    }
+  },
+  "railB": {
+    "register": {
+      "hash": "e29f5be831d3906ce9b68e43d27db63c072e3fb98ee012d2d4536e1205114f69",
+      "costMicroCcd": "16763424",
+      "energy": "2159",
+      "pass": true
+    },
+    "reserve": {
+      "hash": "183a8379c8757c21fad47060f6b3d9136e849b091a68ffde4b33ccba20bd8cc2",
+      "costMicroCcd": "17423401",
+      "energy": "2244",
+      "pass": true
+    },
+    "transfer": {
+      "hash": "880dcdd4f42ef4b6ec2b36a8a2d9383e7c6390dfbbef9f6dac1f8f5705604d2a",
+      "costMicroCcd": "5644748",
+      "energy": "727",
+      "memo": "payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:11"
+    },
+    "confirm": {
+      "hash": "dc87e2eaaebb5d50c73ef46032f5b22349e8e4a56aec57231a1270bdbf20ca91",
+      "costMicroCcd": "12935556",
+      "energy": "1666",
+      "pass": true,
+      "view": {
+        "seller": "8f069b2c09e4…",
+        "id": 11,
+        "payee": "ccafc8b5445d…",
+        "amount": 10000,
+        "asset": "Plt(EUDemo)",
+        "due": 1798286400000,
+        "docHash": "4e45fc18a18d…",
+        "token": 1476,
+        "expected": "ba99a32ebd8b…",
+        "legal": null,
+        "status": "Paid payer=ba99a32e… at=1795518165593 tx=880dcdd4f42e…",
+        "payer": "ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4",
+        "txHash": "880dcdd4f42ef4b6ec2b36a8a2d9383e7c6390dfbbef9f6dac1f8f5705604d2a"
+      },
+      "viewTxHashEqualsTransferHash": true,
+      "payee2Delta": 10000,
+      "payeeDeltaOk": true
+    }
+  },
+  "balances": {
+    "before": {
+      "ownerCcd": 141938248270,
+      "bCcd": 465303996,
+      "payee1Ccd": 158583844,
+      "payee2Ccd": 184975707,
+      "bEudemo": "207360000",
+      "payee2Eudemo": "100100000",
+      "contractMicroCcd": "0"
+    },
+    "after": {
+      "ownerCcd": 141915653752,
+      "bCcd": 376770784,
+      "payee1Ccd": 159083844,
+      "payee2Ccd": 184975707,
+      "bEudemo": "207350000",
+      "payee2Eudemo": "100110000",
+      "contractMicroCcd": "0"
+    }
+  },
+  "final": {
+    "p10": {
+      "seller": "8f069b2c09e4…",
+      "id": 10,
+      "payee": "e51d96dd31e0…",
+      "amount": 500000,
+      "asset": "Ccd",
+      "due": 1798286400000,
+      "docHash": "c448e0268481…",
+      "token": 1476,
+      "expected": "ba99a32ebd8b…",
+      "legal": null,
+      "status": "Paid payer=ba99a32e… at=1795518109593 tx=d0f30224c57f…",
+      "payer": "ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4",
+      "txHash": "d0f30224c57f811b53c5ddf11a4cdbb45e0f8fbd78d30b38397c255b9952919e"
+    },
+    "p11": {
+      "seller": "8f069b2c09e4…",
+      "id": 11,
+      "payee": "ccafc8b5445d…",
+      "amount": 10000,
+      "asset": "Plt(EUDemo)",
+      "due": 1798286400000,
+      "docHash": "4e45fc18a18d…",
+      "token": 1476,
+      "expected": "ba99a32ebd8b…",
+      "legal": null,
+      "status": "Paid payer=ba99a32e… at=1795518165593 tx=880dcdd4f42e…",
+      "payer": "ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4",
+      "txHash": "880dcdd4f42ef4b6ec2b36a8a2d9383e7c6390dfbbef9f6dac1f8f5705604d2a"
+    },
+    "dustStillInContract": true,
+    "allPassed": true
+  },
+  "approveFixed": {
+    "hash": "1179dd356a03ffabfb605f30d14b6a0a733e8b11faa79826a6a8a3be79176796",
+    "costMicroCcd": "9301798",
+    "energy": "1198",
+    "pass": true,
+    "note": "overwrites run-1 approval (legal hash) with legal=null to match p10/p11"
+  }
+}

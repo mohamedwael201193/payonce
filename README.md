@@ -31,6 +31,12 @@ no trust in us.
 - `contracts/payable_registry_v2/` — v2 (27 reject codes, H1/H2/race fixes).
   Live on testnet at `<13150,0>` (module `c8083a94…`, 80/80 Rust tests,
   35/35 co-signer cases, 25/25 live matrix — see `contracts/CONTRACT_REPORT.md`).
+- `contracts/payable_registry_v2_1/` — v2.1 (the −18 fix + `record_payment_tx`).
+  Live on testnet at `<13152,0>` (module `a299ab6b…`, 83/83 Rust tests,
+  35/35 co-signer cases, 33/33 live matrix — see
+  `contracts/CONTRACT_V21_REPORT.md`). **Not the deploy target yet** — the
+  deploy target stays v2 `<13150,0>` until the API server's v2.1-switch fix
+  lands and is re-verified on v2.1 (see `VERIFY.md` §6).
 - `services/` — v1 co-signer, live scripts, scoped prover. (The v1 keyless
   verifier there is superseded — it does not run from a fresh clone; the
   working verifier is `backend/src/verifier/`.)
@@ -55,9 +61,10 @@ no trust in us.
 ## Build and test
 
 ```sh
-# Contract tests (v1: 26 tests; v2: 80 tests incl. the full 27-code reject matrix)
+# Contract tests (v1: 26 tests; v2: 80 tests incl. the full 27-code reject matrix; v2.1: 83 tests)
 cd contracts/payable_registry && cargo test --release
 cd contracts/payable_registry_v2 && cargo concordium test   # 80 tests (Chain engine)
+cd contracts/payable_registry_v2_1 && cargo concordium build && cargo concordium test   # 83 tests (Chain engine; build first — it regenerates concordium-out/module.wasm.v1)
 
 # Co-signer decision table (35 cases)
 node --test contracts/cosigner/test/decide.test.mjs
@@ -81,6 +88,12 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
   live success path is proven on chain — the 8-tx happy path ran
   2026-11-24 ~08:36–08:38 UTC (roles mirrored: seller = owner, payer = B;
   see `backend/BACKEND_REPORT.md` §6). Gate G0 #1 is MET.
+- v2.1 contract live at `<13152,0>` (83/83 + 35/35 + 33/33 live matrix;
+  happy path all passed). The −18 fix and `record_payment_tx` both work
+  live; the view's `txHash` now pins the CCD payment tx
+  (`d0f30224…`). **Not the deploy target yet** — the deploy target stays
+  v2 `<13150,0>` until the API server's v2.1-switch fix lands (see
+  `VERIFY.md` §6).
 - Verifier v2 + live backend: merged (110/110 tests; F10 proven live by an
   independent re-run; MCP live pay Rail A 12/12 + Rail B 15/15).
 - Known limits are listed in `VERIFY.md` — including what is *not* yet live.
