@@ -1,0 +1,525 @@
+{
+  "contract": "<13150,0>",
+  "verifiedPassed": 25,
+  "verifiedTotal": 25,
+  "results": [
+    {
+      "label": "view get_config",
+      "config": {
+        "cis8004": "<12802,0>",
+        "reservation_secs": 3600
+      },
+      "pass": true
+    },
+    {
+      "label": "view get_payable(1) pre",
+      "value": null,
+      "pass": true
+    },
+    {
+      "label": "register P1 CCD 10 (token 1476)",
+      "hash": "6e669b8cf8db0c31e0a5d410480fd2325486b850321fcb1c6efd703563b3d626",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "15122388",
+      "energy": "1943",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"5801f09e8373947df8fac502628fbb59d883e47aee6157f5928171012a701d9d\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1943\",\"__type\":\"ccd_energy\"},\"hash\":\"6e669b8cf8db0c31e0a5d410480fd2325486b850321fcb1c6efd703563b3d626\",\"type\":\"accountTransaction\",\"cost\":\"15122388\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Interrupted\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"events\":[]},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"12802\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressContract\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"}},\"amount\":\"0\",\"message\":\"08c405000000000000\",\"receiveName\":\"CIS-8004.agentOf\",\"events\":[]},{\"tag\":\"Resumed\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"success\":true},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0100000000000000ba99a3",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "register P1 again",
+      "hash": "057e8a91e5599b97e5689d6f7fa416b407b25c614d02e5107b6a13b1ec40a33e",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"767\",\"__type\":\"ccd_energy\"},\"hash\":\"057e8a91e5599b97e5689d6f7fa416b407b25c614d02e5107b6a13b1ec40a33e\",\"type\":\"accountTransaction\",\"cost\":\"5969569\",\"sender\":\"42jaZZg",
+      "expected": -2,
+      "pass": true,
+      "costMicroCcd": "5969569",
+      "energy": "767",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -2,
+        "parameter": "0100000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4809698000000000000db4aa130a201000065327990fb7676e0961553166693b72dde5f09d42143735de6feb6453318f449c4050000000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"e9d461d359adb5bd7bc72cea50d0109ecad4c17ba89fe34ee53457b060ce9df9\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"767\",\"__type\":\"ccd_energy\"},\"hash\":\"057e8a91e5599b97e5689d6f7fa416b407b25c614d02e5107b6a13b1ec40a33e\",\"type\":\"accountTransaction\",\"cost\":\"5969569\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-2,\"parameter\":\"0100000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4809698000000000000db4aa130a201000065327990fb7676e0961553166693b72dde5f09d42143735de6feb6453318f449c4050000000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -2
+    },
+    {
+      "label": "register id=11 token 1261 (other owner)",
+      "hash": "89dd2ee7c41810776c60fa4af21d7944b635afc63dd5cd5d2ae179039a38f485",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"3089\",\"__type\":\"ccd_energy\"},\"hash\":\"89dd2ee7c41810776c60fa4af21d7944b635afc63dd5cd5d2ae179039a38f485\",\"type\":\"accountTransaction\",\"cost\":\"24041717\",\"sender\":\"42jaZ",
+      "expected": -10,
+      "pass": true,
+      "costMicroCcd": "24041717",
+      "energy": "3089",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -10,
+        "parameter": "0b00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a201000060d036207257162c4aa38ae1aab32ee7dd2adf4cecefba43a8de48acb3bbfcaaed040000000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"9062eea3807d0a6bed820842a46c031d03ad3f56bb5499d7e6dda5af810a74a3\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"3089\",\"__type\":\"ccd_energy\"},\"hash\":\"89dd2ee7c41810776c60fa4af21d7944b635afc63dd5cd5d2ae179039a38f485\",\"type\":\"accountTransaction\",\"cost\":\"24041717\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-10,\"parameter\":\"0b00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a201000060d036207257162c4aa38ae1aab32ee7dd2adf4cecefba43a8de48acb3bbfcaaed040000000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -10
+    },
+    {
+      "label": "register id=12 token 999999 (nonexistent)",
+      "hash": "c1608ded30b1cee55ae6353c14ffd5e06baa6b3f3c6abc55ee31bd55364ebb88",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"1362\",\"__type\":\"ccd_energy\"},\"hash\":\"c1608ded30b1cee55ae6353c14ffd5e06baa6b3f3c6abc55ee31bd55364ebb88\",\"type\":\"accountTransaction\",\"cost\":\"10600460\",\"sender\":\"42jaZ",
+      "expected": -8,
+      "pass": true,
+      "costMicroCcd": "10600460",
+      "energy": "1362",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -8,
+        "parameter": "0c00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a20100005e87e6ac068332abce581f62150fb29578a1b990885b1e57ff930190acf977363f420f00000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"d957e5beb11bd672571730f7b0dec9207db6f6771da6ede836599d39c35d5edb\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1362\",\"__type\":\"ccd_energy\"},\"hash\":\"c1608ded30b1cee55ae6353c14ffd5e06baa6b3f3c6abc55ee31bd55364ebb88\",\"type\":\"accountTransaction\",\"cost\":\"10600460\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-8,\"parameter\":\"0c00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a20100005e87e6ac068332abce581f62150fb29578a1b990885b1e57ff930190acf977363f420f00000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -8
+    },
+    {
+      "label": "register id=13 due past",
+      "hash": "2d7d8577a43e455ad742b9ae95beceac987700eb5e574e7d48368529322d6840",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"758\",\"__type\":\"ccd_energy\"},\"hash\":\"2d7d8577a43e455ad742b9ae95beceac987700eb5e574e7d48368529322d6840\",\"type\":\"accountTransaction\",\"cost\":\"5899522\",\"sender\":\"42jaZZg",
+      "expected": -7,
+      "pass": true,
+      "costMicroCcd": "5899522",
+      "energy": "758",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -7,
+        "parameter": "0d00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f0000000000005bd85d0ca201000012c327e95e63ff41981dad3923685980158b105deef2b19981c68fac64d6347ec4050000000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"c7e3667897da64066365771fd8951fbe6d21518251540c855a0162a161e01fd6\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"758\",\"__type\":\"ccd_energy\"},\"hash\":\"2d7d8577a43e455ad742b9ae95beceac987700eb5e574e7d48368529322d6840\",\"type\":\"accountTransaction\",\"cost\":\"5899522\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-7,\"parameter\":\"0d00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f0000000000005bd85d0ca201000012c327e95e63ff41981dad3923685980158b105deef2b19981c68fac64d6347ec4050000000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -7
+    },
+    {
+      "label": "register id=14 expected_payer=seller",
+      "hash": "473c6a345bad0d2223a0473fbf3918a17eca3c0b50a536fa11717dd362969b3b",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"790\",\"__type\":\"ccd_energy\"},\"hash\":\"473c6a345bad0d2223a0473fbf3918a17eca3c0b50a536fa11717dd362969b3b\",\"type\":\"accountTransaction\",\"cost\":\"6148578\",\"sender\":\"42jaZZg",
+      "expected": -27,
+      "pass": true,
+      "costMicroCcd": "6148578",
+      "energy": "790",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -27,
+        "parameter": "0e00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a201000039343131da5074ca71d48a3b02f7d76e4abd09bed14baf498020853d2b88c4b1c405000000000000018f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210600"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"529df6243136e92d897e395604c87d9b6b56c5267962fc3b5fed4b99de393a28\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"790\",\"__type\":\"ccd_energy\"},\"hash\":\"473c6a345bad0d2223a0473fbf3918a17eca3c0b50a536fa11717dd362969b3b\",\"type\":\"accountTransaction\",\"cost\":\"6148578\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-27,\"parameter\":\"0e00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f000000000000db4aa130a201000039343131da5074ca71d48a3b02f7d76e4abd09bed14baf498020853d2b88c4b1c405000000000000018f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210600\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -27
+    },
+    {
+      "label": "register P2 CCD 5",
+      "hash": "8dc5be3bc469c8e39e1c5de0679a4559ac3c9704cb56ef0d7c60ce28ac3e361f",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "15262483",
+      "energy": "1961",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"70732af61a5beb02523cb30a35b1c412c09ded2d61b5ebf6a9e2d0bc7bb7cda3\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1961\",\"__type\":\"ccd_energy\"},\"hash\":\"8dc5be3bc469c8e39e1c5de0679a4559ac3c9704cb56ef0d7c60ce28ac3e361f\",\"type\":\"accountTransaction\",\"cost\":\"15262483\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Interrupted\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"events\":[]},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"12802\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressContract\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"}},\"amount\":\"0\",\"message\":\"08c405000000000000\",\"receiveName\":\"CIS-8004.agentOf\",\"events\":[]},{\"tag\":\"Resumed\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"success\":true},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0200000000000000ba99a3",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "pay P2 with 4 CCD (wrong amount)",
+      "hash": "925993da7905ddee5f74d0a133d20299d4fbb010c9998acb11e558d5cdf704f2",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"925993da7905ddee5f74d0a133d20299d4fbb010c9998acb11e558d5cdf704f2\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZg",
+      "expected": -6,
+      "pass": true,
+      "costMicroCcd": "5424758",
+      "energy": "697",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -6,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060200000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"0b1fc569c6c6fb9cfe64329e9f1dab4cf71d09a53bca2a7046730d27d56fbc57\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"925993da7905ddee5f74d0a133d20299d4fbb010c9998acb11e558d5cdf704f2\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-6,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060200000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -6
+    },
+    {
+      "label": "pay P2 exact 5 CCD (payer==seller)",
+      "hash": "e12a65515c12815a2ce9ae8360a124e9aa4731e99fbdee9de49cff1f5cb98a7c",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"e12a65515c12815a2ce9ae8360a124e9aa4731e99fbdee9de49cff1f5cb98a7c\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZg",
+      "expected": -27,
+      "pass": true,
+      "costMicroCcd": "5424758",
+      "energy": "697",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -27,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060200000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"38d105b40ddc510a57cd5d303b8ad1ed4ea2077b8ae78d1e21487f11acc1b1a3\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"e12a65515c12815a2ce9ae8360a124e9aa4731e99fbdee9de49cff1f5cb98a7c\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-27,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060200000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -27
+    },
+    {
+      "label": "pay id=999 (not found)",
+      "hash": "780bd33bc5a6af120b06242d5be8a43792e1b54bd3fa701031ab09d5a47613e3",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"689\",\"__type\":\"ccd_energy\"},\"hash\":\"780bd33bc5a6af120b06242d5be8a43792e1b54bd3fa701031ab09d5a47613e3\",\"type\":\"accountTransaction\",\"cost\":\"5362494\",\"sender\":\"42jaZZg",
+      "expected": -3,
+      "pass": true,
+      "costMicroCcd": "5362494",
+      "energy": "689",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -3,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b2106e703000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"33557adcdd6d0e9f5e7d47d0e079b0a24967237307b2d9e10971b011e9d0e817\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"689\",\"__type\":\"ccd_energy\"},\"hash\":\"780bd33bc5a6af120b06242d5be8a43792e1b54bd3fa701031ab09d5a47613e3\",\"type\":\"accountTransaction\",\"cost\":\"5362494\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-3,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b2106e703000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -3
+    },
+    {
+      "label": "register P3 PLT 1.00 EUDemo (expected=B)",
+      "hash": "9d789511de7baa6cac3761fa80db179789eb721e5224c6230f34ae8831e247a9",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "16266491",
+      "energy": "2090",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"8f22bb4f4e3b76177b3da19afe9ff22af65ccfbd68792cdf4f1ed8f23b92779e\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"2090\",\"__type\":\"ccd_energy\"},\"hash\":\"9d789511de7baa6cac3761fa80db179789eb721e5224c6230f34ae8831e247a9\",\"type\":\"accountTransaction\",\"cost\":\"16266491\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Interrupted\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"events\":[]},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"12802\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressContract\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"}},\"amount\":\"0\",\"message\":\"08c405000000000000\",\"receiveName\":\"CIS-8004.agentOf\",\"events\":[]},{\"tag\":\"Resumed\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"success\":true},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0300000000000000ba99a3",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "pay P3 (PLT) via pay_ccd",
+      "hash": "801e2e05a1064d0df38dd2592639d445138471aeffa5b83fb6401b50fb600eff",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"700\",\"__type\":\"ccd_energy\"},\"hash\":\"801e2e05a1064d0df38dd2592639d445138471aeffa5b83fb6401b50fb600eff\",\"type\":\"accountTransaction\",\"cost\":\"5448107\",\"sender\":\"42jaZZg",
+      "expected": -4,
+      "pass": true,
+      "costMicroCcd": "5448107",
+      "energy": "700",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -4,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060300000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"3c0d2951d619625d5ca35e5a500712fefc04f6e2b0d3dd19a6285fb8d7b2fe30\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"700\",\"__type\":\"ccd_energy\"},\"hash\":\"801e2e05a1064d0df38dd2592639d445138471aeffa5b83fb6401b50fb600eff\",\"type\":\"accountTransaction\",\"cost\":\"5448107\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-4,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060300000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -4
+    },
+    {
+      "label": "reserve P3 by deployer (not expected payer)",
+      "hash": "00f6cbd5271fd233861b4704c1a98c5d5fb3b308e8a5d35a1803af11758bed2e",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"704\",\"__type\":\"ccd_energy\"},\"hash\":\"00f6cbd5271fd233861b4704c1a98c5d5fb3b308e8a5d35a1803af11758bed2e\",\"type\":\"accountTransaction\",\"cost\":\"5479239\",\"sender\":\"42jaZZg",
+      "expected": -21,
+      "pass": true,
+      "costMicroCcd": "5479239",
+      "energy": "704",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.reserve_plt",
+        "rejectReason": -21,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060300000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"a3f68074c8541f147f008fa1faf67c4f640b9e983650b3ba8851c1aa39715212\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"704\",\"__type\":\"ccd_energy\"},\"hash\":\"00f6cbd5271fd233861b4704c1a98c5d5fb3b308e8a5d35a1803af11758bed2e\",\"type\":\"accountTransaction\",\"cost\":\"5479239\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.reserve_plt\",\"rejectReason\":-21,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060300000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -21
+    },
+    {
+      "label": "register PLT id=15 no expected_payer",
+      "hash": "ac9eab3c75fbfc5604a2b2173c2c2d85b6496d842bec8320c4f76c1c8fecd543",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"770\",\"__type\":\"ccd_energy\"},\"hash\":\"ac9eab3c75fbfc5604a2b2173c2c2d85b6496d842bec8320c4f76c1c8fecd543\",\"type\":\"accountTransaction\",\"cost\":\"5992918\",\"sender\":\"42jaZZg",
+      "expected": -22,
+      "pass": true,
+      "costMicroCcd": "5992918",
+      "energy": "770",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.register_payable",
+        "rejectReason": -22,
+        "parameter": "0f00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f00000000000106000000455544656d6fdb4aa130a20100005af44cb418883912b8e16dac09d113bd137e506eee45ca16ca98be214cb7e3cbc4050000000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"9aa3d90659946d96ce27e1bc77d4ec085fc480936c2f5162569ef7e1d56ae216\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"770\",\"__type\":\"ccd_energy\"},\"hash\":\"ac9eab3c75fbfc5604a2b2173c2c2d85b6496d842bec8320c4f76c1c8fecd543\",\"type\":\"accountTransaction\",\"cost\":\"5992918\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.register_payable\",\"rejectReason\":-22,\"parameter\":\"0f00000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf440420f00000000000106000000455544656d6fdb4aa130a20100005af44cb418883912b8e16dac09d113bd137e506eee45ca16ca98be214cb7e3cbc4050000000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -22
+    },
+    {
+      "label": "approve_vendor seller==buyer",
+      "hash": "4f18ddb142f20ac1c811c0a91b42b3ec533e92e50efaab0eda9d32762ed4c90d",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"747\",\"__type\":\"ccd_energy\"},\"hash\":\"4f18ddb142f20ac1c811c0a91b42b3ec533e92e50efaab0eda9d32762ed4c90d\",\"type\":\"accountTransaction\",\"cost\":\"5813909\",\"sender\":\"42jaZZg",
+      "expected": -27,
+      "pass": true,
+      "costMicroCcd": "5813909",
+      "energy": "747",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.approve_vendor",
+        "rejectReason": -27,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210602013476f49d72f7aa45f583cef7b12bce961046a3f2d3937b598496b2934d11317a00e1f5050000000000ca9a3b000000008051010000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"cfdff562a9cb21f1175ed9df6ff017c599664f7b8700cda51ad4e7d8e0bd9493\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"747\",\"__type\":\"ccd_energy\"},\"hash\":\"4f18ddb142f20ac1c811c0a91b42b3ec533e92e50efaab0eda9d32762ed4c90d\",\"type\":\"accountTransaction\",\"cost\":\"5813909\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.approve_vendor\",\"rejectReason\":-27,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210602013476f49d72f7aa45f583cef7b12bce961046a3f2d3937b598496b2934d11317a00e1f5050000000000ca9a3b000000008051010000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -27
+    },
+    {
+      "label": "approve_vendor seller=B",
+      "hash": "aedfd1e9f34396b01291724ece71eab3e8aab8b0bcc82f50459bc299dfbde884",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "9954470",
+      "energy": "1279",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"61a36c320b69d2fa6c1511ac6cd2a4990b7b8f663147fbbcd015746c78cd1abd\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1279\",\"__type\":\"ccd_energy\"},\"hash\":\"aedfd1e9f34396b01291724ece71eab3e8aab8b0bcc82f50459bc299dfbde884\",\"type\":\"accountTransaction\",\"cost\":\"9954470\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf402013476f49d72f7aa45f583cef7b12bce961046a3f2d3937b598496b2934d11317a00e1f5050000000000ca9a3b000000008051010000000000\",\"receiveName\":\"payable_registry_v2.approve_vendor\",\"events\":[\"01028f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b2106ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf402013476f49d72f7aa45f583cef7b12bce961046a3f2d3937b598496b2934d11317a00e1f5050000000000ca9a3b000000008051010000000000\"]}]}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "revoke_vendor seller=B",
+      "hash": "d11cc2fe549fc06001764c276621f3655a176dcbbde5cac9f4d9d59ac08f422e",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "7020275",
+      "energy": "902",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"66e0ea6f4348277ffa9bb49ac6606304adb2bc0ef6f78e7ac48b78836adebd20\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"902\",\"__type\":\"ccd_energy\"},\"hash\":\"d11cc2fe549fc06001764c276621f3655a176dcbbde5cac9f4d9d59ac08f422e\",\"type\":\"accountTransaction\",\"cost\":\"7020275\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4\",\"receiveName\":\"payable_registry_v2.revoke_vendor\",\"events\":[\"02028f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b2106ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4\"]}]}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "set_strict(true)",
+      "hash": "f9d62289a8671822f37d22490ba2f54b09ae2c5490fa8049808aefc5f556e69c",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "7409426",
+      "energy": "952",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"b909d4e75c8d85fbc4d734bf93818468c9d74e22e5b6c61db0ddb30a3127bb36\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"952\",\"__type\":\"ccd_energy\"},\"hash\":\"f9d62289a8671822f37d22490ba2f54b09ae2c5490fa8049808aefc5f556e69c\",\"type\":\"accountTransaction\",\"cost\":\"7409426\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"01\",\"receiveName\":\"payable_registry_v2.set_strict\",\"events\":[\"03028f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210601\"]}]}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "set_strict(false)",
+      "hash": "593fe0049a978512ba7eda4a59e3b4e2df0c99e2e90412d54e7273a0188f987f",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "7370511",
+      "energy": "947",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"5ad76ac4cc503c11d3761e4e8e0f8ac2d2dedc10b788cf48231ac59b9aa3eff1\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"947\",\"__type\":\"ccd_energy\"},\"hash\":\"593fe0049a978512ba7eda4a59e3b4e2df0c99e2e90412d54e7273a0188f987f\",\"type\":\"accountTransaction\",\"cost\":\"7370511\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"00\",\"receiveName\":\"payable_registry_v2.set_strict\",\"events\":[\"03028f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210600\"]}]}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "buyer policy strict toggle",
+      "pass": true
+    },
+    {
+      "label": "register P4 CCD 1",
+      "hash": "173c369fef959b76557d12367463ae2bc96ecc9c8fe321cb8ac86c35c2a67c64",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "15355879",
+      "energy": "1973",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"4083c3468c5614c71fc70861bbb389b04125eac0b02a75c85afc9306d549d431\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1973\",\"__type\":\"ccd_energy\"},\"hash\":\"173c369fef959b76557d12367463ae2bc96ecc9c8fe321cb8ac86c35c2a67c64\",\"type\":\"accountTransaction\",\"cost\":\"15355879\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Interrupted\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"events\":[]},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"12802\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressContract\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"}},\"amount\":\"0\",\"message\":\"08c405000000000000\",\"receiveName\":\"CIS-8004.agentOf\",\"events\":[]},{\"tag\":\"Resumed\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"success\":true},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0400000000000000ba99a3",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "void P4",
+      "hash": "a076533294e6b5b31427eb8b8378c494974a399be16c77083dfb99c621614ecf",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "9269565",
+      "energy": "1191",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"7db69609151295e943a58530db387a5f617ac428e3f1b115e588604aadb8b2f0\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1191\",\"__type\":\"ccd_energy\"},\"hash\":\"a076533294e6b5b31427eb8b8378c494974a399be16c77083dfb99c621614ecf\",\"type\":\"accountTransaction\",\"cost\":\"9269565\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0400000000000000\",\"receiveName\":\"payable_registry_v2.void_payable\",\"events\":[\"08028f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060400000000000000\"]}]}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "pay voided P4",
+      "hash": "4385793809cec60aefc2ef78940e7c7591702250dc64d3c708b6a5533263fdfe",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"4385793809cec60aefc2ef78940e7c7591702250dc64d3c708b6a5533263fdfe\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZg",
+      "expected": -25,
+      "pass": true,
+      "costMicroCcd": "5424758",
+      "energy": "697",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -25,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060400000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"6fc53be06db802858bbcfb1ca1ba96b5a2a457759191777ce8e97a75f20175f9\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"4385793809cec60aefc2ef78940e7c7591702250dc64d3c708b6a5533263fdfe\",\"type\":\"accountTransaction\",\"cost\":\"5424758\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-25,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060400000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -25
+    },
+    {
+      "label": "void P4 again",
+      "hash": "01ffe0ce53bfe46002b71960eeaa7b56c70fb26ea03d7f1cbef341ed79b5c277",
+      "outcome": "{\"index\":\"1\",\"energyCost\":{\"value\":\"670\",\"__type\":\"ccd_energy\"},\"hash\":\"01ffe0ce53bfe46002b71960eeaa7b56c70fb26ea03d7f1cbef341ed79b5c277\",\"type\":\"accountTransaction\",\"cost\":\"5214617\",\"sender\":\"42jaZZg",
+      "expected": -5,
+      "pass": true,
+      "costMicroCcd": "5214617",
+      "energy": "670",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.void_payable",
+        "rejectReason": -5,
+        "parameter": "0400000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"7184ffe76bad741cbd867c6d7334102c4bf4aac02bfdd0b4ba3778cd7de7551a\",\"summary\":{\"index\":\"1\",\"energyCost\":{\"value\":\"670\",\"__type\":\"ccd_energy\"},\"hash\":\"01ffe0ce53bfe46002b71960eeaa7b56c70fb26ea03d7f1cbef341ed79b5c277\",\"type\":\"accountTransaction\",\"cost\":\"5214617\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.void_payable\",\"rejectReason\":-5,\"parameter\":\"0400000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -5
+    },
+    {
+      "label": "register P5 CCD 1 due+8s",
+      "hash": "39441d55f2f7174ee4ee038c0179967ec2ec56d735e15348e1a717237477c5af",
+      "outcome": "SUCCESS",
+      "expected": null,
+      "pass": true,
+      "costMicroCcd": "15425926",
+      "energy": "1982",
+      "rejectReason": null,
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"baab8d8c04b2519bca853360904f4ea917418009f09849252cfc3db6708d7706\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"1982\",\"__type\":\"ccd_energy\"},\"hash\":\"39441d55f2f7174ee4ee038c0179967ec2ec56d735e15348e1a717237477c5af\",\"type\":\"accountTransaction\",\"cost\":\"15425926\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"update\",\"events\":[{\"tag\":\"Interrupted\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"events\":[]},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"12802\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressContract\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"}},\"amount\":\"0\",\"message\":\"08c405000000000000\",\"receiveName\":\"CIS-8004.agentOf\",\"events\":[]},{\"tag\":\"Resumed\",\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"success\":true},{\"tag\":\"Updated\",\"contractVersion\":1,\"address\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"instigator\":{\"type\":\"AddressAccount\",\"address\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\"},\"amount\":\"0\",\"message\":\"0500000000000000ba99a3",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": null
+    },
+    {
+      "label": "pay P5 after due",
+      "hash": "9ccfc20e0161f12a8c35c8534c560d650d03c77fc6b22c93f794dcffec53541f",
+      "outcome": "{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"9ccfc20e0161f12a8c35c8534c560d650d03c77fc6b22c93f794dcffec53541f\",\"type\":\"accountTransaction\",\"cost\":\"5421910\",\"sender\":\"42jaZZg",
+      "expected": -7,
+      "pass": true,
+      "costMicroCcd": "5421910",
+      "energy": "697",
+      "rejectReason": {
+        "tag": "RejectedReceive",
+        "contractAddress": {
+          "index": "13150",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+        },
+        "receiveName": "payable_registry_v2.pay_ccd",
+        "rejectReason": -7,
+        "parameter": "8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060500000000000000"
+      },
+      "summary": "{\"status\":\"finalized\",\"outcome\":{\"blockHash\":\"0e1ff5d6feb3f168413a3e9f0e507e9962a49a7bafc9761cda37134f997f7fe7\",\"summary\":{\"index\":\"0\",\"energyCost\":{\"value\":\"697\",\"__type\":\"ccd_energy\"},\"hash\":\"9ccfc20e0161f12a8c35c8534c560d650d03c77fc6b22c93f794dcffec53541f\",\"type\":\"accountTransaction\",\"cost\":\"5421910\",\"sender\":\"42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\",\"transactionType\":\"failed\",\"failedTransactionType\":\"update\",\"rejectReason\":{\"tag\":\"RejectedReceive\",\"contractAddress\":{\"index\":\"13150\",\"subindex\":\"0\",\"__type\":\"ccd_contract_address\"},\"receiveName\":\"payable_registry_v2.pay_ccd\",\"rejectReason\":-7,\"parameter\":\"8f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b21060500000000000000\"}}}}",
+      "verifiedStatus": "finalized",
+      "verifiedRejectCode": -7
+    },
+    {
+      "label": "contract instance balance",
+      "instance": {
+        "amount": "0",
+        "sourceModule": "00000020c8083a94f57495ecc0ac6b7f18eb7f5944989897929c095e638b6362d55685a8",
+        "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+        "methods": [
+          "payable_registry_v2.approve_vendor",
+          "payable_registry_v2.confirm_plt",
+          "payable_registry_v2.expire_reservation",
+          "payable_registry_v2.get_buyer_policy",
+          "payable_registry_v2.get_config",
+          "payable_registry_v2.get_payable",
+          "payable_registry_v2.get_usage",
+          "payable_registry_v2.get_vendor",
+          "payable_registry_v2.pay_ccd",
+          "payable_registry_v2.register_payable",
+          "payable_registry_v2.reserve_plt",
+          "payable_registry_v2.revoke_vendor",
+          "payable_registry_v2.set_strict",
+          "payable_registry_v2.void_payable"
+        ],
+        "name": "init_payable_registry_v2",
+        "version": 1
+      }
+    }
+  ]
+}

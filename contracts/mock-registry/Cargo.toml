@@ -1,0 +1,17 @@
+[package]
+name = "mock-cis8004-registry"
+version = "0.1.0"
+edition = "2021"
+description = "TEST-ONLY mock CIS-8004 registry for payable_registry_v2 unit tests. It implements agentOf with the exact byte layout the real registry returns (proven live by the merge-round spike against <12802,0>). NEVER deploy to any network."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+concordium-std = "11"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
