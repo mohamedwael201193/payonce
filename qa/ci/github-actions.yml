@@ -1,0 +1,75 @@
+# PayOnce CI — plan P1 §6.5 (four jobs).
+# Private repo first; public only after Gate G0 + user go.
+# Job 4 (testnet e2e) is NOT in CI: it needs keys. Ops runs it by hand on the
+# ops host and commits the evidence in out/ with no keys.
+name: payonce-ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  contracts:
+    name: contracts (wasm + Rust tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain (pinned)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85.0"
+          targets: wasm32-unknown-unknown
+      - name: Install cargo-concordium 5.0.0 (pinned)
+        run: cargo install cargo-concordium --version 5.0.0 --locked
+      - name: Build wasm
+        run: cargo concordium build --out out/payable_registry_v2.wasm
+        working-directory: contracts/payable_registry_v2
+      - name: Rust tests (release)
+        run: cargo test --release
+        working-directory: contracts/payable_registry_v2
+      - name: Clippy (warnings denied)
+        run: cargo clippy -- -D warnings
+        working-directory: contracts/payable_registry_v2
+      - name: Wasm sha256 artifact
+        run: sha256sum out/payable_registry_v2.wasm | tee out/payable_registry_v2.wasm.sha256
+        working-directory: contracts/payable_registry_v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-sha256
+          path: contracts/payable_registry_v2/out/payable_registry_v2.wasm.sha256
+
+  js:
+    name: js (co-signer + verifier fixtures, no network)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: node --test cosigner/test/ verifier/test/
+        env:
+          # No network access in this job: fixtures only.
+          NO_NETWORK: "1"
+
+  secrets:
+    name: secrets scan (fails on seed / private-key shapes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: a secret deleted later is still in history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Secret scan (whole history)
+        run: node qa/ci/secrets-scan.mjs . --history
+      - name: Secret scan (working tree)
+        run: node qa/ci/secrets-scan.mjs .
+
+  # Job 4 — testnet e2e: NOT in CI (needs keys). Ops runs it by hand on the
+  # ops host: `node qa/e2e/run-e2e.mjs --execute`, then commits out/e2e.json
+  # and out/receipt-*.json with no keys. See qa/README.md.

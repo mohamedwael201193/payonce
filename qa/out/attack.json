@@ -1,0 +1,132 @@
+{
+ "runAt": "2026-11-24T07:13:02.375Z",
+ "network": "testnet",
+ "attacks": {
+  "A-F10": {
+   "name": "F10 binding: tx of payable 4 presented as proof for payable 1",
+   "result": "CHAIN-EVIDENCE-RUN",
+   "evidence": "tx4 78377f18f61f… finalized, pay_ccd param id=4 (expect 4); §5 pay_ccd tx param id=1 (expect 1); v1 verifier re-run NOT RUN (verify-payable.mjs absent from workspace)",
+   "blocker": "v1 verifier file not in workspace (lab files never uploaded)"
+  },
+  "A5": {
+   "name": "Wrong amount reverts (-6)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c status=finalized reject=-6 (expect -6) paramId=4 (expect 4)",
+   "blocker": null
+  },
+  "A6": {
+   "name": "Double pay reverts (-5)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848 status=finalized reject=-5 (expect -5) paramId=1 (expect 1)",
+   "blocker": null
+  },
+  "A7": {
+   "name": "Unknown payable id reverts (-3)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/d906c0b3b8bf6333cd0522fed0b39eabae168a2e35029edd9ac5a5b5874dae28 status=finalized reject=-3 (expect -3) paramId=999 (expect 999)",
+   "blocker": null
+  },
+  "A8": {
+   "name": "Second reservation reverts (-16)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35 status=finalized reject=-16 (expect -16) paramId=2 (expect 2)",
+   "blocker": null
+  },
+  "A9": {
+   "name": "Reused tx hash confirm rejects (-12)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b status=finalized reject=-12 (expect -12) paramId=3 (expect 3)",
+   "blocker": null
+  },
+  "A10": {
+   "name": "Stranger confirm rejects (-17)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a status=finalized reject=-17 (expect -17) paramId=3 (expect 3)",
+   "blocker": null
+  },
+  "A11": {
+   "name": "Early expiry confirm rejects (-13)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7 status=finalized reject=-13 (expect -13) paramId=3 (expect 3)",
+   "blocker": null
+  },
+  "A12": {
+   "name": "Third-party expiry after window (succeeds)",
+   "result": "PASS (v1 live evidence re-verified)",
+   "evidence": "https://testnet.ccdscan.io/transactions/492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760 status=finalized reject=null (expect none) paramId=3 (expect 3)",
+   "blocker": null
+  },
+  "A1": {
+   "name": "H1: fraudster registers a payable for an id the real seller will use / pays a fraudster payable (vendor list + strict)",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract + vendor list"
+  },
+  "A2": {
+   "name": "H2: junk confirm — reserve then confirm with a fake/unrelated tx hash; seller must NOT ship",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (seller-names-payer + verifier-based recognition)"
+  },
+  "A3": {
+   "name": "H2: stranger reserves a payable, then the real payer tries to pay",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (expected_payer)"
+  },
+  "A4": {
+   "name": "Race: co-signed transfer held past reservation expiry, confirm lands late; second reservation + second payment",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract + co-signer v2 (header-expiry bound)"
+  },
+  "A13": {
+   "name": "Id-squatting F2: attacker registers (seller, id) before the real seller",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (key = seller, id)"
+  },
+  "A14": {
+   "name": "Co-signer: transfer with wrong payee / amount off by one / memo for another payable / memo missing / non-canonical CBOR / two ops / wrong token",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "co-signer v2 decision table (C-19..C-25)"
+  },
+  "A15": {
+   "name": "Co-signer: header.expiry after reservation expiry, or within 60 s of it",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "co-signer v2 (C-28..C-31)"
+  },
+  "A16": {
+   "name": "Co-signer: approval revoked after reserve, before transfer",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "co-signer v2 (C-32)"
+  },
+  "A17": {
+   "name": "Tampered doc_hash: one digit changed in the payee account; verifier must refuse",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "verifier v2"
+  },
+  "A18": {
+   "name": "Void abuse: void Reserved before expiry (-26); void Paid (-5); pay/void a Voided payable (-25)",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (X-01..X-06)"
+  },
+  "A19": {
+   "name": "Cap abuse: per-payable + period cap exceeded on pay and reserve (-23)",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (V-07, V-08)"
+  },
+  "A20": {
+   "name": "Agent revoked after registration, then pay/reserve (-9)",
+   "result": "NOT RUN",
+   "evidence": null,
+   "blocker": "v2 contract (R2-06, F-02)"
+  }
+ }
+}
