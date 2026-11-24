@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" data-type="software">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="page-type" content="software">
+<meta name="site-kind" content="software">
+<title>PayOnce — Dashboard visual system (judge flow mockup)</title>
+<meta name="description" content="PayOnce one-screen judge flow: visual system and static mockup for the frontend agent. Real testnet data from the lab run, 24 Nov 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { sky0:'#0A2A33', sky1:'#15505A', sky2:'#1F6F6A', sky3:'#A7DCD0', sky4:'#F7EBDD',
+    paper:'#F4F7F6', paper2:'#E9F0EE', card:'#FFFFFF', line:'#D5E0DE', ink:'#0B1F24', body:'#3B4F55', muted:'#4F6268',
+    teal600:'#0F766E', teal700:'#1F6F6A', amber:'#F2B872',
+    verifiedfg:'#14532D', verifiedbg:'#E7F5EC', unpaidfg:'#7A4A00', unpaidbg:'#FFF4E0', refusedfg:'#8A1C12', refusedbg:'#FDECEA' },
+  fontFamily: { sans: ['Inter','Inter Display','system-ui','sans-serif'] },
+  boxShadow: { dash:'0 30px 80px rgba(11,31,36,0.35)', card:'0 1px 2px rgba(11,31,36,0.06), 0 8px 24px rgba(11,31,36,0.08)' }
+} } }
+</script>
+<style>
+  body { font-family:'Inter',system-ui,sans-serif; background:#F4F7F6; color:#3B4F55; -webkit-font-smoothing:antialiased; }
+  ::selection { background:#F2B872; color:#0B1F24; }
+  .btn { transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:focus-visible, a:focus-visible, button:focus-visible { outline:2px solid #0F766E; outline-offset:2px; }
+  .card-hover { transition: transform .15s ease, box-shadow .15s ease; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow:0 1px 2px rgba(11,31,36,.06), 0 12px 32px rgba(11,31,36,.12); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+</style>
+</head>
+<body>
+
+<!-- ======================= APP HEADER ======================= -->
+<header class="border-b border-line bg-white">
+  <div class="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-4 py-3 sm:px-8">
+    <a href="index.html" class="flex items-center gap-2.5">
+      <img src="assets/payonce-mark.webp" alt="" class="h-8 w-8 rounded-[6px]" width="32" height="32">
+      <span class="text-[17px] font-medium tracking-tight text-ink">PayOnce</span>
+      <span class="rounded-full border border-line bg-paper px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-body">TESTNET</span>
+    </a>
+    <nav class="ml-2 hidden items-center gap-1 text-[14px] md:flex" aria-label="Primary">
+      <a href="dashboard.html" class="rounded bg-paper2 px-3 py-1.5 font-medium text-ink">Home</a>
+      <a href="#judges" class="px-3 py-1.5 text-body hover:text-ink">For judges</a>
+    </nav>
+    <span class="ml-auto inline-flex items-center gap-2 rounded-full bg-verifiedbg px-3 py-1 text-[12px] font-semibold text-verifiedfg">
+      <span class="inline-block h-2 w-2 rounded-full bg-verifiedfg" aria-hidden="true"></span> LIVE · 12 s ago
+    </span>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
+  <!-- ======================= HERO STRIP ======================= -->
+  <section aria-labelledby="hero-h1">
+    <p class="text-[13px] font-medium text-muted">DASHBOARD VISUAL SYSTEM · STATIC MOCKUP FOR THE FRONTEND AGENT · REAL TESTNET DATA, LAB RUN 24 NOV 2026</p>
+    <h1 id="hero-h1" class="mt-3 max-w-[720px] text-[32px] sm:text-[40px] leading-[1.05] tracking-[-0.02em] font-normal text-ink">Every invoice becomes a payable: an invoice on chain that can be paid exactly once, and only to the account the supplier put there.</h1>
+    <p class="mt-3 max-w-[640px] text-[15px] leading-[1.45] text-muted">Pay in CCD and the contract is the payment. On the EUDemo test token, a co-signed transfer makes the payment, and only after the chain has reserved the invoice.</p>
+    <dl class="mt-6 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
+      <div class="bg-white p-4"><dt class="text-[12px] text-muted">Payables on the registry</dt><dd class="mt-1 text-[28px] leading-none text-ink">5</dd></div>
+      <div class="bg-white p-4"><dt class="text-[12px] text-muted">Paid payables</dt><dd class="mt-1 text-[28px] leading-none text-ink">3</dd></div>
+      <div class="bg-white p-4"><dt class="text-[12px] text-muted">Refused on chain since deploy</dt><dd class="mt-1 text-[28px] leading-none text-ink">7</dd></div>
+      <div class="bg-white p-4"><dt class="text-[12px] text-muted">Last verifier run</dt><dd class="mt-1 text-[28px] leading-none text-ink">12 / 12</dd></div>
+    </dl>
+    <p class="mt-2 text-[12px] text-muted">Stats above are the lab run values. The live app reads them from <span class="mono">GET /api/stats</span>; unknown values show “—” with a reason, never a fallback number.</p>
+  </section>
+
+  <div class="mt-10 grid gap-6 lg:grid-cols-3">
+    <div class="space-y-6 lg:col-span-2">
+      <!-- ======================= STEP 1 ======================= -->
+      <section class="rounded-md border border-line bg-white p-5 sm:p-6" aria-labelledby="s1">
+        <div class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white">1</span>
+          <h2 id="s1" class="text-[20px] tracking-[-0.01em] text-ink">Invoice</h2>
+          <span class="ml-auto rounded-full bg-verifiedbg px-2.5 py-1 text-[11px] font-semibold text-verifiedfg">Loaded · Payable 2</span>
+        </div>
+        <p class="mt-2 text-[14px] text-muted">Load a lab invoice, drop a file, or paste its text. The file is read in your browser and is never uploaded.</p>
+        <div class="mt-4">
+          <label for="lab-picker" class="text-[13px] font-medium text-ink">Lab invoices (testnet, not real)</label>
+          <select id="lab-picker" class="mt-1.5 w-full rounded border border-line bg-white px-3 py-2.5 text-[15px] text-ink">
+            <option>Payable 2 — 0.01 EUDemo · Paid 24 Nov 2026</option>
+            <option>Payable 3 — 0.01 EUDemo · Unpaid · due 25 Nov 04:49 UTC</option>
+            <option>Payable 1 — 0.5 CCD · Paid 24 Nov 2026</option>
+            <option>Payable 4 — 0.5 CCD · Paid 24 Nov 2026</option>
+            <option>Payable 5 — Unpaid · amount not in the run record</option>
+          </select>
+        </div>
+        <div class="mt-4 rounded-md border border-line bg-paper p-4">
+          <p class="text-[13px] font-medium text-ink">Document fingerprint (SHA-256, computed in the browser)</p>
+          <p class="mono mt-1 text-[13px] text-body">3b5b27da…a1f9e0 <button class="btn ml-1 rounded border border-line bg-white px-2 py-0.5 text-[11px]" type="button">Copy full hash</button></p>
+          <p class="mt-2 text-[13px] text-muted">Found payable 2 in this document. Fingerprint matches the value stored on chain.</p>
+        </div>
+        <dl class="mt-4 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
+          <div><dt class="text-muted">Payee (from chain)</dt><dd class="mono mt-0.5 text-ink">4Vtd6W…Tg</dd></div>
+          <div><dt class="text-muted">Amount</dt><dd class="mt-0.5 text-ink">0.01 EUDemo</dd></div>
+          <div><dt class="text-muted">Due</dt><dd class="mt-0.5 text-ink">25 Nov 2026, 04:49 UTC</dd></div>
+          <div><dt class="text-muted">Seller</dt><dd class="mono mt-0.5 text-ink">4MvdMEGC…WDs</dd></div>
+        </dl>
+      </section>
+
+      <!-- ======================= STEP 2 ======================= -->
+      <section class="rounded-md border border-line bg-white p-5 sm:p-6" aria-labelledby="s2">
+        <div class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white">2</span>
+          <h2 id="s2" class="text-[20px] tracking-[-0.01em] text-ink">Check</h2>
+          <span class="ml-auto rounded-full bg-verifiedbg px-2.5 py-1 text-[11px] font-semibold text-verifiedfg">Verdict: Paid — see the receipt</span>
+        </div>
+        <p class="mt-2 text-[14px] text-muted">We read this invoice from the testnet registry and check the seller’s agent. This step pays nothing.</p>
+        <ol class="mt-4 divide-y divide-line border-y border-line">
+          <li class="flex gap-3 py-3"><span class="text-verifiedfg" aria-hidden="true">✓</span><div><p class="text-[14px] font-medium text-ink">Invoice is on chain</p><p class="text-[13px] text-muted">Payable 2 is registered on the test registry.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+          <li class="flex gap-3 py-3"><span class="text-verifiedfg" aria-hidden="true">✓</span><div><p class="text-[14px] font-medium text-ink">Document matches the on-chain fingerprint</p><p class="text-[13px] text-muted">The file’s SHA-256 matches the value stored on chain.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+          <li class="flex gap-3 py-3"><span class="text-verifiedfg" aria-hidden="true">✓</span><div><p class="text-[14px] font-medium text-ink">Seller’s agent is active</p><p class="text-[13px] text-muted">Agent token 0100…0000 is active and owned by the seller. Checked on the test CIS-8004 instance.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+          <li class="flex gap-3 py-3"><span class="text-muted" aria-hidden="true">ℹ</span><div><p class="text-[14px] font-medium text-ink">Seller identity</p><p class="text-[13px] text-muted">Not verified. No company (LEI) or identity proof is attached to this seller.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Info</span></li>
+          <li class="flex gap-3 py-3"><span class="text-muted" aria-hidden="true">ℹ</span><div><p class="text-[14px] font-medium text-ink">Payee comes from the chain</p><p class="text-[13px] text-muted">4Vtd6W…Tg. The payee is read from the chain, not from the invoice text.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Info</span></li>
+          <li class="flex gap-3 py-3"><span class="text-muted" aria-hidden="true">ℹ</span><div><p class="text-[14px] font-medium text-ink">Amount and currency</p><p class="text-[13px] text-muted">0.01 EUDemo (testnet demo token)</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Info</span></li>
+          <li class="flex gap-3 py-3"><span class="text-verifiedfg" aria-hidden="true">✓</span><div><p class="text-[14px] font-medium text-ink">Due date</p><p class="text-[13px] text-muted">Due 25 Nov 2026, 04:49 UTC.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+          <li class="flex gap-3 py-3"><span class="text-refusedfg" aria-hidden="true">✕</span><div><p class="text-[14px] font-medium text-ink">Status</p><p class="text-[13px] text-muted">Already paid. This invoice was paid on 24 Nov 2026 at 04:50 UTC. It cannot be paid again.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+          <li class="flex gap-3 py-3"><span class="text-verifiedfg" aria-hidden="true">✓</span><div><p class="text-[14px] font-medium text-ink">Registry balance</p><p class="text-[13px] text-muted">The registry holds no CCD. Contract keeps no balance between transactions.</p></div><span class="ml-auto shrink-0 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span></li>
+        </ol>
+        <p class="mt-3 text-[14px] text-ink"><strong>Verdict:</strong> Paid — <a class="text-teal700 underline" href="#receipt">open the receipt</a>. To pay something now, load payable 3 (unpaid, 0.01 EUDemo).</p>
+      </section>
+
+      <!-- ======================= STEP 3 ======================= -->
+      <section class="rounded-md border border-line bg-white p-5 sm:p-6" aria-labelledby="s3">
+        <div class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white">3</span>
+          <h2 id="s3" class="text-[20px] tracking-[-0.01em] text-ink">Pay</h2>
+          <span class="ml-auto rounded-full bg-unpaidbg px-2.5 py-1 text-[11px] font-semibold text-unpaidfg">Payable 2 is already paid</span>
+        </div>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-md border border-line p-4">
+            <p class="text-[14px] font-semibold text-ink">Rail A — Pay in CCD</p>
+            <p class="mt-1 text-[13px] leading-[1.45] text-muted">The contract checks the invoice and sends the full amount to the payee in the same transaction. It keeps no balance. The payment comes from the demo payer account, so you sign nothing.</p>
+            <button class="btn mt-3 w-full rounded bg-ink px-4 py-2.5 text-[14px] font-medium text-white opacity-50" type="button" aria-disabled="true" aria-describedby="rail-a-why">Pay 0.5 CCD on chain</button>
+            <p id="rail-a-why" class="mt-2 text-[12px] text-refusedfg">Disabled: this is an EUDemo invoice. Use Pay in EUDemo. (Also: this invoice is already paid.)</p>
+            <p class="mt-1 text-[12px] text-muted">Recorded fee for a successful CCD payment: 16.2 testnet CCD.</p>
+          </div>
+          <div class="rounded-md border border-line p-4">
+            <p class="text-[14px] font-semibold text-ink">Rail B — Pay in EUDemo</p>
+            <p class="mt-1 text-[13px] leading-[1.45] text-muted">1. The invoice is reserved on chain for 300 seconds. 2. A co-signer approves one transfer of this exact amount to this payee, with the invoice number in the memo. 3. The transfer is confirmed against this invoice.</p>
+            <button class="btn mt-3 w-full rounded bg-ink px-4 py-2.5 text-[14px] font-medium text-white opacity-50" type="button" aria-disabled="true" aria-describedby="rail-b-why">Pay 0.01 EUDemo (3 steps)</button>
+            <p id="rail-b-why" class="mt-2 text-[12px] text-refusedfg">Disabled: this invoice is already paid.</p>
+            <p class="mt-1 text-[12px] text-muted">Gas for the agent wallet is paid by the lab seller account. EUDemo is a testnet demo token.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================= STEP 4 ======================= -->
+      <section id="receipt" class="rounded-md border border-line bg-white p-5 sm:p-6" aria-labelledby="s4">
+        <div class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white">4</span>
+          <h2 id="s4" class="text-[20px] tracking-[-0.01em] text-ink">Receipt</h2>
+          <span class="ml-auto rounded-full bg-verifiedbg px-2.5 py-1 text-[11px] font-semibold text-verifiedfg">Paid once ✓</span>
+        </div>
+        <p class="mt-2 text-[14px] text-muted">Paid once. Reserved, co-signed and confirmed. The payee on chain received 0.01 EUDemo.</p>
+        <dl class="mt-4 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
+          <div><dt class="text-muted">Payable</dt><dd class="mt-0.5 text-ink">#2</dd></div>
+          <div><dt class="text-muted">Amount</dt><dd class="mt-0.5 text-ink">0.01 EUDemo</dd></div>
+          <div><dt class="text-muted">Payee (from chain)</dt><dd class="mono mt-0.5 text-ink">4Vtd6W…Tg</dd></div>
+          <div><dt class="text-muted">Paid from</dt><dd class="mt-0.5 text-ink">Demo payer account (lab)</dd></div>
+        </dl>
+        <ul class="mt-4 space-y-2 text-[13px]">
+          <li class="flex flex-wrap items-center gap-2 rounded bg-paper px-3 py-2"><span class="font-medium text-ink">Reserve</span><a class="mono text-teal700" href="https://ccdexplorer.io/testnet/transaction/ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1" target="_blank" rel="noopener">ee56c0cc…8fbefc1 ↗</a><span class="ml-auto text-muted">chain</span></li>
+          <li class="flex flex-wrap items-center gap-2 rounded bg-paper px-3 py-2"><span class="font-medium text-ink">Transfer · memo payable:2</span><a class="mono text-teal700" href="https://ccdexplorer.io/testnet/transaction/7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef" target="_blank" rel="noopener">7cc2f94f…0632ef ↗</a><span class="ml-auto text-muted">chain · fee 7.07 CCD (sponsor)</span></li>
+          <li class="flex flex-wrap items-center gap-2 rounded bg-paper px-3 py-2"><span class="font-medium text-ink">Confirm</span><a class="mono text-teal700" href="https://ccdexplorer.io/testnet/transaction/212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde" target="_blank" rel="noopener">212f0ac7…310bde ↗</a><span class="ml-auto text-muted">chain · fee 10.98 CCD</span></li>
+        </ul>
+        <p class="mt-4 text-[14px] text-ink"><strong>12 of 12 checks passed</strong> <span class="text-muted">when we re-read the chain at 10:42:07 UTC.</span></p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="btn rounded bg-ink px-4 py-2 text-[13px] font-medium text-white" type="button">Check again on chain</button>
+          <button class="btn rounded border border-line bg-white px-4 py-2 text-[13px] font-medium text-ink" type="button">Copy verifier command</button>
+          <a class="btn rounded border border-line bg-white px-4 py-2 text-[13px] font-medium text-ink" href="https://ccdexplorer.io/testnet/transaction/7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef" target="_blank" rel="noopener">Open on explorer ↗</a>
+        </div>
+        <p class="mt-3 text-[12px] text-muted">Testnet receipt. It is not a legal invoice, a tax document or proof of delivery.</p>
+      </section>
+    </div>
+
+    <!-- ======================= SIDE COLUMN ======================= -->
+    <aside class="space-y-6" aria-labelledby="try">
+      <section class="rounded-md border border-line bg-white p-5" aria-labelledby="try">
+        <h2 id="try" class="text-[18px] tracking-[-0.01em] text-ink">Try to break it</h2>
+        <p class="mt-1 text-[13px] text-muted">Each attempt is real or clearly labelled. Some cost a testnet fee, and the chain keeps the fee even when it refuses.</p>
+        <div class="mt-4 space-y-3">
+          <article class="rounded-md border border-line p-3">
+            <div class="flex items-center justify-between gap-2"><p class="text-[14px] font-medium text-ink">Tamper with the invoice</p><span class="rounded-full bg-line/60 px-2 py-0.5 text-[10px] font-semibold text-body">This app</span></div>
+            <p class="mt-1 text-[13px] text-muted">This app: the file does not match the chain fingerprint. Paying is blocked. The payee on chain is still 4Vtd6W…Tg.</p>
+            <p class="mt-1 text-[11px] text-muted">Real, client-side · Fee: none</p>
+          </article>
+          <article class="rounded-md border border-line p-3">
+            <div class="flex items-center justify-between gap-2"><p class="text-[14px] font-medium text-ink">Pay it twice</p><span class="rounded-full bg-refusedbg px-2 py-0.5 text-[10px] font-semibold text-refusedfg">Chain −5</span></div>
+            <p class="mt-1 text-[13px] text-muted">The chain refused a second payment. Nothing moved. The chain still charged a fee of 4.93 testnet CCD.</p>
+            <p class="mt-1 text-[11px]"><a class="mono text-teal700" href="https://ccdexplorer.io/testnet/transaction/a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848" target="_blank" rel="noopener">a5ec5e40…6848 ↗</a> <span class="text-muted">· Real · Fee 4.93 CCD</span></p>
+          </article>
+          <article class="rounded-md border border-line p-3">
+            <div class="flex items-center justify-between gap-2"><p class="text-[14px] font-medium text-ink">Wrong amount</p><span class="rounded-full bg-refusedbg px-2 py-0.5 text-[10px] font-semibold text-refusedfg">Chain −6</span></div>
+            <p class="mt-1 text-[13px] text-muted">The chain refused the amount. Nothing moved. EUDemo: refused by the co-signer before signing. No transaction was sent.</p>
+            <p class="mt-1 text-[11px]"><a class="mono text-teal700" href="https://ccdexplorer.io/testnet/transaction/52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c" target="_blank" rel="noopener">52f3b4aa…f01c ↗</a> <span class="text-muted">· Real · Fee ~4.93 CCD</span></p>
+          </article>
+          <article class="rounded-md border border-line p-3">
+            <div class="flex items-center justify-between gap-2"><p class="text-[14px] font-medium text-ink">Pay a fraudster’s invoice</p><span class="rounded-full bg-line/60 px-2 py-0.5 text-[10px] font-semibold text-body">This app</span></div>
+            <p class="mt-1 text-[13px] text-muted">This app: this seller is not on your vendor list. Nothing was sent to the chain.</p>
+            <p class="mt-1 text-[12px] text-unpaidfg">Honest gap: the chain accepted this invoice, because anyone can register one. The co-signer would also approve it today (dry run: approve). The vendor check is not enforced by the chain or the co-signer yet (planned).</p>
+            <p class="mt-1 text-[11px] text-muted">Real vendor check · Fee: none</p>
+          </article>
+          <article class="rounded-md border border-line p-3">
+            <div class="flex items-center justify-between gap-2"><p class="text-[14px] font-medium text-ink">Injection: pay another account</p><span class="rounded-full bg-line/60 px-2 py-0.5 text-[10px] font-semibold text-body">This app</span></div>
+            <p class="mt-1 text-[13px] text-muted">Ignored. The invoice text is evidence only. The payee is the account on chain: 4Vtd6W…Tg.</p>
+            <p class="mt-1 text-[11px] text-muted">Client-side, real · No language model reads invoice text in the payment path in this build.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="rounded-md border border-line bg-white p-5" aria-labelledby="build">
+        <h2 id="build" class="text-[16px] tracking-[-0.01em] text-ink">Build status</h2>
+        <ul class="mt-2 space-y-1.5 text-[13px] text-muted">
+          <li>Vendor list enforced by the co-signer: <strong class="text-ink">not yet (planned)</strong></li>
+          <li>Named payer on invoice: <strong class="text-ink">not yet (planned)</strong></li>
+          <li>Transaction-expiry bound (race fix): <strong class="text-ink">not yet (planned)</strong></li>
+          <li>Co-signer runs as: <strong class="text-ink">inside the lab server</strong></li>
+        </ul>
+        <a href="#judges" class="mt-3 inline-block text-[13px] font-medium text-teal700">Details: For judges →</a>
+      </section>
+
+      <section class="rounded-md border border-line bg-white p-5" aria-labelledby="components">
+        <h2 id="components" class="text-[16px] tracking-[-0.01em] text-ink">Component reference</h2>
+        <p class="mt-1 text-[13px] text-muted">States the frontend agent must implement. (Reference, not live UI.)</p>
+        <div class="mt-3 space-y-3 text-[13px]">
+          <div><p class="font-medium text-ink">Status chips</p><p class="mt-1 flex flex-wrap gap-1.5"><span class="rounded-full bg-verifiedbg px-2 py-0.5 text-[11px] font-semibold text-verifiedfg">Paid</span><span class="rounded-full bg-verifiedbg px-2 py-0.5 text-[11px] font-semibold text-verifiedfg">Verified 12/12</span><span class="rounded-full bg-unpaidbg px-2 py-0.5 text-[11px] font-semibold text-unpaidfg">Unpaid</span><span class="rounded-full bg-unpaidbg px-2 py-0.5 text-[11px] font-semibold text-unpaidfg">Reserved</span><span class="rounded-full bg-refusedbg px-2 py-0.5 text-[11px] font-semibold text-refusedfg">Refused −5</span></p></div>
+          <div><p class="font-medium text-ink">Layer badges (every refusal carries exactly one)</p><p class="mt-1 flex flex-wrap gap-1.5"><span class="rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Chain</span><span class="rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">Co-signer</span><span class="rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-body">This app</span></p></div>
+          <div><p class="font-medium text-ink">Buttons</p><p class="mt-1 flex flex-wrap gap-2"><button class="btn rounded bg-ink px-3 py-1.5 text-[12px] font-medium text-white" type="button">Pay in CCD</button><button class="btn rounded border border-line bg-white px-3 py-1.5 text-[12px] font-medium text-ink" type="button">Verify a receipt</button><button class="btn rounded bg-ink px-3 py-1.5 text-[12px] font-medium text-white opacity-50" type="button" aria-disabled="true">Pay (disabled)</button></p><p class="mt-1 text-[12px] text-muted">A disabled button always shows its reason next to it.</p></div>
+          <div><p class="font-medium text-ink">Refusal card</p><div class="mt-1 rounded-md border border-refusedbg bg-refusedbg/40 p-3"><p class="font-medium text-refusedfg">Refused by the chain (code −5, WrongStatus)</p><p class="mt-0.5 text-muted">This invoice is already paid, so the chain refused a second payment. Nothing moved. The chain still charged a fee of 4.93 testnet CCD.</p></div></div>
+          <div><p class="font-medium text-ink">Status pill states</p><p class="mt-1 text-muted">LIVE · 12 s ago / LAST VERIFIED · 4 min ago (refresh paused) / CONNECTING / NO LIVE DATA</p></div>
+          <div><p class="font-medium text-ink">Reservation countdown</p><p class="mt-1 text-muted">“Reserved until 04:54 UTC” — announced at 60 s and at expiry only.</p></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ======================= API NOTE ======================= -->
+  <section class="mt-10 rounded-md border border-line bg-white p-5 sm:p-6" aria-labelledby="api">
+    <h2 id="api" class="text-[18px] tracking-[-0.01em] text-ink">What the frontend wires to (P3 §16)</h2>
+    <p class="mt-1 max-w-[720px] text-[14px] text-muted">Every number on this page comes from one of these routes in the live app. This mockup is static; the frontend agent replaces each value with the live call. Amounts are strings in base units; the UI formats them.</p>
+    <div class="mono mt-3 grid gap-1 text-[12px] text-body sm:grid-cols-2">
+      <p>GET /api/config — registry &lt;13149,0&gt;, CIS-8004 test &lt;13144,0&gt;, reservation 300 s, margin 60 s</p>
+      <p>GET /api/health · GET /api/stats — pill, stats strip, budget</p>
+      <p>GET /api/invoices — lab picker (unpaid + recent paid only)</p>
+      <p>GET /api/payables/:id — facts; GET /api/payables/:id/document — lab text only</p>
+      <p>POST /api/payables/:id/verify — 9 checks (before_pay) / 10 or 12 (after_pay)</p>
+      <p>POST /api/payables/:id/pay — 202 job; GET /api/jobs/:id/events (SSE)</p>
+      <p>GET /api/tx/:hash/status · POST /api/cosigner/dry-run · POST /api/attacks/:kind</p>
+      <p>GET /api/receipts/:id · GET /api/recorded/:id · GET /api/judges/files</p>
+    </div>
+  </section>
+</main>
+
+<footer class="mx-auto max-w-[1280px] px-4 pb-10 sm:px-8" id="judges">
+  <div class="border-t border-line pt-8">
+    <p class="max-w-[720px] text-[13px] leading-[1.5] text-muted">Testnet only. The lab keys sit on one machine. EUDemo is a testnet demo token, not a euro stablecoin. A testnet receipt is not a legal invoice, a tax document or proof of delivery.</p>
+    <p class="mt-3 text-[12px] text-muted">PayOnce · Dashboard visual system v1 · 24 Nov 2026 · Data: lab run, 24 Nov 2026 · Registry &lt;13149,0&gt; · CIS-8004 test instance &lt;13144,0&gt;</p>
+  </div>
+</footer>
+</body>
+</html>

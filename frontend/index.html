@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="PayOnce — every invoice becomes a payable on Concordium testnet: paid exactly once, only to the account the supplier put on chain. Receipts verify without an account."
+    />
+    <link rel="preload" as="image" href="/assets/hero-sky.webp" fetchpriority="high" />
+    <link rel="icon" type="image/webp" href="/assets/payonce-mark.webp" />
+    <title>PayOnce — Pay each invoice once, on chain (Concordium testnet)</title>
+  </head>
+  <body>
+    <noscript>
+      <div style="max-width: 640px; margin: 48px auto; padding: 0 16px; font-family: system-ui, sans-serif; color: #0b1f24;">
+        <h1 style="font-size: 24px;">PayOnce needs JavaScript</h1>
+        <p style="margin-top: 12px; line-height: 1.5;">
+          This page verifies invoices against the Concordium testnet in your browser — it cannot run without
+          JavaScript. Turn JavaScript on and reload. Nothing here is a static mockup: every number on the page
+          comes from the live test registry.
+        </p>
+      </div>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

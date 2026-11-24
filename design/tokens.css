@@ -1,0 +1,101 @@
+/* ==========================================================================
+   PayOnce — Design Tokens ("dawn teal / ink")
+   Source of truth for the frontend agent. Values from PLAN P2 §4.3.
+   Every contrast pair below is WCAG AA (>= 4.5:1) per the plan's table.
+   ========================================================================== */
+
+:root {
+  /* --- Sky (hero) --- */
+  --sky-0: #0a2a33; /* top of hero */
+  --sky-1: #15505a; /* upper hero, behind H1 — white on it: 9.02:1 */
+  --sky-2: #1f6f6a; /* mid hero, behind sub — white on it: 5.93:1 */
+  --sky-3: #a7dcd0; /* lower hero, dawn mint — ink text only, 11.16:1 */
+  --sky-4: #f7ebdd; /* horizon peach, fades into page — ink on it: 14.47:1 */
+
+  /* --- Clouds --- */
+  --cloud-white: #ffffff;
+  --cloud-shadow: #b9d8d2;
+  --cloud-shadow-2: #7fa9a6;
+  --cloud-rim: rgba(247, 217, 192, 0.3); /* peach rim light on top edges */
+
+  /* --- Page and surfaces --- */
+  --paper: #f4f7f6;   /* page background */
+  --paper-2: #e9f0ee; /* alternating section */
+  --card: #ffffff;    /* cards, dashboard panels */
+  --line: #d5e0de;    /* hairlines */
+  --ink: #0b1f24;     /* headings, primary text — on paper: 15.77:1 */
+  --body: #3b4f55;    /* body text — on paper: 8.00:1 */
+  --muted: #4f6268;   /* captions, labels — on paper: 5.94:1 */
+  --ink-dark-bg: #0b1f24; /* dark CTA band, primary dark button */
+
+  /* --- Accent and status --- */
+  --teal-600: #0f766e; /* primary button (white text: 5.47:1) */
+  --teal-700: #1f6f6a; /* accent text, links on white: 5.93:1 */
+  --amber: #f2b872;    /* highlight chips (ink text: 9.61:1) */
+  --verified-fg: #14532d;
+  --verified-bg: #e7f5ec; /* badge text: 8.10:1 */
+  --unpaid-fg: #7a4a00;
+  --unpaid-bg: #fff4e0;   /* badge text: 6.86:1 */
+  --refused-fg: #8a1c12;
+  --refused-bg: #fdecea;  /* badge text: 8.14:1 */
+
+  /* --- Type scale (px, from P2 §2.2 — frame px at 1280 viewport) --- */
+  --font-sans: "Inter", "Inter Display", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-h1: clamp(2.75rem, 5vw, 4rem);      /* 60–64px, tracking -0.03em, lh 1.0–1.05 */
+  --text-h1-leading: 1.02;
+  --text-h2: 2.75rem;                          /* 44px, tracking -0.02em, lh 1.0 */
+  --text-h2-leading: 1.0;
+  --text-step-title: 1.875rem;                 /* 30–32px, tracking -0.02em */
+  --text-card-title: 1.25rem;                  /* 20px, tracking -0.01em */
+  --text-body: 0.9375rem;                      /* 15px, lh 1.4–1.5 */
+  --text-body-leading: 1.45;
+  --text-hero-sub: 1.0625rem;                  /* 17px, lh 1.3 */
+  --text-eyebrow: 0.875rem;                    /* 14px */
+  --text-kpi: 1.75rem;                         /* 28px, tracking -0.02em */
+  --text-micro: 0.6875rem;                     /* 11px micro labels */
+
+  /* --- Spacing rhythm (P2 §2.3) --- */
+  --wrap: 1101px;      /* content width at 1280 viewport (x 89–1190) */
+  --header-h: 75px;
+  --card-pad: 24px;
+  --section-gap: 114px; /* features bottom → next eyebrow */
+  --stack-h2-sub: 24px;
+  --stack-sub-cards: 58px;
+
+  /* --- Radii, borders, shadows (P2 §2.4) --- */
+  --radius-card: 0px;        /* feature/step cards: square */
+  --radius-btn: 4px;
+  --radius-nav: 6px;
+  --radius-dash: 10px;
+  --radius-panel: 6px;
+  --border-hairline: 1px solid var(--line);
+  --handle: 5px;             /* corner handle squares, bg ink */
+  --shadow-dash: 0 30px 80px rgba(11, 31, 36, 0.35);
+  --shadow-card: 0 1px 2px rgba(11, 31, 36, 0.06), 0 8px 24px rgba(11, 31, 36, 0.08);
+
+  /* --- Motion (P2 §5.4–5.6) --- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-enter: 0.6s;
+  --stagger: 80ms;
+  --dur-stage: 0.9s;   /* receipt-checker stage */
+  --dur-row: 1.2s;     /* cycling row highlight */
+}
+
+/* Tailwind theme mapping (for the React port — @theme tokens) */
+@theme {
+  --color-sky-0: var(--sky-0);
+  --color-sky-1: var(--sky-1);
+  --color-sky-2: var(--sky-2);
+  --color-sky-3: var(--sky-3);
+  --color-sky-4: var(--sky-4);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-teal-600: var(--teal-600);
+  --color-teal-700: var(--teal-700);
+  --color-amber: var(--amber);
+}

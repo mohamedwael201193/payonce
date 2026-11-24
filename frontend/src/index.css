@@ -1,0 +1,118 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Sky (hero) — P2 §4.3 */
+  --color-sky-0: #0a2a33;
+  --color-sky-1: #15505a;
+  --color-sky-2: #1f6f6a;
+  --color-sky-3: #a7dcd0;
+  --color-sky-4: #f7ebdd;
+  --color-cloud-white: #ffffff;
+  --color-cloud-shadow: #b9d8d2;
+  --color-cloud-shadow-deep: #7fa9a6;
+  --color-peach-rim: #f7d9c0;
+
+  /* Page and surfaces — P2 §4.3 */
+  --color-paper: #f4f7f6;
+  --color-paper-2: #e9f0ee;
+  --color-card: #ffffff;
+  --color-line: #d5e0de;
+  --color-ink: #0b1f24;
+  --color-body: #3b4f55;
+  --color-muted: #4f6268;
+  --color-ink-dark-bg: #0b1f24;
+
+  /* Accent and status — P2 §4.3 */
+  --color-teal-600: #0f766e;
+  --color-teal-700: #1f6f6a;
+  --color-amber: #f2b872;
+  --color-verified: #14532d;
+  --color-verified-bg: #e7f5ec;
+  --color-unpaid: #7a4a00;
+  --color-unpaid-bg: #fff4e0;
+  --color-refused: #8a1c12;
+  --color-refused-bg: #fdecea;
+  --color-refused-solid: #b42318;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-teal-600);
+  color: #ffffff;
+}
+
+/* Corner handle squares — the Altura signature motif (P2 §2.4, design §2):
+   5px solid ink squares on every outer corner and grid intersection.
+   Usage: <div className="handles ..."><i aria-hidden="true" />…</div>
+   The <i> child carries the bottom two squares. */
+.handles {
+  position: relative;
+}
+.handles::before,
+.handles::after,
+.handles > i::before,
+.handles > i::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: var(--color-ink);
+  z-index: 2;
+  pointer-events: none;
+}
+.handles::before {
+  top: -3px;
+  left: -3px;
+}
+.handles::after {
+  top: -3px;
+  right: -3px;
+}
+.handles > i::before {
+  bottom: -3px;
+  left: -3px;
+}
+.handles > i::after {
+  bottom: -3px;
+  right: -3px;
+}
+.handles > i {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Shared 1px hairline grid (P2 §5.4): cards share borders, no gutters. */
+.hairline-grid > * {
+  margin-left: -1px;
+  margin-top: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
