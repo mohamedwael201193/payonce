@@ -1,0 +1,124 @@
+{
+  "reserve": {
+    "status": "finalized",
+    "outcome": {
+      "blockHash": "5f58b9f9fdc6a8868d98f0479eb2b59cd7b3d20948058ef4e08559637b61a1c5",
+      "summary": {
+        "index": "0",
+        "energyCost": {
+          "value": "2028",
+          "__type": "ccd_energy"
+        },
+        "hash": "ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1",
+        "type": "accountTransaction",
+        "cost": "0",
+        "sender": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n",
+        "sponsor": {
+          "cost": "15815333",
+          "sponsor": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+        },
+        "transactionType": "update",
+        "events": [
+          {
+            "tag": "Interrupted",
+            "address": {
+              "index": "13149",
+              "subindex": "0",
+              "__type": "ccd_contract_address"
+            },
+            "events": []
+          },
+          {
+            "tag": "Updated",
+            "contractVersion": 1,
+            "address": {
+              "index": "13144",
+              "subindex": "0",
+              "__type": "ccd_contract_address"
+            },
+            "instigator": {
+              "type": "AddressContract",
+              "address": {
+                "index": "13149",
+                "subindex": "0",
+                "__type": "ccd_contract_address"
+              }
+            },
+            "amount": "0",
+            "message": "080100000000000000",
+            "receiveName": "CIS-8004.agentOf",
+            "events": []
+          },
+          {
+            "tag": "Resumed",
+            "address": {
+              "index": "13149",
+              "subindex": "0",
+              "__type": "ccd_contract_address"
+            },
+            "success": true
+          },
+          {
+            "tag": "Updated",
+            "contractVersion": 1,
+            "address": {
+              "index": "13149",
+              "subindex": "0",
+              "__type": "ccd_contract_address"
+            },
+            "instigator": {
+              "type": "AddressAccount",
+              "address": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n"
+            },
+            "amount": "0",
+            "message": "0200000000000000",
+            "receiveName": "payable_registry.reserve_plt",
+            "events": [
+              "0202000000000000005889f415cef01e0fe654a836fa47b2f0916cfabf00ff7890903ffcf624144dad69a6e90ba2010000"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "confirm": {
+    "status": "finalized",
+    "outcome": {
+      "blockHash": "6471c50941d64224d067b2a5d72dc53b392c3b7cd95ffe8cc56d1754acc22df1",
+      "summary": {
+        "index": "0",
+        "energyCost": {
+          "value": "1408",
+          "__type": "ccd_energy"
+        },
+        "hash": "212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde",
+        "type": "accountTransaction",
+        "cost": "10980271",
+        "sender": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "transactionType": "update",
+        "events": [
+          {
+            "tag": "Updated",
+            "contractVersion": 1,
+            "address": {
+              "index": "13149",
+              "subindex": "0",
+              "__type": "ccd_contract_address"
+            },
+            "instigator": {
+              "type": "AddressAccount",
+              "address": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+            },
+            "amount": "0",
+            "message": "02000000000000007cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef",
+            "receiveName": "payable_registry.confirm_plt",
+            "events": [
+              "0302000000000000005889f415cef01e0fe654a836fa47b2f0916cfabf00ff7890903ffcf624144dad7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "get_payable_2_hex": "010200000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4ccafc8b5445d3065daea606c36d126efc9c0815a01fb13d6bb7a23379e0f082510270000000000000106000000455544656d6f22990911a20100003b5b27da5b8ade35549d1e4ccaa6af19129a63e2f47b94a0cd524c194352529a58330000000000000000000000000000080000000100000000000000025889f415cef01e0fe654a836fa47b2f0916cfabf00ff7890903ffcf624144dad39c6e50ba2010000017cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"
+}

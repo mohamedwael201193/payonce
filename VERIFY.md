@@ -26,12 +26,20 @@ the commands below.
   instance `<13144,0>` (the official `<12802,0>` needs publicly hosted cards
   — see §6).
 
-Check it exists (read-only, no keys):
+Check it exists (read-only, no keys). The verifier is
+`backend/src/verifier/verify-payable.mjs` (12 CCD / 15 PLT checks, incl.
+the F10 binding — see `backend/BACKEND_REPORT.md` §2). Run it from
+`backend/` after `npm ci`:
 
 ```sh
-node services/verify-payable.mjs 1 00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6
-# expected: ALL CHECKS PASS (10/10) — payable 1, Rail A
+cd backend && npm ci
+node src/verifier/verify-payable.mjs 6 828ebd253b02626bb470169bbce114691f16d55d560ed9750df197d1198e875a --rail ccd --doc test/invoices/invoice-006-ccd.txt
+# expected: ALL CHECKS PASS (12/12) — payable 6, Rail A
 ```
+
+(The older `services/verify-payable.mjs` is superseded: it does not run
+from a fresh clone — no root dependencies and no `services/out/deploy.json`
+in the repo. Use the backend verifier above.)
 
 ## 2. Rail A (CCD) — the contract *is* the payment
 
@@ -48,8 +56,9 @@ parameter and the contract's `Paid` event). Proof: checking payable 1
 against the transaction of payable 4 **fails**, as it must:
 
 ```sh
-node services/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e461ffbeb43858a4fb17551a6e
-# expected: FAIL on the parameter check
+cd backend
+node src/verifier/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e461ffbeb43858a4fb17551a6e --rail ccd
+# expected: FAIL on CCD-04 (parameter id=4, requested=1) and CCD-05 (Paid event id=4), exit 1
 ```
 
 ## 3. Rail B (EUDemo) — the guard precedes the payment
@@ -57,7 +66,7 @@ node services/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e461ffb
 | What | Transaction | Expected |
 |---|---|---|
 | `reserve_plt` by the 2-of-3 agent account (sponsored) | `ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1` | Finalized |
-| Co-signed 0.01 EUDemo to the stored payee, memo `payable:2` | `7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef` | Finalized; verifier 12/12 |
+| Co-signed 0.01 EUDemo to the stored payee, memo `payable:2` | `7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef` | Finalized; verifier 14/14 (doc skipped) |
 | Second reservation while reserved reverts (-16) | `ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35` | Rejected |
 | Confirm by seller, linking the EUDemo hash | `212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde` | Finalized |
 | Reused tx hash rejected (-12) | `02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b` | Rejected |
@@ -66,8 +75,10 @@ node services/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e461ffb
 | Expiry by a third party after the window | `492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760` | Finalized |
 
 ```sh
-node services/verify-payable.mjs 2 7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef
-# expected: ALL CHECKS PASS (12/12) — payable 2, Rail B
+cd backend
+node src/verifier/verify-payable.mjs 2 7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef --rail plt --reserve-tx ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1 --confirm-tx 212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde
+# expected: ALL CHECKS PASS (14/14, 1 skipped — no doc supplied) — payable 2, Rail B
+# with --doc: payable 11 (MCP-paid) is the 15/15 reference run, see backend/BACKEND_REPORT.md §3
 ```
 
 The agent key alone cannot move funds: the node rejects an agent-only
@@ -84,6 +95,10 @@ cd contracts/payable_registry_v2 && cargo concordium test   # 80 tests (Chain en
 
 # Co-signer decision table (35 cases)
 node --test contracts/cosigner/test/decide.test.mjs
+
+# Backend (110 tests: verifier negatives, co-signer decide + server,
+# facilitator, invoice adapter, receipts, EasyPost, MCP)
+cd backend && npm ci && node --test test/*.test.mjs
 
 # Frontend
 cd frontend && npm ci && npm run build && npm test
@@ -106,15 +121,24 @@ On the dashboard, five attacks each name the layer that refuses them:
 
 ## 6. Known limits (honest — read before judging)
 
-- **v2 is live, but its success path is not yet proven on chain.** The v2
-  contract `<13150,0>` is deployed and its 25-tx matrix is live (10
-  successes + 15 rejects with the exact codes). What is NOT live: a
-  successful `pay_ccd` / `reserve_plt` / `confirm_plt` — those paths are
-  proven only in the Chain engine. The blocker was a missing second signer;
-  it is now unblocked (the seller-B key derives from the seed via the SDK's
-  HD wallet — see `contracts/CONTRACT_REPORT.md` §6 note) and a live
-  happy-path run is pending. No public claim of a working v2 payment until
-  then.
+- **v2 success path is now proven live on chain.** The v2 contract
+  `<13150,0>` is deployed, its 25-tx matrix is live (10 successes + 15
+  rejects), AND the 8-tx happy path ran live 2026-11-24 ~08:36–08:38 UTC:
+  fund B → approve_vendor → register + pay_ccd payable 10 (CCD 0.5, paid
+  by B) → register + reserve_plt + co-signed transfer + confirm_plt
+  payable 11 (EUDemo 0.01) — all 3 co-signer gates SIGN, views + balance
+  deltas verified (see `backend/BACKEND_REPORT.md` §6; the backend judge
+  re-read all 8 txs). Roles are MIRRORED (seller = owner, payer = B)
+  because B owns no agent token on the official registry `<12802,0>` —
+  that is the open D6 item (a seller-direction gap, not a
+  payment-mechanics gap): a seller who is not the deployer registering on
+  v2 is not yet proven.
+- **v2 `pay_ccd` does not record its own tx hash in the view.** The
+  contract records the transfer hash only on the PLT path
+  (`PltConfirmed`); the (owner,10) view shows `txHash: null`. A receipt
+  built from the view alone cannot pin the CCD payment tx — the verifier
+  re-derives it from the supplied tx, so nothing is broken. Candidate for
+  the v2.1 redeploy (with the −18 fix below).
 - **−18 stray-balance griefing (v2, must-fix before the public flip).** A
   direct CCD donation to `<13150,0>` would brick every later `pay_ccd`
   with −18, and the donated CCD would be stuck (no withdraw entrypoint).

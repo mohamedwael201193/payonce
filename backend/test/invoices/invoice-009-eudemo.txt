@@ -1,0 +1,6 @@
+PAYONCE TEST INVOICE — payable 9 (x402 Rail B, EUDemo)
+Seller: 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs
+Payee: 4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg
+Amount: 0.01 EUDemo (10000 base units, 6 decimals)
+Due: 2026-12-26T12:00:00.000Z
+Test only — Concordium testnet, no real goods or services.

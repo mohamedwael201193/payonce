@@ -1,0 +1,15 @@
+{
+  "blockTime": {
+    "slotTime": "2026-11-24T04:51:31.593Z",
+    "height": "51218641"
+  },
+  "logged": [
+    {
+      "event": "Reserved",
+      "payableId": 2,
+      "payer": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n",
+      "expiresMs": "1795496191593",
+      "expires": "2026-11-24T04:56:31.593Z"
+    }
+  ]
+}

@@ -1,0 +1,216 @@
+{
+  "runAt": "2026-11-24T08:01:37.635Z",
+  "network": "testnet",
+  "railA": {
+    "registerTx": "5c228c4f1b6fbe0488758789bed89317c3c3d3adf883c4dd001b3c01ad7b4387",
+    "payTx": "828ebd253b02626bb470169bbce114691f16d55d560ed9750df197d1198e875a",
+    "payBlock": "65e89a3bdfad8d9c2e957c2d91214a3d06256823e1e5323af5fb00abcb4027f5",
+    "verify": {
+      "checks": [
+        {
+          "id": "CCD-01",
+          "name": "tx-finalized",
+          "status": "PASS",
+          "detail": "status=finalized"
+        },
+        {
+          "id": "CCD-02",
+          "name": "tx-is-contract-update",
+          "status": "PASS",
+          "detail": "type=update"
+        },
+        {
+          "id": "CCD-03",
+          "name": "update-targets-registry",
+          "status": "PASS",
+          "detail": "receiveName=payable_registry.pay_ccd"
+        },
+        {
+          "id": "CCD-04",
+          "name": "parameter-binds-payable-id (F10)",
+          "status": "PASS",
+          "detail": "parameter id=6, requested=6"
+        },
+        {
+          "id": "CCD-05",
+          "name": "paid-event-binds-payable-id (F10)",
+          "status": "PASS",
+          "detail": "Paid event id=6"
+        },
+        {
+          "id": "CCD-06",
+          "name": "paid-event-payer-is-sender",
+          "status": "PASS",
+          "detail": "payer=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB, sender=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+        },
+        {
+          "id": "CCD-07",
+          "name": "paid-event-amount-is-stored",
+          "status": "PASS",
+          "detail": "event amount=500000, stored=500000"
+        },
+        {
+          "id": "CCD-08",
+          "name": "transferred-to-stored-payee",
+          "status": "PASS",
+          "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, amount=500000, stored payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, stored amount=500000"
+        },
+        {
+          "id": "CCD-09",
+          "name": "registry-status-paid",
+          "status": "PASS",
+          "detail": "status=Paid"
+        },
+        {
+          "id": "CCD-10",
+          "name": "registry-balance-zero",
+          "status": "PASS",
+          "detail": "balance=0 microCCD"
+        },
+        {
+          "id": "CCD-11",
+          "name": "payment-before-due",
+          "status": "PASS",
+          "detail": "block time=2026-11-24T07:58:41.593Z, due=2026-11-25T07:55:46.945Z"
+        },
+        {
+          "id": "CCD-12",
+          "name": "doc-hash-matches",
+          "status": "PASS",
+          "detail": "sha256(doc)=b4f5bbb670d7b756…, stored=b4f5bbb670d7b756…"
+        }
+      ],
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "total": 12,
+      "allPass": true
+    }
+  },
+  "railB": {
+    "registerTx": "b2455eff33f845fa9f0746f2b958907b04304779aca4496854404a8d7c3bb210",
+    "reserveTx": "68264db84609e70279f49ceb777789928fed7c2b02261ddf0f42d58ddce0ce25",
+    "reserveBlock": "218365a5529bc3359828e7d45e69bdc9ad60edb4ac206a31a53eb5cd0772e162",
+    "expiresMs": "1795507509593",
+    "transferTx": "1badea8286a6beb49ff46fbe5c51fed66e3d630fc8a3b206eac9801d0864c04b",
+    "transferBlock": "2e734d2ccda7a123be1ea21285b91a245bda4e6637efe5db9697a5f8da1498c2",
+    "confirmTx": "459734c3a20cc15d503b7ca10b2fed3aec363109813dd95f6347d829890a6068",
+    "confirmBlock": "a2a3936cccd4700a881e37a8416167f9fb4cebc5c983d09f664dc9afb5bfeb3a",
+    "verify": {
+      "checks": [
+        {
+          "id": "PLT-01",
+          "name": "tx-finalized",
+          "status": "PASS",
+          "detail": "status=finalized"
+        },
+        {
+          "id": "PLT-02",
+          "name": "exactly-one-token-transfer",
+          "status": "PASS",
+          "detail": "TokenTransfer events=1"
+        },
+        {
+          "id": "PLT-03",
+          "name": "token-is-eudemo",
+          "status": "PASS",
+          "detail": "tokenId=EUDemo"
+        },
+        {
+          "id": "PLT-04",
+          "name": "transfer-from-is-payer",
+          "status": "PASS",
+          "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+        },
+        {
+          "id": "PLT-05",
+          "name": "transfer-to-is-payee",
+          "status": "PASS",
+          "detail": "to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        {
+          "id": "PLT-06",
+          "name": "transfer-amount-is-stored",
+          "status": "PASS",
+          "detail": "amount=10000, stored=10000"
+        },
+        {
+          "id": "PLT-07",
+          "name": "memo-is-canonical-payable-id",
+          "status": "PASS",
+          "detail": "memo=\"payable:7\", expected=\"payable:7\""
+        },
+        {
+          "id": "PLT-08",
+          "name": "memo-bytes-canonical",
+          "status": "PASS",
+          "detail": "memo bytes must be exactly the canonical CBOR encoding of the payable id"
+        },
+        {
+          "id": "PLT-09",
+          "name": "transfer-before-due",
+          "status": "PASS",
+          "detail": "block time=2026-11-24T08:01:47.593Z, due=2026-12-26T12:00:00.000Z"
+        },
+        {
+          "id": "PLT-13",
+          "name": "reservation-precedes-transfer-inside-window",
+          "status": "PASS",
+          "detail": "reserved by 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs at 2026-11-24T08:00:09.593Z, expires 2026-11-24T08:05:09.593Z"
+        },
+        {
+          "id": "PLT-10",
+          "name": "registry-status-paid",
+          "status": "PASS",
+          "detail": "status=Paid"
+        },
+        {
+          "id": "PLT-11",
+          "name": "stored-tx-hash-matches",
+          "status": "PASS",
+          "detail": "stored tx=1badea8286a6beb4…, checked tx=1badea8286a6beb4…"
+        },
+        {
+          "id": "PLT-12",
+          "name": "paid-at-is-confirm-block-time",
+          "status": "PASS",
+          "detail": "view paid_at=2026-11-24T08:01:57.593Z, confirm block time=2026-11-24T08:01:57.593Z"
+        },
+        {
+          "id": "PLT-14",
+          "name": "registry-balance-zero",
+          "status": "PASS",
+          "detail": "balance=0 microCCD"
+        },
+        {
+          "id": "PLT-15",
+          "name": "doc-hash-matches",
+          "status": "PASS",
+          "detail": "sha256(doc)=df4737adefb4fab3…, stored=df4737adefb4fab3…"
+        }
+      ],
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "total": 15,
+      "allPass": true
+    }
+  },
+  "gates": {
+    "reserve": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    },
+    "transfer": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    },
+    "confirm": {
+      "decision": "SIGN",
+      "code": null,
+      "reasons": []
+    }
+  }
+}
