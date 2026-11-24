@@ -54,8 +54,12 @@ node ../clicktest/clicktest.mjs  # headless click-test (Playwright + cached Chro
   the banned claims to explain them — that is documentation, not copy.
 - **No addresses in source.** Account addresses come from `/api/config`
   (vendor list) and `/api/payables` (payee/seller) at runtime. The only
-  addresses in the repo are the explorer fallback URLs in
-  `src/lib/tokens.ts`. Test fixtures use `PLACEHOLDER` strings.
+  addresses in the app source are the explorer fallback URLs in
+  `src/lib/tokens.ts`. One exception: the dev-only stub
+  (`scripts/dev-api-stub.mjs`) hardcodes the recorded run's seller address
+  (`4MvdMEGC…WDs`) — public on-chain data from the 24 Nov 2026 lab run,
+  same category as the tx hashes in `src/lib/recorded.ts`. Test fixtures
+  use `PLACEHOLDER` strings.
 - **No secrets.** Nothing in this app reads, prints, or ships a seed, private
   key, or token. The `seed` strings in the bundle are the SVG
   `feTurbulence` noise seeds of the cloud art.
