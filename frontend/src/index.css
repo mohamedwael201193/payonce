@@ -108,6 +108,218 @@ body {
   margin-top: -1px;
 }
 
+/* ---- Design v2 polish (2026-11-24, polished sunset sketches) ----
+   Same palette, more polish: glossy 3D ember buttons with a real CSS shine
+   sweep, white glass surfaces, floating motion, generous spacing. No new
+   colours — every value below is already in @theme above. */
+
+.btn-ember {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid #7c2d12;
+  padding: 0.75rem 1.75rem;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #c2410c 0%, #b4430f 48%, #9a3412 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -3px 6px rgba(124, 45, 18, 0.55),
+    0 10px 24px rgba(154, 52, 18, 0.45),
+    0 2px 0 #7c2d12;
+  text-shadow: 0 1px 1px rgba(124, 45, 18, 0.4);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+.btn-ember::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.55) 50%, transparent 58%);
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+}
+.btn-ember:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -3px 6px rgba(124, 45, 18, 0.55),
+    0 14px 30px rgba(154, 52, 18, 0.5),
+    0 3px 0 #7c2d12;
+}
+.btn-ember:hover::after {
+  transform: translateX(120%);
+}
+.btn-ember:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 2px 6px rgba(124, 45, 18, 0.6),
+    0 4px 12px rgba(154, 52, 18, 0.4),
+    0 1px 0 #7c2d12;
+}
+.btn-ember:focus-visible {
+  outline: 3px solid #171310;
+  outline-offset: 2px;
+}
+.btn-ember:disabled,
+.btn-ember[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  filter: none;
+}
+.btn-ember:disabled::after,
+.btn-ember[aria-disabled='true']::after {
+  display: none;
+}
+
+.btn-glass {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 67, 15, 0.4);
+  padding: 0.75rem 1.75rem;
+  font-size: 15px;
+  font-weight: 600;
+  color: #171310;
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 6px 18px rgba(23, 19, 16, 0.12);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.btn-glass:hover {
+  background: #fff7ed;
+  border-color: #b4430f;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 10px 24px rgba(23, 19, 16, 0.16);
+}
+.btn-glass:active {
+  transform: translateY(1px);
+}
+.btn-glass:focus-visible {
+  outline: 3px solid #b4430f;
+  outline-offset: 2px;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 67, 15, 0.55);
+  padding: 0.75rem 1.75rem;
+  font-size: 15px;
+  font-weight: 600;
+  color: #9a3412;
+  background: transparent;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+.btn-ghost:hover {
+  background: #fff7ed;
+  border-color: #9a3412;
+  transform: translateY(-1px);
+}
+.btn-ghost:focus-visible {
+  outline: 3px solid #b4430f;
+  outline-offset: 2px;
+}
+
+.btn-ghost-light {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  padding: 0.75rem 1.75rem;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+.btn-ghost-light:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+.btn-ghost-light:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid #e7ddcb;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(23, 19, 16, 0.12);
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: float-y 9s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.8);
+  }
+}
+.animate-live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

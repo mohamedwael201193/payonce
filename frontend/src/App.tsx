@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
+import { DashboardPage } from './pages/DashboardPage'
 import { ReceiptPage } from './pages/ReceiptPage'
 import { JudgesPage } from './pages/JudgesPage'
 
@@ -19,6 +20,7 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/receipt/:payableId" element={<ReceiptPage />} />
           <Route path="/judges" element={<JudgesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -13,7 +13,7 @@ import { CheckStep } from '../components/CheckStep'
 import { PayStep } from '../components/PayStep'
 import { ReceiptStep } from '../components/ReceiptStep'
 import { TryPanel } from '../components/TryPanel'
-import { CtaBand, Features, Footer, HowItWorks } from '../components/Sections'
+import { CtaBand, Features, Footer, HowItWorks, InvoiceShowcase, LiveStatsBand, VerifierSection } from '../components/Sections'
 import { AlertInline, StepCard } from '../components/ui'
 import { api } from '../lib/api'
 import { ApiError, type Receipt } from '../lib/types'
@@ -240,7 +240,7 @@ export function HomePage() {
         <div className="relative z-10 mx-auto max-w-[1101px] px-4 sm:px-6">
           <div
             id="invoice"
-            className="relative -mt-[140px] scroll-mt-4 overflow-hidden rounded-[12px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]"
+            className="relative -mt-[140px] scroll-mt-4 overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]"
           >
             <div className="flex">
               <nav
@@ -271,19 +271,22 @@ export function HomePage() {
                 <a href="#console" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
                   Live console
                 </a>
+                <Link to="/dashboard" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
+                  Dashboard
+                </Link>
                 <Link to="/judges" className="rounded-[4px] px-3 py-2 text-sm text-body hover:bg-paper-2">
                   For judges
                 </Link>
                 <p className="mt-auto px-3 pt-6 text-xs text-muted">Testnet · Concordium</p>
               </nav>
-              <div className="min-w-0 flex-1 p-4 sm:p-6">
-                <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <div className="space-y-3" aria-live="polite">
+              <div className="min-w-0 flex-1 p-5 sm:p-8">
+                <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+            <div className="space-y-6" aria-live="polite">
               {pageError ? <AlertInline>{pageError}</AlertInline> : null}
               <InvoiceStep onLoaded={onLoaded} onNumber={onNumber} onFresh={onFresh} budgetLeft={budgetLeft} />
               {/* Payable facts — shown once a payable is loaded (P3 §5). */}
               {state.facts ? (
-                <div className="rounded-none border border-line bg-card p-6">
+                <div className="rounded-[20px] border border-line bg-card p-6 sm:p-8">
                   <h2 className="text-xl font-medium tracking-[-0.01em] text-ink">
                     Payable {state.facts.payable_id} — {state.facts.amount_display}
                   </h2>
@@ -414,8 +417,11 @@ export function HomePage() {
             <DashboardPreview />
           </div>
         </section>
+        <LiveStatsBand />
         <Features />
         <HowItWorks />
+        <InvoiceShowcase />
+        <VerifierSection />
         <CtaBand />
       </main>
       <Footer />
@@ -437,7 +443,7 @@ function StickyBar({ action }: { action: { label: string; disabledReason: string
           onClick={disabled ? undefined : action.onClick}
           aria-disabled={disabled ? 'true' : undefined}
           aria-describedby={disabled ? 'sticky-bar-reason' : undefined}
-          className="flex min-h-[44px] w-full items-center justify-center rounded-[4px] bg-white px-5 text-[15px] font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-ember w-full"
         >
           {action.label}
         </button>

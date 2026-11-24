@@ -14,8 +14,10 @@ import { Link } from 'react-router-dom'
 import { useConfig, useInvoices, useReceipt, useStats } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { COPY } from '../lib/copy'
+import { derivedStatus } from '../lib/dashboard'
 import { formatUtcDateTime } from '../lib/format'
 import { EXPLORER_HOME } from '../lib/tokens'
+import { CountUp, InvoiceStatusPill, Reveal } from './polish'
 import type { VerifyResponse } from '../lib/types'
 
 const FEATURES = [
@@ -75,10 +77,9 @@ function Terrain({ src, position = 'center' }: { src: string; position?: string 
 }
 
 export function Features() {
-  const reduceMotion = useReducedMotion()
   return (
-    <section aria-labelledby="features-title" className="mx-auto max-w-[1101px] px-4 py-[114px] sm:px-6">
-      <div className="text-center">
+    <section aria-labelledby="features-title" className="mx-auto max-w-[1101px] px-4 py-28 sm:px-6">
+      <Reveal className="text-center">
         <p className="text-sm font-medium tracking-[0.02em] text-ink">
           <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
           Built for clarity
@@ -89,26 +90,126 @@ export function Features() {
         <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
           The payee is read from the chain, never from the document. The document is evidence, not the instruction.
         </p>
-      </div>
-      <div className="handles hairline-grid mt-[58px] grid grid-cols-1 border border-line bg-card md:grid-cols-4">
-        <i aria-hidden="true" />
+      </Reveal>
+      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f, i) => (
-          <motion.div
-            key={f.title}
-            className="flex min-h-[220px] flex-col justify-between border border-line bg-card p-6"
-            initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <f.icon className="h-5 w-5 text-brand-700" aria-hidden="true" />
-            <div>
-              <h3 className="text-[20px] leading-tight font-normal tracking-[-0.01em] text-ink">{f.title}</h3>
-              <p className="mt-2 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{f.body}</p>
+          <Reveal key={f.title} delay={i * 0.08}>
+            <div className="card-glass flex min-h-[248px] flex-col justify-between p-8 transition-transform duration-200 hover:-translate-y-1.5">
+              <span
+                className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_16px_rgba(154,52,18,0.4)]"
+                style={{ background: 'linear-gradient(180deg, #C2410C 0%, #9A3412 100%)' }}
+              >
+                <f.icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="mt-8">
+                <h3 className="text-[20px] leading-tight font-medium tracking-[-0.01em] text-ink">{f.title}</h3>
+                <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.6] text-muted">{f.body}</p>
+              </div>
             </div>
-          </motion.div>
+          </Reveal>
         ))}
       </div>
+    </section>
+  )
+}
+
+/** Live stats band — big count-up numbers, all from /api/stats + the live
+    list. Sits between the console and the features, like the polished
+    landing sketch's stat strip. */
+export function LiveStatsBand() {
+  const stats = useStats()
+  const invoices = useInvoices()
+  const items = invoices.data ?? []
+  const s = stats.data
+  const unpaid = items.filter((i) => i.status !== 'paid').length
+  const cells = [
+    { label: 'Payables on the registry', value: s?.payables_total ?? null },
+    { label: 'Paid once', value: s?.paid_total ?? null },
+    { label: 'Unpaid open', value: items.length ? unpaid : null },
+    { label: 'Refused on chain', value: s?.refused_on_chain_since_deploy ?? null },
+  ]
+  return (
+    <section aria-label="Live registry stats band" className="mx-auto max-w-[1101px] px-4 pt-4 pb-8 sm:px-6">
+      <Reveal>
+        <div className="card-glass grid grid-cols-2 gap-2 p-6 sm:p-8 lg:grid-cols-4">
+          {cells.map((c) => (
+            <div key={c.label} className="flex flex-col items-center gap-2 px-2 py-3 text-center">
+              <span className="text-[44px] leading-none font-medium tracking-[-0.02em] text-brand-700 tabular-nums sm:text-[52px]">
+                {c.value === null ? '—' : <CountUp value={c.value} />}
+              </span>
+              <span className="text-[14px] font-medium text-body">{c.label}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-sm text-muted">
+          Live from the test registry ·{' '}
+          {s?.last_verifier_run_at ? `last verifier run ${formatUtcDateTime(s.last_verifier_run_at)}` : 'loading…'}
+        </p>
+      </Reveal>
+    </section>
+  )
+}
+
+/** Invoice showcase — the latest live invoices as glossy glass cards
+    (polished sketch: "Beautiful, transparent invoicing"). Paid first by
+    highest id, then the soonest-due unpaid ones. */
+export function InvoiceShowcase() {
+  const invoices = useInvoices()
+  const items = invoices.data ?? []
+  const paid = [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)
+  const unpaid = [...items].filter((i) => i.status !== 'paid').sort((a, b) => a.due.localeCompare(b.due))
+  const shown = [...paid.slice(0, 2), ...unpaid.slice(0, 1)]
+  return (
+    <section aria-labelledby="showcase-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal className="text-center">
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          Live from the registry
+        </p>
+        <h2 id="showcase-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Beautiful, transparent invoicing.
+        </h2>
+        <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
+          Clients pay faster with clean, clear invoices that build trust. These are the real payables on the test
+          registry right now.
+        </p>
+      </Reveal>
+      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+        {shown.length === 0 ? (
+          <p className="text-[15px] text-muted md:col-span-3">
+            {invoices.isError ? COPY.statsNoData : 'Loading payables…'}
+          </p>
+        ) : (
+          shown.map((inv, i) => (
+            <Reveal key={inv.payable_id} delay={i * 0.08}>
+              <article className="card-glass flex min-h-[260px] flex-col p-8 transition-transform duration-200 hover:-translate-y-1.5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
+                    Invoice #{inv.payable_id}
+                  </p>
+                  <InvoiceStatusPill status={derivedStatus(inv)} />
+                </div>
+                <p className="mt-5 text-[15px] text-body">{inv.label}</p>
+                <p className="mt-2 text-[34px] leading-none font-medium tracking-[-0.02em] text-ink tabular-nums">
+                  {inv.amount_display}
+                </p>
+                <p className="mt-3 text-sm text-muted">Due {formatUtcDateTime(inv.due)}</p>
+                <p className="mt-1 text-sm text-muted">Rail {inv.asset === 'ccd' ? 'A · CCD' : 'B · EUDemo'}</p>
+                <div className="mt-auto pt-8">
+                  <Link to={`/receipt/${inv.payable_id}`} className="btn-glass w-full !min-h-[44px] !px-5 !py-2 !text-[14px]">
+                    View receipt →
+                  </Link>
+                </div>
+              </article>
+            </Reveal>
+          ))
+        )}
+      </div>
+      <Reveal className="mt-10 text-center">
+        <Link to="/dashboard" className="btn-ember">
+          Open the full dashboard →
+        </Link>
+      </Reveal>
     </section>
   )
 }
@@ -347,11 +448,11 @@ function ReceiptChecker() {
           ) : null}
         </ol>
       )}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-4">
         <button
           type="button"
           onClick={() => setRun((r) => r + 1)}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-[4px] border border-line bg-card px-3 py-2 text-[14px] font-medium text-ink"
+          className="btn-glass !min-h-[44px] !px-5 !py-2 !text-[14px]"
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" /> Replay
         </button>
@@ -442,17 +543,11 @@ export function HowItWorks() {
                 : 'Live numbers load from the testnet.'}{' '}
               Insight lines are computed from state, not from a language model.
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                to="#invoice"
-                className="inline-flex min-h-[36px] items-center rounded-[4px] bg-ink px-4 py-2 text-[15px] font-medium text-white"
-              >
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Link to="#invoice" className="btn-ember !min-h-[44px]">
                 Open the payment list
               </Link>
-              <Link
-                to="/judges"
-                className="inline-flex min-h-[36px] items-center rounded-[4px] border border-line bg-card px-4 py-2 text-[15px] font-medium text-ink"
-              >
+              <Link to="/judges" className="btn-glass !min-h-[44px]">
                 Verify a receipt
               </Link>
             </div>
@@ -495,40 +590,55 @@ export function HowItWorks() {
           </div>
         </motion.div>
       </div>
-      {/* Receipt checker — full width below the grid (live 5-stage verify). */}
-      <motion.div
-        className="handles mt-6 border border-line bg-card p-6"
-        initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.6, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <i aria-hidden="true" />
-        <ReceiptChecker />
-      </motion.div>
+    </section>
+  )
+}
+
+/** Receipt verifier — its own full-width section (polished sketch), with
+    the same live 5-stage verify as before. */
+export function VerifierSection() {
+  return (
+    <section aria-labelledby="verifier-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal className="text-center">
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          Receipt verifier
+        </p>
+        <h2 id="verifier-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Upload a receipt. Verify in seconds.
+        </h2>
+        <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
+          Every payment is re-read from the chain — document hash, seller agent, paid-once status — before the
+          verdict. Nothing here is a screenshot.
+        </p>
+      </Reveal>
+      <Reveal delay={0.1}>
+        <div className="card-glass mx-auto mt-14 max-w-[720px] p-8 sm:p-10">
+          <ReceiptChecker />
+        </div>
+      </Reveal>
     </section>
   )
 }
 
 export function CtaBand() {
   return (
-    <section aria-labelledby="cta-title" className="bg-sky-0">
-      <div className="mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-6 px-4 py-16 sm:px-6">
-        <h2 id="cta-title" className="max-w-[520px] text-[32px] leading-[1.1] font-normal tracking-[-0.02em] text-white">
+    <section aria-labelledby="cta-title" className="relative overflow-hidden bg-sky-0">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(600px 200px at 80% 0%, rgba(253,186,116,0.35), transparent 70%)' }}
+      />
+      <div className="relative mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-8 px-4 py-20 sm:px-6">
+        <h2 id="cta-title" className="max-w-[520px] text-[36px] leading-[1.1] font-medium tracking-[-0.02em] text-white">
           Verify your first invoice in about a minute.
         </h2>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to="#invoice"
-            className="inline-flex min-h-[44px] items-center rounded-[4px] bg-white px-5 py-2.5 text-[15px] font-medium text-ink"
-          >
+        <div className="flex flex-wrap gap-4">
+          <Link to="#invoice" className="btn-glass">
             Verify an invoice
           </Link>
-          <Link
-            to="/judges"
-            className="inline-flex min-h-[44px] items-center rounded-[4px] border border-white/40 bg-white/10 px-5 py-2.5 text-[15px] font-medium text-white"
-          >
-            Read the verification spec
+          <Link to="/dashboard" className="btn-ghost-light">
+            Open the dashboard
           </Link>
         </div>
       </div>
@@ -539,19 +649,56 @@ export function CtaBand() {
 export function Footer() {
   return (
     <footer className="border-t border-line bg-paper">
-      <div className="mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:px-6">
-        <p>{COPY.footer}</p>
-        <nav aria-label="Footer" className="flex gap-5">
-          <a href={EXPLORER_HOME} target="_blank" rel="noreferrer" className="hover:text-ink">
-            Explorer (testnet)
-          </a>
-          <Link to="/judges" className="hover:text-ink">
-            Verification spec
-          </Link>
-          <Link to="/" className="hover:text-ink">
-            Home
-          </Link>
+      <div className="mx-auto grid max-w-[1101px] grid-cols-2 gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
+        <div>
+          <p className="flex items-center gap-2 text-[17px] font-medium text-ink">
+            <img src="/assets/payonce-mark.webp" alt="" width={24} height={24} className="h-6 w-6 rounded-[4px]" />
+            PayOnce
+          </p>
+          <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-muted">
+            Payments, settled. Every invoice paid once. Every payment provable.
+          </p>
+          <p className="mt-4 text-sm text-muted">{COPY.footer}</p>
+        </div>
+        <nav aria-label="Product">
+          <p className="text-sm font-semibold text-ink">Product</p>
+          <ul className="mt-4 space-y-3 text-sm text-muted">
+            <li>
+              <Link to="/#invoice" className="hover:text-ink">Pay an invoice</Link>
+            </li>
+            <li>
+              <Link to="/dashboard" className="hover:text-ink">Dashboard</Link>
+            </li>
+            <li>
+              <Link to="/#console" className="hover:text-ink">Live console</Link>
+            </li>
+            <li>
+              <Link to="/judges" className="hover:text-ink">For judges</Link>
+            </li>
+          </ul>
         </nav>
+        <nav aria-label="Resources">
+          <p className="text-sm font-semibold text-ink">Resources</p>
+          <ul className="mt-4 space-y-3 text-sm text-muted">
+            <li>
+              <a href={EXPLORER_HOME} target="_blank" rel="noreferrer" className="hover:text-ink">
+                Explorer (testnet)
+              </a>
+            </li>
+            <li>
+              <Link to="/judges" className="hover:text-ink">Verification spec</Link>
+            </li>
+            <li>
+              <Link to="/" className="hover:text-ink">Home</Link>
+            </li>
+          </ul>
+        </nav>
+        <div>
+          <p className="text-sm font-semibold text-ink">Network</p>
+          <p className="mt-4 text-sm leading-relaxed text-muted">
+            Testnet only. Concordium testnet. No real money moves here.
+          </p>
+        </div>
       </div>
     </footer>
   )

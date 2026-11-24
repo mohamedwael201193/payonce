@@ -80,6 +80,14 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
           Home
         </NavLink>
         <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : 'text-white/90 hover:bg-white/10'}`
+          }
+        >
+          Dashboard
+        </NavLink>
+        <NavLink
           to="/judges"
           className={({ isActive }) =>
             `rounded-full px-3.5 py-1.5 text-[15px] ${isActive ? 'bg-white font-medium text-ink' : 'text-white/90 hover:bg-white/10'}`
@@ -88,7 +96,7 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
           For judges
         </NavLink>
       </nav>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <a
           href="/#invoice"
           title="No wallet needed — judges verify without signing anything."
@@ -96,10 +104,7 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
         >
           Connect wallet
         </a>
-        <a
-          href="/#invoice"
-          className="inline-flex rounded-full bg-white px-3.5 py-1.5 text-[14px] font-medium text-ink"
-        >
+        <a href="/#invoice" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
           Verify an invoice
         </a>
         <span className="ml-2 hidden lg:block">

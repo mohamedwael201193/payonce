@@ -68,7 +68,7 @@ export function StepCard({
             ? <StatusChip tone="unpaid">In progress</StatusChip>
             : null
   return (
-    <section aria-labelledby={`step-${number}-title`} className="rounded-none border border-line bg-card p-4">
+    <section aria-labelledby={`step-${number}-title`} className="rounded-[20px] border border-line bg-card p-6 shadow-[0_16px_40px_rgba(23,19,16,0.08)]">
       <div className="flex items-baseline justify-between gap-4">
         <h2 id={`step-${number}-title`} className="flex items-baseline gap-3 text-xl font-medium tracking-[-0.01em] text-ink">
           <span className="text-sm font-normal tracking-[0.02em] text-muted">{number}</span>
@@ -76,8 +76,8 @@ export function StepCard({
         </h2>
         {chip}
       </div>
-      <div className="mt-3">{children}</div>
-      {summary ? <div className="mt-4 border-t border-line pt-4 text-sm">{summary}</div> : null}
+      <div className="mt-5">{children}</div>
+      {summary ? <div className="mt-5 border-t border-line pt-5 text-sm">{summary}</div> : null}
     </section>
   )
 }
@@ -106,7 +106,7 @@ export function PrimaryButton({
         onClick={disabled ? undefined : onClick}
         aria-disabled={disabled ? 'true' : undefined}
         aria-describedby={disabled && disabledReason && reasonId ? reasonId : undefined}
-        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] bg-brand-600 px-5 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        className={`btn-ember ${className}`}
       >
         {children}
       </button>
@@ -143,7 +143,7 @@ export function SecondaryButton({
         onClick={disabled ? undefined : onClick}
         aria-disabled={disabled ? 'true' : undefined}
         aria-describedby={disabled && disabledReason && reasonId ? reasonId : undefined}
-        className={`inline-flex min-h-[44px] items-center justify-center rounded-[4px] border border-line bg-card px-5 py-2.5 text-[15px] font-medium text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        className={`btn-glass ${className}`}
       >
         {children}
       </button>

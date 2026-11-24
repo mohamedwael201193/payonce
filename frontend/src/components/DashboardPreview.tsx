@@ -128,8 +128,8 @@ export function DashboardPreview() {
   const shown: InvoiceItem[] = tab === 'all' ? items : tab === 'unpaid' ? unpaid : tab === 'paid' ? paid : []
 
   return (
-    <div className="overflow-hidden rounded-[10px] border border-line bg-card text-left shadow-[0_30px_80px_rgba(11,31,36,0.35)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+    <div className="overflow-hidden rounded-[24px] border border-line bg-card text-left shadow-[0_24px_60px_rgba(23,19,16,0.14)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
         <div className="flex items-center gap-3">
           <p className="text-[15px] font-medium text-ink">Invoices</p>
           {config.data ? (
@@ -151,7 +151,7 @@ export function DashboardPreview() {
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-1 border-b border-line px-5 py-2"
+        className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-3"
         role="tablist"
         aria-label="Invoice filter"
         onKeyDown={onTabKeyDown}
