@@ -1,0 +1,815 @@
+{
+ "runAt": "2026-11-24T07:09:56.030Z",
+ "network": "testnet",
+ "instances": {
+  "payable_registry_v1": {
+   "label": "payable_registry_v1",
+   "index": "13149",
+   "exists": true,
+   "moduleHash": "9b5b27fa7e6d4f40b5a94563b396d8760e2c6eca90eefa91949859be7ae71d24",
+   "moduleMatchesExpected": true,
+   "balanceMicroCcd": "0",
+   "balanceIsZero": true,
+   "methodCount": 7,
+   "methods": [
+    "confirm_plt",
+    "expire_reservation",
+    "get_config",
+    "get_payable",
+    "pay_ccd",
+    "register_payable",
+    "reserve_plt"
+   ],
+   "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "raw": {
+    "amount": "0",
+    "sourceModule": "000000209b5b27fa7e6d4f40b5a94563b396d8760e2c6eca90eefa91949859be7ae71d24",
+    "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "methods": [
+     "payable_registry.confirm_plt",
+     "payable_registry.expire_reservation",
+     "payable_registry.get_config",
+     "payable_registry.get_payable",
+     "payable_registry.pay_ccd",
+     "payable_registry.register_payable",
+     "payable_registry.reserve_plt"
+    ],
+    "name": "init_payable_registry",
+    "version": 1
+   }
+  },
+  "kinvoice_baseline": {
+   "label": "kinvoice_baseline",
+   "index": "13148",
+   "exists": true,
+   "moduleHash": "2524566be043a51d6eb95a0323c0a92fed2d6bbde28f374eace2d4271808170a",
+   "moduleMatchesExpected": null,
+   "balanceMicroCcd": "0",
+   "balanceIsZero": true,
+   "methodCount": 4,
+   "methods": [
+    "getInvoice",
+    "isPaid",
+    "recordPayment",
+    "registerInvoice"
+   ],
+   "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "raw": {
+    "amount": "0",
+    "sourceModule": "000000202524566be043a51d6eb95a0323c0a92fed2d6bbde28f374eace2d4271808170a",
+    "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "methods": [
+     "trueinvoice_registry_spike.getInvoice",
+     "trueinvoice_registry_spike.isPaid",
+     "trueinvoice_registry_spike.recordPayment",
+     "trueinvoice_registry_spike.registerInvoice"
+    ],
+    "name": "init_trueinvoice_registry_spike",
+    "version": 1
+   }
+  }
+ },
+ "txs": {
+  "register_payable": {
+   "label": "register_payable",
+   "hash": "d898683668cd8d55fdb2c0ab2505c2d547e137b7955e131b8863d82ad01efb2d",
+   "status": "finalized",
+   "blockHash": "54ea4ce2d974260d4cc9d232875b1d640bffd4c3f25d736ae39804671e879a5c",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "54ea4ce2d974260d4cc9d232875b1d640bffd4c3f25d736ae39804671e879a5c",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "1825",
+       "__type": "ccd_energy"
+      },
+      "hash": "d898683668cd8d55fdb2c0ab2505c2d547e137b7955e131b8863d82ad01efb2d",
+      "type": "accountTransaction",
+      "cost": "14232240",
+      "sender": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "transactionType": "update",
+      "events": [
+       {
+        "tag": "Interrupted",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "events": []
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13144",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressContract",
+         "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+         }
+        },
+        "amount": "0",
+        "message": "080100000000000000",
+        "receiveName": "CIS-8004.agentOf",
+        "events": []
+       },
+       {
+        "tag": "Resumed",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "success": true
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressAccount",
+         "address": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+        },
+        "amount": "0",
+        "message": "0100000000000000e51d96dd31e0d5eff2b7a2a0e8d8739318c7cdd7ea3f274534005f05d650138720a107000000000000117c0911a20100001fe1a05da704afa2d453362cc695f035f096c82029fc1ac709aedbe0b06b3a6e080000000100000000000000",
+        "receiveName": "payable_registry.register_payable",
+        "events": [
+         "000100000000000000ba99a32ebd8bc6fc812f4901dbf4dbe30108c8f52a8e1b9cafefa62fbf902cf4e51d96dd31e0d5eff2b7a2a0e8d8739318c7cdd7ea3f274534005f05d650138720a1070000000000"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  },
+  "pay_ccd": {
+   "label": "pay_ccd",
+   "hash": "00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6",
+   "status": "finalized",
+   "blockHash": "5d0bd9ea749bb5408ea4add64d59c2e0f339e13661295c22c7e44ac389079e20",
+   "payCcdParam": "0100000000000000",
+   "payCcdParamId": 1,
+   "paidEvent": "0101000000000000008f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210620a1070000000000",
+   "transferred": {
+    "from": {
+     "index": "13149",
+     "subindex": "0",
+     "__type": "ccd_contract_address"
+    },
+    "to": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+    "amount": "500000"
+   },
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "5d0bd9ea749bb5408ea4add64d59c2e0f339e13661295c22c7e44ac389079e20",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "2078",
+       "__type": "ccd_energy"
+      },
+      "hash": "00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6",
+      "type": "accountTransaction",
+      "cost": "16205257",
+      "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "transactionType": "update",
+      "events": [
+       {
+        "tag": "Interrupted",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "events": []
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13144",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressContract",
+         "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+         }
+        },
+        "amount": "0",
+        "message": "080100000000000000",
+        "receiveName": "CIS-8004.agentOf",
+        "events": []
+       },
+       {
+        "tag": "Resumed",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "success": true
+       },
+       {
+        "tag": "Interrupted",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "events": []
+       },
+       {
+        "tag": "Transferred",
+        "from": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "amount": "500000",
+        "to": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin"
+       },
+       {
+        "tag": "Resumed",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "success": true
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressAccount",
+         "address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+        },
+        "amount": "500000",
+        "message": "0100000000000000",
+        "receiveName": "payable_registry.pay_ccd",
+        "events": [
+         "0101000000000000008f069b2c09e479346bcf3a5a3d580fc33e26152da60a7d8a332c67e7d81b210620a1070000000000"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  },
+  "double_pay_revert": {
+   "label": "double_pay_revert",
+   "hash": "a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848",
+   "status": "finalized",
+   "blockHash": "f5b68450f67526daa9cf450bc1b1a22b50d5673ff4467400cfba11902e6b7bbd",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "f5b68450f67526daa9cf450bc1b1a22b50d5673ff4467400cfba11902e6b7bbd",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "632",
+       "__type": "ccd_energy"
+      },
+      "hash": "a5ec5e4027523c564d81960cb0ec48b546c270ec5f43256f15cf5d34f98d6848",
+      "type": "accountTransaction",
+      "cost": "4928645",
+      "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.pay_ccd",
+       "rejectReason": -5,
+       "parameter": "0100000000000000"
+      }
+     }
+    }
+   }
+  },
+  "wrong_amount_revert": {
+   "label": "wrong_amount_revert",
+   "hash": "52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c",
+   "status": "finalized",
+   "blockHash": "2e31013ace438ef217d7038f52af636375d37829b3c03e991d4371eb04f3585b",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "2e31013ace438ef217d7038f52af636375d37829b3c03e991d4371eb04f3585b",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "632",
+       "__type": "ccd_energy"
+      },
+      "hash": "52f3b4aa09086b27d6c41c3fc4ec10b6bac92f55aa6cc892b55291758b10f01c",
+      "type": "accountTransaction",
+      "cost": "4928645",
+      "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.pay_ccd",
+       "rejectReason": -6,
+       "parameter": "0400000000000000"
+      }
+     }
+    }
+   }
+  },
+  "unknown_id_revert": {
+   "label": "unknown_id_revert",
+   "hash": "d906c0b3b8bf6333cd0522fed0b39eabae168a2e35029edd9ac5a5b5874dae28",
+   "status": "finalized",
+   "blockHash": "0dd799e691590fe396349e3bafa8792b6026643f1d2c64f5430a158a867af023",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "0dd799e691590fe396349e3bafa8792b6026643f1d2c64f5430a158a867af023",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "620",
+       "__type": "ccd_energy"
+      },
+      "hash": "d906c0b3b8bf6333cd0522fed0b39eabae168a2e35029edd9ac5a5b5874dae28",
+      "type": "accountTransaction",
+      "cost": "4835063",
+      "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.pay_ccd",
+       "rejectReason": -3,
+       "parameter": "e703000000000000"
+      }
+     }
+    }
+   }
+  },
+  "reserve_plt": {
+   "label": "reserve_plt",
+   "hash": "ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1",
+   "status": "finalized",
+   "blockHash": "5f58b9f9fdc6a8868d98f0479eb2b59cd7b3d20948058ef4e08559637b61a1c5",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "5f58b9f9fdc6a8868d98f0479eb2b59cd7b3d20948058ef4e08559637b61a1c5",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "2028",
+       "__type": "ccd_energy"
+      },
+      "hash": "ee56c0cc845880f7875aba6afc794a1becf6a906eec639891ef75d34e8fbefc1",
+      "type": "accountTransaction",
+      "cost": "0",
+      "sender": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n",
+      "sponsor": {
+       "cost": "15815333",
+       "sponsor": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+      },
+      "transactionType": "update",
+      "events": [
+       {
+        "tag": "Interrupted",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "events": []
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13144",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressContract",
+         "address": {
+          "index": "13149",
+          "subindex": "0",
+          "__type": "ccd_contract_address"
+         }
+        },
+        "amount": "0",
+        "message": "080100000000000000",
+        "receiveName": "CIS-8004.agentOf",
+        "events": []
+       },
+       {
+        "tag": "Resumed",
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "success": true
+       },
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressAccount",
+         "address": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n"
+        },
+        "amount": "0",
+        "message": "0200000000000000",
+        "receiveName": "payable_registry.reserve_plt",
+        "events": [
+         "0202000000000000005889f415cef01e0fe654a836fa47b2f0916cfabf00ff7890903ffcf624144dad69a6e90ba2010000"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  },
+  "cosigned_eudemo": {
+   "label": "cosigned_eudemo",
+   "hash": "7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef",
+   "status": "finalized",
+   "blockHash": "eacbb02dc1f87d2232ce35b28681f9f04f1c1629353fa2be7a73144b0eeb54fc",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "eacbb02dc1f87d2232ce35b28681f9f04f1c1629353fa2be7a73144b0eeb54fc",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "907",
+       "__type": "ccd_energy"
+      },
+      "hash": "7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef",
+      "type": "accountTransaction",
+      "cost": "0",
+      "sender": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n",
+      "sponsor": {
+       "cost": "7073229",
+       "sponsor": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+      },
+      "transactionType": "tokenUpdate",
+      "events": [
+       {
+        "tag": "TokenTransfer",
+        "tokenId": "EUDemo",
+        "from": {
+         "type": "account",
+         "address": "3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n"
+        },
+        "to": {
+         "type": "account",
+         "address": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        "amount": {
+         "value": "10000",
+         "decimals": 6
+        },
+        "memo": "6970617961626c653a32"
+       }
+      ]
+     }
+    }
+   }
+  },
+  "second_reserve_revert": {
+   "label": "second_reserve_revert",
+   "hash": "ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35",
+   "status": "finalized",
+   "blockHash": "7cdac4f3299d224305f9fe2ada28d8877abff8fccff4b9a4ac7935c33cb2ad53",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "7cdac4f3299d224305f9fe2ada28d8877abff8fccff4b9a4ac7935c33cb2ad53",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "638",
+       "__type": "ccd_energy"
+      },
+      "hash": "ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35",
+      "type": "accountTransaction",
+      "cost": "4975435",
+      "sender": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.reserve_plt",
+       "rejectReason": -16,
+       "parameter": "0200000000000000"
+      }
+     }
+    }
+   }
+  },
+  "confirm_seller": {
+   "label": "confirm_seller",
+   "hash": "212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde",
+   "status": "finalized",
+   "blockHash": "6471c50941d64224d067b2a5d72dc53b392c3b7cd95ffe8cc56d1754acc22df1",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "6471c50941d64224d067b2a5d72dc53b392c3b7cd95ffe8cc56d1754acc22df1",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "1408",
+       "__type": "ccd_energy"
+      },
+      "hash": "212f0ac79a5ed884dbb9e4fddb5edc45d0411dc0f3f9b8739ab5b4c1ec310bde",
+      "type": "accountTransaction",
+      "cost": "10980271",
+      "sender": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "transactionType": "update",
+      "events": [
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressAccount",
+         "address": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+        },
+        "amount": "0",
+        "message": "02000000000000007cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef",
+        "receiveName": "payable_registry.confirm_plt",
+        "events": [
+         "0302000000000000005889f415cef01e0fe654a836fa47b2f0916cfabf00ff7890903ffcf624144dad7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  },
+  "reused_txhash_reject": {
+   "label": "reused_txhash_reject",
+   "hash": "02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b",
+   "status": "finalized",
+   "blockHash": "3081dafc6cdc3ad9b86ca0ae4335805aeebfcc7966f79cc16ce9461a4add82e3",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "3081dafc6cdc3ad9b86ca0ae4335805aeebfcc7966f79cc16ce9461a4add82e3",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "686",
+       "__type": "ccd_energy"
+      },
+      "hash": "02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b",
+      "type": "accountTransaction",
+      "cost": "5349763",
+      "sender": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.confirm_plt",
+       "rejectReason": -12,
+       "parameter": "03000000000000007cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"
+      }
+     }
+    }
+   }
+  },
+  "stranger_confirm_reject": {
+   "label": "stranger_confirm_reject",
+   "hash": "8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a",
+   "status": "finalized",
+   "blockHash": "5a4a559e00dc93a3ba147660b0be9ee269451a5948d9c178a0752f9309047cff",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "5a4a559e00dc93a3ba147660b0be9ee269451a5948d9c178a0752f9309047cff",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "675",
+       "__type": "ccd_energy"
+      },
+      "hash": "8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a",
+      "type": "accountTransaction",
+      "cost": "5263980",
+      "sender": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.confirm_plt",
+       "rejectReason": -17,
+       "parameter": "03000000000000008aca4f36774f82a67c507cb9c96679482e2cc767f2d38502269557a566b092fb"
+      }
+     }
+    }
+   }
+  },
+  "early_expiry_reject": {
+   "label": "early_expiry_reject",
+   "hash": "8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7",
+   "status": "finalized",
+   "blockHash": "cb06df533cb2f724c997104c2dbb486f5471666b2e998091de44c6ac650c112f",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "cb06df533cb2f724c997104c2dbb486f5471666b2e998091de44c6ac650c112f",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "645",
+       "__type": "ccd_energy"
+      },
+      "hash": "8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7",
+      "type": "accountTransaction",
+      "cost": "5030025",
+      "sender": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+      "transactionType": "failed",
+      "failedTransactionType": "update",
+      "rejectReason": {
+       "tag": "RejectedReceive",
+       "contractAddress": {
+        "index": "13149",
+        "subindex": "0",
+        "__type": "ccd_contract_address"
+       },
+       "receiveName": "payable_registry.expire_reservation",
+       "rejectReason": -13,
+       "parameter": "0300000000000000"
+      }
+     }
+    }
+   }
+  },
+  "expiry_third_party": {
+   "label": "expiry_third_party",
+   "hash": "492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760",
+   "status": "finalized",
+   "blockHash": "df2d5a50950fcbe6d888319a36e4c1516748d1ffcb3a34089eb28bbc853b8993",
+   "payCcdParam": null,
+   "payCcdParamId": null,
+   "paidEvent": null,
+   "transferred": null,
+   "raw": {
+    "status": "finalized",
+    "outcome": {
+     "blockHash": "df2d5a50950fcbe6d888319a36e4c1516748d1ffcb3a34089eb28bbc853b8993",
+     "summary": {
+      "index": "0",
+      "energyCost": {
+       "value": "1078",
+       "__type": "ccd_energy"
+      },
+      "hash": "492607926c88c3d9bdcad4edaebd8298c48668d7ee22a0d367cf74b6cdba0760",
+      "type": "accountTransaction",
+      "cost": "8406770",
+      "sender": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+      "transactionType": "update",
+      "events": [
+       {
+        "tag": "Updated",
+        "contractVersion": 1,
+        "address": {
+         "index": "13149",
+         "subindex": "0",
+         "__type": "ccd_contract_address"
+        },
+        "instigator": {
+         "type": "AddressAccount",
+         "address": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        "amount": "0",
+        "message": "0300000000000000",
+        "receiveName": "payable_registry.expire_reservation",
+        "events": [
+         "040300000000000000"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ "f10": {
+  "tx": "78377f18f61f6ef475bc9176240e876ed18d31e461ffbeb43858a4fb17551a6e",
+  "status": "finalized",
+  "payCcdParamId": 4,
+  "claim": "tx is payable 4 payment; presenting it as proof for payable 1 must FAIL",
+  "bindingProvableFromChain": true,
+  "section5_pay_ccd_paramId": null
+ }
+}

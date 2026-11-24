@@ -1,0 +1,59 @@
+{
+ "runAt": "2026-11-24T07:10:44.748Z",
+ "execute": false,
+ "network": "testnet",
+ "steps": {
+  "E0": {
+   "result": "NOT RUN",
+   "reason": "missing config: mcp_url (see qa/config.json)"
+  },
+  "E1": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E2": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E3": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E4": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E5": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E6": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E7": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E8": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E9": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E10": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E11": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  },
+  "E12": {
+   "result": "NOT RUN",
+   "reason": "missing config: v2_contract (see qa/config.json)"
+  }
+ }
+}
