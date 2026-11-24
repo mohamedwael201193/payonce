@@ -1,0 +1,542 @@
+// Landing sections below the flow — P2 §4.2 section mapping + design §3/§5.
+// Features: 4-column card row with shared hairlines + corner handle squares
+// (design §2: 5px ink squares on every outer corner via .handles + <i>).
+// How it works: 3 step cards, each with a visual slot over the dawn-terrain
+// image (design §5): 01 payables list with a cycling highlighted row (1.2 s,
+// only while in view), 02 connector diagram (3 sources → 9 checks, amber
+// dots travel the wires), 03 the two payment rails. Card 04: floating
+// notification over terrain with the latest real payment. Receipt checker:
+// 5 stages from a real after-pay verify call, 0.9 s apart, replay button.
+import { useEffect, useRef, useState } from 'react'
+import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { ArrowRight, CheckCircle2, Fingerprint, Receipt, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { useConfig, useInvoices, useReceipt, useStats } from '../hooks/useApi'
+import { api } from '../lib/api'
+import { COPY } from '../lib/copy'
+import { formatUtcDateTime } from '../lib/format'
+import { EXPLORER_HOME } from '../lib/tokens'
+import type { VerifyResponse } from '../lib/types'
+
+const FEATURES = [
+  {
+    icon: Fingerprint,
+    title: 'Document hash match',
+    body: 'The invoice file must match the hash stored on chain.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Badge and LEI',
+    body: 'Seller identity is shown with its badge, and LEI state is shown when present.',
+  },
+  {
+    icon: Wallet,
+    title: 'Pay once',
+    body: 'The contract refuses a second payment, a wrong amount, or a changed payee.',
+  },
+  {
+    icon: Receipt,
+    title: 'Verified receipt',
+    body: 'Every payment gets a receipt with the transaction hash, block, and payee.',
+  },
+]
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Register the payable',
+    body: 'The seller stores amount, payee and document hash on chain.',
+  },
+  {
+    n: '02',
+    title: 'Verify before paying',
+    body: 'The payer checks hash, badge, LEI and unpaid status; a failed check disables Pay and states why.',
+  },
+  {
+    n: '03',
+    title: 'Pay once, get a receipt',
+    body: 'Rail A pays in one transaction; Rail B (testnet) runs reserve, co-sign, confirm.',
+  },
+]
+
+function Terrain({ position = 'center' }: { position?: string }) {
+  return (
+    <img
+      src="/assets/dawn-terrain.webp"
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      width={1600}
+      height={900}
+      className="absolute inset-0 h-full w-full object-cover"
+      style={{ objectPosition: position }}
+    />
+  )
+}
+
+export function Features() {
+  const reduceMotion = useReducedMotion()
+  return (
+    <section aria-labelledby="features-title" className="mx-auto max-w-[1101px] px-4 py-[114px] sm:px-6">
+      <div className="text-center">
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          What the chain checks
+        </p>
+        <h2 id="features-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Four checks before a single cent moves.
+        </h2>
+        <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
+          The payee is read from the chain, never from the document. The document is evidence, not the instruction.
+        </p>
+      </div>
+      <div className="handles hairline-grid mt-[58px] grid grid-cols-1 border border-line bg-card md:grid-cols-4">
+        <i aria-hidden="true" />
+        {FEATURES.map((f, i) => (
+          <motion.div
+            key={f.title}
+            className="border border-line bg-card p-6"
+            initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <f.icon className="h-5 w-5 text-teal-700" aria-hidden="true" />
+            <h3 className="mt-4 text-[20px] leading-tight font-normal tracking-[-0.01em] text-ink">{f.title}</h3>
+            <p className="mt-2 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{f.body}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** Step 01 visual: the real payables list; one row highlights for 1.2 s, cycling, only while in view. */
+function StepVisual01() {
+  const invoices = useInvoices()
+  const reduceMotion = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { amount: 0.4 })
+  const [hi, setHi] = useState(0)
+  const items = invoices.data ?? []
+  useEffect(() => {
+    if (!inView || reduceMotion || items.length === 0) return
+    const t = setInterval(() => setHi((h) => (h + 1) % items.length), 1200)
+    return () => clearInterval(t)
+  }, [inView, reduceMotion, items.length])
+  return (
+    <div ref={ref} className="relative h-[132px] overflow-hidden rounded-[6px] border border-line">
+      <Terrain position="center 20%" />
+      <div className="absolute inset-0 bg-white/55" aria-hidden="true" />
+      <ul className="relative">
+        {items.slice(0, 3).map((inv, i) => (
+          <li
+            key={inv.payable_id}
+            className={`flex items-center justify-between gap-2 px-3 py-2 text-[13px] transition-colors duration-500 ${
+              i === hi % items.length ? 'bg-white/90 font-medium text-ink' : 'text-body'
+            }`}
+          >
+            <span>Payable {inv.payable_id}</span>
+            <span>{inv.amount_display}</span>
+            <span className={inv.status === 'paid' ? 'text-verified-fg' : 'text-unpaid-fg'}>
+              {inv.status === 'paid' ? 'Paid' : 'Unpaid'}
+            </span>
+          </li>
+        ))}
+        {items.length === 0 ? (
+          <li className="px-3 py-2 text-[13px] text-muted">Loading payables…</li>
+        ) : null}
+      </ul>
+    </div>
+  )
+}
+
+/** Step 02 visual: 3 sources → centre tile "9 checks"; amber dots travel the wires (SMIL). */
+function StepVisual02() {
+  const config = useConfig()
+  const reduceMotion = useReducedMotion()
+  const sources = [
+    { label: 'Invoice file', x: 8, y: 18 },
+    { label: 'Registry', x: 8, y: 66, sub: config.data ? `<${config.data.registry.index},${config.data.registry.subindex}>` : undefined },
+    { label: 'Agent registry', x: 8, y: 114, sub: 'CIS-8004 instance' },
+  ]
+  const paths = [
+    'M 108 26 C 150 26, 150 62, 186 62',
+    'M 108 74 C 150 74, 150 74, 186 74',
+    'M 108 122 C 150 122, 150 86, 186 86',
+  ]
+  return (
+    <div className="relative h-[132px] overflow-hidden rounded-[6px] border border-line bg-paper">
+      <svg viewBox="0 0 280 148" className="absolute inset-0 h-full w-full" role="img" aria-label="Three sources — invoice file, registry, agent registry — feed the 9 checks">
+        {paths.map((d) => (
+          <path key={d} d={d} fill="none" stroke="#0F766E" strokeWidth="1.5" opacity="0.55" />
+        ))}
+        {reduceMotion
+          ? paths.map((d, i) => <circle key={d} r="3" fill="#F2B872" cx={150} cy={[26, 74, 122][i]} />)
+          : paths.map((d) => (
+              <circle key={d} r="3.5" fill="#F2B872">
+                <animateMotion dur="2.4s" repeatCount="indefinite" path={d} />
+              </circle>
+            ))}
+        {sources.map((s) => (
+          <g key={s.label}>
+            <rect x={s.x} y={s.y - 10} width="100" height="22" rx="4" fill="#FFFFFF" stroke="#D5E0DE" />
+            <text x={s.x + 8} y={s.y + 4} fontSize="10" fill="#0B1F24" fontFamily="Inter, system-ui, sans-serif">
+              {s.label}
+            </text>
+          </g>
+        ))}
+        <rect x="186" y="52" width="86" height="44" rx="6" fill="#0B1F24" />
+        <text x="229" y="70" fontSize="12" fill="#FFFFFF" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif">
+          9 checks
+        </text>
+        <text x="229" y="86" fontSize="9" fill="#A7DCD0" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif">
+          before Pay
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+/** Step 03 visual: the two rails, with links to the real paid examples. */
+function StepVisual03() {
+  const invoices = useInvoices()
+  const items = invoices.data ?? []
+  const ccd = items.find((i) => i.status === 'paid' && i.asset === 'ccd')
+  const eudemo = items.find((i) => i.status === 'paid' && i.asset === 'eudemo')
+  return (
+    <div className="relative h-[132px] overflow-hidden rounded-[6px] border border-line">
+      <Terrain position="center 80%" />
+      <div className="absolute inset-0 bg-white/55" aria-hidden="true" />
+      <div className="relative grid h-full grid-cols-2 gap-2 p-2">
+        <div className="rounded-[4px] bg-white/90 p-2.5">
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-teal-700 uppercase">Rail A · CCD</p>
+          <p className="mt-1 text-[13px] leading-snug text-body">One transaction. The contract is the payment.</p>
+          {ccd ? (
+            <Link to={`/receipt/${ccd.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-teal-700">
+              Payable {ccd.payable_id} · {ccd.amount_display} →
+            </Link>
+          ) : null}
+        </div>
+        <div className="rounded-[4px] bg-white/90 p-2.5">
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-teal-700 uppercase">Rail B · EUDemo</p>
+          <p className="mt-1 text-[13px] leading-snug text-body">Reserve, co-sign, confirm. Testnet demo token.</p>
+          {eudemo ? (
+            <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-teal-700">
+              Payable {eudemo.payable_id} · {eudemo.amount_display} →
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Receipt checker — 5 stages from a real after-pay verify call (design §5.6). */
+function ReceiptChecker() {
+  const invoices = useInvoices()
+  const reduceMotion = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { amount: 0.5, once: true })
+  const paid = (invoices.data ?? []).filter((i) => i.status === 'paid')
+  const target = paid[0]
+  const [result, setResult] = useState<VerifyResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [shown, setShown] = useState(0)
+  const [run, setRun] = useState(0)
+
+  useEffect(() => {
+    if (!inView || !target) return
+    let cancelled = false
+    setResult(null)
+    setError(null)
+    setShown(0)
+    api
+      .verify(target.payable_id, 'after_pay')
+      .then((r) => {
+        if (cancelled) return
+        setResult(r)
+        if (reduceMotion) {
+          setShown(5)
+          return
+        }
+        for (let i = 1; i <= 5; i++) {
+          setTimeout(() => {
+            if (!cancelled) setShown(i)
+          }, i * 900)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'The verifier did not answer.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [inView, target, run, reduceMotion])
+
+  const check = (id: string) => result?.checks.find((c) => c.id === id)
+  const doc = check('doc')
+  const status = check('status')
+  const stages: Array<{ label: string; detail: string }> = result
+    ? [
+        { label: 'Fetch payable', detail: check('registered')?.detail ?? '—' },
+        {
+          label:
+            doc?.status === 'ok'
+              ? 'Hash matches'
+              : doc?.status === 'fail'
+                ? 'Hash does not match'
+                : 'Hash: not run',
+          detail: doc?.detail ?? '—',
+        },
+        { label: 'Badge verified', detail: check('agent')?.detail ?? '—' },
+        {
+          label: result.verdict === 'paid' ? 'Paid once: yes' : (status?.label ?? 'Status'),
+          detail: status?.detail ?? '—',
+        },
+        {
+          label: 'Verdict',
+          detail: `Verdict: ${result.verdict}${result.blocked_reason ? ` — ${result.blocked_reason}` : ''} (${result.passed}/${result.total} checks passed).`,
+        },
+      ]
+    : []
+
+  return (
+    <div ref={ref}>
+      <p className="text-[13px] tracking-[0.02em] text-muted">Receipt checker</p>
+      {!target ? (
+        <p className="mt-8 text-[15px] leading-[1.5] text-muted">
+          {invoices.isError ? COPY.statsNoData : 'Waiting for a paid invoice to check.'}
+        </p>
+      ) : error ? (
+        <p className="mt-8 text-[15px] leading-[1.5] text-muted">{error}</p>
+      ) : !result ? (
+        <p className="mt-8 text-[15px] leading-[1.5] text-muted">
+          Checking payable {target.payable_id} against the chain…
+        </p>
+      ) : (
+        <ol className="mt-6 space-y-2.5">
+          {stages.slice(0, shown).map((s, i) => (
+            <li key={s.label} className="flex items-start gap-2 text-[14px] leading-snug">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
+              <span>
+                <span className="font-medium text-ink">{s.label}.</span>{' '}
+                <span className="text-body">{s.detail}</span>
+                {i === 4 ? (
+                  <span className="ml-1 rounded-full bg-verified-bg px-2 py-0.5 text-[11px] font-semibold text-verified-fg">
+                    {result.verdict === 'paid' ? 'Verified — paid once' : `Verdict: ${result.verdict}`}
+                  </span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+          {shown < 5 ? (
+            <li className="pl-6 text-[13px] text-muted">Stage {shown + 1} of 5…</li>
+          ) : null}
+        </ol>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setRun((r) => r + 1)}
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-[4px] border border-line bg-card px-3 py-2 text-[14px] font-medium text-ink"
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" /> Replay
+        </button>
+        {target ? (
+          <Link to={`/receipt/${target.payable_id}`} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700">
+            Open the full receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export function HowItWorks() {
+  const reduceMotion = useReducedMotion()
+  const invoices = useInvoices()
+  const stats = useStats()
+  const config = useConfig()
+  const items = invoices.data ?? []
+  const paid = items.filter((i) => i.status === 'paid')
+  const dueSoon = items.filter((i) => i.status !== 'paid')
+  const latestPaid = paid[0]
+  const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null)
+  const visuals = [StepVisual01, StepVisual02, StepVisual03]
+
+  return (
+    <section aria-labelledby="how-title" className="mx-auto max-w-[1101px] px-4 pb-[114px] sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="text-sm font-medium tracking-[0.02em] text-ink">
+            <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+            How it works
+          </p>
+          <h2 id="how-title" className="mt-6 max-w-[480px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+            From invoice to verified receipt in three steps.
+          </h2>
+        </div>
+        <p className="max-w-[320px] text-[15px] leading-[1.5] text-muted">
+          A judge can run the whole flow in about thirty seconds, with no wallet and no sign-in.
+        </p>
+      </div>
+
+      <div className="handles hairline-grid mt-12 grid grid-cols-1 border border-line bg-card md:grid-cols-3">
+        <i aria-hidden="true" />
+        {STEPS.map((s, i) => {
+          const Visual = visuals[i]
+          return (
+            <motion.div
+              key={s.n}
+              className="border border-line bg-card p-6"
+              initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p className="text-[13px] tracking-[0.02em] text-muted">{s.n}</p>
+              <h3 className="mt-4 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">{s.title}</h3>
+              <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{s.body}</p>
+              <div className="mt-5">
+                <Visual />
+              </div>
+            </motion.div>
+          )
+        })}
+        {/* Card 04 — wide bento: live verified payments over the dawn terrain. */}
+        <motion.div
+          className="relative overflow-hidden border border-line bg-card p-6 md:col-span-2"
+          initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="absolute inset-0" aria-hidden="true">
+            <Terrain position="center 60%" />
+            <div className="absolute inset-0 bg-white/60" />
+          </div>
+          <div className="relative">
+            <p className="text-[13px] tracking-[0.02em] text-muted">04</p>
+            <h3 className="mt-8 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">
+              Live verified payments
+            </h3>
+            <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-muted">
+              {stats.data
+                ? `${stats.data.paid_total} payable${stats.data.paid_total === 1 ? '' : 's'} paid once, ${dueSoon.length} unpaid open right now.`
+                : 'Live numbers load from the testnet.'}{' '}
+              Insight lines are computed from state, not from a language model.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link
+                to="#invoice"
+                className="inline-flex min-h-[36px] items-center rounded-[4px] bg-ink px-4 py-2 text-[15px] font-medium text-white"
+              >
+                Open the payment list
+              </Link>
+              <Link
+                to="/judges"
+                className="inline-flex min-h-[36px] items-center rounded-[4px] border border-line bg-card px-4 py-2 text-[15px] font-medium text-ink"
+              >
+                Verify a receipt
+              </Link>
+            </div>
+            <div className="mt-5 max-w-[420px] rounded-md border border-line bg-card p-4 shadow-[0_8px_24px_rgba(11,31,36,0.08)]">
+              {latestPaid ? (
+                <div className="text-sm">
+                  <p className="font-medium text-ink">
+                    Latest payment — Payable {latestPaid.payable_id} · {latestPaid.amount_display}
+                  </p>
+                  <p className="mt-1 text-muted">
+                    Due {formatUtcDateTime(latestPaid.due)} · {COPY.labInvoiceLabel}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-teal-700">
+                      Confirm receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                    {latestReceipt.data?.txs[0] ? (
+                      <a
+                        href={latestReceipt.data.txs[0].explorer_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-xs text-teal-700"
+                      >
+                        {latestReceipt.data.txs[0].tx_hash.slice(0, 8)}…{latestReceipt.data.txs[0].tx_hash.slice(-6)} ↗
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">
+                  {invoices.isError ? COPY.statsNoData : 'No paid invoice yet. Pay one above and it appears here.'}
+                </p>
+              )}
+              {config.data ? (
+                <p className="mt-3 font-mono text-xs text-muted">
+                  Registry &lt;{config.data.registry.index},{config.data.registry.subindex}&gt;
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </motion.div>
+        {/* Visual slot — receipt checker (live 5-stage verify). */}
+        <motion.div
+          className="border border-line bg-card p-6"
+          initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.32, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <ReceiptChecker />
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+export function CtaBand() {
+  return (
+    <section aria-labelledby="cta-title" className="bg-ink-dark-bg">
+      <div className="mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-6 px-4 py-16 sm:px-6">
+        <h2 id="cta-title" className="max-w-[520px] text-[32px] leading-[1.1] font-normal tracking-[-0.02em] text-white">
+          Verify your first invoice in about a minute.
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="#invoice"
+            className="inline-flex min-h-[44px] items-center rounded-[4px] bg-white px-5 py-2.5 text-[15px] font-medium text-ink"
+          >
+            Verify an invoice
+          </Link>
+          <Link
+            to="/judges"
+            className="inline-flex min-h-[44px] items-center rounded-[4px] border border-white/40 bg-white/10 px-5 py-2.5 text-[15px] font-medium text-white"
+          >
+            Read the verification spec
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export function Footer() {
+  return (
+    <footer className="border-t border-line bg-paper">
+      <div className="mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:px-6">
+        <p>{COPY.footer}</p>
+        <nav aria-label="Footer" className="flex gap-5">
+          <a href={EXPLORER_HOME} target="_blank" rel="noreferrer" className="hover:text-ink">
+            Explorer (testnet)
+          </a>
+          <Link to="/judges" className="hover:text-ink">
+            Verification spec
+          </Link>
+          <Link to="/" className="hover:text-ink">
+            Home
+          </Link>
+        </nav>
+      </div>
+    </footer>
+  )
+}

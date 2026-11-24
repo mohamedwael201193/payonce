@@ -1,0 +1,68 @@
+// Copy deck — P3 §2 rule 3: no banned claim may appear in any user-visible
+// string. Scans every COPY value (including function outputs) for every
+// banned word, case-insensitively. The JudgesPage honesty table deliberately
+// NAMES the banned words to explain them — that page is documentation, not
+// copy, so it is out of scope of this test.
+import { describe, expect, it } from 'vitest'
+import { BANNED_WORDS, COPY, GLOSSARY } from './copy'
+
+function allCopyStrings(): string[] {
+  const out: string[] = []
+  for (const v of Object.values(COPY)) {
+    if (typeof v === 'string') out.push(v)
+    else if (typeof v === 'function') {
+      // Call each formatter with representative args.
+      const fn = v as (...args: never[]) => string
+      try {
+        out.push(fn('PLACEHOLDER' as never))
+      } catch {
+        /* fall through to the argless call below */
+      }
+      try {
+        out.push(fn(0 as never, 0 as never, '' as never))
+      } catch {
+        /* some formatters need different arity; covered below */
+      }
+    }
+  }
+  // Formatter outputs with realistic args (covers every function in COPY).
+  out.push(COPY.step2VerdictReady('PAYEE-PLACEHOLDER'))
+  out.push(COPY.paidCcd('0.5 CCD'))
+  out.push(COPY.paidEudemo('0.01'))
+  out.push(COPY.verifierLine(12, 12, '10:42:07'))
+  out.push(COPY.chainRefused(-5, 'WrongStatus', 'Already paid.', '4.928645'))
+  out.push(COPY.chainRefused(-5, 'WrongStatus', 'Already paid.', null))
+  out.push(COPY.coSignerRefused('Wrong payee.'))
+  out.push(COPY.appRefused('Not on the vendor list.'))
+  // Glossary definitions are user-visible strings too (Judges page).
+  for (const [term, def] of GLOSSARY) {
+    out.push(term)
+    out.push(def)
+  }
+  return out
+}
+
+describe('BANNED_WORDS (P3 §2 rule 3)', () => {
+  it('no COPY string contains a banned word', () => {
+    const strings = allCopyStrings()
+    expect(strings.length).toBeGreaterThan(10)
+    for (const s of strings) {
+      for (const b of BANNED_WORDS) {
+        expect(
+          s.toLowerCase(),
+          `banned word "${b.word}" (${b.reason}) found in: ${s}`,
+        ).not.toContain(b.word.toLowerCase())
+      }
+    }
+  })
+  it('hero line is the P3 §0/§10 line', () => {
+    expect(COPY.heroH1).toContain('paid exactly once')
+    expect(COPY.heroH1).toContain('only to the account the supplier put there')
+  })
+  it('step-2 verdict names the payee from the chain', () => {
+    expect(COPY.step2VerdictReady('PAYEE-PLACEHOLDER')).toContain('PAYEE-PLACEHOLDER')
+  })
+  it('receipt footer disclaims legal status', () => {
+    expect(COPY.receiptFooter).toContain('not a legal invoice')
+  })
+})

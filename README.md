@@ -29,8 +29,18 @@ no trust in us.
 - `contracts/payable_registry/` — v1 registry (Rust, concordium-std 11).
   Live on testnet at `<13149,0>`.
 - `contracts/payable_registry_v2/` — v2 (27 reject codes, H1/H2/race fixes).
+  In progress — lands with the contract merge.
 - `services/` — co-signer, keyless verifier, live scripts, scoped prover.
-- `site/` — landing page and one-screen judge dashboard (in progress).
+- `design/` — the "dawn teal / ink" design system (tokens, landing +
+  dashboard mockups, generated assets). The static mockups are the design
+  reference; the live app is `frontend/`.
+- `frontend/` — the one-screen judge dashboard (React + Vite + TypeScript).
+  Paste an invoice → 9 checks → pay → verified receipt → "try to break it".
+  Judge console at `/judges`.
+- `clicktest/` — the headless click-test (Playwright, 34 checks) that drives
+  the real app in Chromium; log + screenshots in `clicktest/evidence/`.
+- `qa/` — the verification suite (read-only chain reads, E2E runner, attack
+  suite, secret scanner, Gate G0 checklist).
 - `VERIFY.md` — the judge verification guide.
 - `LICENSE` — Apache-2.0.
 
@@ -45,6 +55,10 @@ node --test services/cosigner/test/
 
 # Keyless verifier (no keys needed — reads the chain only)
 node services/verify-payable.mjs <payable-id> <tx-hash>
+
+# Frontend (69 unit tests; 18/18 contrast pairs; 34/34 headless click-test)
+cd frontend && npm ci && npm run build && npm test && npm run check:contrast
+node ../clicktest/clicktest.mjs   # drives the real app in Chromium
 ```
 
 ## Status
