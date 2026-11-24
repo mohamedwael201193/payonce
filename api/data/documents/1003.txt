@@ -1,0 +1,6 @@
+PAYONCE LAB INVOICE — payable 1003 (EUDemo)
+Seller: 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB
+Payee: 4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg
+Amount: 0.01 EUDemo (10000 base units, 6 decimals)
+Due: 2026-11-25T10:57:38.512Z
+Test only — Concordium testnet, no real goods or services.

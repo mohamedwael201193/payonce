@@ -1,0 +1,258 @@
+{
+  "job_1000_ccd_4fe73eac": {
+    "job_id": "job_1000_ccd_4fe73eac",
+    "payable_id": 1000,
+    "rail": "ccd",
+    "state": "succeeded",
+    "steps": [
+      {
+        "step": "check_status",
+        "status": "ok",
+        "detail": "Unpaid, due 2026-11-25T10:50:03.797Z, doc matches.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "check_agent",
+        "status": "ok",
+        "detail": "Agent token 1476 Active on <12802,0>; payer balance covers the payment.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "submit",
+        "status": "ok",
+        "detail": "pay_ccd sent: 73be55cd…42ac69",
+        "txHash": "73be55cd14ae2c054b899f0a82dc1f2a88f905e5ca20adc7af334ad94242ac69",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/73be55cd14ae2c054b899f0a82dc1f2a88f905e5ca20adc7af334ad94242ac69",
+        "layer": "chain"
+      },
+      {
+        "step": "wait_finality",
+        "status": "ok",
+        "detail": "Finalized. Fee: 19.248044 testnet CCD.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "read_back",
+        "status": "ok",
+        "detail": "Status Paid by 4MvdMEGC…; registry balance 0 microCCD.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "verify",
+        "status": "ok",
+        "detail": "Verifier: 10/10 checks pass.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      }
+    ],
+    "outcome": "paid",
+    "started_at": "2026-11-24T10:50:21.447Z",
+    "finished_at": "2026-11-24T10:50:28.517Z"
+  },
+  "job_1001_eudemo_d07f5f6d": {
+    "job_id": "job_1001_eudemo_d07f5f6d",
+    "payable_id": 1001,
+    "rail": "eudemo",
+    "state": "refused",
+    "steps": [
+      {
+        "step": "check_wallet",
+        "status": "ok",
+        "detail": "EUDemo 0.01 EUDemo; payer wallet covers amount + fees; vendor approval on chain.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "reserve",
+        "status": "ok",
+        "detail": "Reserved until 2026-11-24T11:51:03.593Z (reservation 9de70c9c…f439d4).",
+        "txHash": "9de70c9ca3d6f9ad206331be38a6f988804b895081e5731a092b755926f439d4",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/9de70c9ca3d6f9ad206331be38a6f988804b895081e5731a092b755926f439d4",
+        "layer": "chain"
+      },
+      {
+        "step": "co_sign_decide",
+        "status": "ok",
+        "detail": "Co-signer approved the transfer (reserve + transfer gates: SIGN).",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "co_signer"
+      },
+      {
+        "step": "submit_transfer",
+        "status": "ok",
+        "detail": "Transfer sent: 0b4199fe…7603f2",
+        "txHash": "0b4199feae8b93d33c3578e8a59a4ec950751638db4cdab460e32fb8267603f2",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/0b4199feae8b93d33c3578e8a59a4ec950751638db4cdab460e32fb8267603f2",
+        "layer": "chain"
+      },
+      {
+        "step": "wait_finality",
+        "status": "ok",
+        "detail": "Transfer finalized and verified (8/8 checks).",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "confirm",
+        "status": "refused",
+        "detail": "The chain refused the confirm (NotPayer). Fee: 5.745685 testnet CCD.",
+        "txHash": "7ded67fd78341574bb64b68adf21197ccad3ba1cd88f6ce1edcf55db94bdcc37",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/7ded67fd78341574bb64b68adf21197ccad3ba1cd88f6ce1edcf55db94bdcc37",
+        "layer": "chain",
+        "reject": {
+          "code": -17,
+          "name": "NotPayer",
+          "plain": "The chain refused the transaction (NotPayer). No money moved; the testnet fee still applied."
+        }
+      },
+      {
+        "step": "verify",
+        "status": "pending",
+        "detail": "",
+        "txHash": null,
+        "explorerUrl": null
+      }
+    ],
+    "outcome": "refused",
+    "started_at": "2026-11-24T10:50:56.647Z",
+    "finished_at": "2026-11-24T10:53:50.980Z"
+  },
+  "job_1002_ccd_77c9bf05": {
+    "job_id": "job_1002_ccd_77c9bf05",
+    "payable_id": 1002,
+    "rail": "ccd",
+    "state": "succeeded",
+    "steps": [
+      {
+        "step": "check_status",
+        "status": "ok",
+        "detail": "Unpaid, due 2026-11-25T10:56:58.441Z, doc matches.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "check_agent",
+        "status": "ok",
+        "detail": "Agent token 1476 Active on <12802,0>; payer balance covers the payment.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "submit",
+        "status": "ok",
+        "detail": "pay_ccd sent: a40d8098…fd84e1",
+        "txHash": "a40d8098bc9aed471468e5dffbb391d09d7ae1a5df351a616bbde2b63efd84e1",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/a40d8098bc9aed471468e5dffbb391d09d7ae1a5df351a616bbde2b63efd84e1",
+        "layer": "chain"
+      },
+      {
+        "step": "wait_finality",
+        "status": "ok",
+        "detail": "Finalized. Fee: 19.457684 testnet CCD.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "read_back",
+        "status": "ok",
+        "detail": "Status Paid by 4MvdMEGC…; registry balance 0 microCCD.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "verify",
+        "status": "ok",
+        "detail": "Verifier: 10/10 checks pass.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      }
+    ],
+    "outcome": "paid",
+    "started_at": "2026-11-24T10:57:16.260Z",
+    "finished_at": "2026-11-24T10:57:25.445Z"
+  },
+  "job_1003_eudemo_68510c8f": {
+    "job_id": "job_1003_eudemo_68510c8f",
+    "payable_id": 1003,
+    "rail": "eudemo",
+    "state": "succeeded",
+    "steps": [
+      {
+        "step": "check_wallet",
+        "status": "ok",
+        "detail": "EUDemo 0.01 EUDemo; payer wallet covers amount + fees; vendor approval on chain.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "reserve",
+        "status": "ok",
+        "detail": "Reserved until 2026-11-24T11:57:59.593Z (reservation 030782b1…383822).",
+        "txHash": "030782b1a4f6db5872a5d72463da82d1f3a7f48991c53a283cc6e8c473383822",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/030782b1a4f6db5872a5d72463da82d1f3a7f48991c53a283cc6e8c473383822",
+        "layer": "chain"
+      },
+      {
+        "step": "co_sign_decide",
+        "status": "ok",
+        "detail": "Co-signer approved the transfer (reserve + transfer gates: SIGN).",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "co_signer"
+      },
+      {
+        "step": "submit_transfer",
+        "status": "ok",
+        "detail": "Transfer sent: f6eb2192…caae30",
+        "txHash": "f6eb219274932ec06917c9de38c339808885e6741b31b99cf2696dc89bcaae30",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/f6eb219274932ec06917c9de38c339808885e6741b31b99cf2696dc89bcaae30",
+        "layer": "chain"
+      },
+      {
+        "step": "wait_finality",
+        "status": "ok",
+        "detail": "Transfer finalized and verified (8/8 checks).",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      },
+      {
+        "step": "confirm",
+        "status": "ok",
+        "detail": "Confirmed: f9b1f49e…d62ef5. Status Paid.",
+        "txHash": "f9b1f49e44234f4277e00ac39efb613725970f9f27575f8d48ead57290d62ef5",
+        "explorerUrl": "https://ccdexplorer.io/testnet/transaction/f9b1f49e44234f4277e00ac39efb613725970f9f27575f8d48ead57290d62ef5",
+        "layer": "chain"
+      },
+      {
+        "step": "verify",
+        "status": "ok",
+        "detail": "Verifier: 12/12 checks pass.",
+        "txHash": null,
+        "explorerUrl": null,
+        "layer": "chain"
+      }
+    ],
+    "outcome": "paid",
+    "started_at": "2026-11-24T10:57:52.424Z",
+    "finished_at": "2026-11-24T10:58:20.936Z"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "verifierRuns": 47,
+  "verifierPassed": 36,
+  "verifierFailed": 11,
+  "lastVerifierRunAt": "2026-11-24T10:58:25.266Z",
+  "liveRefusals": [
+    {
+      "txHash": "69bb51fa240738f0a8d741e32d9c6003931c98207707253ccb86a7f0d3f41014",
+      "code": -5,
+      "at": "2026-11-24T10:50:40.529Z"
+    },
+    {
+      "txHash": "7d37ec8e82fdc02192ffa3d14f794174fbf8ceee849f5bdb28b107b84199dd72",
+      "code": -5,
+      "at": "2026-11-24T10:57:38.508Z"
+    },
+    {
+      "txHash": "a5e6c6b2589b5dfd89e7c59b54e36ceec232f2bb6fc961cf37a4ee96f2dfc584",
+      "code": -6,
+      "at": "2026-11-24T10:58:45.465Z"
+    }
+  ],
+  "nextFreshId": 1005,
+  "freshIds": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004
+  ]
+}
