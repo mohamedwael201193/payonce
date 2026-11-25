@@ -29,19 +29,27 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 // step span that emits only a single `running` event first (CCD
 // `wait_finality`, EUDemo `wait_finality`/`reserve`/`confirm`). The EUDemo
 // `reserve`/`confirm` spans can additionally spend up to ~24 s in the
-// bounded duplicate-nonce send retry (6 attempts, 4 s apart,
-// `api/src/chain-v2.mjs:183-195`) before the 120 s wait even starts, so the
-// worst legit silence is ~144 s; 180 s covers it with ~36 s of margin. The
-// server's 5 s heartbeat is an SSE `: ping` COMMENT (`api/src/server.mjs:570`)
-// — comments never fire `onmessage`, so it does NOT re-arm this watchdog;
-// only `data:` step events do. The 90 s `awaitStableNonce` leg does NOT
-// apply to pay jobs: it runs only when the sender is the owner account
-// (`isContended`, `api/src/chain-v2.mjs:221`), and every job send is from
-// sellerB, never the owner — the bound rests on the 120 s finality legs
-// only. No periodic server `data:` progress event is emitted on purpose:
-// one would re-arm this watchdog forever and silently reintroduce the
-// unbounded never-`done` hang FIX-2 closed; the 180 s bound keeps the exit
-// bounded — a genuinely stalled job still fails, just not a live one.
+// bounded duplicate-nonce send retry (6 attempts, 4 s apart — 20 s of
+// sleeps plus per-attempt `nextNonce`/send time, `api/src/chain-v2.mjs:183-195`)
+// before the 120 s wait even starts, the poll itself can overshoot ~2 s,
+// and the post-wait `getPayable` adds more — so the realistic worst legit
+// silence is ~150–165 s; 180 s covers it with ~15–30 s of real margin
+// (150 s would be too tight). The server's 5 s heartbeat is an SSE
+// `: ping` COMMENT (`api/src/server.mjs:570`) — comments never fire
+// `onmessage`, so it does NOT re-arm this watchdog; only `data:` step
+// events do. The 90 s `awaitStableNonce` leg does NOT apply to pay jobs:
+// it runs only when the sender is the owner account (`isContended`,
+// `api/src/chain-v2.mjs:221`), and every job send is from sellerB, never
+// the owner — the bound rests on the 120 s finality legs only. No periodic
+// server `data:` progress event is emitted on purpose — under the CURRENT
+// code `onmessage` re-arms this watchdog on ANY event before parsing, so a
+// heartbeat event would re-arm it forever and silently reintroduce the
+// unbounded never-`done` hang FIX-2 closed. That is a property of this
+// client code, not of heartbeats in general: a heartbeat the client handled
+// WITHOUT re-arming — a distinct type ignored by `armWatchdog`, or a
+// watchdog keyed only on step/done/snapshot events — would preserve the
+// bounded exit exactly. We simply emit none and keep the 180 s bound as
+// the exit — a genuinely stalled job still fails, just not a live one.
 const STREAM_TIMEOUT_MS = 180_000
 const MAX_STREAM_ERRORS = 3
 // Minimum wall-clock span over which the consecutive `onerror` failures

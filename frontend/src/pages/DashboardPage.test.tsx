@@ -13,13 +13,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
 import { COPY } from '../lib/copy'
 
+const DAY_MS = 24 * 60 * 60 * 1000
+// Mock dues are computed relative to Date.now() — NOT fixed calendar dates.
+// derivedStatus() (lib/dashboard.ts) renders an unpaid item "Overdue" once
+// its due passes, so fixed dues planted in 2026-11-25 turned both unpaid
+// pills "Overdue" the morning they expired and failed the 'Unpaid' pill
+// assertion on EVERY run after 04:49 UTC 25 Nov (round-4 MF-H1). Relative
+// dues can never expire: paid items sit in the past (status is 'paid'
+// regardless of due), unpaid items sit 2–3 days out, 3 due before 5.
+const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
+
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: '2026-11-25T04:49:23.985Z', status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T04:49:31.426Z', status: 'paid', label: 'Lab invoice 2' },
-    { payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T04:49:45.521Z', status: 'unpaid', label: 'Lab invoice 3' },
-    { payable_id: 4, asset: 'ccd', amount_display: '0.5 CCD', due: '2026-11-25T04:49:39.472Z', status: 'paid', label: 'Lab invoice 4' },
-    { payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T04:49:53.537Z', status: 'unpaid', label: 'Lab invoice 5' },
+    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice 2' },
+    { payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
+    { payable_id: 4, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-3), status: 'paid', label: 'Lab invoice 4' },
+    { payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(3), status: 'unpaid', label: 'Lab invoice 5' },
   ],
 }
 const STATS = { payables_total: 5, paid_total: 3, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
@@ -100,8 +110,8 @@ describe('DashboardPage', () => {
     expect(within(rails).getByText('1.00 CCD')).toBeInTheDocument()
     expect(within(rails).getByText('Rail B · EUDemo')).toBeInTheDocument()
     expect(within(rails).getByText('0.03 EUDemo')).toBeInTheDocument()
-    // Next dues: the two unpaid payables, soonest due first (3 due
-    // 04:49:45, 5 due 04:49:53).
+    // Next dues: the two unpaid payables, soonest due first (3 due in
+    // 2 days, 5 due in 3 days — relative dues, see the fixture above).
     const dues = screen.getByText('Next dues').closest('section') as HTMLElement
     const dueLinks = within(dues).getAllByRole('link').map((a) => a.getAttribute('href'))
     expect(dueLinks).toEqual(['/receipt/3', '/receipt/5'])
