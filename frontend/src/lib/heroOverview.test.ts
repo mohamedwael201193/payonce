@@ -1,5 +1,5 @@
 // heroOverview — pure derivations over a live-shaped fixture (13 items:
-// 8 paid, 5 unpaid; 10 CCD, 3 EUDemo; dues 24 Nov – 1 Dec 2026).
+// 8 paid, 5 unpaid; 9 CCD, 4 EUDemo; dues 24 Nov – 26 Dec 2026).
 import { describe, expect, it } from 'vitest'
 import { chartAxisTicks, dayMonth, formatCcdTotal, formatTick, heroOverview, overviewBars, parseAmount } from './heroOverview'
 import type { InvoiceItem } from './types'
@@ -90,10 +90,15 @@ describe('heroOverview', () => {
     expect(o.insights[1].title).toBe('18 payments refused on chain since deploy')
     // A bare refused count supports "a refused payment never reaches the
     // payee" — not a per-refusal outcome claim ("Nothing moved on any of
-    // them" is gone).
+    // them" is gone) and not the three refusal causes (the count alone
+    // does not evidence which cause refused which payment).
     expect(o.insights[1].detail).toContain('never reaches the payee')
     expect(o.insights[1].detail).not.toContain('Nothing moved')
-    expect(o.insights[2].title).toBe('Latest payment — payable 1006')
+    expect(o.insights[1].detail).not.toContain('wrong amount')
+    // No paid-at time exists on the invoice list, so no "latest by time"
+    // claim: the line says only that the highest-id payable is paid.
+    expect(o.insights[2].title).toBe('Payable 1006 paid')
+    expect(o.insights[2].title).not.toContain('Latest')
     // Paid status supports "recorded on chain" — not "receipt re-verifies"
     // (receipt verification is a separate check, not in the invoice list).
     expect(o.insights[2].detail).toContain('recorded on chain')
@@ -109,23 +114,67 @@ describe('heroOverview', () => {
 })
 
 describe('overviewBars', () => {
-  it('charts CCD payables only, paid solid / unpaid hatched, linear heights', () => {
-    const bars = overviewBars(ITEMS, 'overview')
-    expect(bars).toHaveLength(9)
-    expect(bars[0]).toMatchObject({ payable_id: 1, amount: 10, paid: false, heightPct: 100 })
-    expect(bars[1]).toMatchObject({ payable_id: 2, amount: 5, paid: false, heightPct: 50 })
-    expect(bars.find((b) => b.payable_id === 1006)).toMatchObject({ paid: true, heightPct: 5 })
+  it('buckets CCD payables by due month (video shape: 12 wide monthly bars), paid solid / unpaid hatched', () => {
+    const { bars, months } = overviewBars(ITEMS, 'overview')
+    expect(months).toBe(2)
+    expect(bars).toHaveLength(2)
+    // Nov 2026: 6 CCD payables, 3.50 CCD (2.00 paid, 1.50 unpaid).
+    expect(bars[0]).toMatchObject({ month: 'Nov 2026', label: 'Nov 26', total: 3.5, paidTotal: 2, unpaidTotal: 1.5, count: 6, paidPct: 57 })
+    // Dec 2026: 3 CCD payables, 15.50 CCD (0.50 paid, 15.00 unpaid) — the tallest month.
+    expect(bars[1]).toMatchObject({ month: 'Dec 2026', label: 'Dec 26', total: 15.5, paidTotal: 0.5, unpaidTotal: 15, count: 3, paidPct: 3, heightPct: 100 })
+    expect(bars[0].heightPct).toBe(23)
+    // Paid + unpaid always sums back to the month total.
+    for (const b of bars) expect(b.paidTotal + b.unpaidTotal).toBeCloseTo(b.total)
   })
 
   it('filters by tab', () => {
-    expect(overviewBars(ITEMS, 'paid').map((b) => b.payable_id)).toEqual([10, 1000, 1002, 1005, 1006])
-    expect(overviewBars(ITEMS, 'unpaid').map((b) => b.payable_id)).toEqual([1, 2, 5, 1004])
+    const paid = overviewBars(ITEMS, 'paid')
+    expect(paid.bars.map((b) => b.month)).toEqual(['Nov 2026', 'Dec 2026'])
+    expect(paid.bars[0]).toMatchObject({ total: 2, paidTotal: 2, unpaidTotal: 0 })
+    expect(paid.bars[1]).toMatchObject({ total: 0.5, paidTotal: 0.5, unpaidTotal: 0 })
+    const unpaid = overviewBars(ITEMS, 'unpaid')
+    expect(unpaid.bars[0]).toMatchObject({ total: 1.5, paidTotal: 0, unpaidTotal: 1.5 })
+    expect(unpaid.bars[1]).toMatchObject({ total: 15, paidTotal: 0, unpaidTotal: 15 })
+  })
+
+  it('stays readable at the live scale: 53 payables across 3 months → 3 wide bars with month labels', () => {
+    const many: InvoiceItem[] = []
+    for (let i = 0; i < 53; i++) {
+      const month = ['2026-11-15', '2026-12-10', '2027-01-05'][i % 3]
+      many.push(item(2000 + i, 'ccd', i % 5 === 0 ? '10.000000 CCD' : '0.500000 CCD', `${month}T08:00:00.000Z`, i % 2 === 0 ? 'paid' : 'unpaid'))
+    }
+    const { bars, months } = overviewBars(many, 'overview')
+    expect(months).toBe(3)
+    expect(bars).toHaveLength(3)
+    expect(bars.map((b) => b.label)).toEqual(['Nov 26', 'Dec 26', 'Jan 27'])
+    // Labels are distinct month names — never "#1006" truncated to one character.
+    expect(new Set(bars.map((b) => b.label)).size).toBe(3)
+    // Every payable is in exactly one bar: the bar totals sum to the CCD total.
+    const ccdTotal = many.reduce((acc, x) => acc + parseAmount(x.amount_display).value, 0)
+    expect(bars.reduce((acc, b) => acc + b.total, 0)).toBeCloseTo(ccdTotal)
+    for (const b of bars) expect(b.paidTotal + b.unpaidTotal).toBeCloseTo(b.total)
+  })
+
+  it('caps at the latest 12 months and reports the uncapped month count', () => {
+    const many: InvoiceItem[] = []
+    for (let m = 0; m < 14; m++) {
+      const year = 2026 + Math.floor(m / 12)
+      const month = String((m % 12) + 1).padStart(2, '0')
+      many.push(item(3000 + m, 'ccd', '1.000000 CCD', `${year}-${month}-10T08:00:00.000Z`, 'unpaid'))
+    }
+    const { bars, months } = overviewBars(many, 'overview')
+    expect(months).toBe(14)
+    expect(bars).toHaveLength(12)
+    expect(bars[0].month).toBe('Mar 2026')
+    expect(bars[11].month).toBe('Feb 2027')
   })
 })
 
 describe('chartAxisTicks', () => {
-  it('returns 5 nice ticks from 0 for the CCD chart scale', () => {
-    expect(chartAxisTicks(ITEMS)).toEqual({ max: 10, ticks: [0, 2.5, 5, 7.5, 10] })
+  it('returns 5 nice ticks from 0 for the CCD chart scale (tallest MONTHLY total)', () => {
+    // Monthly totals are Nov 3.50 / Dec 15.50 — the axis scales to 15.50,
+    // not to the tallest single payable (10).
+    expect(chartAxisTicks(ITEMS)).toEqual({ max: 15.5, ticks: [0, 5, 10, 15, 20] })
     expect(chartAxisTicks([])).toEqual({ max: 0, ticks: [0] })
   })
 

@@ -361,21 +361,20 @@ body {
   }
 }
 
-/* Hero demo — click ripple around the virtual cursor. The cursor and the
-   ripple are not rendered at all under prefers-reduced-motion (the demo
-   shows its static frame instead), so this animation never runs there. */
-@keyframes demo-ripple {
-  from {
-    transform: translate(-50%, -50%) scale(0.4);
-    opacity: 0.7;
-  }
-  to {
-    transform: translate(-50%, -50%) scale(1.15);
-    opacity: 0;
-  }
-}
-.demo-ripple {
-  animation: demo-ripple 0.65s ease-out forwards;
+/* Hero demo — soft dwell highlight behind the tour cursor. A faint disc
+   that fades in while the cursor rests at a landmark: a pause, not a
+   press. No scale, no expanding ring, no click gesture. The cursor is
+   not rendered at all under prefers-reduced-motion, so this never runs
+   there. */
+.demo-cursor-dwell::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: rgba(180, 67, 15, 0.1);
 }
 
 @media (prefers-reduced-motion: reduce) {

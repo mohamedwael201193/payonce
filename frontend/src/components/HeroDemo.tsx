@@ -2,20 +2,21 @@
 // 00:37 + 01:24: match the Altura reference video frame by frame — the
 // video is the spec; COMPACT and DENSE, not stretched and sparse). A wide
 // panel with a left sidebar (the real app's nav as non-interactive labels,
-// Dashboard current) plus a header strip, a Payables overview chart with a
-// real axis, a paid-once gauge with stat rows, payment rails, insights and
-// a Next-14-days panel, in the video's tight 2-row grid. Props-only, zero
-// network calls; every number comes from heroOverview() over the live list
-// + stats — nothing is invented (no "vs last month", no forecast, no AI:
-// the panel is "Insights", computed lines only). One link out: "View the
-// real dashboard →". No steps, no checks, no pay button, no receipt.
+// Dashboard current) plus a header strip, a Payables overview chart (CCD
+// by due month, with a real axis), a paid-once gauge with stat rows,
+// payment rails, insights and a Next-14-days panel, in the video's tight
+// 2-row grid. Props-only, zero network calls; every number comes from
+// heroOverview() over the live list + stats — nothing is invented (no "vs
+// last month", no forecast, no AI: the panel is "Insights", computed lines
+// only). One link out: "View the real dashboard →". No steps, no checks,
+// no pay button, no receipt.
 // The animated mouse is back (fix-back 2026-11-26: the merge deleted it and
 // the user noticed): a tour cursor glides between the demo's landmarks and
-// pulses at each stop — it presses no functional control. Labelled "Demo",
-// never "Simulation".
+// dwells at each stop with a soft highlight — it never presses, never
+// clicks, never ripples. Labelled "Demo", never "Simulation".
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Download, Home, LayoutDashboard, Plus, Receipt, ShieldCheck } from 'lucide-react'
+import { Calendar, Home, LayoutDashboard, Receipt, ShieldCheck } from 'lucide-react'
 import { chartAxisTicks, formatCcdTotal, formatTick, heroOverview, overviewBars } from '../lib/heroOverview'
 import { refusedCaption } from '../lib/copy'
 import { tourFrameAt, TOUR_LOOP_MS, type TourWaypoints } from '../lib/heroDemo'
@@ -53,18 +54,21 @@ const ZERO_WAYPOINTS: TourWaypoints = {
 // The header strip is the video's tabs/header row, restored as a clearly-
 // labelled PREVIEW (adversarial finding #1): the tabs are the frame's tab
 // strip, the date pill is the live list's real due range, the synced line
-// is the live poll time. Nothing in the strip is a control — the tabs and
-// pills are spans, and the "Preview" tag says so. (Export / "+ New
-// forecast" are the frame's header actions shown as preview pills;
-// PayOnce has no export or forecast feature — the strip is a picture of a
-// dashboard header, labelled as such.) To remove the strip later, delete
-// the single <DemoHeaderStrip … /> line below — one change, nothing else
-// moves.
+// is the live poll time. The "Preview" tag sits at the head of the strip
+// and the strip container carries aria-label="Header preview", so the tag
+// scopes the WHOLE strip — not just the tabs. Nothing in the strip is a
+// control — the tabs and the date pill are spans. The frame's "Export" and
+// "+ New forecast" actions are NOT here: PayOnce has no export or forecast
+// feature, and a dark primary-styled "+ New forecast" pill reads as a real
+// action for a feature that does not exist (honesty + adversarial
+// re-review, main 63a7eee). To remove the strip later, delete the single
+// <DemoHeaderStrip … /> line below — one change, nothing else moves.
 function DemoHeaderStrip({ dueRangeLabel, lastUpdated }: { dueRangeLabel: string | null; lastUpdated: string | null }) {
   return (
-    <div data-testid="demo-header-strip" className="mt-3 rounded-[10px] border border-line bg-paper px-3 py-2">
+    <div data-testid="demo-header-strip" aria-label="Header preview" className="mt-3 rounded-[10px] border border-line bg-paper px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex flex-wrap items-center gap-1" aria-label="Header preview">
+        <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10px] font-semibold text-body">Preview</span>
+        <div className="flex flex-wrap items-center gap-1">
           {['Overview', 'Inflows', 'Outflows', 'Accounts'].map((tab, i) => (
             <span
               key={tab}
@@ -76,19 +80,10 @@ function DemoHeaderStrip({ dueRangeLabel, lastUpdated }: { dueRangeLabel: string
               {tab}
             </span>
           ))}
-          <span className="ml-1 rounded-full bg-paper-2 px-2 py-0.5 text-[10px] font-semibold text-body">Preview</span>
         </div>
         <span className="flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1 text-[13px] font-medium text-body">
           <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
           {dueRangeLabel ?? 'No payables yet'}
-        </span>
-        <span className="flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1 text-[13px] font-medium text-body">
-          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          Export
-        </span>
-        <span className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-[13px] font-medium text-white">
-          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-          New forecast
         </span>
         <span className="ml-auto text-xs text-muted">
           {lastUpdated ? `Last updated: ${lastUpdated} · refreshing every 30 s` : 'Live from the test registry'}
@@ -113,7 +108,7 @@ export function HeroDemo({
   lastUpdated?: string | null
 }) {
   const overview = useMemo(() => heroOverview(items, stats), [items, stats])
-  const bars = useMemo(() => overviewBars(items, 'overview'), [items])
+  const { bars, months } = useMemo(() => overviewBars(items, 'overview'), [items])
   const axis = useMemo(() => chartAxisTicks(items), [items])
   // The refused caption derives its date from stats.last_verifier_run_at
   // and is empty while the stats have not loaded (finding #6) — the
@@ -136,27 +131,21 @@ export function HeroDemo({
 
   // The tour cursor (restored fix-back 2026-11-26): a requestAnimationFrame
   // clock drives the pure timeline in lib/heroDemo.ts. The cursor position
-  // is written straight to the DOM (no React re-render per frame); React
-  // state only changes on ripples. Hovering the demo panel pauses the
-  // clock; the prefers-reduced-motion static render has no cursor.
+  // is written straight to the DOM (no React re-render per frame); the
+  // dwell highlight is a class toggled on the cursor element. Hovering the
+  // demo panel pauses the clock; the prefers-reduced-motion static render
+  // has no cursor. The cursor never presses, never clicks, never ripples.
   const [reduced, setReduced] = useState(
     () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
   const [paused, setPaused] = useState(false)
   const [measured, setMeasured] = useState(false)
-  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([])
 
   const panelRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLDivElement | null>(null)
   const clockRef = useRef(0)
   const waypointsRef = useRef<TourWaypoints>(ZERO_WAYPOINTS)
   const pausedRef = useRef(false)
-  const clickKeyRef = useRef(0)
-  // Ripple ids must be unique across loops: the timeline's clickKey
-  // restarts at 1 every 18 s loop, so using it as the React key rendered
-  // two children with the same key `1` (React duplicate-key warning).
-  const rippleIdRef = useRef(0)
-  const rippleTimersRef = useRef<number[]>([])
 
   // Reduced-motion preference (live: follows the OS setting).
   useEffect(() => {
@@ -227,8 +216,9 @@ export function HeroDemo({
   }, [hasData, items.length, stats])
 
   // The clock: rAF, paused on hover, frozen for reduced motion. The tour
-  // NEVER scrolls the page: it only writes the cursor transform and adds
-  // ripples — a user reading below the demo is never yanked back up.
+  // NEVER scrolls the page: it only writes the cursor transform and toggles
+  // the dwell highlight — a user reading below the demo is never yanked
+  // back up.
   useEffect(() => {
     if (reduced || !measured || !hasData) return
     let raf = 0
@@ -240,18 +230,9 @@ export function HeroDemo({
         clockRef.current = (clockRef.current + dt) % TOUR_LOOP_MS
         const f = tourFrameAt(clockRef.current, waypointsRef.current)
         const el = cursorRef.current
-        if (el) el.style.transform = `translate(${f.cursor.x}px, ${f.cursor.y}px) scale(${f.pressed ? 0.85 : 1})`
-        if (f.clickKey !== clickKeyRef.current) {
-          clickKeyRef.current = f.clickKey
-          if (f.clickKey > 0) {
-            const rippleId = ++rippleIdRef.current
-            setRipples((r) => [...r, { id: rippleId, x: f.cursor.x, y: f.cursor.y }])
-            const t = window.setTimeout(
-              () => setRipples((r) => r.filter((x) => x.id !== rippleId)),
-              700,
-            )
-            rippleTimersRef.current.push(t)
-          }
+        if (el) {
+          el.style.transform = `translate(${f.cursor.x}px, ${f.cursor.y}px)`
+          el.classList.toggle('demo-cursor-dwell', f.dwelling)
         }
       }
       raf = requestAnimationFrame(tick)
@@ -259,8 +240,6 @@ export function HeroDemo({
     raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
-      rippleTimersRef.current.forEach((t) => window.clearTimeout(t))
-      rippleTimersRef.current = []
     }
   }, [reduced, measured, hasData])
 
@@ -360,9 +339,9 @@ export function HeroDemo({
               </p>
             ) : null}
 
-            <DemoHeaderStrip dueRangeLabel={overview.dueRangeLabel} lastUpdated={lastUpdated} />
-
-            {/* Header — the demo dashboard's title, with the Demo badge. */}
+            {/* Header — the demo dashboard's title, with the Demo badge.
+                The frame has the title row ABOVE the tabs strip (finding
+                M5): the strip used to sit above the title. */}
             <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="flex flex-wrap items-center gap-2 text-[20px] font-medium text-ink">
@@ -384,6 +363,8 @@ export function HeroDemo({
                 View the real dashboard →
               </Link>
             </div>
+
+            <DemoHeaderStrip dueRangeLabel={overview.dueRangeLabel} lastUpdated={lastUpdated} />
 
             {/* Row 1 — the video's chart + gauge row: the CCD chart (with
                 the big total) beside the paid-once gauge. */}
@@ -414,10 +395,11 @@ export function HeroDemo({
                   <div className="mt-3">
                     <div className="flex items-start gap-2">
                       {/* Y-axis — real CCD ticks (finding #3): without a
-                          scale the per-payable bar heights were
-                          uninterpretable. The axis column and the gridlines
-                          share the same 5 ticks over the same height. */}
-                      <div className="flex h-[180px] w-[36px] shrink-0 flex-col justify-between self-start text-right" aria-hidden="true">
+                          scale the bar heights were uninterpretable. The
+                          axis column and the gridlines share the same 5
+                          ticks over the same height. The scale is the
+                          tallest MONTHLY total, matching the bars. */}
+                      <div data-testid="demo-chart-axis" className="flex h-[180px] w-[36px] shrink-0 flex-col justify-between self-start text-right" aria-hidden="true">
                         {[...axis.ticks].reverse().map((t) => (
                           <span key={t} className="text-[10px] leading-none text-muted tabular-nums">
                             {formatTick(t)}
@@ -432,25 +414,32 @@ export function HeroDemo({
                             ))}
                           </div>
                           <div
-                            className="relative flex h-[180px] items-end gap-[3px]"
+                            className="relative flex h-[180px] items-end gap-2"
                             role="img"
-                            aria-label={`CCD payables, paid solid, unpaid hatched, up to ${formatTick(axis.max)} CCD`}
+                            aria-label={`CCD payables by due month, paid solid, unpaid hatched, up to ${formatTick(axis.max)} CCD`}
                           >
                             {bars.map((b) => (
-                              <div key={b.payable_id} className="flex min-w-0 flex-1 flex-col items-center justify-end">
+                              <div
+                                key={b.month}
+                                data-testid="demo-chart-bar"
+                                className="flex min-w-0 flex-1 flex-col items-center justify-end"
+                                title={`${b.month} · ${b.total.toFixed(2)} CCD (${b.paidTotal.toFixed(2)} paid, ${b.unpaidTotal.toFixed(2)} unpaid, ${b.count} payable${b.count === 1 ? '' : 's'})`}
+                              >
                                 <div
-                                  className={`w-full max-w-[40px] ${b.paid ? 'bg-brand-600' : 'bar-hatch border border-line'}`}
+                                  className="flex w-full max-w-[64px] flex-col-reverse overflow-hidden rounded-t-[2px]"
                                   style={{ height: `${Math.max(3, Math.round((b.heightPct / 100) * 180))}px` }}
-                                  title={b.label}
-                                />
+                                >
+                                  <div className="w-full bg-brand-600" style={{ height: `${b.paidPct}%` }} />
+                                  <div className="w-full flex-1 border border-line bar-hatch" />
+                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
-                        <div className="mt-1 flex gap-[3px]" aria-hidden="true">
+                        <div className="mt-1 flex gap-2" aria-hidden="true">
                           {bars.map((b) => (
-                            <span key={b.payable_id} className="min-w-0 flex-1 truncate text-center text-[10px] text-muted">
-                              #{b.payable_id}
+                            <span key={b.month} className="min-w-0 flex-1 truncate text-center text-[10px] text-muted">
+                              {b.label}
                             </span>
                           ))}
                         </div>
@@ -464,6 +453,7 @@ export function HeroDemo({
                         <span className="inline-block h-3 w-3 border border-line bar-hatch" aria-hidden="true" /> Unpaid
                       </span>
                       <span>EUDemo payables are not on this axis — they are in Payment rails.</span>
+                      {months > 12 ? <span>Showing the latest 12 months of {months}.</span> : null}
                     </div>
                   </div>
                 )}
@@ -578,16 +568,10 @@ export function HeroDemo({
 
       {/* Tour cursor — absolute over the demo panel, above the content,
           never intercepting pointer events. Rendered only in live mode
-          once the landmarks are measured. */}
+          once the landmarks are measured. It glides and dwells with a soft
+          highlight — it never presses, never clicks, never ripples. */}
       {!reduced && measured && hasData ? (
         <div aria-hidden="true" data-demo-cursor="true" className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-          {ripples.map((r) => (
-            <span
-              key={r.id}
-              className="demo-ripple absolute h-9 w-9 rounded-full border-2 border-brand-600"
-              style={{ left: r.x, top: r.y }}
-            />
-          ))}
           <div
             ref={cursorRef}
             className="absolute top-0 left-0 will-change-transform"

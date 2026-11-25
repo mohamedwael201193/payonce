@@ -1,14 +1,15 @@
 // Hero overview derivations (design fix round 2) — pure functions over the
 // LIVE invoices list + /api/stats. Nothing here invents a number.
 // The video's Cash-overview card maps to our data honestly:
-//   · bar chart → the CCD payables (one bar per payable, paid = solid,
-//     unpaid due = hatched). The 3 EUDemo payables are a different test
-//     asset, so they are NOT mixed onto one CCD axis — they are listed in
+//   · bar chart → the CCD payables, bucketed by due month (12 bars at
+//     most, like the video's 12 monthly bars: paid solid at the bottom,
+//     unpaid hatched on top). EUDemo payables are a different test asset,
+//     so they are NOT mixed onto one CCD axis — they are listed in
 //     Payment rails and the chart says so.
 //   · big balance → the summed CCD total of the listed payables, plus the
 //     summed EUDemo total as a chip (each sum is real, in its own asset).
 //   · Runway gauge → the paid-once share (paid of listed, same rule as the
-//     dashboard donut: 8 of 13 = 62%).
+//     dashboard donut).
 //   · Bank accounts → the two payment rails (CCD / EUDemo), counts + totals.
 //   · AI insights → lines computed from state (counts, soonest due,
 //     refused total) — never a language model.
@@ -156,13 +157,16 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
   if (refusedTotal > 0) {
     insights.push({
       title: `${refusedTotal} payments refused on chain since deploy`,
-      detail: 'The contract stops a second payment, a wrong amount and a changed payee. A refused payment never reaches the payee.',
+      detail: 'These are payments the contract refused on chain — a refused payment never reaches the payee.',
     })
   }
   const latestPaid = [...paid].sort((a, b) => b.payable_id - a.payable_id)[0]
   if (latestPaid) {
+    // No paid-at time exists on the invoice list, so no "latest by time"
+    // claim is made: the highest payable id is the most recently created
+    // payable, and the line says only that it is paid.
     insights.push({
-      title: `Latest payment — payable ${latestPaid.payable_id}`,
+      title: `Payable ${latestPaid.payable_id} paid`,
       detail: `${latestPaid.amount_display}, paid once. The payment is recorded on chain.`,
     })
   }
@@ -188,34 +192,97 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
 export type OverviewTab = 'overview' | 'paid' | 'unpaid' | 'refused'
 
 export interface ChartBar {
-  payable_id: number
-  amount: number
-  paid: boolean
-  /** Height as % of the tallest CCD bar (linear, one asset, one axis). */
-  heightPct: number
+  /** "Nov 2026" — the due month (UTC). */
+  month: string
+  /** Short label under the bar ("Nov 26"). */
   label: string
+  /** Total CCD due in this month. */
+  total: number
+  /** Of the total, the paid share (solid segment at the bottom). */
+  paidTotal: number
+  /** Of the total, the unpaid share (hatched segment on top). */
+  unpaidTotal: number
+  /** Height as % of the tallest monthly total (linear, one asset, one axis). */
+  heightPct: number
+  /** Paid share of this month's total, 0–100 (the solid segment). */
+  paidPct: number
+  /** How many CCD payables fall in this month. */
+  count: number
+}
+
+export interface OverviewBars {
+  /** At most 12 bars — the latest 12 due months. */
+  bars: ChartBar[]
+  /** Distinct due months before the 12-month cap. */
+  months: number
+}
+
+interface MonthBucket {
+  key: string
+  month: string
+  label: string
+  total: number
+  paidTotal: number
+  unpaidTotal: number
+  count: number
+}
+
+/** Group CCD payables by due month (UTC), oldest month first. A payable
+    with no parseable due date has no month and is left out of the chart
+    (the chart is by due month; the big total above it still counts it). */
+function ccdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
+  const ccd = items.filter((i) => parseAmount(i.amount_display).asset === 'CCD')
+  const filtered =
+    tab === 'paid' ? ccd.filter((i) => i.status === 'paid') : tab === 'unpaid' ? ccd.filter((i) => i.status !== 'paid') : ccd
+  const byMonth = new Map<string, MonthBucket>()
+  for (const i of filtered) {
+    const d = new Date(i.due)
+    if (Number.isNaN(d.getTime())) continue
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    const amount = parseAmount(i.amount_display).value
+    const bucket = byMonth.get(key) ?? {
+      key,
+      month: `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+      label: `${MONTHS[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}`,
+      total: 0,
+      paidTotal: 0,
+      unpaidTotal: 0,
+      count: 0,
+    }
+    bucket.total += amount
+    if (i.status === 'paid') bucket.paidTotal += amount
+    else bucket.unpaidTotal += amount
+    bucket.count += 1
+    byMonth.set(key, bucket)
+  }
+  return [...byMonth.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
 /** Bars for the Cash-overview chart: CCD payables only (one asset, one
-    axis), filtered by tab. EUDemo payables are excluded here by design and
-    the panel says so — they are in Payment rails. */
-export function overviewBars(items: InvoiceItem[], tab: OverviewTab): ChartBar[] {
-  const ccd = items
-    .filter((i) => parseAmount(i.amount_display).asset === 'CCD')
-    .sort((a, b) => a.payable_id - b.payable_id)
-  const filtered =
-    tab === 'paid' ? ccd.filter((i) => i.status === 'paid') : tab === 'unpaid' ? ccd.filter((i) => i.status !== 'paid') : ccd
-  const max = Math.max(0, ...filtered.map((i) => parseAmount(i.amount_display).value))
-  return filtered.map((i) => {
-    const amount = parseAmount(i.amount_display).value
-    return {
-      payable_id: i.payable_id,
-      amount,
-      paid: i.status === 'paid',
-      heightPct: max === 0 ? 0 : Math.round((amount / max) * 100),
-      label: `Payable ${i.payable_id} · ${i.amount_display}`,
-    }
-  })
+    axis), bucketed by due month, filtered by tab. One bar per payable is
+    unreadable at the live scale (53 payables ≈ 10 px per slot, labels
+    truncated to one character), so the demo buckets like the video's chart
+    does — 12 wide monthly bars with month labels, paid solid at the
+    bottom and unpaid hatched on top, so the paid/unpaid encoding survives
+    the bucketing. EUDemo payables are excluded here by design and the
+    panel says so — they are in Payment rails. */
+export function overviewBars(items: InvoiceItem[], tab: OverviewTab): OverviewBars {
+  const buckets = ccdMonthly(items, tab)
+  const latest = buckets.slice(-12)
+  const max = Math.max(0, ...latest.map((b) => b.total))
+  return {
+    bars: latest.map((b) => ({
+      month: b.month,
+      label: b.label,
+      total: b.total,
+      paidTotal: b.paidTotal,
+      unpaidTotal: b.unpaidTotal,
+      heightPct: max === 0 ? 0 : Math.round((b.total / max) * 100),
+      paidPct: b.total === 0 ? 0 : Math.round((b.paidTotal / b.total) * 100),
+      count: b.count,
+    })),
+    months: buckets.length,
+  }
 }
 
 /** Format a CCD total the way the chart shows it (2 decimals, no inventing). */
@@ -234,14 +301,11 @@ function formatDueRange(minMs: number, maxMs: number): string {
 
 /** Nice y-axis ticks for the CCD chart: 5 ticks from 0, steps of 1 / 2 /
     2.5 / 5 / 10 × 10^n, so bar heights are readable against a real scale.
-    The top tick may sit above the tallest bar (a standard axis). */
+    The scale is the tallest MONTHLY total (the chart buckets by due
+    month), not the tallest single payable. The top tick may sit above the
+    tallest bar (a standard axis). */
 export function chartAxisTicks(items: InvoiceItem[]): { max: number; ticks: number[] } {
-  const max = Math.max(
-    0,
-    ...items
-      .filter((i) => parseAmount(i.amount_display).asset === 'CCD')
-      .map((i) => parseAmount(i.amount_display).value),
-  )
+  const max = Math.max(0, ...ccdMonthly(items, 'overview').map((b) => b.total))
   if (max === 0) return { max: 0, ticks: [0] }
   const raw = max / 4
   const mag = 10 ** Math.floor(Math.log10(raw))

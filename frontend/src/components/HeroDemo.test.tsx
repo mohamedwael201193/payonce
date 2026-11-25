@@ -93,23 +93,39 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(within(sidebar).queryByText('Pay an invoice')).toBeNull()
     expect(screen.queryByText('Search')).toBeNull()
     expect(screen.queryByText('Pay an invoice')).toBeNull()
-    // Header strip — the video's tabs/header row, labelled Preview, with
-    // the live list's real due range as the date pill.
+    // Header strip — the video's tabs/header row, labelled Preview at
+    // strip level (the tag scopes the whole strip), with the live list's
+    // real due range as the date pill. The frame's "Export" / "+ New
+    // forecast" actions are NOT here: PayOnce has no export or forecast
+    // feature, and a dark primary-styled pill would read as a real action
+    // for a feature that does not exist (honesty + adversarial re-review).
     const strip = screen.getByTestId('demo-header-strip')
     expect(within(strip).getByText('Overview')).toBeInTheDocument()
     expect(within(strip).getByText('Inflows')).toBeInTheDocument()
     expect(within(strip).getByText('Outflows')).toBeInTheDocument()
     expect(within(strip).getByText('Accounts')).toBeInTheDocument()
-    expect(within(strip).getByText('Export')).toBeInTheDocument()
-    expect(within(strip).getByText('New forecast')).toBeInTheDocument()
     expect(within(strip).getByText('Preview')).toBeInTheDocument()
+    expect(within(strip).queryByText('Export')).toBeNull()
+    expect(within(strip).queryByText('New forecast')).toBeNull()
     expect(within(strip).getByText(/\w{3} \d{4}/)).toBeInTheDocument()
     // Chart — big CCD total + EUDemo chip, each asserted in its own
     // element (a bare length-2 count would pass even if the demo is wrong).
     expect(within(screen.getByTestId('demo-big-total')).getByText('19.00 CCD')).toBeInTheDocument()
     expect(within(screen.getByTestId('demo-eudemo-chip')).getByText('1.03 EUDemo')).toBeInTheDocument()
     expect(screen.getByText('8 paid once · 5 unpaid · 13 listed')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /CCD payables, paid solid, unpaid hatched, up to 10 CCD/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /CCD payables by due month, paid solid, unpaid hatched, up to .* CCD/ })).toBeInTheDocument()
+    // The axis ticks render as real text (5 ticks, 0 at the bottom) and
+    // the bars are monthly — wide bars with month labels, never one stub
+    // per payable.
+    const axis = screen.getByTestId('demo-chart-axis')
+    expect(within(axis).getAllByText(/^\d+(\.\d+)?$/)).toHaveLength(5)
+    expect(within(axis).getByText('0')).toBeInTheDocument()
+    // One bar per due month in the fixture (dues are relative to now, so
+    // the month split is computed, not hardcoded).
+    const fixtureMonths = new Set(
+      COMPONENT_INVOICES.filter((i) => i.asset === 'ccd').map((i) => new Date(i.due).toISOString().slice(0, 7)),
+    )
+    expect(screen.getAllByTestId('demo-chart-bar')).toHaveLength(fixtureMonths.size)
     expect(screen.getByText('EUDemo payables are not on this axis — they are in Payment rails.')).toBeInTheDocument()
     // Gauge — stat rows are the two real asset totals; no aspirational Target line.
     expect(screen.getByText('Paid once')).toBeInTheDocument()
@@ -152,8 +168,10 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(screen.queryByText(/Demo receipt/)).toBeNull()
     expect(screen.queryByText(/Paid once — demo/)).toBeNull()
     // The tour cursor is back (fix-back 2026-11-26): an overlay over the
-    // panel, present in live mode — and it never scrolls the page.
+    // panel, present in live mode — and it never scrolls the page. It
+    // glides and dwells; it never presses, never clicks, never ripples.
     expect(document.querySelector('[data-demo-cursor]')).not.toBeNull()
+    expect(document.querySelector('.demo-ripple')).toBeNull()
     expect(document.querySelector('[data-demo-phase]')).toBeNull()
     expect(container.querySelector('[data-demo-phase]')).toBeNull()
   })
@@ -206,6 +224,30 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(screen.getByText('0 of 0 payables paid once')).toBeInTheDocument()
     expect(within(screen.getByTestId('demo-eudemo-chip')).getByText('0.00 EUDemo')).toBeInTheDocument()
     expect(screen.queryByText(/still loading/)).toBeNull()
+  })
+
+  it('stays readable at the live scale: 53 payables render as 3 wide monthly bars, never 53 stubs', () => {
+    const many: InvoiceItem[] = []
+    for (let i = 0; i < 53; i++) {
+      const month = ['2026-11-15', '2026-12-10', '2027-01-05'][i % 3]
+      many.push({
+        seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+        payable_id: 2000 + i,
+        asset: 'ccd',
+        amount_display: i % 5 === 0 ? '10.000000 CCD' : '0.500000 CCD',
+        due: `${month}T08:00:00.000Z`,
+        status: i % 2 === 0 ? 'paid' : 'unpaid',
+        label: 'Lab invoice',
+      })
+    }
+    renderDemo(many, STATS)
+    const bars = screen.getAllByTestId('demo-chart-bar')
+    expect(bars).toHaveLength(3)
+    expect(screen.getByText('Nov 26')).toBeInTheDocument()
+    expect(screen.getByText('Dec 26')).toBeInTheDocument()
+    expect(screen.getByText('Jan 27')).toBeInTheDocument()
+    // The axis still renders its 5 ticks against the monthly scale.
+    expect(within(screen.getByTestId('demo-chart-axis')).getAllByText(/^\d+(\.\d+)?$/)).toHaveLength(5)
   })
 
   it('shows the mobile nav strip with the real nav (finding #9)', () => {

@@ -319,9 +319,9 @@ describe('App routing (tab bug repro)', () => {
     // then the demo is still in its static frame and the test is vacuous.
     await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
     // Let the page sit through 20 s of rAF ticks (CountUp + the demo's
-    // tour cursor). The tour only writes the cursor transform and adds
-    // ripples — it never scrolls — so there is nothing left that could
-    // yank the viewport while the user reads below the demo.
+    // tour cursor). The tour only writes the cursor transform and toggles
+    // the dwell highlight — it never scrolls — so there is nothing left
+    // that could yank the viewport while the user reads below the demo.
     scrollIntoViewSpy.mockClear()
     advanceDemo(20000)
     // No scrollIntoView from the hero at all: the glimpse is a static

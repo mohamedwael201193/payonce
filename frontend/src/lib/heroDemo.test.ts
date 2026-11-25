@@ -1,8 +1,9 @@
 // heroDemo — the tour cursor timeline: pure clock → frame, unit-tested.
-// One 18 s loop: rest, then a move + dwell (pulse) at each landmark in
-// tour order, then a drift back to rest and a beat. The clickKey increments
-// once per stop (on dwell entry) so the component's ripple fires exactly
-// once per landmark per loop.
+// One 18 s loop: rest, then a move + dwell at each landmark in tour
+// order, then a drift back to rest and a beat. Dwelling is a pause with a
+// soft highlight — never a press, never a click, never a ripple (the
+// re-review of main 63a7eee rejected the press scale + click ring as a
+// fake hand pressing dead controls).
 import { describe, expect, it } from 'vitest'
 import { curvedPoint, tourFrameAt, TOUR_LOOP_MS, TOUR_STOPS, type TourWaypoints } from './heroDemo'
 
@@ -18,30 +19,34 @@ const W: TourWaypoints = {
 }
 
 describe('tourFrameAt', () => {
-  it('rests at the rest waypoint with no press and clickKey 0', () => {
-    expect(tourFrameAt(0, W)).toEqual({ cursor: { x: 0, y: 0 }, pressed: false, clickKey: 0, stop: 'rest' })
+  it('rests at the rest waypoint, not dwelling', () => {
+    expect(tourFrameAt(0, W)).toEqual({ cursor: { x: 0, y: 0 }, dwelling: false, stop: 'rest' })
     expect(tourFrameAt(1199, W).stop).toBe('rest')
+    expect(tourFrameAt(1199, W).dwelling).toBe(false)
   })
 
-  it('pulses once at each landmark in tour order, then drifts back to rest', () => {
-    // Dwell windows: stop i dwells at 2200 + i*1700 for 700 ms (pressed
-    // for the first 200 ms of the dwell).
+  it('dwells once at each landmark in tour order, then drifts back to rest', () => {
+    // Dwell windows: stop i dwells at 2200 + i*1700 for 700 ms.
     TOUR_STOPS.forEach((key, i) => {
       const dwellStart = 2200 + i * 1700
       const atDwell = tourFrameAt(dwellStart + 100, W)
       expect(atDwell.stop).toBe(key)
       expect(atDwell.cursor).toEqual(W[key])
-      expect(atDwell.pressed).toBe(true)
-      expect(atDwell.clickKey).toBe(i + 1)
-      // Press ends 200 ms into the dwell; the cursor stays at the stop.
+      expect(atDwell.dwelling).toBe(true)
+      // The cursor stays at the stop for the whole dwell — no press,
+      // no click key, no ripple trigger in the frame at all.
       const settled = tourFrameAt(dwellStart + 500, W)
-      expect(settled.pressed).toBe(false)
-      expect(settled.clickKey).toBe(i + 1)
+      expect(settled.dwelling).toBe(true)
       expect(settled.cursor).toEqual(W[key])
+      expect(settled).not.toHaveProperty('pressed')
+      expect(settled).not.toHaveProperty('clickKey')
+      // Moving again: dwelling off.
+      const moving = tourFrameAt(dwellStart + 700 + 100, W)
+      expect(moving.dwelling).toBe(false)
     })
-    // Return move + beat: back at rest, clickKey stays 7, no new pulse.
-    expect(tourFrameAt(14100, W)).toMatchObject({ stop: 'rest', clickKey: 7 })
-    expect(tourFrameAt(TOUR_LOOP_MS - 1, W)).toMatchObject({ cursor: { x: 0, y: 0 }, clickKey: 7, stop: 'rest' })
+    // Return move + beat: back at rest, not dwelling.
+    expect(tourFrameAt(14100, W)).toMatchObject({ stop: 'rest', dwelling: false })
+    expect(tourFrameAt(TOUR_LOOP_MS - 1, W)).toMatchObject({ cursor: { x: 0, y: 0 }, dwelling: false, stop: 'rest' })
   })
 
   it('wraps: one loop later the frame repeats', () => {
