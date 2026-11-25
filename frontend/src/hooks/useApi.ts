@@ -66,13 +66,18 @@ export function useLiveSnapshot() {
       return fetchLiveSnapshot(prevSnapshot)
     },
     refetchInterval: POLL_MS,
-    // Fix-back-10 MF-4: retry: 0 — fetchLiveSnapshot already retries
-    // in-loop (3 attempts with 1 s / 2 s backoff). A react-query retry
-    // would run the WHOLE queryFn again, doubling the worst case per
-    // poll tick: 3 attempts × 5 s page deadline + 3 s backoff = 18 s
-    // once (inside the 30 s poll), ~36 s doubled (past it). The other
-    // hooks keep retry: 1 — only the snapshot queryFn carries its own
-    // retry loop, so only it needs the 0.
+    // Fix-back-10 MF-4, corrected fix-back-11 MF-2: retry: 0 —
+    // fetchLiveSnapshot already retries in-loop (3 attempts with 1 s /
+    // 2 s backoff). A react-query retry would run the WHOLE queryFn
+    // again, doubling the worst case per poll tick. The qualified bound
+    // (snapshot.ts rule 6): one queryFn spends at most 20 s of
+    // verification (the whole-round tick budget) + 3 s backoff = 23 s,
+    // plus the pair fetches — inside the 30 s poll; a hung first page
+    // is 3 × 5 s + 3 s = 18 s. Doubled, that is ~46 s (past the poll).
+    // Fix-back-10 stated this unqualified as "18 s once" — that holds
+    // only for a hung first page, not for a slow host failing late.
+    // The other hooks keep retry: 1 — only the snapshot queryFn
+    // carries its own retry loop, so only it needs the 0.
     retry: 0,
   })
 }

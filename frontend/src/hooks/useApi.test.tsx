@@ -142,7 +142,10 @@ describe('useLiveSnapshot retry (fix-back-10 MF-4)', () => {
   // backoff); with retry: 0 the query settles in error after exactly
   // those 3 attempts (6 fetch calls). With retry: 1 the whole queryFn
   // would run a second time (12 calls) — doubling the worst case per
-  // poll tick from 18 s to ~36 s, past the 30 s poll budget.
+  // poll tick from ~23 s (20 s verification budget + 3 s backoff) to
+  // ~46 s, past the 30 s poll budget. (Fix-back-10 stated this as 18 s
+  // to ~36 s — that holds only for a hung first page; see snapshot.ts
+  // rule 6, fix-back-11 MF-2.)
   it('does not retry a failed snapshot at the react-query level (retry: 0)', async () => {
     vi.stubGlobal(
       'fetch',

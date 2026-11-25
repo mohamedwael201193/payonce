@@ -8,7 +8,7 @@
 // scan. Also pins: an endpoint throw retries in-loop (MF-2), and an
 // empty pair on cold load is rejected, never rendered as 0/0 (MF-4).
 import { describe, expect, it, vi } from 'vitest'
-import { fetchLiveSnapshot, snapshotAccepts, type PrevSnapshot } from './snapshot'
+import { fetchLiveSnapshot, snapshotAccepts, VERIFY_TICK_BUDGET_MS, type PrevSnapshot } from './snapshot'
 import type { InvoiceItem, Stats } from './types'
 
 const item = (id: number, status: 'paid' | 'unpaid'): InvoiceItem => ({
@@ -536,12 +536,14 @@ describe('fetchLiveSnapshot', () => {
     vi.restoreAllMocks()
   })
 
-  // Fix-back-10 MF-2: the adversarial repro — a legit 11-drop shrink
-  // on a SLOW host (per-id endpoint at 3 s/page) must HEAL. Under the
-  // fix-back-9 whole-round 5 s deadline every attempt hit the deadline
-  // (2 pages need ~6 s > 5 s; 33 verify calls over 3 attempts, 18,015
-  // ms, never healed). With the per-page deadline each page gets its
-  // own 5 s, so the round heals on attempt 1 in ~6 s.
+  // Fix-back-10 MF-2, kept by fix-back-11 MF-1 (a): the adversarial
+  // repro — a legit 11-drop shrink on a SLOW host (per-id endpoint at
+  // 3 s/page) must HEAL. Under the fix-back-9 whole-round 5 s deadline
+  // every attempt hit the deadline (2 pages need ~6 s > 5 s; 33 verify
+  // calls over 3 attempts, 18,015 ms, never healed). With the per-page
+  // deadline each page gets its own 5 s, so the round heals on attempt
+  // 1 in ~6 s — and the fix-back-11 whole-round budget must NOT kill
+  // that heal: attempt 1 may spend up to min(5 s × pages, 20 s).
   it('heals a legit 11-drop shrink on a slow host: 3 s/page, 2 pages, ~6 s (MF-2 per-page deadline)', async () => {
     const { api } = await import('./api')
     let verifyCalls = 0
@@ -561,6 +563,73 @@ describe('fetchLiveSnapshot', () => {
     // whole-round deadline this threw after ~18 s instead of healing.
     expect(elapsed).toBeGreaterThan(4000)
     expect(elapsed).toBeLessThan(12000)
+    // Fix-back-11 MF-1 (a): the heal lands well inside the 20 s
+    // whole-round tick budget — the budget caps later attempts, never
+    // attempt 1's heal.
+    expect(elapsed).toBeLessThan(VERIFY_TICK_BUDGET_MS)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-11 MF-1 (b): the adversarial judge's measured shape — 11
+  // dropped ids, pages answering at 4.9 s/page, verification failing
+  // LATE (page 2 reads unpaid, so every attempt re-pays both pages).
+  // Under fix-back-10 this blew the poll: 32,492 ms / 33 verify calls.
+  // With the 20 s whole-round tick budget, attempt 1 spends ~9.8 s,
+  // attempt 2 spends the ~10.2 s that is left, and attempt 3 fails
+  // immediately on the exhausted budget (or on a sub-second shortened
+  // page deadline) — the tick stays inside the 30 s poll. Real timers:
+  // the 15 s default test timeout cannot hold this shape, so the test
+  // carries its own 60 s timeout.
+  it('caps a fail-late slow host inside the 30 s poll: 4.9 s/page, page 2 unpaid (MF-1 tick budget)', { timeout: 60_000 }, async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(40, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(40, 31, 1, 16))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      await new Promise((resolve) => setTimeout(resolve, 4900))
+      return id === 51
+        ? facts(id, { kind: 'unpaid' })
+        : facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+    })
+    const start = Date.now()
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 3)).rejects.toThrow(/disagreed/)
+    const elapsed = Date.now() - start
+    // THE PIN: the old code measured 32,492 ms on this shape. The
+    // budget caps verification at 20 s + 3 s backoff ≈ 23 s.
+    expect(elapsed).toBeLessThan(30_000)
+    // ...and it is genuinely the slow shape, not a fast fail: two
+    // full slow attempts ran before the budget ran out.
+    expect(elapsed).toBeGreaterThan(15_000)
+    // Attempts 1–2 verify both pages (22 calls); attempt 3 starts at
+    // most one more page (10 calls) before its shortened deadline
+    // fires, or none at all if the budget is already spent — either
+    // way strictly fewer than the old code's 33.
+    expect(verifyCalls).toBeGreaterThanOrEqual(22)
+    expect(verifyCalls).toBeLessThanOrEqual(32)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-11 MF-1 (c): the hung-first-page shape still fails fast.
+  // Each attempt dies on page 1 at the 5 s deadline (the budget never
+  // binds: 3 × 5 s verification), so the tick is 3 × 5 s + 1 s + 2 s
+  // backoff = 18 s — the same bound fix-back-10 stated, now qualified
+  // as the hung shape only. Real timers: own 40 s timeout, as above.
+  it('still fails fast on a hung first page: 3 attempts x 5 s + backoff = 18 s (MF-1 tick budget)', { timeout: 40_000 }, async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 1, 6))
+    vi.spyOn(api, 'getPayable').mockImplementation(async () => {
+      verifyCalls += 1
+      return new Promise<never>(() => {})
+    })
+    const start = Date.now()
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 3)).rejects.toThrow(/timed out after 5000 ms/)
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeGreaterThan(15_000)
+    expect(elapsed).toBeLessThan(25_000)
+    expect(verifyCalls).toBe(3)
     vi.restoreAllMocks()
   })
   // fails closed instead of accepting on the counts alone.

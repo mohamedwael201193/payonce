@@ -194,18 +194,28 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-10, 2026-11-25 ~10:30 UTC): frontend
-vitest 244/244 (23 files), TWICE in a row (run 1: 56.72 s, run 2: 56.29 s),
+Verified by my own runs (fix-back-11, 2026-11-25 ~12:15 UTC): frontend
+vitest 246/246 (23 files), TWICE in a row (run 1: 138.22 s, run 2: 140.62 s),
 `tsc -b` clean (and `tsc --noEmit -p tsconfig.json` clean — this repo has
 no `tsconfig.app.json`; the build script's `tsc -b` is the check), `vite
-build` clean twice (547.99 kB JS, 547,992 B, `assets/index-DT97w9nz.js`,
-sha256 `50bbeaf8c28281575147788ce3b3ec71c016565b16dac12bead7bb05365bb510`,
+build` clean twice (548.33 kB JS, 548,331 B, `assets/index-L0LS_bTJ.js`,
+sha256 `514cbfda8de4f35750ef36a94276e01f1404603cfbdd4a19612d507553ff0063`,
 identical across both builds; CSS byte-identical to fix-back-9, sha256
 `1805692b…9c0`), API stats-reconcile test 3/3, handler-level stats/invoices
-test 5/5, handler-level payableFacts test 7/7 (from a `/tmp` copy with
+test 5/5, handler-level payableFacts test 7/7 (from a `/var/tmp` copy with
 read-only symlinked node_modules; `api/node_modules` in-tree is still
-absent — see `qa/fixback10.md`), secret scan clean on the diff (0 genuine
+absent — see `qa/fixback11.md`), secret scan clean on the diff (0 genuine
 hits).
+Fix-back-11 fixes the fix-back-10 panel list (0/3 — all three judges
+converged on one defect): verification now has a whole-round budget of
+20 s per poll tick on top of the 5 s per-page deadline, so a slow host
+failing late can no longer re-pay full slow pages on every attempt —
+one poll tick's verification + backoff tops out at 23 s (a hung first
+page is 18 s), inside the 30 s poll for any page count, while the
+legit 11-drop heal at 3 s/page still lands on attempt 1 in ~6 s; the
+three unqualified "18 s" claims are corrected to that qualified bound
+(hung-first-page 18 s vs slow-host 5 s × pages per attempt, capped by
+the 20 s tick budget). See `qa/fixback11.md`.
 Fix-back-10 fixes the fix-back-9 panel list: the feasibility rule is now
 the TIGHT one (Δreserved+Δvoided ≥ shrink, both regimes — the fix-back-9
 rule treated a confirm as list-neutral and double-counted voided growth,
@@ -213,8 +223,11 @@ and the old no-fall rule assumed zero creates); verification has a 5 s
 deadline PER PAGE, so a legit 11-drop shrink heals on a 3 s/page host;
 the caller abort really reaches the fetch on runtimes without
 `AbortSignal.any` (manual forwarding controller); `useLiveSnapshot` has
-`retry: 0` (fetchLiveSnapshot already retries in-loop, so one poll tick
-tops out at 18 s, inside the 30 s poll). See `qa/fixback10.md`.
+`retry: 0` (fetchLiveSnapshot already retries in-loop). Fix-back-10
+stated one poll tick as topping out at 18 s — that holds only for a
+hung first page; fix-back-11 corrects it to the qualified bound
+(verification ≤ 20 s + 3 s backoff = 23 s, plus the pair fetches).
+See `qa/fixback10.md` and `qa/fixback11.md`.
 Fix-back-9 fixes the fix-back-8 panel list: reserved is NOT terminal on
 chain, so monotonicity is voided/paid-only and a reserved fall is accepted
 when explained (release / confirm / void-of-reserved, feasibility
