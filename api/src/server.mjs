@@ -42,7 +42,7 @@ import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } fro
 import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
-import { listableRows, statsBody } from './listable.mjs';
+import { listableRows, scanIsComplete, statsBody } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import {
@@ -203,21 +203,68 @@ function rejectNonSeller1Write(req, res, body = null) {
 }
 
 let statsCache = null;
-async function scanPayables(c) {
-  const rows = [];
-  for (const id of await knownIds()) {
+// Fix-back-6 B1 — one scan, fail closed. The old scanPayables silently
+// dropped any row whose chain read threw, and both endpoints served the
+// partial remainder as 200 OK: /api/stats swung 51/31 → 8/5 and
+// /api/invoices 51 → 13 items in the same minute (verified live
+// 2026-11-25 09:37 UTC), and the frontend rendered the shrunken numbers.
+// Now: each row read retries (3 attempts), the stats + invoices handlers
+// share ONE in-flight scan (single-flight, so the two endpoints can never
+// be two different partial scans), and an incomplete scan is NEVER served
+// as totals — stats falls back to the last complete scan, invoices answers
+// 503 node_busy (retryable) so the frontend keeps its last good snapshot.
+let scanInFlight = null;
+let lastCompleteScan = null;
+async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const view = await getPayableOrNull(c, SELLER, id);
-      if (view) rows.push(view);
-    } catch { /* one unreadable row does not fail the scan */ }
+      // A null view is a successful read of an absent payable (never
+      // created under this seller), not a skip — only a throw skips.
+      return { view: await getPayableOrNull(c, seller, id), ok: true };
+    } catch {
+      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
   }
-  for (const id of SELLER2_KNOWN_IDS) {
-    try {
-      const view = await getPayableOrNull(c, SELLER2, id);
-      if (view) rows.push(view);
-    } catch { /* one unreadable row does not fail the scan */ }
+  return { view: null, ok: false };
+}
+async function scanSnapshot(c) {
+  if (scanInFlight) return scanInFlight;
+  scanInFlight = (async () => {
+    const rows = [];
+    const skipped = [];
+    for (const id of await knownIds()) {
+      const { view, ok } = await readPayableWithRetry(c, id);
+      if (ok) {
+        if (view) rows.push(view);
+      } else {
+        skipped.push(id);
+      }
+    }
+    // Second seller (main 86e2596 wiring): seller-2 rows are part of the
+    // served list, so they get the same retry + fail-closed treatment --
+    // a failed seller-2 read fails the scan, it never silently drops
+    // seller-2 rows the way main's scanPayables did.
+    for (const id of SELLER2_KNOWN_IDS) {
+      const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
+      if (ok) {
+        if (view) rows.push(view);
+      } else {
+        skipped.push(id);
+      }
+    }
+    const scan = { rows, skipped, complete: scanIsComplete(skipped) };
+    if (scan.complete) lastCompleteScan = { at: Date.now(), rows };
+    return scan;
+  })();
+  try {
+    return await scanInFlight;
+  } finally {
+    scanInFlight = null;
   }
-  return rows;
+}
+async function refusedHashSet() {
+  const counters = await loadCounters();
+  return new Set([...recordedRefusals().keys(), ...counters.liveRefusals.map((r) => r.txHash)]);
 }
 
 function amountDisplay(view) {
@@ -386,20 +433,39 @@ async function handleStats(req, res) {
   const now = Date.now();
   if (statsCache && now - statsCache.at < 20_000) return sendJson(res, 200, statsCache.body);
   const c = await grpc();
-  const rows = await scanPayables(c);
+  const scan = await scanSnapshot(c);
   const counters = await loadCounters();
-  const refusedHashes = new Set([...recordedRefusals().keys(), ...counters.liveRefusals.map((r) => r.txHash)]);
   // Reconciled at source: the total counts the same listable rows the
   // /api/invoices list shows (never the raw scanned rows).
-  const body = statsBody({ rows, refusedCount: refusedHashes.size, lastVerifierRunAt: counters.lastVerifierRunAt });
+  if (!scan.complete) {
+    // Fail closed (fix-back-6 B1): a partial scan is never served as
+    // totals. The last complete scan's stats stay the answer; with no
+    // complete scan yet, 503 node_busy (retryable) — the frontend keeps
+    // its last good snapshot instead of rendering shrunken numbers.
+    if (lastCompleteScan) {
+      const body = statsBody({
+        rows: lastCompleteScan.rows,
+        refusedCount: (await refusedHashSet()).size,
+        lastVerifierRunAt: counters.lastVerifierRunAt,
+      });
+      return sendJson(res, 200, body);
+    }
+    return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. Nothing was counted from a partial scan — retry.', { retryable: true });
+  }
+  const body = statsBody({ rows: scan.rows, refusedCount: (await refusedHashSet()).size, lastVerifierRunAt: counters.lastVerifierRunAt });
   statsCache = { at: now, body };
   sendJson(res, 200, body);
 }
 
 async function handleInvoices(req, res) {
   const c = await grpc();
-  const rows = await scanPayables(c);
-  const items = listableRows(rows)
+  const scan = await scanSnapshot(c);
+  // Fail closed (fix-back-6 B1): a partial list is never served as 200 --
+  // the frontend keeps its last good snapshot on a retryable 503.
+  if (!scan.complete) {
+    return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. No partial list is served -- retry.', { retryable: true });
+  }
+  const items = listableRows(scan.rows)
     .sort((a, b) => (a.seller === b.seller ? a.id - b.id : a.seller < b.seller ? -1 : 1))
     .map((r) => ({
       payable_id: r.id,

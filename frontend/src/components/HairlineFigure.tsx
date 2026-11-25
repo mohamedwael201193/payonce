@@ -9,10 +9,19 @@
 // caption. On load the component checks the same-origin document for the
 // figure root (#hl-figure, present in all three built pages) and on error
 // it swaps the iframe for a fallback box that says so — never a blank box.
+// Fix-back-6 B8: the iframe's aspect box (400×500) is only a pre-load
+// size — the inner page's real content height depends on the rendered
+// width (stage + controls + rules), and at 1920px it exceeded the box,
+// so each figure showed an internal vertical scrollbar with clipped
+// controls. The iframe is same-origin, so on load (and whenever its own
+// width changes) we measure the inner document's height and size the
+// iframe to it, with scrolling="no" — the figure can never scroll
+// internally again.
 import { useEffect, useRef, useState } from 'react'
 
 export function HairlineFigure({ name, caption }: { name: string; caption: string }) {
   const [failed, setFailed] = useState(false)
+  const [contentHeight, setContentHeight] = useState<number | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
 
   // The error listener is attached natively: React's onError prop does
@@ -26,6 +35,23 @@ export function HairlineFigure({ name, caption }: { name: string; caption: strin
     return () => el.removeEventListener('error', onErr)
   }, [])
 
+  // Fit the iframe to its content height: the inner page is same-origin,
+  // so its scrollHeight is readable. Re-measured on resize (the inner
+  // stage height follows the iframe width).
+  useEffect(() => {
+    const el = iframeRef.current
+    if (!el || typeof ResizeObserver !== 'function') return
+    const fit = () => {
+      const doc = el.contentDocument
+      const h = doc?.documentElement?.scrollHeight ?? 0
+      if (h > 0) setContentHeight(h)
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [failed])
+
   const checkLoaded = () => {
     const doc = iframeRef.current?.contentDocument
     // Same-origin figure pages always carry #hl-figure. A missing root
@@ -33,6 +59,8 @@ export function HairlineFigure({ name, caption }: { name: string; caption: strin
     // page) — show the fallback instead of a blank box. A null document
     // (cross-origin, never here) leaves the iframe as-is.
     if (doc && !doc.querySelector('#hl-figure')) setFailed(true)
+    const h = doc?.documentElement?.scrollHeight ?? 0
+    if (h > 0) setContentHeight(h)
   }
 
   if (failed) {
@@ -59,8 +87,10 @@ export function HairlineFigure({ name, caption }: { name: string; caption: strin
         src={`/figures/hairline-${name}.html?play=1`}
         title={`Hairline figure: ${name}`}
         loading="lazy"
+        scrolling="no"
         onLoad={checkLoaded}
         className="aspect-[400/500] w-full overflow-hidden rounded-[12px] border border-line bg-card"
+        style={contentHeight !== null ? { height: `${contentHeight}px` } : undefined}
       />
       <figcaption className="mt-3 text-center text-sm leading-relaxed text-muted">{caption}</figcaption>
     </figure>

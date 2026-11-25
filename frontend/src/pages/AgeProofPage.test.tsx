@@ -232,4 +232,28 @@ describe('AgeProofPage', () => {
     })
     expect(screen.getByText(/does not pretend to verify live/)).toBeInTheDocument()
   })
+
+  // Fix-back-6 B7: a dead demo must not present as a live one — when the
+  // prover is down, BOTH demo sections carry their own "Demo unavailable"
+  // banner and their buttons stay disabled; and the header sits on a dark
+  // band (white nav text on light paper was near-invisible).
+  it('B7: when the prover is down, both demos say unavailable and stay disabled', async () => {
+    ageHealthStatus = 503
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Prover not provisioned yet')).toBeInTheDocument(), {
+      timeout: 5000,
+    })
+    expect(screen.getAllByText(/Demo unavailable — The prover is not provisioned on this API host yet/)).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Reveal the first name' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
+  })
+
+  it('B7: the header sits on a dark band, and the verify intro has no stray valid:false fragment', async () => {
+    const { container } = renderPage()
+    await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
+    // The AppHeader is white-on-dark by design: it must render inside a
+    // dark band, never directly on the light paper.
+    expect(container.querySelector('div.bg-sky-0 > header')).toBeTruthy()
+    expect(screen.queryByText(/returns HTTP 400 with/)).toBeNull()
+  })
 })

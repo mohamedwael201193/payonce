@@ -18,7 +18,7 @@ import { TryPanel } from '../components/TryPanel'
 import { CtaBand, Features, Footer, HairlineFigures, HowItWorks, InvoiceShowcase, JudgesSection, PlannerSection, VerifierSection } from '../components/Sections'
 import { AlertInline, StepCard } from '../components/ui'
 import { api } from '../lib/api'
-import { coSignerRunsAsSentence } from '../lib/copy'
+import { buildStatusText, coSignerRunsAsSentence } from '../lib/copy'
 import { ApiError, type Receipt } from '../lib/types'
 import { flowReducer, initialFlowState, isCheckFresh, payDisabledReason } from '../lib/flow'
 import { stickyActionFor, type StickyAction } from '../lib/sticky'
@@ -71,8 +71,7 @@ export function HomePage() {
         .catch(() => setPageError('The payment succeeded, but the receipt could not be loaded. Use the transaction links above.'))
     }
     if (liveJob.state === 'succeeded' || liveJob.state === 'refused' || liveJob.state === 'failed') {
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
-      void queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['live-snapshot'] })
     }
   }, [liveJob, queryClient])
 
@@ -256,11 +255,11 @@ export function HomePage() {
         {/* Small demo card — the ONLY dashboard in the hero (user order
             2026-11-25 03:40: the real dashboard lives only in /dashboard;
             the landing shows a demo, small and clearly Demo-labeled). The
-            looping Demo walkthrough, reshaped small (~60% width), pulled up
+            static demo glimpse, reshaped small (~60% width), pulled up
             over the hero's cloud band. */}
         <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[820px] px-4 sm:px-6">
           <div className="relative -mt-[100px] overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]">
-            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} compact />
+            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} />
           </div>
         </section>
         {/* The real payment flow — pick, check, pay, receipt — with a slim
@@ -414,15 +413,15 @@ export function HomePage() {
                 <ul className="space-y-1.5 text-sm text-muted">
                   <li>
                     Vendor list enforced by the co-signer:{' '}
-                    <span className="text-ink">{build?.vendor_list_enforced_by_co_signer ? 'Yes' : 'Not yet (planned)'}</span>
+                    <span className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.vendor_list_enforced_by_co_signer)}</span>
                   </li>
                   <li>
                     Named payer on invoice:{' '}
-                    <span className="text-ink">{build?.named_payer_on_invoice ? 'Yes' : 'Not yet (planned)'}</span>
+                    <span className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.named_payer_on_invoice)}</span>
                   </li>
                   <li>
                     Transaction expiry bounded by the reservation:{' '}
-                    <span className="text-ink">{build?.header_expiry_bound ? 'Yes' : 'Not yet (planned)'}</span>
+                    <span className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.header_expiry_bound)}</span>
                   </li>
                   <li>
                     Co-signer runs as:{' '}

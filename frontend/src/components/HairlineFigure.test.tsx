@@ -35,4 +35,18 @@ describe('HairlineFigure load failure (FIX-7e)', () => {
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByTitle('Hairline figure: receipt')).toBeInTheDocument()
   })
+
+  // Fix-back-6 B8: the iframe must never scroll internally — it sizes
+  // itself to the figure page's content height and carries scrolling="no".
+  it('sizes the iframe to the figure content height, with no internal scrolling', () => {
+    const { container } = render(<HairlineFigure name="payable" caption="Payable figure" />)
+    const iframe = container.querySelector('iframe') as HTMLIFrameElement
+    expect(iframe.getAttribute('scrolling')).toBe('no')
+    const fakeDoc = document.implementation.createHTMLDocument()
+    fakeDoc.body.insertAdjacentHTML('beforeend', '<div id="hl-figure"></div>')
+    Object.defineProperty(fakeDoc.documentElement, 'scrollHeight', { value: 620, configurable: true })
+    Object.defineProperty(iframe, 'contentDocument', { value: fakeDoc, configurable: true })
+    fireEvent.load(iframe)
+    expect(iframe.style.height).toBe('620px')
+  })
 })

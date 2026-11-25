@@ -189,16 +189,21 @@ ember orbs removed, logo once-loop thickened for 32 px, stats reconciled at
 the API source (`api/src/listable.mjs`: listable rows only; voided/reserved
 reported, not hidden), loading skeletons (no more `0` cards), honest copy
 (`Verify — no wallet needed`; co-signer sentence), Features flat hairline
-grid with corner squares, hero demo merged in with phase-aware button
-labels (`Checked ✓` / `Paid ✓ — demo`) and phase-follow scrolling.
+grid with corner squares, hero demo reshaped into a small static glimpse
+(fix-back-6 B6: chips + 3-row live table + link; no autoplay, no steps, no
+checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs: frontend vitest 155/155 (21 files), `tsc -b`
-clean, `vite build` clean (554.92 kB JS, 554,920 B, `assets/index-yk-0nZxL.js`,
-sha256 `a3045efbc9111afe6966165f34abb663178037ab7a3a0487a6870e0d0bcbc4f4`, identical
-across two clean scratch builds), API stats-reconcile test 2/2,
-secret scan clean on the diff (the one repo-wide hit is a false positive:
-English prose in pre-existing `backend/src/planner/llm-planner.mjs`).
+Verified by my own runs (fix-back-6, 2026-11-25 ~08:00 UTC): frontend
+vitest 171/171 (23 files), `tsc -b` clean (and `tsc --noEmit -p
+tsconfig.json` clean — this repo has no `tsconfig.app.json`; the build
+script's `tsc -b` is the check), `vite build` clean twice (542.61 kB JS,
+542,607 B, `assets/index-CyU-TILV.js`, sha256
+`9aff21f142639e816394155f7705cef3bace57d8c320601119453e6542b2f020`, identical
+across both builds), API stats-reconcile test 3/3 (new incomplete-scan
+503 test included), secret scan clean on the diff (0 genuine hits — the
+only `token` matches are public on-chain identifiers: agent token 1476,
+the `one_token_transfer` check id, `tokenId=EUDemo`).
 NOT yet verified: live screenshots — the VM lost every working browser in
 the 01:45 EET reboot (Chromium 1255 dead, stock Firefox lacks Playwright's
 Juggler protocol, Playwright's Firefox CDN returns 400 via the egress

@@ -4,6 +4,7 @@
 // cannot create a second job (the server also de-duplicates by payable+rail).
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useConfig } from '../hooks/useApi'
 import type { JobSnapshot, PayableFacts } from '../lib/types'
 import { COPY } from '../lib/copy'
 import { formatCountdown } from '../lib/format'
@@ -124,6 +125,15 @@ export function PayStep({
 }) {
   const job = liveJob ?? (payState.kind !== 'idle' && payState.kind !== 'failed' ? payState.job : null)
   const done = payState.kind === 'succeeded' || payState.kind === 'refused' || payState.kind === 'failed'
+  // B4: the reservation length is ONE number, read live from /api/config —
+  // the old hardcoded "300 seconds" was the v1-era value and contradicted
+  // step 01 (live 3600 s) and the glossary. While config has not answered,
+  // no number is stated at all.
+  const reservationSecs = useConfig().data?.reservation_secs
+  const reservationClause =
+    reservationSecs === undefined
+      ? 'reserved on chain'
+      : `reserved on chain for ${reservationSecs} seconds${reservationSecs % 60 === 0 ? ` (${reservationSecs / 60} minutes)` : ''}`
   const reservedUntil =
     facts?.status.kind === 'reserved' ? new Date(facts.status.expires).getTime() : null
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -203,7 +213,7 @@ export function PayStep({
           <div className="rounded-md border border-line bg-card p-4">
             <h3 className="text-base font-medium text-ink">Pay in EUDemo</h3>
             <p className="mt-1 text-sm text-muted">
-              1. The invoice is reserved on chain for 300 seconds. 2. A co-signer approves one transfer of this
+              1. The invoice is {reservationClause}. 2. A co-signer approves one transfer of this
               exact amount to this payee, with the invoice number in the memo. 3. The transfer is confirmed
               against this invoice. The chain refuses a second reservation. The co-signer refuses any other
               transfer.

@@ -15,11 +15,12 @@ import { useConfig, useInvoices, useReceipt } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { COPY } from '../lib/copy'
 import { derivedStatus } from '../lib/dashboard'
-import { formatUtcDateTime } from '../lib/format'
+import { formatUtcDateTime, formatUtcTime } from '../lib/format'
 import { EXPLORER_HOME } from '../lib/tokens'
 import { InvoiceStatusPill, Reveal, useSlowLoad } from './polish'
 import { HairlineFigure } from './HairlineFigure'
 import { Logo } from './Logo'
+import { evidenceGap } from '../lib/receiptVerdict'
 import type { InvoiceItem, VerifyResponse } from '../lib/types'
 
 /** The ONE "latest payment" rule, shared by the step-04 card and the
@@ -357,44 +358,49 @@ function StepVisual03({ tall = false }: { tall?: boolean }) {
   )
 }
 
-/** Receipt checker — 5 stages from a real after-pay verify call (design §5.6). */
+/** Receipt checker — 5 stages from a real after-pay verify call (design §5.6).
+    Fix-back-6 B9/B12 — the state must be stable and truthful:
+    · the effect keys on the latest-paid ID (a number), not the invoice
+      object — the old object dep re-fired the verify on EVERY 30 s poll
+      (a new list object each time), resetting the verdict to "Checking…"
+      and, on any flaky re-fetch, replacing it with the generic error;
+    · the last good result is KEPT per payable id: a failed re-check shows
+      "could not re-check — showing the last verified result", never a
+      generic error in place of a verdict;
+    · a "blocked" verdict whose only fails are the missing reservation /
+      confirm evidence rows (live Payable 1049) gets the evidence-gap
+      explanation — the payment is paid on chain; this host cannot certify
+      the reservation ordering because the records are not on this host. */
 function ReceiptChecker() {
   const invoices = useInvoices()
   const reduceMotion = useReducedMotion()
   const target = latestPaidInvoice(invoices.data ?? [])
-  const [result, setResult] = useState<VerifyResponse | null>(null)
+  const targetId = target?.payable_id ?? null
+  // Last good verify result, keyed by payable id. A re-check that fails
+  // never clears it — the page keeps showing the last verified verdict.
+  const [kept, setKept] = useState<{ id: number; result: VerifyResponse; at: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shown, setShown] = useState(0)
   const [run, setRun] = useState(0)
+  const keptForTarget = kept && targetId !== null && kept.id === targetId ? kept : null
   // Same Still-loading suffix as the sibling loaders (fix-back-2 minor):
   // a checker still verifying after 15 s says so instead of spinning
   // silently. Active only while a target exists and no result/error yet.
-  const checkSlow = useSlowLoad(!result && !error && !!target)
+  const checkSlow = useSlowLoad(!keptForTarget && !error && !!target)
 
   // Fetch as soon as a paid invoice exists (read-only verify). The old
   // inView gate never fired when the page was jumped to the bottom before
-  // layout settled, so the checker stayed empty. The staged reveal still
-  // plays as the user arrives; Replay re-runs it.
+  // layout settled, so the checker stayed empty.
   useEffect(() => {
-    if (!target) return
+    if (targetId === null) return
     let cancelled = false
-    setResult(null)
     setError(null)
-    setShown(0)
     api
-      .verify(target.payable_id, 'after_pay')
+      .verify(targetId, 'after_pay')
       .then((r) => {
         if (cancelled) return
-        setResult(r)
-        if (reduceMotion) {
-          setShown(5)
-          return
-        }
-        for (let i = 1; i <= 5; i++) {
-          setTimeout(() => {
-            if (!cancelled) setShown(i)
-          }, i * 900)
-        }
+        setKept({ id: targetId, result: r, at: new Date().toISOString() })
+        setError(null)
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'The verifier did not answer.')
@@ -402,8 +408,22 @@ function ReceiptChecker() {
     return () => {
       cancelled = true
     }
-  }, [target, run, reduceMotion])
+  }, [targetId, run])
 
+  // Staged reveal, replayed whenever a fresh result lands for this target
+  // (including Replay). Reduced motion shows all 5 stages at once.
+  useEffect(() => {
+    if (!keptForTarget) return
+    if (reduceMotion) {
+      setShown(5)
+      return
+    }
+    setShown(0)
+    const timers = [1, 2, 3, 4, 5].map((i) => setTimeout(() => setShown(i), i * 900))
+    return () => timers.forEach((t) => clearTimeout(t))
+  }, [keptForTarget, reduceMotion])
+
+  const result = keptForTarget?.result ?? null
   const check = (id: string) => result?.checks.find((c) => c.id === id)
   const doc = check('doc')
   // The after-pay verifier names the paid-status check 'status_paid' on the
@@ -411,8 +431,8 @@ function ReceiptChecker() {
   // detail — looking up 'status' alone showed a bare "—" (N2).
   const status = check('status') ?? check('status_paid')
   // A result only exists for a target (the effect returns early without
-  // one), so `result && target` narrows target for the stages below.
-  const stages: Array<{ label: string; detail: string }> = result && target
+  // one), so `result && targetId` narrows targetId for the stages below.
+  const stages: Array<{ label: string; detail: string }> = result && targetId !== null
     ? [
         { label: 'Fetch payable', detail: check('registered')?.detail ?? '—' },
         {
@@ -431,7 +451,7 @@ function ReceiptChecker() {
           // verdict restated — never a bare "—" after the label (N2).
           detail:
             status?.detail ??
-            (result.verdict === 'paid' ? `Payable ${target.payable_id} is Paid on chain.` : '—'),
+            (result.verdict === 'paid' ? `Payable ${targetId} is Paid on chain.` : '—'),
         },
         {
           label: 'Verdict',
@@ -441,6 +461,7 @@ function ReceiptChecker() {
         },
       ]
     : []
+  const gap = result ? evidenceGap(result) : null
 
   return (
     <div>
@@ -453,33 +474,46 @@ function ReceiptChecker() {
               ? 'Loading payables…'
               : 'No paid invoice yet — pay one in the flow above and the checker runs here.'}
         </p>
-      ) : error ? (
+      ) : error && !keptForTarget ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">{error}</p>
       ) : !result ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">
-          Checking payable {target.payable_id} against the chain…
+          Checking payable {targetId} against the chain…
           {checkSlow ? ' Still loading — the test API is slow right now.' : null}
         </p>
       ) : (
-        <ol className="mt-6 space-y-2.5">
-          {stages.slice(0, shown).map((s, i) => (
-            <li key={s.label} className="flex items-start gap-2 text-[14px] leading-snug">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
-              <span>
-                <span className="font-medium text-ink">{s.label}.</span>{' '}
-                <span className="text-body">{s.detail}</span>
-                {i === 4 ? (
-                  <span className="ml-1 rounded-full bg-verified-bg px-2 py-0.5 text-[11px] font-semibold text-verified-fg">
-                    {result.verdict === 'paid' ? 'Verified — paid once' : `Verdict: ${result.verdict}`}
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          ))}
-          {shown < 5 ? (
-            <li className="pl-6 text-[13px] text-muted">Stage {shown + 1} of 5…</li>
+        <>
+          <ol className="mt-6 space-y-2.5">
+            {stages.slice(0, shown).map((s, i) => (
+              <li key={s.label} className="flex items-start gap-2 text-[14px] leading-snug">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
+                <span>
+                  <span className="font-medium text-ink">{s.label}.</span>{' '}
+                  <span className="text-body">{s.detail}</span>
+                  {i === 4 ? (
+                    <span className="ml-1 rounded-full bg-verified-bg px-2 py-0.5 text-[11px] font-semibold text-verified-fg">
+                      {result.verdict === 'paid' ? 'Verified — paid once' : `Verdict: ${result.verdict}`}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+            {shown < 5 ? (
+              <li className="pl-6 text-[13px] text-muted">Stage {shown + 1} of 5…</li>
+            ) : null}
+          </ol>
+          {gap ? (
+            <p className="mt-4 rounded-md border border-line bg-paper p-4 text-[14px] leading-relaxed text-body">
+              {gap}
+            </p>
           ) : null}
-        </ol>
+          {error && keptForTarget ? (
+            <p className="mt-3 text-[13px] text-muted">
+              Could not re-check just now — showing the last verified result from{' '}
+              {formatUtcTime(keptForTarget.at)} UTC.
+            </p>
+          ) : null}
+        </>
       )}
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <button

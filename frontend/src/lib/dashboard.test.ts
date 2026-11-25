@@ -85,7 +85,7 @@ describe('dashboardStats (honesty: one total, one source)', () => {
     const cards = dashboardStats(STATS, ITEMS)
     expect(cards.total.label).toBe('Payables in the live list')
     expect(cards.total.value).toBe(4)
-    expect(cards.total.sub).toBe('1 voided on chain, not listed')
+    expect(cards.total.sub).toBe('1 voided on chain, not listed · 5 scanned from the test registry')
     expect(cards.refused.label).toBe('Refused on chain (since deploy)')
     expect(cards.refused.value).toBe(21)
     // N1: one refused number + an always-visible caption — the sub IS

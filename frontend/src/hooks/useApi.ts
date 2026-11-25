@@ -8,8 +8,18 @@
 // "Last updated" line did not move with the polls. All three poll together
 // every 30 s now, and the dashboard's "Last updated" reads the queries'
 // dataUpdatedAt, so it advances on every successful poll.
-import { useQuery } from '@tanstack/react-query'
+//
+// One snapshot (fix-back-6 B1/B11): stats and invoices are ONE query
+// (useLiveSnapshot) whose queryFn fetches the pair together and only
+// accepts it when the two agree with each other and the list has not
+// shrunk (lib/snapshot.ts). A partial scan throws, so react-query keeps
+// the last good snapshot on screen instead of rendering shrunken numbers.
+// useStats and useInvoices are thin selects over that one query, so the
+// home hero and the dashboard — and every section on one page — always
+// read the SAME snapshot and can never disagree in the same minute.
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { fetchLiveSnapshot, type LiveSnapshot } from '../lib/snapshot'
 
 export const POLL_MS = 30_000
 
@@ -17,8 +27,25 @@ export function useHealth() {
   return useQuery({ queryKey: ['health'], queryFn: api.getHealth, refetchInterval: POLL_MS, retry: 1 })
 }
 
+export function useLiveSnapshot() {
+  const client = useQueryClient()
+  return useQuery({
+    queryKey: ['live-snapshot'],
+    queryFn: () => {
+      const prev = client.getQueryData<LiveSnapshot>(['live-snapshot'])
+      return fetchLiveSnapshot(prev?.items.length ?? 0)
+    },
+    refetchInterval: POLL_MS,
+    retry: 1,
+  })
+}
+
 export function useStats() {
-  return useQuery({ queryKey: ['stats'], queryFn: api.getStats, refetchInterval: POLL_MS, retry: 1 })
+  const snapshot = useLiveSnapshot()
+  return {
+    ...snapshot,
+    data: snapshot.data?.stats,
+  }
 }
 
 export function useConfig() {
@@ -26,7 +53,11 @@ export function useConfig() {
 }
 
 export function useInvoices() {
-  return useQuery({ queryKey: ['invoices'], queryFn: api.getInvoices, refetchInterval: POLL_MS, retry: 1 })
+  const snapshot = useLiveSnapshot()
+  return {
+    ...snapshot,
+    data: snapshot.data?.items,
+  }
 }
 
 export function usePayable(id: number | null, seller?: string) {

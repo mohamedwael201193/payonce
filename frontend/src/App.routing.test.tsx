@@ -44,7 +44,13 @@ const HEALTH = {
   co_signer: { status: 'ok' },
   budget: { new_invoices_left_this_hour: 3, attack_sends_left_this_hour: 5 },
 }
-const STATS = { payables_total: 5, paid_total: 3, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+const STATS = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+// Fix-back-6 B1/B11: the unified live snapshot only accepts a stats+list
+// pair that AGREES (stats.payables_total === items.length and
+// stats.paid_total === paid-in-list) — a disagreeing pair is a partial
+// scan and is retried, never rendered. So this mock's stats MUST match
+// its 3-item list (1 paid), or the home hero stays on its loading
+// skeleton and the 'Live Invoices' wait below times out.
 const DAY_MS = 24 * 60 * 60 * 1000
 // Mock dues are relative to Date.now() — NOT fixed calendar dates
 // (fix-back-5 O4a, same dueInDays pattern as MF-H1/MF-H4). These items
@@ -281,15 +287,17 @@ describe('App routing (tab bug repro)', () => {
   it('the hero demo never yanks the viewport while the user reads below it', async () => {
     renderApp('/#invoice')
     // Wait for LIVE data (not the static sidebar text): 'Live Invoices' only
-    // renders once the demo invoice exists and the loop is running. Waiting
-    // for the static 'Pick an invoice' text resolves before the fetch lands,
-    // and then the demo is still in its static frame and the test is vacuous.
+    // renders once the glimpse's live table is on screen. Waiting for the
+    // static 'Pick an invoice' text resolves before the fetch lands, and
+    // then the demo is still in its static frame and the test is vacuous.
     await waitFor(() => expect(screen.getByText('Live Invoices')).toBeInTheDocument())
-    // Let the demo loop run through several phases (24s loop).
+    // Let the page sit through 20 s of rAF ticks (CountUp + any animation).
+    // Fix-back-6 B6: the hero is now a static glimpse — no autoplay loop,
+    // no cursor, no steps — so there is nothing left that could scroll.
     scrollIntoViewSpy.mockClear()
     advanceDemo(20000)
-    // No scrollIntoView from the demo at all: the walkthrough is a visual
-    // loop, it must never move the user's viewport.
+    // No scrollIntoView from the hero at all: the glimpse is a static
+    // card, it must never move the user's viewport.
     expect(scrollIntoViewSpy).not.toHaveBeenCalled()
   })
 })

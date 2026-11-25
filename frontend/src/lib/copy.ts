@@ -32,7 +32,7 @@ export const COPY = {
   step1Helper: 'Load a lab invoice, drop a file, or paste its text. Nothing is uploaded.',
   step2Helper: 'Read from the testnet registry and the seller’s agent. This step pays nothing.',
   step2VerdictReady: (payee: string) =>
-    `All checks passed. The payee on chain is ${payee}. You can pay once.`,
+    `All gating checks passed. The payee on chain is ${payee}. You can pay once.`,
   step3RailANote:
     'The payment comes from the demo payer account (a lab account). You sign nothing. This sends a real testnet transaction.',
   step3RailBNote:
@@ -48,7 +48,7 @@ export const COPY = {
   verifierLine: (passed: number, total: number, time: string) =>
     `${passed} of ${total} checks passed when we re-read the chain at ${time} UTC.`,
   buildStatusLine:
-    'Vendor list enforced by the co-signer: not yet (planned). Named payer on invoice: not yet (planned).',
+    'Build status loads live from /api/config — never a stale claim.',
   footer:
     'Testnet only. The lab keys sit on one machine. Details: For judges.',
   chainRefused: (code: number, name: string, plain: string, fee: string | null) =>
@@ -83,9 +83,16 @@ export function coSignerRunsAsSentence(): string {
 // Glossary (P3 §2 rule 15 + §16.13 item 8) — plain words first, technical
 // term in brackets at first use on the page. Definitions use "reserved",
 // never "held" (rule 3).
+// The Reservation length is ONE number, read live from /api/config
+// (reservation_secs: 3600 on the live chain — the old "300 s" was the
+// v1-era value and contradicted step 01's live 3600 s, step 03 and this
+// glossary, fix-back-6 B4). The static entry below is the live truth as a
+// fallback; JudgesPage substitutes reservationDefinition(config) whenever
+// /api/config has answered, so the glossary can never drift from the
+// chain again.
 export const GLOSSARY: Array<[string, string]> = [
   ['Payable', 'invoice on chain'],
-  ['Reservation', 'the payable is reserved for one payer for 300 s'],
+  ['Reservation', 'the payable is reserved for one payer for 3600 s (60 minutes)'],
   ['Co-signer', 'second approver of the agent wallet'],
   ['Sponsor', 'pays the fee for a transaction'],
   ['Fingerprint', 'SHA-256 of the document bytes'],
@@ -93,6 +100,32 @@ export const GLOSSARY: Array<[string, string]> = [
   ['Consent anchor', 'a hash-bound owner approval recorded on chain before an above-threshold payment'],
   ['Fee peg', '€0.01 per transaction on Concordium'],
 ]
+
+/** The Reservation glossary definition from the live config value. While
+    config has not answered, no number is stated — a stale number is worse
+    than a missing one. */
+export function reservationDefinition(reservationSecs: number | undefined): string {
+  if (reservationSecs === undefined) return 'the payable is reserved for one payer (reservation length loading…)'
+  const minutes = reservationSecs % 60 === 0 ? ` (${reservationSecs / 60} minutes)` : ''
+  return `the payable is reserved for one payer for ${reservationSecs} s${minutes}`
+}
+
+// Build status (fix-back-6 B5): a config value that has not loaded yet is
+// "Loading…", never "Not yet (planned)" — the old ternary rendered the
+// planned-state text on first paint, so a judge capturing first paint got
+// the wrong answer for ~15 s while /api/config was still loading.
+export function buildStatusText(loading: boolean, error: boolean, value: boolean | undefined): string {
+  if (loading) return 'Loading…'
+  if (error || value === undefined) return 'Could not load — the test API did not answer.'
+  return value ? 'Yes' : 'Not yet (planned)'
+}
+
+/** Same loading rule for a build-status string value (e.g. "Confirm by"). */
+export function buildStatusString(loading: boolean, error: boolean, value: string | undefined): string {
+  if (loading) return 'Loading…'
+  if (error || value === undefined) return 'Could not load — the test API did not answer.'
+  return value
+}
 
 // Layer badges — P3 §2 rule 1: every refusal carries exactly one badge.
 export const LAYER_LABEL: Record<string, string> = {

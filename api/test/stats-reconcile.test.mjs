@@ -5,7 +5,7 @@
 // the excluded rows as voided_total / reserved_total.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listableRows, statsBody } from '../src/listable.mjs'
+import { listableRows, scanIsComplete, statsBody } from '../src/listable.mjs'
 
 const ROWS = [
   { id: 1, status: 'Unpaid' },
@@ -31,4 +31,14 @@ test('statsBody counts the listable rows and reports the excluded ones', () => {
     refused_on_chain_since_deploy: 21,
     last_verifier_run_at: '2026-11-24T22:55:58.259Z',
   })
+})
+
+// Fix-back-6 B1: a scan that skipped any id is incomplete and must never
+// be served as totals — the live failure was a scan that read 13 of 51
+// rows (and a stats scan that read 8 of 51) and served the remainder as
+// 200 OK, so the numbers swung with no user action.
+test('scanIsComplete is false when any expected id was skipped', () => {
+  assert.equal(scanIsComplete([]), true)
+  assert.equal(scanIsComplete([1000, 1001]), false)
+  assert.equal(scanIsComplete([1049]), false)
 })

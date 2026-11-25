@@ -63,7 +63,7 @@ export function CheckStep({
         result ? (
           <p aria-live="polite">
             {state.kind === 'ready'
-              ? `All checks passed. ${result.passed} of ${result.total} checks passed. You can pay once.`
+              ? `All gating checks passed — ${result.passed} of ${result.total} checks passed; the other ${result.total - result.passed} ${result.total - result.passed === 1 ? 'is' : 'are'} information or not run. You can pay once.`
               : `Cannot pay yet: ${result.blocked_reason ?? 'a check failed.'}`}
           </p>
         ) : undefined

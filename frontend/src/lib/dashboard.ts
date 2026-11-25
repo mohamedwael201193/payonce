@@ -116,11 +116,18 @@ export function dashboardStats(stats: Stats | undefined, items: InvoiceItem[]) {
   const nextDue = [...unpaid].sort((a, b) => a.due.localeCompare(b.due))[0] ?? null
   const voided = stats?.voided_total ?? 0
   const reserved = stats?.reserved_total ?? 0
+  // B2: the footnote must reconcile in one view — the live list (51) +
+  // the excluded rows (1 voided + 5 reserved) = the rows the API scanned
+  // (57). The old note named only the exclusions, so "51 listed + 1
+  // voided" read as if the total should be 52. The scanned total closes
+  // the arithmetic: list + excluded = scanned.
+  const scanned = items.length + voided + reserved
   const excludedNote =
     voided + reserved > 0
       ? [
           voided > 0 ? `${voided} voided on chain, not listed` : null,
           reserved > 0 ? `${reserved} reserved, not listed` : null,
+          `${scanned} scanned from the test registry`,
         ]
           .filter(Boolean)
           .join(' · ')

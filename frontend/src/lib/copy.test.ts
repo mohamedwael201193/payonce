@@ -4,7 +4,7 @@
 // NAMES the banned words to explain them — that page is documentation, not
 // copy, so it is out of scope of this test.
 import { describe, expect, it } from 'vitest'
-import { BANNED_WORDS, COPY, GLOSSARY, coSignerRunsAsSentence, refusedCaption } from './copy'
+import { BANNED_WORDS, COPY, GLOSSARY, buildStatusString, buildStatusText, coSignerRunsAsSentence, refusedCaption, reservationDefinition } from './copy'
 
 function allCopyStrings(): string[] {
   const out: string[] = []
@@ -72,5 +72,27 @@ describe('BANNED_WORDS (P3 §2 rule 3)', () => {
   it('refusedCaption states the live chain total and its basis', () => {
     expect(refusedCaption(21)).toBe('Recorded run, 24 Nov 2026 · 21 refused on chain since deploy')
     expect(refusedCaption(undefined)).toBe('Recorded run, 24 Nov 2026')
+  })
+})
+
+describe('reservation + build status (fix-back-6 B4/B5)', () => {
+  it('the glossary Reservation length is the live 3600 s, never the v1-era 300 s', () => {
+    const def = GLOSSARY.find(([term]) => term === 'Reservation')?.[1] ?? ''
+    expect(def).toContain('3600 s')
+    expect(def).not.toContain('300 s')
+  })
+  it('reservationDefinition reads the live config value and never states a number while loading', () => {
+    expect(reservationDefinition(3600)).toBe('the payable is reserved for one payer for 3600 s (60 minutes)')
+    expect(reservationDefinition(300)).toBe('the payable is reserved for one payer for 300 s (5 minutes)')
+    expect(reservationDefinition(undefined)).not.toMatch(/\d+ s/)
+  })
+  it('build status never says "Not yet" before the config has answered', () => {
+    expect(buildStatusText(true, false, undefined)).toBe('Loading…')
+    expect(buildStatusText(false, true, undefined)).toContain('Could not load')
+    expect(buildStatusText(false, false, true)).toBe('Yes')
+    expect(buildStatusText(false, false, false)).toBe('Not yet (planned)')
+    expect(buildStatusString(true, false, undefined)).toBe('Loading…')
+    expect(buildStatusString(false, false, 'payer (the reserving payer)')).toBe('payer (the reserving payer)')
+    expect(buildStatusString(false, false, undefined)).toContain('Could not load')
   })
 })

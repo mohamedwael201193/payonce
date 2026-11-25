@@ -12,7 +12,7 @@ import { AppHeader } from '../components/AppHeader'
 import { Footer } from '../components/Sections'
 import { HashLink } from '../components/ui'
 import { useSlowLoad } from '../components/polish'
-import { BANNED_WORDS, GLOSSARY, coSignerRunsAsSentence } from '../lib/copy'
+import { BANNED_WORDS, GLOSSARY, buildStatusString, buildStatusText, coSignerRunsAsSentence, reservationDefinition } from '../lib/copy'
 
 const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
 const INST_BASE = 'https://ccdexplorer.io/testnet/instance/'
@@ -390,22 +390,25 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
           <h2 id="build-status" className="text-xl font-medium text-ink">
             Build status
           </h2>
+          {/* B5: while /api/config loads, every row says "Loading…" — the old
+              ternary rendered "Not yet (planned)" / "—" on first paint, so a
+              judge capturing first paint got the wrong answer. */}
           <dl className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Vendor list enforced by the co-signer</dt>
-              <dd className="text-ink">{build?.vendor_list_enforced_by_co_signer ? 'Yes' : 'Not yet (planned)'}</dd>
+              <dd className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.vendor_list_enforced_by_co_signer)}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Named payer on invoice</dt>
-              <dd className="text-ink">{build?.named_payer_on_invoice ? 'Yes' : 'Not yet (planned)'}</dd>
+              <dd className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.named_payer_on_invoice)}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Confirm by</dt>
-              <dd className="text-ink">{build?.confirm_by ?? '—'}</dd>
+              <dd className="text-ink">{buildStatusString(config.isLoading, config.isError, build?.confirm_by)}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Transaction expiry bounded by the reservation</dt>
-              <dd className="text-ink">{build?.header_expiry_bound ? 'Yes' : 'Not yet (planned)'}</dd>
+              <dd className="text-ink">{buildStatusText(config.isLoading, config.isError, build?.header_expiry_bound)}</dd>
             </div>
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Co-signer runs as</dt>
@@ -422,7 +425,9 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
             {GLOSSARY.map(([term, def]) => (
               <div key={term} className="flex gap-3 border-b border-line py-2 last:border-0">
                 <dt className="w-32 shrink-0 font-medium text-ink">{term}</dt>
-                <dd className="text-muted">{def}</dd>
+                {/* B4: the Reservation length comes from /api/config, never
+                    from the static string — one true number everywhere. */}
+                <dd className="text-muted">{term === 'Reservation' ? reservationDefinition(config.data?.reservation_secs) : def}</dd>
               </div>
             ))}
           </dl>

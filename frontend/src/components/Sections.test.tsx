@@ -7,7 +7,7 @@
 // queries resolve through the mocked fetch, advanced with act +
 // advanceTimersByTimeAsync (waitFor + fake timers deadlock).
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { VerifierSection } from './Sections'
@@ -151,6 +151,10 @@ const VERIFY_1006 = {
     c.id === 'status_paid' ? { ...c, detail: 'Paid by 9Zzz… at 2026-11-25T15:08:00.000Z' } : c,
   ),
 }
+// The two-paid list (2 items, both paid) needs its own agreeing stats —
+// the unified snapshot (fix-back-6 B1) rejects a stats/list pair that
+// disagrees, so the shared 1/1 STATS would fail this mock.
+const STATS_TWO_PAID = { ...STATS, payables_total: 2, paid_total: 2 }
 
 function mockApiTwoPaid() {
   vi.stubGlobal(
@@ -163,7 +167,7 @@ function mockApiTwoPaid() {
           : url.includes('/api/invoices')
             ? INVOICES_TWO_PAID
             : url.includes('/api/stats')
-              ? STATS
+              ? STATS_TWO_PAID
               : null
       if (!body) return { ok: false, status: 404, json: async () => ({}) }
       return { ok: true, status: 200, json: async () => body }
@@ -230,5 +234,127 @@ describe('HowItWorks latest-payment card (FIX-4) + one latest rule (FIX-7f)', ()
     })
     expect(screen.getByText(/Paid by 9Zzz… at 2026-11-25T15:08:00/)).toBeInTheDocument()
     expect(screen.queryByText(/Paid by 4MvdM…/)).toBeNull()
+  })
+})
+
+// ReceiptChecker stability + truth (fix-back-6 B9/B12): a blocked verdict
+// whose only fails are the missing reservation/confirm evidence rows (the
+// live Payable 1049 shape) must explain itself, and a failed re-check
+// must keep the last verified verdict instead of swapping in the generic
+// error.
+const INVOICES_1049 = {
+  items: [
+    {
+      payable_id: 1049,
+      asset: 'eudemo',
+      amount_display: '0.01 EUDemo',
+      due: '2026-11-25T23:22:18.281Z',
+      status: 'Paid',
+      label: 'Lab invoice',
+    },
+  ],
+}
+const STATS_1049 = { ...STATS, payables_total: 1, paid_total: 1 }
+// Live after_pay shape for 1049: blocked 11/14, the transfer fully
+// re-verifies, only the two fail-closed evidence rows fail.
+const VERIFY_1049_BLOCKED = {
+  payable_id: 1049,
+  mode: 'after_pay',
+  verdict: 'blocked',
+  passed: 11,
+  total: 14,
+  blocked_reason: 'reservation_precedes_transfer',
+  checks: [
+    { id: 'registered', label: 'Payable is registered', status: 'ok', detail: 'seller=42jaZZgd…, id=1049', layer: 'chain' },
+    { id: 'doc', label: 'Document hash matches', status: 'not_run', detail: 'no invoice document supplied; stored doc_hash recorded, not passed', layer: 'chain' },
+    { id: 'agent', label: 'Seller agent active', status: 'ok', detail: 'token 1476 on <12802,0>: owner=42jaZZgd… (matches seller), status=Active', layer: 'chain' },
+    { id: 'registry_zero', label: 'Registry balance is zero', status: 'ok', detail: 'balance=0 microCCD', layer: 'chain' },
+    { id: 'status_paid', label: 'Registry status is Paid', status: 'ok', detail: 'Paid by 4MvdMEGC… at 2026-11-24T23:23:05.593Z', layer: 'chain' },
+    { id: 'tx_finalized', label: 'Transfer finalized', status: 'ok', detail: 'status=finalized', layer: 'chain' },
+    { id: 'one_token_transfer', label: 'Exactly one token transfer', status: 'ok', detail: 'TokenTransfer events=1', layer: 'chain' },
+    { id: 'token_eudemo', label: 'Token is EUDemo', status: 'ok', detail: 'tokenId=EUDemo', layer: 'chain' },
+    { id: 'from_payer', label: 'Transfer sender is the reserving payer', status: 'ok', detail: 'from=4MvdMEGC…, payer=4MvdMEGC…', layer: 'chain' },
+    { id: 'to_payee', label: 'Transfer recipient is the stored payee', status: 'ok', detail: 'to=4Vtd6WnC…, payee=4Vtd6WnC…', layer: 'chain' },
+    { id: 'amount', label: 'Transfer amount is the stored amount', status: 'ok', detail: 'amount=10000, stored=10000', layer: 'chain' },
+    { id: 'memo', label: 'Transfer memo is the canonical payable memo', status: 'ok', detail: 'memo="payable:42jaZZgd…:1049"', layer: 'chain' },
+    { id: 'reservation_precedes_transfer', label: 'Reservation precedes the transfer inside its window', status: 'fail', detail: 'no reserve transaction supplied — the reservation was never checked', layer: 'chain' },
+    { id: 'paid_at_is_confirm_time', label: 'Paid at is the confirm time', status: 'fail', detail: 'no confirm transaction supplied — paid_at was never checked against a confirm block', layer: 'chain' },
+  ],
+  checked_at: '2026-11-25T07:40:00.000Z',
+  read_ms: 120,
+}
+
+describe('VerifierSection / ReceiptChecker stability + evidence gap (B9/B12)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  const settle = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+  }
+
+  it('explains a blocked verdict that is only missing reservation evidence (live 1049)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const body = url.includes('/api/payables/1049/verify')
+          ? VERIFY_1049_BLOCKED
+          : url.includes('/api/invoices')
+            ? INVOICES_1049
+            : url.includes('/api/stats')
+              ? STATS_1049
+              : null
+        if (!body) return { ok: false, status: 404, json: async () => ({}) }
+        return { ok: true, status: 200, json: async () => body }
+      }),
+    )
+    renderVerifier()
+    await settle()
+    // The verdict itself is still shown, with its reason and count…
+    expect(screen.getByText(/blocked — reservation_precedes_transfer \(11\/14 checks passed\)/)).toBeInTheDocument()
+    // …but the page now says what it means: paid on chain, the reservation
+    // ordering just cannot be certified from this host's records.
+    expect(screen.getByText(/Paid on chain — but this host cannot certify the reservation ordering/)).toBeInTheDocument()
+    expect(screen.getByText(/The transfer itself re-verifies/)).toBeInTheDocument()
+  })
+
+  it('keeps the last verified verdict when a re-check fails, instead of the generic error', async () => {
+    let verifyCalls = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/payables/10/verify')) {
+          verifyCalls += 1
+          // First verify succeeds; the Replay re-check fails (flaky API).
+          if (verifyCalls > 1) return { ok: false, status: 500, json: async () => ({}) }
+          return { ok: true, status: 200, json: async () => VERIFY_AFTER_PAY }
+        }
+        const body = url.includes('/api/invoices') ? INVOICES : url.includes('/api/stats') ? STATS : null
+        if (!body) return { ok: false, status: 404, json: async () => ({}) }
+        return { ok: true, status: 200, json: async () => body }
+      }),
+    )
+    renderVerifier()
+    await settle()
+    expect(screen.getByText(/paid \(10\/10 checks passed\)/)).toBeInTheDocument()
+    // Replay → the re-check fails…
+    fireEvent.click(screen.getByRole('button', { name: /Replay/ }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    // …but the verdict stays, with a re-check note — never the generic
+    // "Something went wrong on our side" in place of the verdict.
+    expect(screen.getByText(/paid \(10\/10 checks passed\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Could not re-check just now — showing the last verified result/)).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/Something went wrong on our side/)
   })
 })

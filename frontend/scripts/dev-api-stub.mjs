@@ -3,10 +3,15 @@
 // app; vite only proxies /api to it in dev). It NEVER sends a transaction.
 //
 // Data provenance (read this before trusting any value):
-// - Payee / seller / amounts / due dates / statuses / payment tx hashes:
-//   a LIVE snapshot of contract <13149,0> read by me via gRPC on 24 Nov 2026
+// - Payee / seller / amounts / statuses / payment tx hashes: a LIVE
+//   snapshot of contract <13149,0> read by me via gRPC on 24 Nov 2026
 //   (get_payable views 1–5 + getInstanceInfo; registry balance 0 microCCD).
 //   Payable 2/3 due dates match P3 §16 exactly, which validates the decode.
+// - Due dates: RELATIVE to stub start (fix-back-6 B3, MF-H1/H4 pattern) —
+//   the snapshot's fixed 2026-11-25 dues expired the morning after the
+//   snapshot and flipped every unpaid row past-due in dev. 7 days mirrors
+//   the live v2 due window; the per-row second offsets preserve the
+//   snapshot's distinct dues.
 // - doc_sha256: the SHA-256 of THIS stub's own lab documents (computed at
 //   startup), so the browser fingerprint check runs for real. The on-chain
 //   doc_hashes are different (they hash Claude's lab documents, which are not
@@ -34,7 +39,12 @@ const PAYER_CCD = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
 
 const sha256 = (s) => createHash('sha256').update(s, 'utf8').digest('hex')
 
-function labDoc(id, asset, amountDisplay, payee) {
+// Dues relative to stub start (B3): now + 7 days, per-row second offsets
+// from the snapshot (0 / 7 / 21 / 15 / 29 s). Never a fixed date.
+const STARTED_AT_MS = Date.now()
+const dueIn = (offsetSeconds) => new Date(STARTED_AT_MS + 7 * 86400_000 + offsetSeconds * 1000).toISOString()
+
+function labDoc(id, asset, amountDisplay, payee, due) {
   return [
     'Lab invoice (testnet, not a real invoice)',
     `Payable ${id}`,
@@ -42,7 +52,7 @@ function labDoc(id, asset, amountDisplay, payee) {
     `Payee (on chain, not in this text): ${payee}`,
     `Seller: ${SELLER}`,
     'Asset: ' + (asset === 'ccd' ? 'CCD (testnet)' : 'EUDemo (testnet demo token, not a euro stablecoin)'),
-    'Due: 25 Nov 2026',
+    `Due: ${new Date(due).toUTCString().slice(5, 16)}`,
     'This document is evidence only. The payee is read from the chain.',
   ].join('\n')
 }
@@ -53,33 +63,33 @@ function labDoc(id, asset, amountDisplay, payee) {
 const PAYABLES = [
   {
     payable_id: 1, asset: 'ccd', amount: '500000', amount_display: '0.5 CCD',
-    payee: PAYEE_CCD, seller: SELLER, due: '2026-11-25T04:49:23.985Z',
+    payee: PAYEE_CCD, seller: SELLER, due: dueIn(0),
     status: { kind: 'paid', payer: PAYER_CCD, paid_at: '2026-11-24T04:50:00Z', payment_tx: '00e0ac1daca4a5ec7a6513d6b2b6b51b93dea4f9e8ecb6fff7cc4597041272f6', payment_tx_source: 'server_store' },
   },
   {
     payable_id: 2, asset: 'eudemo', amount: '10000', amount_display: '0.01 EUDemo',
-    payee: PAYEE_EUDEMO, seller: SELLER, due: '2026-11-25T04:49:31.426Z',
+    payee: PAYEE_EUDEMO, seller: SELLER, due: dueIn(7),
     status: { kind: 'paid', payer: PAYER_EUDEMO, paid_at: '2026-11-24T04:50:00Z', payment_tx: '7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef', payment_tx_source: 'chain' },
   },
   {
     payable_id: 3, asset: 'eudemo', amount: '10000', amount_display: '0.01 EUDemo',
-    payee: PAYEE_EUDEMO, seller: SELLER, due: '2026-11-25T04:49:45.521Z',
+    payee: PAYEE_EUDEMO, seller: SELLER, due: dueIn(21),
     status: { kind: 'unpaid' },
   },
   {
     payable_id: 4, asset: 'ccd', amount: '500000', amount_display: '0.5 CCD',
-    payee: PAYEE_CCD, seller: SELLER, due: '2026-11-25T04:49:39.472Z',
+    payee: PAYEE_CCD, seller: SELLER, due: dueIn(15),
     status: { kind: 'paid', payer: PAYER_CCD, paid_at: '2026-11-24T04:51:00Z', payment_tx: '78377f18f61f6ef475bc9176240e876ed18d31e461ffbeb43858a4fb17551a6e', payment_tx_source: 'server_store' },
   },
   {
     payable_id: 5, asset: 'eudemo', amount: '10000', amount_display: '0.01 EUDemo',
-    payee: PAYEE_EUDEMO, seller: SELLER, due: '2026-11-25T04:49:53.537Z',
+    payee: PAYEE_EUDEMO, seller: SELLER, due: dueIn(29),
     status: { kind: 'unpaid' },
   },
 ]
 
 for (const p of PAYABLES) {
-  p.document = labDoc(p.payable_id, p.asset, p.amount_display, p.payee)
+  p.document = labDoc(p.payable_id, p.asset, p.amount_display, p.payee, p.due)
   p.doc_sha256 = sha256(p.document)
 }
 

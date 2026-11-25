@@ -3,11 +3,11 @@
 // sky, a huge centred white headline, centred subline + CTAs. The header
 // lives INSIDE the hero, over the sky — not in a dark band above it.
 // USER ORDER 2026-11-25 03:40 (DECISIVE): the real dashboard must NOT live
-// in the hero or the landing — the hero gets ONLY the small Demo walkthrough
+// in the hero or the landing — the hero gets ONLY the small Demo glimpse
 // (HeroDemo, in the small card below), and the live stats band that used to
 // sit here is GONE. Live numbers appear on the landing ONLY inside that
-// Demo-labeled card (its chips + invoice table, disclosed in the card
-// footer) — nowhere else; the full live dashboard lives in /dashboard.
+// Demo-labeled card (its chips + invoice table, disclosed in its footer) —
+// nowhere else; the full live dashboard lives in /dashboard.
 // The hero shows a glimpse, not the product.
 // Design v2 polish: glossy 3D ember CTAs with a shine sweep.
 import { COPY } from '../lib/copy'

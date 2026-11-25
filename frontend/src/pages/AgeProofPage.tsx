@@ -135,6 +135,18 @@ export function AgeProofPage() {
   const issuerDid = health.data?.prover.issuer_did ?? null
   const proverDown =
     health.isError && health.error instanceof ApiError && health.error.body.code === 'prover_unavailable'
+  // B7: when the prover is down the two demos are not live demos — they
+  // are dead buttons under live-looking copy. Each demo section carries
+  // its own visible "Demo unavailable" banner (the status card above is
+  // not enough: a judge scrolling straight to a demo would never see it).
+  // The sidecar file (prover-C3.private.json) is provisioned only on the
+  // OLD API host, and the material is not in this workspace — so this page
+  // fix, not a provisioning, is what this commit can do. No deploy, no
+  // invented secret.
+  const demoUnavailable = !health.isLoading && !issuerDid
+  const demoUnavailableReason = proverDown
+    ? 'The prover is not provisioned on this API host yet, so this demo cannot run. The anchored run above is the proof that already happened.'
+    : 'The prover did not answer, so this demo cannot run right now.'
 
   async function tryForbidden() {
     if (!issuerDid) return
@@ -177,7 +189,12 @@ export function AgeProofPage() {
 
   return (
     <div className="min-h-screen bg-paper pb-24 md:pb-0">
-      <AppHeader dark />
+      {/* B7: the header is white-on-dark by design — on the light paper
+          background its nav text was near-invisible. Same dark band as the
+          judges/receipt pages. */}
+      <div className="bg-sky-0">
+        <AppHeader dark />
+      </div>
       <main className="mx-auto max-w-[880px] px-4 py-10 sm:px-6">
         <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">Age proof · V&amp;A · Testnet</p>
         <h1 className="mt-2 text-3xl font-semibold text-ink">Prove you are 18+ without revealing your birthday</h1>
@@ -275,8 +292,10 @@ export function AgeProofPage() {
           >
             {forbiddenBusy ? 'Asking the prover…' : 'Reveal the first name'}
           </button>
-          {!issuerDid && !health.isLoading ? (
-            <p className="mt-3 text-sm text-muted">The prover has not reported its issuer yet, so this demo is disabled.</p>
+          {demoUnavailable ? (
+            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
+              Demo unavailable — {demoUnavailableReason}
+            </p>
           ) : null}
           {forbiddenError ? <p className="mt-3 text-sm text-body" role="alert">{forbiddenError}</p> : null}
           {forbidden ? (
@@ -293,7 +312,7 @@ export function AgeProofPage() {
           <p className="mt-2 text-body">
             Send the allowed shape — dob in the 18+ range plus EU nationality — through the prover to the
             official testnet verifier. A valid presentation returns HTTP 200; a rejected one returns HTTP
-            400 with <code>valid: false</code>. Give the payable and the payer too, and a valid proof is
+            400. Give the payable and the payer too, and a valid proof is
             filed for that payer and payable — that is what the pay gate honours for a gated pay (1 CCD or
             1.00 EUDemo and up) for 10 minutes, when the filed payer is the payer the pay flow uses.
             Without them the proof verifies but files nothing.
@@ -335,8 +354,10 @@ export function AgeProofPage() {
           >
             {verifyBusy ? 'Verifying…' : 'Verify the 18+ proof'}
           </button>
-          {!issuerDid && !health.isLoading ? (
-            <p className="mt-3 text-sm text-muted">The prover has not reported its issuer yet, so this demo is disabled.</p>
+          {demoUnavailable ? (
+            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
+              Demo unavailable — {demoUnavailableReason}
+            </p>
           ) : null}
           {verifyError ? <p className="mt-3 text-sm text-body" role="alert">{verifyError}</p> : null}
           {verify ? (
