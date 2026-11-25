@@ -65,11 +65,26 @@ export const COPY = {
 } as const
 
 // One refused number, one basis, everywhere: the chain total since deploy
-// (live, /api/stats) vs the labelled recorded run (7 refusals, 24 Nov 2026).
-export function refusedCaption(refusedOnChain: number | undefined): string {
-  return refusedOnChain === undefined
-    ? 'Recorded run, 24 Nov 2026'
-    : `Recorded run, 24 Nov 2026 · ${refusedOnChain} refused on chain since deploy`
+// (live, /api/stats) with the date of the last verifier run as the basis.
+// The date is DERIVED from stats.last_verifier_run_at — never hardcoded:
+// a hardcoded date goes stale on the next run and, worse, prints a date
+// while the stats have not loaded at all (adversarial finding #6). While
+// the stats have not loaded, the caption is EMPTY — the caller renders
+// nothing date-like. Without a run date, the count stands alone.
+export function refusedCaption(refusedOnChain: number | undefined, lastRunAt?: string | null): string {
+  if (refusedOnChain === undefined) return ''
+  const runDate = lastRunAt ? formatRunDate(lastRunAt) : null
+  return runDate
+    ? `Recorded run, ${runDate} · ${refusedOnChain} refused on chain since deploy`
+    : `${refusedOnChain} refused on chain since deploy`
+}
+
+/** "2026-11-24T17:08:24.616Z" → "24 Nov 2026" (UTC). Null when unparseable. */
+function formatRunDate(iso: string): string | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${String(d.getUTCDate()).padStart(2, '0')} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
 // The build-status card used to print the raw config fragment ("Co-signer

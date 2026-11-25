@@ -1,7 +1,7 @@
 // heroOverview — pure derivations over a live-shaped fixture (13 items:
 // 8 paid, 5 unpaid; 10 CCD, 3 EUDemo; dues 24 Nov – 1 Dec 2026).
 import { describe, expect, it } from 'vitest'
-import { dayMonth, formatCcdTotal, heroOverview, overviewBars, parseAmount } from './heroOverview'
+import { chartAxisTicks, dayMonth, formatCcdTotal, formatTick, heroOverview, overviewBars, parseAmount } from './heroOverview'
 import type { InvoiceItem } from './types'
 
 const NOW = new Date('2026-11-24T17:30:00.000Z').getTime()
@@ -60,22 +60,44 @@ describe('heroOverview', () => {
     expect(o.rails[1]).toMatchObject({ rail: 'B', asset: 'EUDemo', count: 4, paidCount: 3, total: 1.03, sharePct: 31 })
   })
 
-  it('lists the soonest-due unpaid payables first, flagging the overdue one', () => {
+  it('lists the unpaid payables due in the next 14 days, soonest first (the overdue one is not "next")', () => {
     const o = heroOverview(ITEMS, STATS, NOW)
-    expect(o.nextDues.map((d) => d.payable_id)).toEqual([5, 1004, 1])
-    expect(o.nextDues[0]).toMatchObject({ day: '24', mon: 'Nov', overdue: true })
-    expect(o.nextDues[1]).toMatchObject({ day: '25', mon: 'Nov', overdue: false })
+    expect(o.nextDues.map((d) => d.payable_id)).toEqual([1004, 1, 2])
+    expect(o.nextDues[0]).toMatchObject({ day: '25', mon: 'Nov', overdue: false })
+    expect(o.nextDues[1]).toMatchObject({ day: '01', mon: 'Dec', overdue: false })
+    // The soonest-due unpaid overall (overdue included) still surfaces in Insights.
     expect(o.soonestDue?.payable_id).toBe(5)
   })
 
-  it('computes insight lines from state (unpaid, refused, latest paid)', () => {
+  it('bounds Next 14 days to the window: a payable due in 90 days is not listed', () => {
+    const far = item(2000, 'ccd', '1.000000 CCD', '2027-02-22T08:00:00.000Z', 'unpaid')
+    const o = heroOverview([...ITEMS, far], STATS, NOW)
+    expect(o.nextDues.map((d) => d.payable_id)).toEqual([1004, 1, 2])
+    expect(o.nextDues.map((d) => d.payable_id)).not.toContain(2000)
+  })
+
+  it('derives the header strip date range from the listed dues', () => {
+    expect(heroOverview(ITEMS, STATS, NOW).dueRangeLabel).toBe('Nov 2026 – Dec 2026')
+    expect(heroOverview([], undefined, NOW).dueRangeLabel).toBeNull()
+  })
+
+  it('computes insight lines from state (unpaid, refused, latest paid) — worded to what the inputs support', () => {
     const o = heroOverview(ITEMS, STATS, NOW)
     expect(o.insights).toHaveLength(3)
     expect(o.insights[0].title).toBe('5 invoices still unpaid')
     expect(o.insights[0].detail).toContain('payable 5')
     expect(o.insights[0].detail).toContain('past due')
     expect(o.insights[1].title).toBe('18 payments refused on chain since deploy')
+    // A bare refused count supports "a refused payment never reaches the
+    // payee" — not a per-refusal outcome claim ("Nothing moved on any of
+    // them" is gone).
+    expect(o.insights[1].detail).toContain('never reaches the payee')
+    expect(o.insights[1].detail).not.toContain('Nothing moved')
     expect(o.insights[2].title).toBe('Latest payment — payable 1006')
+    // Paid status supports "recorded on chain" — not "receipt re-verifies"
+    // (receipt verification is a separate check, not in the invoice list).
+    expect(o.insights[2].detail).toContain('recorded on chain')
+    expect(o.insights[2].detail).not.toContain('re-verifies')
   })
 
   it('handles an empty list without inventing numbers', () => {
@@ -98,6 +120,19 @@ describe('overviewBars', () => {
   it('filters by tab', () => {
     expect(overviewBars(ITEMS, 'paid').map((b) => b.payable_id)).toEqual([10, 1000, 1002, 1005, 1006])
     expect(overviewBars(ITEMS, 'unpaid').map((b) => b.payable_id)).toEqual([1, 2, 5, 1004])
+  })
+})
+
+describe('chartAxisTicks', () => {
+  it('returns 5 nice ticks from 0 for the CCD chart scale', () => {
+    expect(chartAxisTicks(ITEMS)).toEqual({ max: 10, ticks: [0, 2.5, 5, 7.5, 10] })
+    expect(chartAxisTicks([])).toEqual({ max: 0, ticks: [0] })
+  })
+
+  it('formats ticks without trailing zeros', () => {
+    expect(formatTick(2.5)).toBe('2.5')
+    expect(formatTick(10)).toBe('10')
+    expect(formatTick(0)).toBe('0')
   })
 })
 

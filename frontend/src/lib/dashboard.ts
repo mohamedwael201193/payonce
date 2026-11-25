@@ -93,6 +93,17 @@ export function invoicesToCsv(items: InvoiceItem[]): string {
   return ['payable_id,asset,amount_display,due,status,label', ...rows].join('\n')
 }
 
+/** The refused card's sub: the refused caption (live total + last-run date)
+    followed by what a refusal means. While the stats have not loaded the
+    caption is empty, so the sub is the mechanism sentence alone — never a
+    date-like claim with no data behind it. */
+function refusedCardSub(stats: Stats | undefined): string {
+  const caption = refusedCaption(stats?.refused_on_chain_since_deploy, stats?.last_verifier_run_at)
+  return caption
+    ? `${caption} — a wrong amount, a second payment or a changed payee stops before any money moves.`
+    : 'A wrong amount, a second payment or a changed payee stops before any money moves.'
+}
+
 /** The four dashboard stat cards, from the live list + live stats.
     ONE source of truth (bug 2 + bug 5, browser test pass 1): every card
     value that the list can answer is counted FROM THE LIST ITSELF — the
@@ -156,7 +167,7 @@ export function dashboardStats(stats: Stats | undefined, items: InvoiceItem[]) {
     refused: {
       value: stats?.refused_on_chain_since_deploy ?? 0,
       label: 'Refused on chain (since deploy)',
-      sub: `${refusedCaption(stats?.refused_on_chain_since_deploy)} — a wrong amount, a second payment or a changed payee stops before any money moves.`,
+      sub: refusedCardSub(stats),
       spark: RECORDED_REFUSALS.map((_, i) => i + 1),
     },
   }

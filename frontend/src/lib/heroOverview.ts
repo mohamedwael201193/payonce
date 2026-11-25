@@ -68,6 +68,9 @@ export interface HeroOverviewData {
   eudemoCount: number
   rails: RailSummary[]
   nextDues: NextDue[]
+  /** Due range of the listed payables ("Nov 2026 – Dec 2026") for the header
+      strip's date pill; null when no payable has a parseable due. */
+  dueRangeLabel: string | null
   insights: InsightLine[]
   /** The soonest-due unpaid payable, if any. */
   soonestDue: NextDue | null
@@ -118,8 +121,25 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     const dueMs = new Date(i.due).getTime()
     return { payable_id: i.payable_id, seller: i.seller, amount_display: i.amount_display, due: i.due, day, mon, overdue: !Number.isNaN(dueMs) && dueMs <= nowMs }
   }
-  const nextDues = [...unpaid].sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3).map(toNextDue)
-  const soonestDue = nextDues[0] ?? null
+  // "Next 14 days" (the video's section): unpaid payables due within the
+  // next 14 days from now, soonest first, at most 3. A payable due in 90
+  // days is NOT here, and neither is an overdue one — overdue is past, not
+  // next. The soonest-due unpaid overall (overdue included) still surfaces
+  // in Insights via soonestDue, so an overdue payable is never hidden.
+  const NEXT_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000
+  const unpaidSorted = [...unpaid].sort((a, b) => a.due.localeCompare(b.due))
+  const soonestDue = unpaidSorted[0] ? toNextDue(unpaidSorted[0]) : null
+  const nextDues = unpaidSorted
+    .filter((i) => {
+      const dueMs = new Date(i.due).getTime()
+      return !Number.isNaN(dueMs) && dueMs >= nowMs && dueMs <= nowMs + NEXT_14_DAYS_MS
+    })
+    .slice(0, 3)
+    .map(toNextDue)
+
+  // Due range of the listed payables, for the header strip's date pill.
+  const dueMsAll = items.map((i) => new Date(i.due).getTime()).filter((t) => !Number.isNaN(t))
+  const dueRangeLabel = dueMsAll.length === 0 ? null : formatDueRange(Math.min(...dueMsAll), Math.max(...dueMsAll))
 
   const insights: InsightLine[] = []
   if (soonestDue) {
@@ -136,14 +156,14 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
   if (refusedTotal > 0) {
     insights.push({
       title: `${refusedTotal} payments refused on chain since deploy`,
-      detail: 'The contract stops a second payment, a wrong amount and a changed payee. Nothing moved on any of them.',
+      detail: 'The contract stops a second payment, a wrong amount and a changed payee. A refused payment never reaches the payee.',
     })
   }
   const latestPaid = [...paid].sort((a, b) => b.payable_id - a.payable_id)[0]
   if (latestPaid) {
     insights.push({
       title: `Latest payment — payable ${latestPaid.payable_id}`,
-      detail: `${latestPaid.amount_display}, paid once. Its receipt re-verifies on chain.`,
+      detail: `${latestPaid.amount_display}, paid once. The payment is recorded on chain.`,
     })
   }
 
@@ -159,6 +179,7 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     eudemoCount,
     rails,
     nextDues,
+    dueRangeLabel,
     insights,
     soonestDue,
   }
@@ -200,4 +221,36 @@ export function overviewBars(items: InvoiceItem[], tab: OverviewTab): ChartBar[]
 /** Format a CCD total the way the chart shows it (2 decimals, no inventing). */
 export function formatCcdTotal(value: number): string {
   return `${value.toFixed(2)} CCD`
+}
+
+/** Due range as "Nov 2026 – Dec 2026" (one label when both ends share a month). */
+function formatDueRange(minMs: number, maxMs: number): string {
+  const a = new Date(minMs)
+  const b = new Date(maxMs)
+  const left = `${MONTHS[a.getUTCMonth()]} ${a.getUTCFullYear()}`
+  const right = `${MONTHS[b.getUTCMonth()]} ${b.getUTCFullYear()}`
+  return left === right ? left : `${left} – ${right}`
+}
+
+/** Nice y-axis ticks for the CCD chart: 5 ticks from 0, steps of 1 / 2 /
+    2.5 / 5 / 10 × 10^n, so bar heights are readable against a real scale.
+    The top tick may sit above the tallest bar (a standard axis). */
+export function chartAxisTicks(items: InvoiceItem[]): { max: number; ticks: number[] } {
+  const max = Math.max(
+    0,
+    ...items
+      .filter((i) => parseAmount(i.amount_display).asset === 'CCD')
+      .map((i) => parseAmount(i.amount_display).value),
+  )
+  if (max === 0) return { max: 0, ticks: [0] }
+  const raw = max / 4
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const residual = raw / mag
+  const step = residual <= 1 ? mag : residual <= 2 ? 2 * mag : residual <= 2.5 ? 2.5 * mag : residual <= 5 ? 5 * mag : 10 * mag
+  return { max, ticks: [0, step, 2 * step, 3 * step, 4 * step] }
+}
+
+/** Format an axis tick without trailing zeros ("2.50" → "2.5", "10" → "10"). */
+export function formatTick(value: number): string {
+  return Number(value.toFixed(4)).toString()
 }

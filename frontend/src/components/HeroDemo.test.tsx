@@ -1,22 +1,25 @@
-// HeroDemo — the TALL demo dashboard in the hero card (user ruling
-// 2026-11-26 00:37: match the Altura reference video frame by frame).
-// Asserts: the panel is a tall dashboard preview — sidebar, Payables
-// overview chart, paid-once gauge, payment rails, insights and due-soon
-// panels — with live numbers only. Still a glimpse, not a walkthrough:
-// no steps, no checks, no pay button, no receipt, no cursor, no tabs;
-// the label is "Demo" (never "Simulation"); the demo makes ZERO network
-// calls (no fetch, no pay POST) and shows no real-looking transaction hash.
-import { render, screen } from '@testing-library/react'
+// HeroDemo — the TALL demo dashboard in the hero card (user rulings
+// 2026-11-26 00:37 + 01:24: match the Altura reference video frame by
+// frame — COMPACT and DENSE, with the animated mouse back).
+// Asserts: the panel is a tall, dense dashboard preview — real-nav sidebar,
+// header strip, Payables overview chart WITH an axis, paid-once gauge with
+// stat rows, payment rails, insights and Next-14-days panels — with live
+// numbers only, and a tour cursor that glides between the landmarks. Still
+// a glimpse, not a walkthrough: no steps, no checks, no pay button, no
+// receipt; the label is "Demo" (never "Simulation"); the demo makes ZERO
+// network calls (no fetch, no pay POST) and shows no real-looking
+// transaction hash. Numbers are asserted SCOPED (within a testid or a
+// section) — bare length-2 counts pass even when the demo is wrong.
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeroDemo } from './HeroDemo'
-import { demoStatChips, demoTableRows } from '../lib/heroDemo'
 import type { InvoiceItem, Stats } from '../lib/types'
 
 // Same live shape as HeroOverview.test.tsx: 13 payables, 8 paid, 5
 // unpaid, 18 refused. Dues are relative to Date.now() (MF-H1 pattern):
-// payable 5 is past due (−1 d, first in Due soon), payable 1004 is the
-// soonest-due unpaid (+1 d), 1/2/3 sit at +7 d.
+// payable 5 is past due (−1 d, in Insights but NOT in Next 14 days),
+// payable 1004 is the soonest-due upcoming (+1 d), 1/2/3 sit at +7 d.
 const DAY_MS = 24 * 60 * 60 * 1000
 const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
 const COMPONENT_INVOICES: InvoiceItem[] = [
@@ -33,6 +36,11 @@ const COMPONENT_INVOICES: InvoiceItem[] = [
   { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
   { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
   { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+]
+// CCD-only list (no EUDemo payables at all) for the EUDemo-zero case.
+const CCD_ONLY: InvoiceItem[] = [
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
 ]
 const STATS: Stats = {
   payables_total: 14,
@@ -51,28 +59,20 @@ function renderDemo(items: InvoiceItem[], stats: Stats | undefined) {
   )
 }
 
-describe('heroDemo lib (glimpse only)', () => {
-  it('counts the 4 stat chips from the live list, refused null until stats load', () => {
-    expect(demoStatChips(COMPONENT_INVOICES, STATS)).toEqual([
-      { label: 'Total', value: 13 },
-      { label: 'Paid', value: 8 },
-      { label: 'Unpaid', value: 5 },
-      { label: 'Refused', value: 18 },
-    ])
-    expect(demoStatChips(COMPONENT_INVOICES, undefined)[3]).toEqual({ label: 'Refused', value: null })
-  })
-
-  it('shows the 3 soonest-due unpaid payables, soonest first', () => {
-    expect(demoTableRows(COMPONENT_INVOICES).map((i) => i.payable_id)).toEqual([5, 1004, 1])
-  })
-})
-
-describe('HeroDemo component (tall dashboard preview)', () => {
+describe('HeroDemo component (tall, dense dashboard preview)', () => {
   let fetchSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     fetchSpy = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }))
     vi.stubGlobal('fetch', fetchSpy)
+    vi.stubGlobal('matchMedia', (_q: string) => ({
+      matches: false,
+      media: _q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    }))
   })
 
   afterEach(() => {
@@ -80,40 +80,68 @@ describe('HeroDemo component (tall dashboard preview)', () => {
     vi.restoreAllMocks()
   })
 
-  it('labels itself Demo (never Simulation) and shows the tall shape: sidebar, chart, gauge, rails, insights, dues', () => {
+  it('labels itself Demo (never Simulation) and shows the dense tall shape: real-nav sidebar, header strip, chart with axis, gauge stats, rails, insights, next 14 days', () => {
     const { container } = renderDemo(COMPONENT_INVOICES, STATS)
     expect(screen.getByText('Demo')).toBeInTheDocument()
-    // Sidebar — the real dashboard's nav as preview labels.
-    expect(screen.getByText('Search')).toBeInTheDocument()
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Pay an invoice')).toBeInTheDocument()
-    expect(screen.getByText('For judges')).toBeInTheDocument()
-    // Chart — big CCD total + EUDemo chip (each sum real, own asset).
-    expect(screen.getByText('Payables overview')).toBeInTheDocument()
-    expect(screen.getAllByText('19.00 CCD')).toHaveLength(2) // big number + Rail A
-    expect(screen.getAllByText('1.03 EUDemo')).toHaveLength(2) // chip + Rail B
+    // Sidebar — the real app's nav only (no Search, no pay-flow row).
+    const sidebar = screen.getByTestId('demo-sidebar')
+    expect(within(sidebar).getByText('Home')).toBeInTheDocument()
+    expect(within(sidebar).getByText('Dashboard')).toBeInTheDocument()
+    expect(within(sidebar).getByText('For judges')).toBeInTheDocument()
+    expect(within(sidebar).getByText('Verify age')).toBeInTheDocument()
+    expect(within(sidebar).queryByText('Search')).toBeNull()
+    expect(within(sidebar).queryByText('Pay an invoice')).toBeNull()
+    expect(screen.queryByText('Search')).toBeNull()
+    expect(screen.queryByText('Pay an invoice')).toBeNull()
+    // Header strip — the video's tabs/header row, labelled Preview, with
+    // the live list's real due range as the date pill.
+    const strip = screen.getByTestId('demo-header-strip')
+    expect(within(strip).getByText('Overview')).toBeInTheDocument()
+    expect(within(strip).getByText('Inflows')).toBeInTheDocument()
+    expect(within(strip).getByText('Outflows')).toBeInTheDocument()
+    expect(within(strip).getByText('Accounts')).toBeInTheDocument()
+    expect(within(strip).getByText('Export')).toBeInTheDocument()
+    expect(within(strip).getByText('New forecast')).toBeInTheDocument()
+    expect(within(strip).getByText('Preview')).toBeInTheDocument()
+    expect(within(strip).getByText(/\w{3} \d{4}/)).toBeInTheDocument()
+    // Chart — big CCD total + EUDemo chip, each asserted in its own
+    // element (a bare length-2 count would pass even if the demo is wrong).
+    expect(within(screen.getByTestId('demo-big-total')).getByText('19.00 CCD')).toBeInTheDocument()
+    expect(within(screen.getByTestId('demo-eudemo-chip')).getByText('1.03 EUDemo')).toBeInTheDocument()
     expect(screen.getByText('8 paid once · 5 unpaid · 13 listed')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /CCD payables, paid solid, unpaid hatched, up to 10 CCD/ })).toBeInTheDocument()
     expect(screen.getByText('EUDemo payables are not on this axis — they are in Payment rails.')).toBeInTheDocument()
-    // Panels.
+    // Gauge — stat rows are the two real asset totals; no aspirational Target line.
     expect(screen.getByText('Paid once')).toBeInTheDocument()
     expect(screen.getByText('8 of 13 payables paid once')).toBeInTheDocument()
+    const gaugeStats = screen.getByTestId('demo-gauge-stats')
+    expect(within(gaugeStats).getByText('CCD total')).toBeInTheDocument()
+    expect(within(gaugeStats).getByText('19.00 CCD')).toBeInTheDocument()
+    expect(within(gaugeStats).getByText('EUDemo total')).toBeInTheDocument()
+    expect(within(gaugeStats).getByText('1.03 EUDemo')).toBeInTheDocument()
+    expect(screen.queryByText(/Target:/)).toBeNull()
+    // Rails / insights / next 14 days.
     expect(screen.getByText('Payment rails')).toBeInTheDocument()
     expect(screen.getByText('Rail A · CCD')).toBeInTheDocument()
     expect(screen.getByText('Rail B · EUDemo')).toBeInTheDocument()
     expect(screen.getByText('Insights')).toBeInTheDocument()
     expect(screen.getByText('5 invoices still unpaid')).toBeInTheDocument()
     expect(screen.getByText('18 payments refused on chain since deploy')).toBeInTheDocument()
-    expect(screen.getByText('Due soon')).toBeInTheDocument()
-    expect(screen.getByText('Payable 5')).toBeInTheDocument()
+    expect(screen.getByText('Next 14 days')).toBeInTheDocument()
     expect(screen.getByText('Payable 1004')).toBeInTheDocument()
+    expect(screen.getByText('Payable 1')).toBeInTheDocument()
+    expect(screen.getByText('Payable 2')).toBeInTheDocument()
+    expect(screen.queryByText('Payable 5')).toBeNull() // overdue: past, not next
     expect(screen.getByText('View the real dashboard →')).toBeInTheDocument()
+    // Footer disclosure.
+    expect(screen.getByText(/Demo — the panels above show live numbers from the test registry/)).toBeInTheDocument()
     // No "Simulation" anywhere, no real-looking transaction hash, no AI.
     expect(container.textContent).not.toMatch(/simulat/i)
     expect(container.textContent).not.toMatch(/AI insights/i)
     expect(document.body.textContent).not.toMatch(/[0-9a-f]{64}/)
   })
 
-  it('is a glimpse, not a walkthrough: no steps, no checks, no pay button, no receipt, no cursor, no tabs', () => {
+  it('is a glimpse with a tour cursor, not a walkthrough: no steps, no checks, no pay button, no receipt, no tablist', () => {
     const { container } = renderDemo(COMPONENT_INVOICES, STATS)
     expect(screen.queryByText('Pick an invoice')).toBeNull()
     expect(screen.queryByText('Check the invoice')).toBeNull()
@@ -123,9 +151,31 @@ describe('HeroDemo component (tall dashboard preview)', () => {
     expect(screen.queryByText(/Demo verdict/)).toBeNull()
     expect(screen.queryByText(/Demo receipt/)).toBeNull()
     expect(screen.queryByText(/Paid once — demo/)).toBeNull()
-    expect(document.querySelector('[data-demo-cursor]')).toBeNull()
-    expect(document.querySelector('.demo-ripple')).toBeNull()
+    // The tour cursor is back (fix-back 2026-11-26): an overlay over the
+    // panel, present in live mode — and it never scrolls the page.
+    expect(document.querySelector('[data-demo-cursor]')).not.toBeNull()
+    expect(document.querySelector('[data-demo-phase]')).toBeNull()
     expect(container.querySelector('[data-demo-phase]')).toBeNull()
+  })
+
+  it('shows no cursor when reduced motion is preferred', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('prefers-reduced-motion'),
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    }))
+    renderDemo(COMPONENT_INVOICES, STATS)
+    expect(document.querySelector('[data-demo-cursor]')).toBeNull()
+  })
+
+  it('has exactly one link out (the real dashboard)', () => {
+    renderDemo(COMPONENT_INVOICES, STATS)
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/dashboard')
   })
 
   it('makes zero network calls — it only renders props', () => {
@@ -138,10 +188,34 @@ describe('HeroDemo component (tall dashboard preview)', () => {
     expect(screen.getByText('Recorded run, 24 Nov 2026 · 18 refused on chain since deploy')).toBeInTheDocument()
   })
 
-  it('shows the N1 caption with no number while the stats have not loaded (never 0)', () => {
+  it('shows NO refused caption while the stats have not loaded (never a hardcoded date, never 0)', () => {
     renderDemo(COMPONENT_INVOICES, undefined)
-    expect(screen.getByText('Recorded run, 24 Nov 2026')).toBeInTheDocument()
-    expect(screen.queryByText(/refused on chain since deploy/)).toBeNull()
+    expect(screen.queryByText(/Recorded run/)).toBeNull()
+    expect(screen.queryByText(/refused on chain/)).toBeNull()
+  })
+
+  it('shows the EUDemo chip at zero instead of hiding it (the rails panel agrees)', () => {
+    renderDemo(CCD_ONLY, STATS)
+    expect(within(screen.getByTestId('demo-eudemo-chip')).getByText('0.00 EUDemo')).toBeInTheDocument()
+    const rails = document.querySelector('[data-demo-target="rails"]') as HTMLElement
+    expect(within(rails).getByText('0.00 EUDemo')).toBeInTheDocument()
+  })
+
+  it('shows the empty-state gauge at 0 of 0 (never a loading skeleton)', () => {
+    renderDemo([], STATS)
+    expect(screen.getByText('0 of 0 payables paid once')).toBeInTheDocument()
+    expect(within(screen.getByTestId('demo-eudemo-chip')).getByText('0.00 EUDemo')).toBeInTheDocument()
+    expect(screen.queryByText(/still loading/)).toBeNull()
+  })
+
+  it('shows the mobile nav strip with the real nav (finding #9)', () => {
+    renderDemo(COMPONENT_INVOICES, STATS)
+    const strip = screen.getByTestId('demo-mobile-nav')
+    expect(within(strip).getByText('Home')).toBeInTheDocument()
+    expect(within(strip).getByText('Dashboard')).toBeInTheDocument()
+    expect(within(strip).getByText('For judges')).toBeInTheDocument()
+    expect(within(strip).getByText('Verify age')).toBeInTheDocument()
+    expect(within(strip).queryByText('Pay an invoice')).toBeNull()
   })
 
   it('shows the loading skeleton while the live list loads', () => {

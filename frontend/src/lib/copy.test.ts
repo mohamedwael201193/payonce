@@ -69,9 +69,12 @@ describe('BANNED_WORDS (P3 §2 rule 3)', () => {
     expect(coSignerRunsAsSentence()).toBe('Decision gate inside the API service — no separate co-signer service runs.')
     expect(coSignerRunsAsSentence()).not.toContain('(no service)')
   })
-  it('refusedCaption states the live chain total and its basis', () => {
-    expect(refusedCaption(21)).toBe('Recorded run, 24 Nov 2026 · 21 refused on chain since deploy')
-    expect(refusedCaption(undefined)).toBe('Recorded run, 24 Nov 2026')
+  it('refusedCaption states the live chain total and its basis (date derived from the last run)', () => {
+    expect(refusedCaption(21, '2026-11-24T17:08:24.616Z')).toBe('Recorded run, 24 Nov 2026 · 21 refused on chain since deploy')
+    expect(refusedCaption(21, undefined)).toBe('21 refused on chain since deploy')
+    expect(refusedCaption(21, 'not-a-date')).toBe('21 refused on chain since deploy')
+    expect(refusedCaption(undefined)).toBe('')
+    expect(refusedCaption(undefined, '2026-11-24T17:08:24.616Z')).toBe('')
   })
 })
 
