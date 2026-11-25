@@ -44,6 +44,11 @@ export function useLiveSnapshot() {
             count: prev.items.length,
             voidedTotal: prev.stats.voided_total ?? 0,
             reservedTotal: prev.stats.reserved_total ?? 0,
+            // Fix-back-9 MF-1 (a): the feasibility check needs paid
+            // growth to tell a legit confirm from an unexplained
+            // reserved fall, and paid monotonicity needs it too — thread
+            // it with the counts, from the same cached snapshot.
+            paidTotal: prev.stats.paid_total,
             // Fix-back-8 MF-1: the shrink rule verifies every dropped id
             // against the previous snapshot's id set — thread the ids, not
             // just the count, or a shrink fails closed for lack of an id

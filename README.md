@@ -194,17 +194,27 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-8, 2026-11-25 ~09:05 UTC): frontend
-vitest 209/209 (23 files), TWICE in a row (the MF-2 flake fix is proven
-by two consecutive green full runs), `tsc -b` clean (and `tsc --noEmit -p
-tsconfig.json` clean — this repo has no `tsconfig.app.json`; the build
-script's `tsc -b` is the check), `vite build` clean twice (547.04 kB JS,
-547,043 B, `assets/index-BxN7cXc0.js`, sha256
-`9ce53252a30fa8e3d8d3554aefbd6760b52a809573298f4ffa06589103c9a5b6`, identical
-across both builds), API stats-reconcile test 3/3, handler-level
-stats/invoices test 5/5 (from a `/tmp` copy with read-only symlinked
-node_modules; `api/node_modules` in-tree is still absent — see
-`qa/fixback8.md`), secret scan clean on the diff (0 genuine hits).
+Verified by my own runs (fix-back-9, 2026-11-25 ~09:45 UTC): frontend
+vitest 228/228 (23 files), TWICE in a row (run 1: 61.86 s, run 2: 96.98 s),
+`tsc -b` clean (and `tsc --noEmit -p tsconfig.json` clean — this repo has
+no `tsconfig.app.json`; the build script's `tsc -b` is the check), `vite
+build` clean twice (547.98 kB JS, 547,977 B, `assets/index-BpaXc6RM.js`,
+sha256 `9fd3ddf5706753c49895b678f83b5469912c76580e8aac8cd258fce195f35fd2`,
+identical across both builds; CSS unchanged, sha256 `1805692b…9c0`), API
+stats-reconcile test 3/3, handler-level stats/invoices test 5/5, NEW
+handler-level payableFacts test 7/7 (from a `/tmp` copy with read-only
+symlinked node_modules; `api/node_modules` in-tree is still absent — see
+`qa/fixback9.md`), secret scan clean on the diff (0 genuine hits).
+Fix-back-9 fixes the fix-back-8 panel list: reserved is NOT terminal on
+chain, so monotonicity is voided/paid-only and a reserved fall is accepted
+when explained (release / confirm / void-of-reserved, feasibility
+Δreserved+Δpaid+2·Δvoided ≥ shrink); per-id verification now runs whenever
+ANY id dropped, not only on a net shrink (same-count swap and net-growth
+drop both rejected); verification pages in 10s so a legit >10 shrink heals
+instead of freezing; verification has a 5 s deadline so a slow per-id
+endpoint fails the attempt fast; `payableFacts`/`handleGetPayable` are
+exported with the read through the S5 seam and the Voided mapping has an
+offline test (see `qa/fixback9.md`).
 Fix-back-8 fixes the fix-back-7 panel list: the snapshot shrink rule is
 now two layers — per-counter monotonicity plus per-id verification of
 every dropped id via GET /api/payables/:id (Voided is its own facts kind

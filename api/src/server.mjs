@@ -536,7 +536,13 @@ async function handleGetPayable(req, res, id) {
   const seller = resolveSellerStrict(req, res);
   if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, seller, id);
+  // Fix-back-9 MF-4: the read goes through the S5 test seam
+  // (readPayableWithRetry) like the stats/invoices scans, so the
+  // handler is testable offline with a stubbed chain reader. A read
+  // that fails all 3 retries is a 503, never a partial answer; the
+  // live-chain path is unchanged when no override is set.
+  const { view, ok } = await readPayableWithRetry(c, id, seller);
+  if (!ok) return chainUnreachable(res, new Error(`the testnet node did not answer for payable ${id}`));
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const now = await chainNow(c);
   sendJson(res, 200, await payableFacts(c, view, now.slotMs));
@@ -1333,4 +1339,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { server, handleStats, handleInvoices };
+export { server, handleStats, handleInvoices, handleGetPayable, payableFacts };

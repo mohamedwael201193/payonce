@@ -29,10 +29,13 @@ const stats = (total: number, paid: number, voided = 1, reserved = 5): Stats => 
   reserved_total: reserved,
 })
 
-const prev = (count: number, voided = 1, reserved = 5): PrevSnapshot => ({
+const prev = (count: number, voided = 1, reserved = 5, paid = 31): PrevSnapshot => ({
   count,
   voidedTotal: voided,
   reservedTotal: reserved,
+  // Fix-back-9 MF-1 (a): the previous snapshot's paid total is part of
+  // the fixture now — the feasibility check and paid monotonicity need it.
+  paidTotal: paid,
   // Fix-back-8 MF-1: the previous snapshot's id set is part of the
   // fixture now — the verification layer needs to know which ids dropped.
   ids: Array.from({ length: count }, (_, i) => i + 1),
@@ -60,7 +63,7 @@ const listOf = (n: number, paidCount: number): InvoiceItem[] =>
 describe('snapshotAccepts', () => {
   it('accepts a pair that agrees with itself and does not shrink', () => {
     const items = [item(1, 'paid'), item(2, 'unpaid')]
-    expect(snapshotAccepts(items, stats(2, 1), prev(2))).toEqual({ ok: true })
+    expect(snapshotAccepts(items, stats(2, 1), prev(2, 1, 5, 1))).toEqual({ ok: true })
     expect(snapshotAccepts(items, stats(2, 1))).toEqual({ ok: true })
   })
 
@@ -96,18 +99,23 @@ describe('snapshotAccepts', () => {
 
   // MF-1: two rows leave at once (one reserved, one voided) — accepted
   // only because the excluded growth (2) equals the shrink (2).
+  // Fix-back-9: the fixture keeps paid at 31 — a paid row never leaves
+  // the list, so a 31 → 30 paid fall would be a partial scan on its own
+  // (pinned separately below), not a reserve+void.
   it('accepts a shrink accounted for by one reserve plus one void', () => {
-    const items = listOf(49, 30)
-    expect(snapshotAccepts(items, stats(49, 30, 2, 6), prev(51, 1, 5))).toEqual({ ok: true })
+    const items = listOf(49, 31)
+    expect(snapshotAccepts(items, stats(49, 31, 2, 6), prev(51, 1, 5))).toEqual({ ok: true })
   })
 
   // MF-1, negative: the fix-back-6 shrink — 51 → 43 with NO excluded
   // growth — is still a partial scan and is still rejected. A partial
   // scan that drops the same rows from both endpoints agrees with
-  // itself, but the shrink is the tell.
+  // itself, but the shrink is the tell. Fix-back-9: the fixture keeps
+  // paid at 31, so this pins the shrink rule alone (a paid fall rejects
+  // on its own, pinned separately below).
   it('rejects a shrink with no voided/reserved growth — still a partial scan', () => {
-    const items = listOf(43, 25)
-    expect(snapshotAccepts(items, stats(43, 25, 1, 5), prev(51, 1, 5)).ok).toBe(false)
+    const items = listOf(43, 31)
+    expect(snapshotAccepts(items, stats(43, 31, 1, 5), prev(51, 1, 5)).ok).toBe(false)
   })
 
   // MF-1, negative: a shrink SMALLER than the excluded growth is also
@@ -127,9 +135,61 @@ describe('snapshotAccepts', () => {
     expect(snapshotAccepts(items, stats(50, 31, 4, 7), prev(51, 5, 5)).ok).toBe(false)
   })
 
-  it('rejects a shrink whose net growth hides a reserved_total fall (7 -> 5)', () => {
+  // Fix-back-9 MF-1 (a): the reserved-fall case the old test pinned as a
+  // REJECTION now ACCEPTS at the pure level — the old invariant was
+  // wrong. Reserved 7 → 5 with voided 1 → 4 and shrink 1 IS explainable
+  // (3 voids, 2 of them Reserved→Voided, 2 creates: list 51 − 3 + 2 =
+  // 50, reserved 7 − 2 = 5, voided 1 + 3 = 4), so the pure rule must
+  // not reject it. Per-id verification guards the dropped rows instead
+  // (fetch level below); a fall with NO explanation still rejects.
+  it('accepts a shrink whose net growth hides a reserved_total fall (7 -> 5) — the fall is explained by voided growth', () => {
     const items = listOf(50, 31)
-    expect(snapshotAccepts(items, stats(50, 31, 4, 5), prev(51, 1, 7)).ok).toBe(false)
+    expect(snapshotAccepts(items, stats(50, 31, 4, 5), prev(51, 1, 7))).toEqual({ ok: true })
+  })
+
+  // Fix-back-9 MF-1 (a): the three legitimate reserved exits, each
+  // accepted at the pure level. Expiry: reserved 5 → 4, list 50 → 51
+  // (the released row returns to the list). Confirm: reserved 5 → 4,
+  // paid 31 → 32, list unchanged (the row stays listable as Paid).
+  // Void-of-reserved: reserved 5 → 4, voided 1 → 2, shrink 1.
+  it('accepts a legit expiry: reserved 5 -> 4 with the list growing 50 -> 51', () => {
+    const items = listOf(51, 31)
+    expect(snapshotAccepts(items, stats(51, 31, 1, 4), prev(50, 1, 5))).toEqual({ ok: true })
+  })
+
+  it('accepts a legit confirm after reserve: reserved 5 -> 4, paid 31 -> 32, list unchanged', () => {
+    const items = listOf(51, 32)
+    expect(snapshotAccepts(items, stats(51, 32, 1, 4), prev(51, 1, 5))).toEqual({ ok: true })
+  })
+
+  it('accepts a legit confirm plus a create in the same poll: list 51 -> 52, paid 31 -> 32', () => {
+    const items = listOf(52, 32)
+    expect(snapshotAccepts(items, stats(52, 32, 1, 4), prev(51, 1, 5))).toEqual({ ok: true })
+  })
+
+  it('accepts a legit void-of-reserved: reserved 5 -> 4, voided 1 -> 2, shrink 1', () => {
+    const items = listOf(50, 31)
+    expect(snapshotAccepts(items, stats(50, 31, 2, 4), prev(51, 1, 5))).toEqual({ ok: true })
+  })
+
+  it('accepts a mixed legit expiry+void: reserved 5 -> 3, voided 1 -> 3, shrink 1', () => {
+    const items = listOf(50, 31)
+    expect(snapshotAccepts(items, stats(50, 31, 3, 3), prev(51, 1, 5))).toEqual({ ok: true })
+  })
+
+  // Fix-back-9 MF-1 (a), negative: a reserved fall with NO explanation
+  // — list, paid and voided all unchanged — is still a partial stats
+  // scan and is still rejected.
+  it('rejects an unexplained reserved fall: reserved 5 -> 4, everything else unchanged', () => {
+    const items = listOf(51, 31)
+    expect(snapshotAccepts(items, stats(51, 31, 1, 4), prev(51, 1, 5)).ok).toBe(false)
+  })
+
+  // Fix-back-9 MF-1 (a): paid has no exit on chain either — a paid
+  // fall vs the last accepted snapshot proves the stats scan is partial.
+  it('rejects a paid_total fall: paid 31 -> 30 with the list otherwise agreeing', () => {
+    const items = listOf(51, 30)
+    expect(snapshotAccepts(items, stats(51, 30, 1, 5), prev(51, 1, 5)).ok).toBe(false)
   })
 
   // Fix-back-8 MF-1: the PURE rule still accepts the adversarial id-50
@@ -151,7 +211,7 @@ describe('snapshotAccepts', () => {
   // failed scan, and 0/0 must never render as totals.
   it('rejects an empty pair on cold load — never 0/0 as totals', () => {
     expect(snapshotAccepts([], stats(0, 0, 0, 0)).ok).toBe(false)
-    expect(snapshotAccepts([], stats(0, 0, 0, 0), prev(0, 0, 0)).ok).toBe(false)
+    expect(snapshotAccepts([], stats(0, 0, 0, 0), prev(0, 0, 0, 0)).ok).toBe(false)
   })
 })
 
@@ -321,11 +381,12 @@ describe('fetchLiveSnapshot', () => {
 
   // Fix-back-8 MF-1: a shrink of two rows (one reserve + one void) is
   // accepted only when BOTH dropped ids verify as excluded.
+  // Fix-back-9: paid stays 31 in the fixture (see the pure test above).
   it('accepts a reserve+void shrink when both dropped ids verify as excluded', async () => {
     const { api } = await import('./api')
     let verifyCalls = 0
-    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(49, 30))
-    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(49, 30, 2, 6))
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(49, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(49, 31, 2, 6))
     vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
       verifyCalls += 1
       return id === 50
@@ -369,20 +430,47 @@ describe('fetchLiveSnapshot', () => {
     vi.restoreAllMocks()
   })
 
-  // Fix-back-8 MF-1: a shrink with more dropped ids than the verification
-  // bound is rejected WITHOUT any verification calls — never accepted on
-  // faith, never a fan-out.
-  it('rejects a shrink larger than the verification bound without verifying', async () => {
+  // Fix-back-9 MF-2: a legit shrink with MORE dropped ids than the old
+  // bound is now accepted — verification runs in pages of 10 instead
+  // of refusing the shrink unverified. Harness F4: prev 51 → new 40,
+  // 11 rows genuinely reserved (reserved 5 → 16), all 11 dropped ids
+  // verify as reserved, in 2 pages (10 + 1).
+  it('accepts a legit >10 shrink by paging verification (11 dropped ids, 11 calls)', async () => {
     const { api } = await import('./api')
     let verifyCalls = 0
-    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(40, 25))
-    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(40, 25, 1, 16))
+    // The 11 reserved rows were unpaid rows, so paid stays 31 — a paid
+    // fall would reject on its own before verification ever runs.
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(40, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(40, 31, 1, 16))
     vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
       verifyCalls += 1
       return facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
     })
+    const snap = await fetchLiveSnapshot(prev(51, 1, 5), 3)
+    expect(snap.items).toHaveLength(40)
+    expect(verifyCalls).toBe(11)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-2: a genuinely partial >10 drop is still rejected on
+  // first sight — its dropped ids read back 'unpaid' on the FIRST page,
+  // so the pair is never accepted, however many polls repeat it.
+  it('rejects a partial >10 drop on first sight: a dropped id reads back unpaid on page 1', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    // The 11 reserved rows were unpaid rows, so paid stays 31 — a paid
+    // fall would reject on its own before verification ever runs.
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(40, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(40, 31, 1, 16))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return id === 41
+        ? facts(id, { kind: 'unpaid' })
+        : facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+    })
     await expect(fetchLiveSnapshot(prev(51, 1, 5), 2)).rejects.toThrow(/disagreed/)
-    expect(verifyCalls).toBe(0)
+    // Page 1 (10 ids) fails on both attempts; page 2 is never reached.
+    expect(verifyCalls).toBe(20)
     vi.restoreAllMocks()
   })
 
@@ -397,10 +485,227 @@ describe('fetchLiveSnapshot', () => {
       verifyCalls += 1
       return facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
     })
-    await expect(fetchLiveSnapshot({ count: 51, voidedTotal: 1, reservedTotal: 5, ids: [] }, 2)).rejects.toThrow(
+    await expect(fetchLiveSnapshot({ count: 51, voidedTotal: 1, reservedTotal: 5, paidTotal: 31, ids: [] }, 2)).rejects.toThrow(
       /disagreed/,
     )
     expect(verifyCalls).toBe(0)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a): a legit expiry is accepted end to end — the
+  // released row returns to the list (list 50 → 51), reserved falls
+  // 5 → 4, and no dropped id exists to verify (zero verification calls).
+  it('accepts a legit expiry: reserved 5 -> 4, list grows 50 -> 51 as the released row returns', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(51, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 31, 1, 4))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+    })
+    const snap = await fetchLiveSnapshot(prev(50, 1, 5), 3)
+    expect(snap.items).toHaveLength(51)
+    expect(verifyCalls).toBe(0)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a): a legit confirm after reserve is accepted end
+  // to end — reserved falls 5 → 4, paid rises 31 → 32, the list is
+  // unchanged in size and no id dropped.
+  it('accepts a legit confirm after reserve: reserved 5 -> 4, paid 31 -> 32', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(51, 32))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 32, 1, 4))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+    })
+    const snap = await fetchLiveSnapshot(prev(51, 1, 5), 3)
+    expect(snap.items).toHaveLength(51)
+    expect(verifyCalls).toBe(0)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a): a legit void-of-reserved is accepted — the
+  // dropped id verifies as voided (reserved falls AND voided rises).
+  it('accepts a legit void-of-reserved: reserved 5 -> 4, voided 1 -> 2', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 2, 4))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'voided' })
+    })
+    const snap = await fetchLiveSnapshot(prev(51, 1, 5), 3)
+    expect(snap.items).toHaveLength(50)
+    expect(verifyCalls).toBe(1)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a): a mixed legit expiry+void is accepted — two
+  // rows voided (ids 50, 51) and one released row returning (id 52).
+  it('accepts a mixed legit expiry+void: reserved 5 -> 3, voided 1 -> 3', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => [...listOf(49, 31), item(52, 'unpaid')])
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 3, 3))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'voided' })
+    })
+    const snap = await fetchLiveSnapshot(prev(51, 1, 5), 3)
+    expect(snap.items).toHaveLength(50)
+    expect(verifyCalls).toBe(2)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a): the same legit pair is accepted again on the
+  // next poll once the previous snapshot has advanced to it — the
+  // fix-back-8 freeze (same pair rejected again because prev never
+  // advanced) does not recur for a legitimate transition.
+  it('accepts the same legit pair again on the next poll once prev has advanced to it', async () => {
+    const { api } = await import('./api')
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(51, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 31, 1, 4))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) =>
+      facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' }),
+    )
+    const first = await fetchLiveSnapshot(prev(50, 1, 5), 3)
+    expect(first.items).toHaveLength(51)
+    const advanced: PrevSnapshot = {
+      count: 51,
+      voidedTotal: 1,
+      reservedTotal: 4,
+      paidTotal: 31,
+      ids: Array.from({ length: 51 }, (_, i) => i + 1),
+    }
+    const second = await fetchLiveSnapshot(advanced, 3)
+    expect(second.items).toHaveLength(51)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (a), negative: an unexplained reserved fall is
+  // rejected by the pure rule BEFORE any verification runs.
+  it('rejects an unexplained reserved fall without any per-id verification calls', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(51, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 31, 1, 4))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'unpaid' })
+    })
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 2)).rejects.toThrow(/disagreed/)
+    expect(verifyCalls).toBe(0)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (b): a same-count swap — id 51 dropped (still
+  // Unpaid), id 52 genuinely created, stats unchanged 51/31 — is
+  // REJECTED by per-id verification. Fix-back-8 accepted it with
+  // verifyCalls = 0 because verification was gated on a net shrink.
+  it('rejects a same-count swap: id 51 dropped yet still unpaid, id 52 created', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => [...listOf(50, 31), item(52, 'unpaid')])
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 31, 1, 5))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'unpaid' })
+    })
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 3)).rejects.toThrow(/disagreed/)
+    expect(verifyCalls).toBe(3)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (b): a net-GROWTH drop — id 51 dropped (still
+  // Unpaid), ids 52 and 53 created — is REJECTED the same way.
+  it('rejects a net-growth drop: id 51 dropped yet still unpaid, ids 52+53 created', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => [
+      ...listOf(50, 31),
+      item(52, 'unpaid'),
+      item(53, 'unpaid'),
+    ])
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(52, 31, 1, 5))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return facts(id, { kind: 'unpaid' })
+    })
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 2)).rejects.toThrow(/disagreed/)
+    expect(verifyCalls).toBe(2)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-1 (b): the F5 harness case — prev 51; new 51 items
+  // (ids 1..49 + 52 + 53): id 50 dropped yet still Unpaid, id 51
+  // genuinely reserved, ids 52/53 created; stats 51/31, voided 1,
+  // reserved 6. The old gate accepted it with verifyCalls = 0.
+  it('rejects the F5 harness case: id 50 dropped yet still unpaid while id 51 reserved', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => [
+      ...listOf(49, 31),
+      item(52, 'unpaid'),
+      item(53, 'unpaid'),
+    ])
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(51, 31, 1, 6))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      return id === 51
+        ? facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+        : facts(id, { kind: 'unpaid' })
+    })
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 3)).rejects.toThrow(/disagreed/)
+    expect(verifyCalls).toBe(6)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-3: a per-id endpoint that never answers must fail the
+  // attempt FAST — well inside the 30 s poll — instead of stalling it.
+  // The mock never resolves, so without the deadline this attempt would
+  // hang until the 15 s fetch timeout (and worse across retries).
+  it('fails fast when the per-id endpoint never answers (MF-3 deadline)', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 1, 6))
+    vi.spyOn(api, 'getPayable').mockImplementation(async () => {
+      verifyCalls += 1
+      return new Promise<never>(() => {})
+    })
+    const start = Date.now()
+    await expect(fetchLiveSnapshot(prev(51, 1, 5), 1)).rejects.toThrow(/timed out after 5000 ms/)
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeLessThan(8000)
+    expect(verifyCalls).toBe(1)
+    vi.restoreAllMocks()
+  })
+
+  // Fix-back-9 MF-3: the same slow endpoint, once it answers again,
+  // heals on the next attempt — the timeout fails the attempt, it does
+  // not poison the poll.
+  it('heals on retry when the slow per-id endpoint answers again', async () => {
+    const { api } = await import('./api')
+    let verifyCalls = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 1, 6))
+    vi.spyOn(api, 'getPayable').mockImplementation(async (id: number) => {
+      verifyCalls += 1
+      if (verifyCalls === 1) return new Promise<never>(() => {})
+      return facts(id, { kind: 'reserved', payer: '4MvdMEGC', expires: '2026-11-25T12:00:00Z' })
+    })
+    const start = Date.now()
+    const snap = await fetchLiveSnapshot(prev(51, 1, 5), 2)
+    const elapsed = Date.now() - start
+    expect(snap.items).toHaveLength(50)
+    expect(verifyCalls).toBe(2)
+    // Attempt 1 times out at 5 s + 1 s backoff, attempt 2 is fast.
+    expect(elapsed).toBeLessThan(15000)
     vi.restoreAllMocks()
   })
 })

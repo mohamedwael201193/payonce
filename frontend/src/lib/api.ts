@@ -395,7 +395,14 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000]
 export const FETCH_TIMEOUT_MS = 15_000
 
 export function timedFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  // A caller signal (fix-back-9 MF-3: the verification deadline) aborts
+  // the fetch as well as the timeout — AbortSignal.any combines them, so
+  // either one firing cancels the request instead of leaving it running
+  // in the background. Guarded for runtimes without AbortSignal.any.
+  const signal =
+    init?.signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, timeout]) : timeout
+  return fetch(url, { ...init, signal })
 }
 
 /** A timeout abort (TimeoutError from AbortSignal.timeout, AbortError from
@@ -487,8 +494,20 @@ export const api = {
     request<{ items: InvoiceItem[] }>('/api/invoices', z.object({ items: z.array(invoiceItemSchema) })).then(
       (r) => r.items,
     ),
-  getPayable: (id: number, seller?: string) =>
-    request<PayableFacts>(`/api/payables/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, payableSchema),
+  // Merge (design-merge onto main 86e2596): two call conventions
+  // collide on the 2nd parameter -- main seller threading passes a
+  // seller string, fix-back-9 per-id verification passes a
+  // RequestInit (deadline signal). Both are accepted: a string is
+  // the seller, an object is the init. Callers stay unchanged.
+  getPayable: (id: number, sellerOrInit?: string | RequestInit, init?: RequestInit) => {
+    const seller = typeof sellerOrInit === 'string' ? sellerOrInit : undefined
+    const requestInit = typeof sellerOrInit === 'string' ? init : sellerOrInit
+    return request<PayableFacts>(
+      `/api/payables/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`,
+      payableSchema,
+      requestInit,
+    )
+  },
   getDocument: async (id: number, seller?: string): Promise<string> => {
     let res: Response
     try {
