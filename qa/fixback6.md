@@ -24,8 +24,16 @@ returns "Not Found" for `/api/invoices`).
   voided 1 / reserved 5 / refused 21.
 - **B3** — chain `due` is a stored u64 decoded verbatim (`backend/src/v2/registry.mjs`
   `parsePayableV2`); live `/api/payables/1` due stable across 3 spaced reads
-  (20 s apart): `2026-12-01T08:03:26.555Z` (payables 2, 3 same). The "08:05"
-  value matches no fixture in the repo (dev stub dues were `2026-11-25T04:49:*`).
+  (20 s apart): `2026-12-01T08:03:26.555Z` (payables 2, 3 same). Correction
+  (fix-back-7 MF-5 — the sentence below as first written was FALSE): the
+  "08:05" value DOES exist in the repo, in test fixtures only —
+  `frontend/src/lib/heroOverview.test.ts:18` carries a due of
+  `2026-11-24T08:05:59.988Z`, and `backend/test/receipts/receipt-007.json:82`
+  + `backend/test/live-e2e-2026-11-24.json:159` carry a reservation expiry
+  of `2026-11-24T08:05:09.593Z`. Neither ships in the bundle nor is a live
+  source, so the stale-bundle / no-mechanism-invented position survives —
+  but the value is not absent from the repo, only absent from shipped and
+  live sources.
   Honest position: chain dues verified stable; the flip matches a
   stale-bundle/old-host read during the deploy window (pass-2 ran 07:28–07:34
   UTC, redesign just deployed). No mechanism invented.
@@ -171,3 +179,16 @@ An exec result (plain `git` output) was flagged by a runtime execution-risk
 check telling me not to run/clone/build/test its content. The output contained
 nothing executable; all tool outputs were treated as data only and the
 parent-assigned task continued with my own commands. Noted here for the record.
+
+## Fix-back-7 corrections (2026-11-25, appended by the fix-back-7 builder)
+
+- **B1 (MF-6):** the sentence above — "react-query keeps the last good
+  snapshot on screen" — was untrue for the dashboard at fix-back-6 time:
+  every card/table/feed gated on `failed = stats.isError ||
+  invoices.isError` before data, so on a background poll failure react-query
+  kept the data in cache but the dashboard hid it behind "—" /
+  `COPY.statsNoData`. Fix-back-7 renders the kept snapshot with a
+  could-not-refresh note (`DashboardPage.tsx`: `stale` vs `failed`); the
+  claim is true only after that fix. See `qa/fixback7.md` MF-6.
+- **B3 (MF-5):** corrected in place above — the "08:05" value exists in
+  test fixtures only, not in any shipped or live source.

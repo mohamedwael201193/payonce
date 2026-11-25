@@ -292,7 +292,14 @@ export function AgeProofPage() {
           >
             {forbiddenBusy ? 'Asking the prover…' : 'Reveal the first name'}
           </button>
-          {demoUnavailable ? (
+          {/* Fix-back-7 S2: while health is loading the button is disabled
+              with no explanation in this section — the intro copy still
+              reads live. The loading banner says why, in place. */}
+          {health.isLoading ? (
+            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="status">
+              Checking the age-proof prover… The demo buttons stay disabled until it answers.
+            </p>
+          ) : demoUnavailable ? (
             <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
               Demo unavailable — {demoUnavailableReason}
             </p>
@@ -354,7 +361,11 @@ export function AgeProofPage() {
           >
             {verifyBusy ? 'Verifying…' : 'Verify the 18+ proof'}
           </button>
-          {demoUnavailable ? (
+          {health.isLoading ? (
+            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="status">
+              Checking the age-proof prover… The demo buttons stay disabled until it answers.
+            </p>
+          ) : demoUnavailable ? (
             <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
               Demo unavailable — {demoUnavailableReason}
             </p>

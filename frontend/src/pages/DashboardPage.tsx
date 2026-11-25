@@ -109,10 +109,17 @@ export function DashboardPage() {
   const feed = useMemo(() => activityFeed(items, 6), [items])
   const donut = useMemo(() => donutSegments(items), [items])
   // One source, one gate (bugs 2 + 4): no count renders until BOTH queries
-  // have data — never a 0, never a -1, never a half-loaded card. If either
-  // errors, every card shows the error, not a zero.
+  // have data — never a 0, never a -1, never a half-loaded card.
+  // Fix-back-7 MF-6: a background poll failure is NOT the same as no data.
+  // react-query keeps the last good snapshot in cache, so the dashboard
+  // renders it with a could-not-refresh note (stale) instead of hiding it
+  // behind dashes — the old gate hid kept data, so the dashboard dashed
+  // while the home hero kept showing the stale chips. Only a failure with
+  // NO data at all (failed) shows the error.
   const loading = !stats.data || !invoices.data
-  const failed = stats.isError || invoices.isError
+  const hasData = Boolean(stats.data && invoices.data)
+  const failed = (stats.isError || invoices.isError) && !hasData
+  const stale = (stats.isError || invoices.isError) && hasData
   const tableSlow = useSlowLoad(invoices.isLoading)
   // "Last updated" is the last SUCCESSFUL poll (bug 7): the old line read
   // the server's last verifier run, which does not move when the page
@@ -170,9 +177,21 @@ export function DashboardPage() {
           </div>
         </Reveal>
 
+        {/* MF-6: a failed background refresh with kept data — the numbers
+            below are the last verified snapshot, not fresh. The page keeps
+            retrying every 30 s; "Last updated" above is the last success. */}
+        {stale ? (
+          <p role="status" className="mt-6 rounded-[12px] border border-line bg-card px-4 py-3 text-sm text-body">
+            Could not refresh the live numbers just now — showing the last verified numbers
+            {lastUpdated ? ` from ${lastUpdated}` : ''}. The page retries every 30 s.
+          </p>
+        ) : null}
+
         {/* Stat cards — 4 big glass cards with sparklines. While the live
             numbers load, skeletons — never "0" (the old cards showed four
-            0s for 5–8 s). On error, the error — never a zero. */}
+            0s for 5–8 s). On error with no data, the error — never a zero.
+            On a failed background refresh (stale), the kept snapshot keeps
+            rendering and the banner above says so. */}
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {statCards.map((c, i) => {
             return (
@@ -361,7 +380,7 @@ export function DashboardPage() {
                   Loading invoices from the test registry…
                   {tableSlow ? ' Still loading — the test API is slow right now.' : null}
                 </p>
-              ) : invoices.isError ? (
+              ) : failed ? (
                 <p className="px-6 py-8 text-sm text-muted">{COPY.statsNoData}</p>
               ) : shown.length === 0 ? (
                 <p className="px-6 py-8 text-sm text-muted">
@@ -425,7 +444,10 @@ export function DashboardPage() {
                       paused" with no reason given. Live means the 30 s poll
                       is answering; Paused means it is not, and the page
                       keeps retrying. */}
-                  {failed ? (
+                  {/* MF-6: the badge is Paused on a failed refresh even
+                      when kept data is on screen — Live means the 30 s
+                      poll is answering. */}
+                  {failed || stale ? (
                     <span
                       className="inline-flex items-center gap-2 text-sm font-medium text-refused-fg"
                       title="Paused — the test API did not answer; the page retries every 30 s."

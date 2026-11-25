@@ -48,7 +48,7 @@ function recordedRefusal(code) {
     { code: -16, name: 'AlreadyReservedOrPaid', txHash: 'ae62175f96035d23a6df6f84daf89520fd7c534c3a3aa1195ca9af6af752af35', plain: 'This invoice is already reserved or paid. The chain refused a second reservation before any money moved.' },
     { code: -12, name: 'TxReused', txHash: '02ad73477a2e3635f4007ed7bab3c51a4dcd72a97e851fc213a92e6ec577f23b', plain: 'This payment transaction is already recorded against another invoice. Nothing was moved.' },
     { code: -17, name: 'NotPayerOrSeller', txHash: '8ee531f203c7e7578749841bf7dd3d8a252ad220745c2921abbf2906f7700e8a', plain: 'Only the payer or the seller can record this payment. The request was refused.' },
-    { code: -13, name: 'NotExpired', txHash: '8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7', plain: 'The reservation is still open. It can be released only after its 300 s window.' },
+    { code: -13, name: 'NotExpired', txHash: '8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7', plain: 'The reservation is still open. It can be released only after its 300 s window (v1 recorded run; the live registry reserves for 3600 s).' },
   ];
   return v1.find((r) => r.code === code) ?? null;
 }

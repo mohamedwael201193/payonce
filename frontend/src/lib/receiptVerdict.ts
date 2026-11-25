@@ -39,6 +39,19 @@ const TRANSFER_CHECK_IDS = [
 export const EVIDENCE_GAP_NOTE =
   'Paid on chain — but this host cannot certify the reservation ordering: the reservation and confirm records for this payment are not on this API host, so those two checks fail closed. The transfer itself re-verifies: payer, payee, amount and memo all match the chain.'
 
+// Fix-back-7 S1: the note must be count-accurate. evidenceGap only fires
+// when every failing check is one of the two evidence rows — but that can
+// be ONE failing check, not two, and the old note always said "those two
+// checks". The single-check case names its check.
+export function evidenceGapNote(failedIds: string[]): string {
+  const named = failedIds.join(' and ')
+  const count = failedIds.length === 1 ? `the ${named} check fails closed` : 'those two checks fail closed'
+  return (
+    'Paid on chain — but this host cannot certify the reservation ordering: the reservation and confirm records for this payment are not on this API host, so ' +
+    `${count}. The transfer itself re-verifies: payer, payee, amount and memo all match the chain.`
+  )
+}
+
 export function evidenceGap(result: VerifyResponse): string | null {
   if (result.verdict !== 'blocked') return null
   const byId = new Map(result.checks.map((c) => [c.id, c]))
@@ -48,5 +61,5 @@ export function evidenceGap(result: VerifyResponse): string | null {
   const paidOk = byId.get('status_paid')?.status === 'ok' || byId.get('status')?.status === 'ok'
   if (!paidOk) return null
   if (!TRANSFER_CHECK_IDS.every((id) => byId.get(id)?.status === 'ok')) return null
-  return EVIDENCE_GAP_NOTE
+  return evidenceGapNote(fails.map((c) => c.id))
 }

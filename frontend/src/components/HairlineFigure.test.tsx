@@ -1,7 +1,7 @@
 // HairlineFigure — a figure that fails to load must show a fallback box
 // that says so, never a blank bordered box + caption.
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { HairlineFigure } from './HairlineFigure'
 
 describe('HairlineFigure load failure (FIX-7e)', () => {
@@ -48,5 +48,48 @@ describe('HairlineFigure load failure (FIX-7e)', () => {
     Object.defineProperty(iframe, 'contentDocument', { value: fakeDoc, configurable: true })
     fireEvent.load(iframe)
     expect(iframe.style.height).toBe('620px')
+  })
+
+  // Fix-back-7 S4: the outer ResizeObserver watches the iframe only, so
+  // post-load INNER growth (controls reflow) used to clip silently behind
+  // scrolling="no" with no scrollbar. The inner documentElement is
+  // observed too — when it grows, the iframe re-fits with no outer resize.
+  it('re-fits when the inner figure content grows after load', () => {
+    const callbacks: ResizeObserverCallback[] = []
+    const observed: Element[] = []
+    class MockResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        callbacks.push(cb)
+      }
+      observe(target: Element) {
+        observed.push(target)
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    try {
+      const { container } = render(<HairlineFigure name="payable" caption="Payable figure" />)
+      const iframe = container.querySelector('iframe') as HTMLIFrameElement
+      const fakeDoc = document.implementation.createHTMLDocument()
+      fakeDoc.body.insertAdjacentHTML('beforeend', '<div id="hl-figure"></div>')
+      const docEl = fakeDoc.documentElement
+      let height = 620
+      Object.defineProperty(docEl, 'scrollHeight', { get: () => height, configurable: true })
+      Object.defineProperty(iframe, 'contentDocument', { value: fakeDoc, configurable: true })
+      fireEvent.load(iframe)
+      expect(iframe.style.height).toBe('620px')
+      // The inner documentElement is observed, not just the outer iframe.
+      expect(observed).toContain(docEl)
+      // Post-load inner growth re-fits with no outer resize. The observer
+      // callbacks run outside React's event system, so they need act().
+      height = 700
+      act(() => {
+        for (const cb of callbacks) cb([], null as unknown as ResizeObserver)
+      })
+      expect(iframe.style.height).toBe('700px')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

@@ -32,6 +32,13 @@ describe('RECORDED_REFUSALS (P3 §9: 7 on-chain refusals)', () => {
       expect(r.plain).not.toMatch(ACCOUNT_LIKE)
     }
   })
+  // Fix-back-7 S3: the NotExpired gloss keeps its accurate v1 300 s
+  // window but labels it as the v1 recorded run and names the live 3600 s,
+  // so it can never be read as the live reservation length (B4).
+  it('the NotExpired gloss labels its 300 s window as the v1 recorded run, with the live 3600 s beside it', () => {
+    const notExpired = RECORDED_REFUSALS.find((r) => r.code === -13)
+    expect(notExpired?.plain).toContain('300 s window (v1 recorded run; the live registry reserves for 3600 s)')
+  })
 })
 
 describe('RECORDED_FEES (P3 §14: from the log, not estimates)', () => {

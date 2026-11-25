@@ -259,7 +259,7 @@ export function HomePage() {
             over the hero's cloud band. */}
         <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[820px] px-4 sm:px-6">
           <div className="relative -mt-[100px] overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]">
-            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} />
+            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} error={demoInvoices.isError || demoStats.isError} />
           </div>
         </section>
         {/* The real payment flow — pick, check, pay, receipt — with a slim

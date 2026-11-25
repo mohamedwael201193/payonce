@@ -202,7 +202,6 @@ function rejectNonSeller1Write(req, res, body = null) {
   return true;
 }
 
-let statsCache = null;
 // Fix-back-6 B1 — one scan, fail closed. The old scanPayables silently
 // dropped any row whose chain read threw, and both endpoints served the
 // partial remainder as 200 OK: /api/stats swung 51/31 → 8/5 and
@@ -213,14 +212,28 @@ let statsCache = null;
 // be two different partial scans), and an incomplete scan is NEVER served
 // as totals — stats falls back to the last complete scan, invoices answers
 // 503 node_busy (retryable) so the frontend keeps its last good snapshot.
+// Fix-back-7 MF-3: the 20 s stats cache is GONE. It served a warm-cached
+// stats body while invoices re-scanned fresh, so a legit state change
+// inside the cache window failed all 3 frontend attempts (span ~3 s <
+// 20 s TTL) and dashed the dashboard for a poll. Scans are single-flighted
+// now, so the cache buys nothing and only hides fresh state.
 let scanInFlight = null;
 let lastCompleteScan = null;
+// Test seam (fix-back-7 S5): handler tests stub the chain reader —
+// production always reads the live gRPC client. The seam sits inside the
+// per-row retry, so the 503/fallback paths are exercised exactly as the
+// handlers run them, with no network and no live chain.
+let chainReaderOverride = null;
+export function __setChainReaderForTests(fn) {
+  chainReaderOverride = fn;
+}
 async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       // A null view is a successful read of an absent payable (never
       // created under this seller), not a skip — only a throw skips.
-      return { view: await getPayableOrNull(c, seller, id), ok: true };
+      const view = chainReaderOverride ? await chainReaderOverride(id, seller) : await getPayableOrNull(c, seller, id);
+      return { view, ok: true };
     } catch {
       if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
@@ -430,8 +443,6 @@ async function handleHealth(req, res) {
 }
 
 async function handleStats(req, res) {
-  const now = Date.now();
-  if (statsCache && now - statsCache.at < 20_000) return sendJson(res, 200, statsCache.body);
   const c = await grpc();
   const scan = await scanSnapshot(c);
   const counters = await loadCounters();
@@ -453,7 +464,6 @@ async function handleStats(req, res) {
     return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. Nothing was counted from a partial scan — retry.', { retryable: true });
   }
   const body = statsBody({ rows: scan.rows, refusedCount: (await refusedHashSet()).size, lastVerifierRunAt: counters.lastVerifierRunAt });
-  statsCache = { at: now, body };
   sendJson(res, 200, body);
 }
 
@@ -748,7 +758,6 @@ async function handleCreatePayable(req, res) {
   counters.nextFreshId = id + 1;
   counters.freshIds = [...(counters.freshIds ?? []), id];
   await saveCounters(counters);
-  statsCache = null;
   sendJson(res, 201, {
     payable_id: id,
     tx_hash: sent.txHash,
@@ -1316,4 +1325,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { server };
+export { server, handleStats, handleInvoices };

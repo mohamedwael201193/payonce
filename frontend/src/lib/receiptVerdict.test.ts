@@ -76,4 +76,20 @@ describe('evidenceGap', () => {
     )
     expect(evidenceGap(r)).toContain('Paid on chain')
   })
+
+  // Fix-back-7 S1: the note is count-accurate — one failing check names
+  // its check and never says "those two checks".
+  it('names the single failing check instead of saying "those two checks"', () => {
+    const r = result({})
+    r.checks = r.checks.map((c) =>
+      c.id === 'paid_at_is_confirm_time' ? { ...c, status: 'ok' as const } : c,
+    )
+    const note = evidenceGap(r)
+    expect(note).toContain('the reservation_precedes_transfer check fails closed')
+    expect(note).not.toContain('those two checks')
+  })
+
+  it('says "those two checks" only when both evidence rows fail', () => {
+    expect(evidenceGap(result({}))).toContain('those two checks fail closed')
+  })
 })

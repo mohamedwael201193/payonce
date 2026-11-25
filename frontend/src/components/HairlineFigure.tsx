@@ -16,13 +16,16 @@
 // controls. The iframe is same-origin, so on load (and whenever its own
 // width changes) we measure the inner document's height and size the
 // iframe to it, with scrolling="no" — the figure can never scroll
-// internally again.
+// internally again. Fix-back-7 S4: the inner documentElement is observed
+// too, so post-load inner growth re-fits instead of clipping silently
+// behind scrolling="no".
 import { useEffect, useRef, useState } from 'react'
 
 export function HairlineFigure({ name, caption }: { name: string; caption: string }) {
   const [failed, setFailed] = useState(false)
   const [contentHeight, setContentHeight] = useState<number | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const innerRoRef = useRef<ResizeObserver | null>(null)
 
   // The error listener is attached natively: React's onError prop does
   // not fire for iframes (their error events do not reach React's root
@@ -38,19 +41,39 @@ export function HairlineFigure({ name, caption }: { name: string; caption: strin
   // Fit the iframe to its content height: the inner page is same-origin,
   // so its scrollHeight is readable. Re-measured on resize (the inner
   // stage height follows the iframe width).
+  const fitHeight = () => {
+    const doc = iframeRef.current?.contentDocument
+    const h = doc?.documentElement?.scrollHeight ?? 0
+    if (h > 0) setContentHeight(h)
+  }
+
   useEffect(() => {
     const el = iframeRef.current
     if (!el || typeof ResizeObserver !== 'function') return
-    const fit = () => {
-      const doc = el.contentDocument
-      const h = doc?.documentElement?.scrollHeight ?? 0
-      if (h > 0) setContentHeight(h)
-    }
-    fit()
-    const ro = new ResizeObserver(fit)
+    fitHeight()
+    const ro = new ResizeObserver(fitHeight)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      innerRoRef.current?.disconnect()
+      innerRoRef.current = null
+    }
   }, [failed])
+
+  // Fix-back-7 S4: the outer observer alone cannot see post-load INNER
+  // growth — the inner page reflows (controls, rules) when ITS width
+  // changes, and nothing fires the outer observer if the iframe width
+  // stays put, so the figure would clip silently behind scrolling="no"
+  // with no scrollbar. The inner documentElement gets its own observer
+  // (attached on load, same-origin); either observer re-fits.
+  const observeInner = () => {
+    const doc = iframeRef.current?.contentDocument
+    if (!doc || typeof ResizeObserver !== 'function') return
+    innerRoRef.current?.disconnect()
+    const ro = new ResizeObserver(fitHeight)
+    ro.observe(doc.documentElement)
+    innerRoRef.current = ro
+  }
 
   const checkLoaded = () => {
     const doc = iframeRef.current?.contentDocument
@@ -59,8 +82,8 @@ export function HairlineFigure({ name, caption }: { name: string; caption: strin
     // page) — show the fallback instead of a blank box. A null document
     // (cross-origin, never here) leaves the iframe as-is.
     if (doc && !doc.querySelector('#hl-figure')) setFailed(true)
-    const h = doc?.documentElement?.scrollHeight ?? 0
-    if (h > 0) setContentHeight(h)
+    fitHeight()
+    observeInner()
   }
 
   if (failed) {

@@ -194,16 +194,22 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-6, 2026-11-25 ~08:00 UTC): frontend
-vitest 171/171 (23 files), `tsc -b` clean (and `tsc --noEmit -p
+Verified by my own runs (fix-back-7, 2026-11-25 ~08:35 UTC): frontend
+vitest 188/188 (23 files), `tsc -b` clean (and `tsc --noEmit -p
 tsconfig.json` clean — this repo has no `tsconfig.app.json`; the build
-script's `tsc -b` is the check), `vite build` clean twice (542.61 kB JS,
-542,607 B, `assets/index-CyU-TILV.js`, sha256
-`9aff21f142639e816394155f7705cef3bace57d8c320601119453e6542b2f020`, identical
-across both builds), API stats-reconcile test 3/3 (new incomplete-scan
-503 test included), secret scan clean on the diff (0 genuine hits — the
-only `token` matches are public on-chain identifiers: agent token 1476,
-the `one_token_transfer` check id, `tokenId=EUDemo`).
+script's `tsc -b` is the check), `vite build` clean twice (544.57 kB JS,
+544,569 B, `assets/index-BHumCPmU.js`, sha256
+`2822d07f67d7968a9839457a4bb604491d1b4ec4284495f962fe3f8a1dac3f94`, identical
+across both builds), API stats-reconcile test 3/3, secret scan clean on
+the diff (0 genuine hits). Fix-back-7 fixes the fix-back-6 panel list:
+exclusion-aware snapshot shrink (a reserve/void legitimately removes a
+row), in-loop retries on endpoint throws, the 20 s stats cache removed,
+empty cold-load pairs rejected, dashboard renders the kept snapshot with
+a could-not-refresh note, hero shows a load error instead of loading
+forever, plus the S1–S5 small items (see `qa/fixback7.md`). The new handler-level
+stats/invoices test runs 5/5 from a `/tmp` install (`npm ci` in-tree is
+blocked by a home-filesystem quota; `api/node_modules` is still absent —
+see `qa/fixback7.md` "Quota incident").
 NOT yet verified: live screenshots — the VM lost every working browser in
 the 01:45 EET reboot (Chromium 1255 dead, stock Firefox lacks Playwright's
 Juggler protocol, Playwright's Firefox CDN returns 400 via the egress

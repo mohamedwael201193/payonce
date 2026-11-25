@@ -21,10 +21,15 @@ import { refusedCaption } from '../lib/copy'
 import type { InvoiceItem, Stats } from '../lib/types'
 import { demoStatChips, demoTableRows } from '../lib/heroDemo'
 
-export function HeroDemo({ items, stats }: { items: InvoiceItem[]; stats: Stats | undefined }) {
+export function HeroDemo({ items, stats, error = false }: { items: InvoiceItem[]; stats: Stats | undefined; error?: boolean }) {
   const chips = demoStatChips(items, stats)
   const rows = demoTableRows(items)
-  const loading = items.length === 0 && stats === undefined
+  // Fix-back-7 MF-7: an error with no data is an error, not an endless
+  // loading skeleton — the hero used to show "still loading" forever on
+  // a first-load failure. An error WITH data (a failed background
+  // refresh) still renders the kept chips and table.
+  const loading = items.length === 0 && stats === undefined && !error
+  const loadFailed = error && items.length === 0 && stats === undefined
 
   return (
     <div className="px-4 py-5 sm:px-5">
@@ -47,7 +52,13 @@ export function HeroDemo({ items, stats }: { items: InvoiceItem[]; stats: Stats 
           </Link>
         </div>
 
-        {loading ? (
+        {loadFailed ? (
+          <div role="alert">
+            <p className="mt-5 text-sm text-muted">
+              Could not load the live numbers — the test API did not answer. Try refreshing the page.
+            </p>
+          </div>
+        ) : loading ? (
           <div role="status">
             <p className="mt-5 text-sm text-muted">Demo unavailable — the live invoice list is still loading.</p>
             <div className="mt-4 flex flex-wrap gap-2" aria-hidden="true">

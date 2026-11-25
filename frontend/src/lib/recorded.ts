@@ -60,7 +60,13 @@ export const RECORDED_REFUSALS: RecordedRefusal[] = [
     code: -13,
     name: 'NotExpired',
     txHash: '8902c4f12f1c268fc94576b01e1734c8a91e59b631c5857e3fa4a631eb4ef4e7',
-    plain: 'The reservation is still open. It can be released only after its 300 s window.',
+    // Fix-back-7 S3: the 300 s IS accurate for this recorded tx — it is a
+    // v1-registry (<13149,0>) refusal (qa/out/baseline-verify.json: the
+    // early_expiry_reject tx is on contract 13149, and api/src/attacks.mjs
+    // labels these "the v1 recorded refusals"). But bare "300 s window"
+    // feeds the B4 confusion next to the live 3600 s registry, so the
+    // gloss now says which run it belongs to and what the live value is.
+    plain: 'The reservation is still open. It can be released only after its 300 s window (v1 recorded run; the live registry reserves for 3600 s).',
   },
 ]
 

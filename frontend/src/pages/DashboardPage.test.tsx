@@ -6,7 +6,7 @@
 // gates: the feed and the donut must show skeletons while loading and the
 // error on failure — never a false "No activity yet" / false-zero donut.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -87,13 +87,14 @@ function mockApi() {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const rendered = render(
     <QueryClientProvider client={client}>
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <DashboardPage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  return { client, ...rendered }
 }
 
 describe('DashboardPage', () => {
@@ -242,13 +243,53 @@ describe('DashboardPage', () => {
     renderPage()
     const feed = screen.getByText('Live Activity Feed').closest('section') as HTMLElement
     const donut = screen.getByText('Payment Split').closest('section') as HTMLElement
-    // The hooks retry once (retry: 1) with backoff, so the error state
-    // lands ~1–2 s after the failed fetch, not immediately.
-    await waitFor(() => expect(within(feed).getByText(COPY.statsNoData)).toBeInTheDocument(), { timeout: 5000 })
+    // The hooks retry once (retry: 1) with backoff, and the snapshot fetch
+    // retries its 3 in-loop attempts (~3 s of 1 s + 2 s gaps, fix-back-7
+    // MF-2), so the error state lands ~3–4 s after the failed fetch.
+    await waitFor(() => expect(within(feed).getByText(COPY.statsNoData)).toBeInTheDocument(), { timeout: 10000 })
     expect(within(donut).getByText(COPY.statsNoData)).toBeInTheDocument()
     expect(within(feed).getByText('Paused')).toBeInTheDocument()
     expect(within(feed).queryByText('No activity yet — pay an invoice and it appears here.')).not.toBeInTheDocument()
     expect(within(donut).queryByLabelText('No payables yet')).not.toBeInTheDocument()
+  })
+
+  // Fix-back-7 MF-6: a failed BACKGROUND refresh must not hide the kept
+  // snapshot behind dashes. The first poll succeeds; the refetch fails —
+  // the cards keep their numbers, the table keeps its rows, and a
+  // could-not-refresh note appears instead of the error text.
+  it('keeps the last good snapshot with a could-not-refresh note when a background refresh fails', async () => {
+    let snapCalls = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const isSnapshot = url.includes('/api/invoices') || url.includes('/api/stats')
+        if (isSnapshot) snapCalls += 1
+        // The first pair succeeds; every later snapshot poll fails.
+        if (isSnapshot && snapCalls > 2) return { ok: false, status: 500, json: async () => ({}) }
+        const body = url.includes('/api/invoices')
+          ? INVOICES
+          : url.includes('/api/stats')
+            ? STATS
+            : url.includes('/api/config')
+              ? CONFIG
+              : null
+        if (!body) return { ok: false, status: 404, json: async () => ({}) }
+        return { ok: true, status: 200, json: async () => body }
+      }),
+    )
+    const { client } = renderPage()
+    await waitFor(() => expect(screen.getByTestId('stat-total')).toHaveTextContent('5'), { timeout: 3000 })
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['live-snapshot'] })
+    })
+    // The snapshot fetch retries its 3 in-loop attempts (~3 s) before it
+    // throws and react-query keeps the last good data with isError set.
+    await waitFor(() => expect(screen.getByText(/Could not refresh the live numbers just now/)).toBeInTheDocument(), { timeout: 10000 })
+    expect(screen.getByTestId('stat-total')).toHaveTextContent('5')
+    expect(screen.getByTestId('stat-paid')).toHaveTextContent('3')
+    expect(screen.getByText('Payable 1')).toBeInTheDocument()
+    expect(screen.queryByText(COPY.statsNoData)).not.toBeInTheDocument()
+    expect(screen.getByText('Paused')).toBeInTheDocument()
   })
 
   it('sidebar links to the real routes, and Export CSV is present', async () => {

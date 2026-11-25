@@ -248,6 +248,18 @@ describe('AgeProofPage', () => {
     expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
   })
 
+  // Fix-back-7 S2: while health is loading, both demo sections carry a
+  // loading banner explaining the disabled buttons — not silence under
+  // live-looking intro copy.
+  it('S2: while health loads, both demos show a loading banner and stay disabled', () => {
+    renderPage()
+    expect(
+      screen.getAllByText('Checking the age-proof prover… The demo buttons stay disabled until it answers.'),
+    ).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Reveal the first name' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
+  })
+
   it('B7: the header sits on a dark band, and the verify intro has no stray valid:false fragment', async () => {
     const { container } = renderPage()
     await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
