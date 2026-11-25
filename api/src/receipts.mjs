@@ -12,15 +12,183 @@
 // reservation + paid_at rows, G7 fix-back-3 MF-3), plus the stored-tx-hash
 // receipt-binding extra (paid_at is already covered by the after-pay run,
 // so it is not counted twice — see buildReceiptFor).
+//
+// Art. 12 record (workshops W4 §7.3–7.4; W-42): every receipt also carries
+// an `art12` object — the EU AI Act Art. 12 field list (agent/model, task,
+// task-giver, authoriser, decisions, payment details, errors, human
+// overrides), a random nonce, a recordHash = sha256 of the canonical
+// record JSON (helpers shared with backend/src/receipt/build.mjs), and a
+// registerData anchor of the record hash on chain (VRA/VAA-style CBOR pair
+// where it fits — here a 32-byte hash anchor; the consent flow anchors the
+// full VRA/VAA pair, see api/src/consent.mjs). The record's stable core
+// never changes after first build: the nonce, the core fields and the
+// anchor tx are stored with the receipt and reused on every rebuild, so
+// the recordHash stays verifiable; only the fresh `verifier` re-run is
+// refreshed. Retention: ≥6 months, provider responsible (statement in
+// the record and on the judge page). No PII goes on chain — only the hash.
+import { randomBytes } from 'node:crypto';
+import { Transaction, DataBlob, TransactionExpiry, AccountAddress, SequenceNumber } from '@concordium/web-sdk';
 import { backend } from './backend.mjs';
 import {
-  grpc, getPayableOrNull, getRegistryBalance, getTx, getBlockTime, updatedEvent,
+  grpc, getPayableOrNull, getRegistryBalance, getTx, getBlockTime, updatedEvent, signers,
+  nextNonce, withNonceRetry,
   SELLER,
 } from './chain-v2.mjs';
 import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.mjs';
 import { docForPayable, recordedPaymentTx } from './docs.mjs';
-import { loadReceipts, saveReceipt, loadCounters, saveCounters } from './store.mjs';
-import { REGISTRY, txUrl } from './config.mjs';
+import { loadReceipts, saveReceipt, loadCounters, saveCounters, loadConsents } from './store.mjs';
+import { REGISTRY, OWNER_ADDRESS, txUrl } from './config.mjs';
+
+export const ART12_RETENTION =
+  'Retained for at least 6 months by the provider (PayOnce lab) from the payment date, as EU AI Act Art. 12 requires for AI-system logs. The record itself holds no personal data; only its hash is anchored on chain.';
+export const ART12_AGENT = {
+  name: 'PayOnce demo agent',
+  registry_token: 1476,
+  registry: '<12802,0>',
+  owner: OWNER_ADDRESS,
+  badge: 'JyP9XawpXHMjTN5ocrA5a',
+};
+export const ART12_MODEL =
+  'No language model — deterministic decision code (co-signer decide() + mandate contract on <13150,0>). No LLM is anywhere in this payment flow.';
+
+/** The stable Art. 12 core for a paid payable (no volatile fields). */
+export function buildArt12Core({ payableId, view, txs, verifier, consent }) {
+  const txHashes = txs.map(([, hash]) => hash);
+  return {
+    agent: ART12_AGENT,
+    model: ART12_MODEL,
+    task: `Verify & Pay payable ${payableId} (${view.asset === 'CCD' ? `${(Number(view.amount) / 1e6).toFixed(6)} CCD` : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`})`,
+    task_giver: `Demo payer account (lab) ${view.record?.payer ?? 'unknown'}`,
+    authoriser: 'Owner/co-signer (2-of-3 agent wallet): seller B approves the seller, the co-signer decision-gates every sign, the owner holds the recovery key',
+    decisions: {
+      verifier: verifier ? `after-pay verifier ${verifier.passed}/${verifier.total} (checked ${verifier.checked_at})` : 'verifier did not run on this build',
+      mandate: 'per-payable + period caps, vendor allow-list, reservation expiry — enforced by the mandate contract <13150,0> and the co-signer decide() gate',
+      consent: consent?.status === 'approved'
+        ? `owner consent approved (VRA ${consent.vraTx}, VAA ${consent.vaaTx})`
+        : consent ? `consent ${consent.status} (VRA ${consent.vraTx ?? 'none'})` : 'no consent request on file for this payable',
+    },
+    payment: {
+      lock: 'mandate contract <13150,0> (payable_registry_v2) — no funds held by the badge; spending is gated by the mandate, not by the badge',
+      amount: view.amount,
+      asset: view.asset,
+      recipients: [view.payee],
+      payer: view.record?.payer ?? null,
+      tx_hashes: txHashes,
+    },
+    errors: [],
+    human_overrides: consent?.status === 'approved'
+      ? [`owner consent approval for payable ${payableId} (VRA ${consent.vraTx}, VAA ${consent.vaaTx})`]
+      : [],
+    consent: consent ? { status: consent.status, vra_tx: consent.vraTx, vaa_tx: consent.vaaTx, consent_sha256: consent.consentSha256 } : null,
+    retention: ART12_RETENTION,
+    registry: `<${REGISTRY.index},${REGISTRY.subindex}>`,
+    network: 'testnet',
+  };
+}
+
+/**
+ * A read-back result is a DEAD anchor only when the node has no record of
+ * the tx at all ("transaction not found"). Any other non-finalized state
+ * (received / committed, or a transient gRPC error) means the tx may still
+ * land — the stored hash is kept and re-checked, never cleared.
+ */
+export function isDeadAnchor(check) {
+  const text = `${check?.status ?? ''} ${check?.reason ?? ''}`;
+  return /transaction not found/i.test(text);
+}
+
+/**
+ * FIX-BACK-3 (M1): wait until a just-sent anchor tx is finalized on chain.
+ * A send that the node accepted into the mempool can still be dropped
+ * under owner-nonce contention (live-proven: receipt 1001's anchor
+ * `a3d92c48…` — send returned a hash, the node never finalized it, and
+ * three later gRPC reads all said "transaction not found").
+ * A "not found" straight after send may also be load-balancer
+ * propagation lag, so it only counts as dead after 3 consecutive
+ * not-found polls (~6 s); a tx the node knows about (received /
+ * committed) is waited on instead. Returns { ok:true } once finalized,
+ * else { ok:false, reason } — the caller must NOT store the hash then.
+ */
+export async function waitForAnchorFinalized(txHash, attempts = 20, intervalMs = 2000) {
+  let notFoundStreak = 0;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const check = await verifyRecordAnchor(txHash);
+    if (check.ok) return { ok: true, status: check.status };
+    if (isDeadAnchor(check)) {
+      notFoundStreak += 1;
+      if (notFoundStreak >= 3) {
+        return { ok: false, reason: `anchor tx ${txHash} not found after send — the node never finalized it (mempool drop); not stored, retry on next read` };
+      }
+    } else {
+      // Known to the node but not finalized yet (received / committed) —
+      // or a transient read error: wait, do not declare it dead.
+      notFoundStreak = 0;
+    }
+    if (attempt < attempts) await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return { ok: false, reason: `anchor tx ${txHash} not finalized within ${Math.round((attempts * intervalMs) / 1000)}s — not stored, retry on next read` };
+}
+
+/**
+ * Anchor a 32-byte record hash via registerData (owner-signed, testnet).
+ * Returns { txHash, explorerUrl } or { error } when no signer is available
+ * on this host (fail-soft: the receipt is still served, anchorStatus says
+ * so — never a fake anchor).
+ *
+ * FIX-BACK-2 (M4): the send runs under withNonceRetry (same treatment as
+ * sendTokenTransfer) — a stale owner nonce under concurrency used to
+ * reject the anchor with "Duplicate nonce" and permanently lose it, since
+ * the rebuild path never re-attempted. A duplicate-nonce rejection happens
+ * BEFORE acceptance, so rebuilding with a fresh nonce cannot double-send;
+ * bounded (6 attempts, 4 s apart, see chain-v2.mjs).
+ *
+ * FIX-BACK-3 (M1): the returned hash is only reported after finality is
+ * confirmed (waitForAnchorFinalized). A send whose tx the node never
+ * finalizes returns { error } instead of a hash, so no dead hash is ever
+ * stored — the next read retries the same record hash. A second, later
+ * anchor of the SAME record hash is harmless: both txs carry identical
+ * data, so either one verifies the record.
+ */
+export async function anchorRecordHash(recordHashHex) {
+  try {
+    const out = await withNonceRetry(async () => {
+      const c = await grpc();
+      const sig = await signers();
+      const { owner } = sig;
+      // Dual-copy boundary (see buyer-agent.mjs): nonce via the
+      // string-address helper, never c.getAccountInfo with this file's
+      // AccountAddress.
+      const nonce = await nextNonce(c, owner.address);
+      const data = new DataBlob(Uint8Array.from(Buffer.from(recordHashHex, 'hex')).buffer);
+      const tx = Transaction.registerData({ data }).addMetadata({
+        sender: AccountAddress.fromBase58(owner.address),
+        nonce: SequenceNumber.create(nonce),
+        expiry: TransactionExpiry.fromDate(new Date(Date.now() + 10 * 60 * 1000)),
+      });
+      const finalized = await Transaction.signAndFinalize(tx.build(), owner.signer);
+      const hash = await c.sendTransaction(finalized);
+      const txHash = (typeof hash === 'string' ? hash : Buffer.from(hash.buffer ?? hash).toString('hex')).toLowerCase();
+      return { txHash, explorerUrl: txUrl(txHash) };
+    });
+    const confirmed = await waitForAnchorFinalized(out.txHash);
+    if (!confirmed.ok) return { error: confirmed.reason };
+    return out;
+  } catch (e) {
+    return { error: String(e?.message ?? e).slice(0, 300) };
+  }
+}
+
+/** Read-back check: is the anchor tx finalized on chain? */
+export async function verifyRecordAnchor(txHash) {
+  if (!txHash) return { ok: false, reason: 'no_anchor_tx' };
+  try {
+    const c = await grpc();
+    const status = await getTx(c, txHash);
+    return { ok: status.status === 'finalized', status: status.status, txHash };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message ?? e).slice(0, 200) };
+  }
+}
 
 /** Payment transactions for a paid payable, from the store then evidence. */
 export async function paymentTxsFor(payableId, view) {
@@ -149,6 +317,93 @@ export async function buildReceiptFor(payableId) {
     txs: txs.map(([label, hash]) => ({ label, tx_hash: hash, explorer_url: txUrl(hash) })),
     verifier,
     payment_tx_source: source,
+  };
+
+  // ---- Art. 12 record (W-42) ----
+  // The stable core + nonce + recordHash + anchor live in the stored
+  // receipt and are reused on every rebuild, so the hash stays verifiable.
+  // FIX-BACK-2 (M4): a stored record whose first-build anchor FAILED
+  // (anchor_tx null, e.g. "Duplicate nonce") is re-anchored on rebuild —
+  // a transient nonce collision must not permanently lose a paid
+  // receipt's Art. 12 anchor. FIX-BACK-3 (M1): the same applies to a
+  // stored anchor whose tx the node never finalized ("transaction not
+  // found") — a dead non-null anchor is cleared and re-anchored, never
+  // re-reported forever. The re-attempt sends exactly one
+  // registerData tx for the SAME record hash (the hash never changes),
+  // so it cannot create a second, different anchor. A receipt that
+  // predates Art. 12 anchoring with no record hash at all still gets its
+  // anchor only on first build (below); a GET never mints a new record.
+  const stored = (await loadReceipts())[payableId];
+  const consents = await loadConsents();
+  const consent = consents[payableId] ?? null;
+  const { receiptBuild } = await backend();
+  const ART12_CORE_KEYS = ['agent', 'model', 'task', 'task_giver', 'authoriser', 'decisions', 'payment', 'errors', 'human_overrides', 'consent', 'retention', 'registry', 'network'];
+  if (stored?.art12?.record_hash && stored.art12.nonce) {
+    // Integrity: recompute the hash from the stored core + nonce. A
+    // mismatch means the stored record was tampered with — rebuild it
+    // fresh below instead of serving a hash that does not match.
+    const coreFromStored = Object.fromEntries(ART12_CORE_KEYS.map((k) => [k, stored.art12[k]]));
+    const recomputed = receiptBuild.computeRecordHash({ ...coreFromStored, nonce: stored.art12.nonce });
+    if (recomputed === stored.art12.record_hash) {
+      // FIX-BACK-3 (M1): a stored anchor whose tx the node has NO record
+      // of ("transaction not found") is dead — the send returned a hash
+      // for a tx that was never finalized, and the old code re-reported
+      // that hash forever because the re-anchor branch only fired when
+      // anchor_tx was null. A dead anchor is treated exactly like a null
+      // one: cleared and re-anchored for the SAME record hash below. The
+      // dead hash is kept in `anchor_recovered_from` for audit. Any other
+      // non-finalized read-back (received / committed / transient error)
+      // keeps the stored hash — the tx may still land.
+      const anchor = stored.art12.anchor_tx ? await verifyRecordAnchor(stored.art12.anchor_tx) : { ok: false, reason: 'not_anchored' };
+      const deadAnchor = stored.art12.anchor_tx && !anchor.ok && isDeadAnchor(anchor) ? stored.art12.anchor_tx : null;
+      if (!stored.art12.anchor_tx || deadAnchor) {
+        // First-build anchor failed transiently — or the stored anchor is
+        // dead (see above). Re-attempt it now for the same record hash
+        // (nonce-retry + finality confirmation inside anchorRecordHash).
+        const reanchored = await anchorRecordHash(stored.art12.record_hash);
+        if (reanchored.txHash) {
+          receipt.art12 = {
+            ...stored.art12,
+            anchor_tx: reanchored.txHash,
+            anchor_url: reanchored.explorerUrl,
+            anchor_status: 'anchored',
+            anchor_verified_at: null,
+            ...(deadAnchor ? { anchor_recovered_from: deadAnchor } : {}),
+          };
+        } else {
+          receipt.art12 = {
+            ...stored.art12,
+            anchor_tx: null,
+            anchor_url: null,
+            anchor_status: `not_anchored (${reanchored.error ?? 're-anchor failed'})`,
+            anchor_verified_at: stored.art12.anchor_verified_at ?? null,
+            ...(deadAnchor ? { anchor_recovered_from: deadAnchor } : {}),
+          };
+        }
+        await saveReceipt(receipt);
+        return receipt;
+      }
+      receipt.art12 = {
+        ...stored.art12,
+        anchor_status: anchor.ok ? 'verified' : `anchor_tx_${anchor.status ?? anchor.reason}`,
+        anchor_verified_at: anchor.ok ? new Date().toISOString() : stored.art12.anchor_verified_at ?? null,
+      };
+      await saveReceipt(receipt);
+      return receipt;
+    }
+  }
+  const core = buildArt12Core({ payableId, view, txs, verifier, consent });
+  const nonce = randomBytes(16).toString('hex');
+  const recordWithoutHash = { ...core, nonce };
+  const recordHash = receiptBuild.computeRecordHash(recordWithoutHash);
+  const anchored = await anchorRecordHash(recordHash);
+  receipt.art12 = {
+    ...recordWithoutHash,
+    record_hash: recordHash,
+    anchor_tx: anchored.txHash ?? null,
+    anchor_url: anchored.explorerUrl ?? null,
+    anchor_status: anchored.txHash ? 'anchored' : `not_anchored (${anchored.error ?? 'no signer on this host'})`,
+    anchor_verified_at: null,
   };
   await saveReceipt(receipt);
   return receipt;

@@ -164,6 +164,238 @@ test('co-signer decide() refuses a reserve for an unlisted seller (no-approval)'
   assert.equal(d.code, 'no-approval');
 });
 
+// ---- workshop fix-back: consent anchor (W-01/W-11) ----
+import {
+  consentTextFor, sha256Hex as consentSha256, isAboveAskMeThreshold, buildConsentRecord,
+  consentGateCheck, publicConsent, decodeConsentAnchor, isConsentExpired, assertContextsMatch,
+  extractPresentationNonce, assertPresentationNonceMatches,
+  ASK_ME_THRESHOLD_BASE, CONSENT_VALIDITY_SECS, LAB_CONSENT_ANCHORS,
+} from '../src/consent.mjs';
+import { parseMcpBody, mcpToolText, mcpToolJson, assertTestnet, clearMcpCache } from '../src/mcp-client.mjs';
+import { balanceStatus, BALANCE_OK_MICROCCD } from '../src/balance-watch.mjs';
+import { parseRegisteredTokenId } from '../src/buyer-agent.mjs';
+import { externalKeyFromEnv, CIS8_CONTRACT } from '../src/cis8.mjs';
+import { buildArt12Core, ART12_RETENTION, isDeadAnchor } from '../src/receipts.mjs';
+
+test('consent: question text is hash-bound (one word changed => different hash)', () => {
+  const view = { payableId: 42, amount: '2000000', asset: 'EUDemo', payee: '4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg', seller: OWNER_ADDRESS };
+  const a = consentTextFor(view);
+  const b = consentTextFor({ ...view, amount: '2100000' });
+  assert.notEqual(a, b);
+  assert.notEqual(consentSha256(a), consentSha256(b));
+  assert.match(a, /I consent: agent .* may pay up to 2\.00 EUDemo to merchant 4Vtd6WnC.* for order payable-42/);
+});
+
+test('consent: ask-me threshold is 1 CCD / 1.00 EUDemo', () => {
+  assert.equal(ASK_ME_THRESHOLD_BASE, 1_000_000n);
+  assert.equal(isAboveAskMeThreshold({ amount: '999999' }), false);
+  assert.equal(isAboveAskMeThreshold({ amount: '1000000' }), true);
+  assert.equal(isAboveAskMeThreshold({ amount: '500000' }), false);
+  assert.equal(CONSENT_VALIDITY_SECS, 300);
+});
+
+test('consent: gate passes below threshold, refuses above without approval', () => {
+  const small = { id: 7, amount: '500000', asset: 'CCD', payee: '4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin', seller: OWNER_ADDRESS };
+  assert.equal(consentGateCheck(small, null), null);
+  const big = { ...small, id: 8, amount: '2000000' };
+  const noRecord = consentGateCheck(big, null);
+  assert.equal(noRecord.code, 'consent_required');
+  assert.equal(noRecord.status, 409);
+  const pending = { ...buildConsentRecord(big), status: 'requested' };
+  assert.equal(consentGateCheck(big, pending).code, 'consent_pending');
+  const approved = { ...buildConsentRecord(big), status: 'approved', vraTx: 'ab'.repeat(32), vaaTx: 'cd'.repeat(32) };
+  assert.equal(consentGateCheck(big, approved), null);
+  const used = { ...approved, status: 'used' };
+  assert.equal(consentGateCheck(big, used).code, 'consent_used');
+  const expired = { ...approved, expiresAt: new Date(Date.now() - 1000).toISOString() };
+  assert.equal(isConsentExpired(expired), true);
+  assert.equal(consentGateCheck(big, expired).code, 'consent_expired');
+});
+
+test('consent: public view never carries the request JSON or a secret', () => {
+  const view = { id: 9, amount: '2000000', asset: 'CCD', payee: '4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin', seller: OWNER_ADDRESS };
+  const rec = { ...buildConsentRecord(view), requestJson: { secret: 'x' }, vraTx: 'ab'.repeat(32) };
+  const pub = publicConsent(rec);
+  assert.equal(pub.requestJson, undefined);
+  assert.equal(pub.consent_sha256, rec.consentSha256);
+  assert.equal(pub.explorer_vra_url, `https://ccdexplorer.io/testnet/transaction/${'ab'.repeat(32)}`);
+  assert.deepEqual(Object.keys(pub).sort(), ['above_threshold', 'approved_at', 'consent_sha256', 'created_at', 'domain', 'expires_at', 'explorer_vaa_url', 'explorer_vra_url', 'label', 'one_time_use', 'payable_id', 'question', 'status', 'used_at', 'vaa_tx', 'validity_seconds', 'vra_tx'].sort());
+});
+
+test('consent: lab anchors are the recorded VAV1 goal-2 hashes', () => {
+  assert.equal(LAB_CONSENT_ANCHORS.vra, 'ed92afaf8b3a7806a838f96d210ae2b0ffce9769297fa38973462b1a933bee00');
+  assert.equal(LAB_CONSENT_ANCHORS.vaa, '2b3e6ddd84bd6a23ccb8ec395a647ed7c91c1b700cc8c751fcf4f5a7f16cbc06');
+  assert.equal(LAB_CONSENT_ANCHORS.consentSha256, '8f7bce786dcc037aee2f73da44007b7992a4b7396f91045cb496d7f00b486ff5');
+});
+
+test('consent: decodeConsentAnchor rejects garbage CBOR', () => {
+  const out = decodeConsentAnchor('00'.repeat(8));
+  assert.ok(out.error);
+});
+
+// ---- workshop fix-back: MCP client (W-26) ----
+test('mcp: parseMcpBody handles plain JSON and SSE', () => {
+  const plain = parseMcpBody('{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}');
+  assert.equal(plain.result.tools.length, 0);
+  const sse = parseMcpBody('event: message\ndata: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"hi"}]}}\n\n');
+  assert.equal(sse.result.content[0].text, 'hi');
+  assert.throws(() => parseMcpBody(''), /empty response/);
+});
+
+test('mcp: mcpToolText/mcpToolJson extract tool payloads and surface tool errors', () => {
+  const msg = { result: { content: [{ type: 'text', text: '{"badge_valid":true}' }], isError: false } };
+  assert.deepEqual(mcpToolJson(msg), { badge_valid: true });
+  assert.equal(mcpToolText(msg), '{"badge_valid":true}');
+  assert.throws(() => mcpToolText({ error: { message: 'boom' } }), /boom/);
+  assert.throws(() => mcpToolText({ result: { content: [{ type: 'text', text: 'x' }], isError: true } }), /tool error/);
+});
+
+test('mcp: assertTestnet refuses anything but testnet', () => {
+  assert.throws(() => assertTestnet('mainnet'), /must be 'testnet'/);
+  assert.throws(() => assertTestnet(undefined), /must be 'testnet'/);
+  assert.doesNotThrow(() => assertTestnet('testnet'));
+  clearMcpCache();
+});
+
+// ---- workshop fix-back: balance watch (W-31) ----
+test('balance-watch: ok/low/empty bands (50 CCD headroom)', () => {
+  assert.equal(BALANCE_OK_MICROCCD, 50_000_000n);
+  assert.equal(balanceStatus('50000000'), 'ok');
+  assert.equal(balanceStatus('49999999'), 'low');
+  assert.equal(balanceStatus('1'), 'low');
+  assert.equal(balanceStatus('0'), 'empty');
+});
+
+// ---- workshop fix-back: buyer agent (W-23) ----
+test('buyer-agent: Registered event token id parses (0x08 + u64 LE)', () => {
+  const events = [{ tag: 'Registered', data: '08' + Buffer.alloc(8).toString('hex') }];
+  events[0].data = '08' + Buffer.from([0x6c, 0x05, 0, 0, 0, 0, 0, 0]).toString('hex');
+  assert.equal(parseRegisteredTokenId(events), 1388);
+  assert.equal(parseRegisteredTokenId([]), null);
+  assert.equal(parseRegisteredTokenId([{ tag: 'Other', data: 'ff' }]), null);
+});
+
+// ---- workshop fix-back: CIS-8 (W-17) ----
+test('cis8: no key held by default; contract is <12801,0>', () => {
+  assert.deepEqual(CIS8_CONTRACT, { index: 12801, subindex: 0 });
+  assert.equal(externalKeyFromEnv({}), null);
+  assert.equal(externalKeyFromEnv({ PAYONCE_EXTERNAL_KEY_NAMESPACE: 'eip155' }), null);
+  assert.deepEqual(
+    externalKeyFromEnv({ PAYONCE_EXTERNAL_KEY_NAMESPACE: 'eip155', PAYONCE_EXTERNAL_KEY_TYPE: 'secp256k1', PAYONCE_EXTERNAL_KEY_HEX: '02ab' }),
+    { namespace: 'eip155', key_type: 'secp256k1', public_key_hex: '02ab' },
+  );
+});
+
+// ---- workshop fix-back: Art. 12 receipts (W-42) ----
+test('receipts: Art. 12 core carries the full field list + retention', async () => {
+  const { receiptBuild } = await backend();
+  const view = { id: 42, asset: 'EUDemo', amount: '10000', payee: '4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg', record: { payer: PAYER_ADDRESS } };
+  const core = buildArt12Core({ payableId: 42, view, txs: [['Transfer', 'ab'.repeat(32)]], verifier: { passed: 12, total: 12, checked_at: '2026-11-25T00:00:00.000Z' }, consent: null });
+  for (const k of ['agent', 'model', 'task', 'task_giver', 'authoriser', 'decisions', 'payment', 'errors', 'human_overrides', 'consent', 'retention', 'registry', 'network']) {
+    assert.ok(k in core, `missing Art. 12 field ${k}`);
+  }
+  assert.match(core.retention, /at least 6 months/);
+  assert.match(ART12_RETENTION, /at least 6 months/);
+  assert.equal(core.payment.recipients[0], view.payee);
+  assert.equal(core.agent.registry_token, 1476);
+  const withNonce = { ...core, nonce: '00'.repeat(16) };
+  const h1 = receiptBuild.computeRecordHash(withNonce);
+  const h2 = receiptBuild.computeRecordHash(withNonce);
+  assert.equal(h1, h2);
+  assert.match(h1, /^[0-9a-f]{64}$/);
+  const tampered = { ...withNonce, task: 'pay something else' };
+  assert.notEqual(receiptBuild.computeRecordHash(tampered), h1);
+});
+
+// ---- workshop fix-back-3: dead-anchor detection (M1) ----
+test('receipts: isDeadAnchor fires only on "transaction not found"', () => {
+  // The live-proven dead case: the node's own words for receipt 1001's
+  // anchor (verifyRecordAnchor reason), and the stored anchor_status
+  // string the old code re-reported forever.
+  assert.equal(isDeadAnchor({ ok: false, reason: 'transaction not found.' }), true);
+  assert.equal(isDeadAnchor({ ok: false, status: 'transaction not found.' }), true);
+  assert.equal(isDeadAnchor({ ok: false, reason: 'anchor_tx_transaction not found.' }), true);
+  // Everything else must NOT clear a stored anchor: a tx the node knows
+  // about may still finalize, and a transient read error is not a death.
+  assert.equal(isDeadAnchor({ ok: true, status: 'finalized' }), false);
+  assert.equal(isDeadAnchor({ ok: false, status: 'received' }), false);
+  assert.equal(isDeadAnchor({ ok: false, status: 'committed' }), false);
+  assert.equal(isDeadAnchor({ ok: false, reason: 'no outcome for tx abcd' }), false);
+  assert.equal(isDeadAnchor({ ok: false, reason: 'not_anchored' }), false);
+  assert.equal(isDeadAnchor(null), false);
+  assert.equal(isDeadAnchor({}), false);
+});
+
+// ---- workshop fix-back: context pre-validation (crash bug, 2026-11-25) ----
+test('consent: assertContextsMatch passes a matching pair, throws context_mismatch otherwise', () => {
+  const request = {
+    context: {
+      given: [
+        { label: 'Nonce', context: 'aa'.repeat(32) },
+        { label: 'ConnectionID', context: 'payonce-consent-2002' },
+        { label: 'ResourceID', context: 'payonce-tau.vercel.app' },
+        { label: 'ContextString', context: 'I consent: agent X may pay up to 2.00 EUDemo' },
+      ],
+      requested: ['BlockHash'],
+    },
+  };
+  const matching = {
+    presentationContext: {
+      given: [
+        { label: 'Nonce', context: 'aa'.repeat(32) },
+        { label: 'ConnectionID', context: 'payonce-consent-2002' },
+        { label: 'ResourceID', context: 'payonce-tau.vercel.app' },
+        { label: 'ContextString', context: 'I consent: agent X may pay up to 2.00 EUDemo' },
+      ],
+      requested: [{ label: 'BlockHash', context: 'bb'.repeat(32) }],
+    },
+  };
+  assert.doesNotThrow(() => assertContextsMatch(request, matching));
+  // Wrong nonce (a presentation built for a different consent).
+  const wrongNonce = structuredClone(matching);
+  wrongNonce.presentationContext.given[0].context = 'cc'.repeat(32);
+  assert.throws(() => assertContextsMatch(request, wrongNonce), /context_mismatch: no matching given context for label Nonce/);
+  // Fewer given items (a minimal presentation missing ConnectionID etc.).
+  const shortGiven = structuredClone(matching);
+  shortGiven.presentationContext.given = shortGiven.presentationContext.given.slice(0, 1);
+  assert.throws(() => assertContextsMatch(request, shortGiven), /context_mismatch: given context count differs/);
+  // Requested label missing.
+  const noBlockHash = structuredClone(matching);
+  noBlockHash.presentationContext.requested = [];
+  assert.throws(() => assertContextsMatch(request, noBlockHash), /context_mismatch: requested context count differs/);
+  // SDK-instance shape (toJSON) is accepted as well.
+  assert.doesNotThrow(() => assertContextsMatch({ toJSON: () => request }, { toJSON: () => matching }));
+});
+
+// ---- fix-back-2 (M5): Nonce pre-validation against the stored consent ----
+test('consent: extractPresentationNonce reads the Nonce, assertPresentationNonceMatches binds it to the record', () => {
+  const sha = 'e665e90f5bc5f15903681a03bb1df6fc99decd70e27450a9dc3da175773d9d10';
+  const presentation = {
+    presentationContext: {
+      given: [
+        { label: 'Nonce', context: sha },
+        { label: 'ConnectionID', context: 'payonce-consent-2000' },
+      ],
+      requested: [{ label: 'BlockHash', context: 'bb'.repeat(32) }],
+    },
+  };
+  assert.equal(extractPresentationNonce(presentation), sha);
+  assert.doesNotThrow(() => assertPresentationNonceMatches(presentation, { consentSha256: sha }));
+  // Uppercase hex in the presentation still matches (normalized).
+  const upper = structuredClone(presentation);
+  upper.presentationContext.given[0].context = sha.toUpperCase();
+  assert.doesNotThrow(() => assertPresentationNonceMatches(upper, { consentSha256: sha }));
+  // A presentation built for a DIFFERENT payable (different Nonce) fails.
+  const cross = structuredClone(presentation);
+  cross.presentationContext.given[0].context = '4b01da23d280095c0000000000000000000000000000000000000000000000';
+  assert.throws(() => assertPresentationNonceMatches(cross, { consentSha256: sha }), /context_mismatch: presentation Nonce 4b01da23d280095c… does not match/);
+  // No Nonce at all fails (never reaches the SDK).
+  assert.equal(extractPresentationNonce({ presentationContext: { given: [] } }), null);
+  assert.throws(() => assertPresentationNonceMatches({ presentationContext: { given: [] } }, { consentSha256: sha }), /context_mismatch: presentation carries no Nonce context/);
+  // SDK-instance shape (toJSON) is accepted as well.
+  assert.equal(extractPresentationNonce({ toJSON: () => presentation }), sha);
+});
+
 // ---- G7 fix-back-3 MF-3 (API verifier, fail-closed) ----
 // The API verifier used to certify PLT payments with zero reservation
 // evidence: verifyPltV2 ran no reservation check, and

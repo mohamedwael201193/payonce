@@ -6,13 +6,23 @@
 // Art. 12 record in the registerData style (workshops W3–W6, §7.3–7.4):
 // the record itself carries a random nonce and a recordHash = sha256 of
 // the canonical receipt JSON (without recordHash); no PII goes on chain.
+//
+// NOTE (workshop fix-back, W-42): this builder is the v1 receipt path and
+// is NOT the live receipt path — the live API serves receipts from
+// api/src/receipts.mjs, which rebuilds them live from the v2 registry and
+// now carries the same Art. 12 field set + nonce + recordHash + a
+// registerData anchor (see receipts.mjs buildArt12Core). This module's
+// hash helpers (sha256Hex, canonicalJson, receiptIdFor, computeRecordHash)
+// are shared with that live path. Do not call buildReceipt() for a v2
+// payable: its verifier branch (src/verifier/checks.mjs) and its registry
+// reads are v1-only.
 import { createHash, randomBytes } from 'node:crypto';
 import { grpcClient, getTxStatus, getBlockTime } from '../chain.mjs';
 import { getPayable, getRegistryBalance } from '../registry.mjs';
 import { decodeLoggedEvents } from '../events.mjs';
 import { verifyCcd, verifyPlt } from '../verifier/checks.mjs';
 
-export const REGISTRY = '<13149,0>';
+export const REGISTRY = '<13149,0>'; // v1 registry — this builder is for v1 payables only (6/7, fixtures + tests pin it). The LIVE path is api/src/receipts.mjs, which labels the v2 registry <13150,0> from config. Do NOT call this builder for v2 payables.
 export const NETWORK = 'testnet';
 export const FOOTER =
   'Testnet receipt. It is not a legal invoice, a tax document or proof of delivery.';

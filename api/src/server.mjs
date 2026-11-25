@@ -27,8 +27,20 @@ import {
 } from './docs.mjs';
 import {
   loadJobs, loadCounters, saveCounters,
-  hitWindow, leftInWindow,
+  hitWindow, leftInWindow, loadConsents, loadBuyerAgent,
 } from './store.mjs';
+import {
+  buildConsentRecord, consentFor, consentGateCheck, publicConsent, anchorConsentVra,
+  verifyConsentVra, approveConsentHeadless, isConsentExpired, isAboveAskMeThreshold,
+  ASK_ME_THRESHOLD_BASE, CONSENT_VALIDITY_SECS, CONSENT_DOMAIN, LAB_CONSENT_ANCHORS,
+  LAB_VA_ANCHORS, verifyV1PresentationWithNode, anchorConsentVaa,
+  extractPresentationNonce, assertPresentationNonceMatches,
+} from './consent.mjs';
+import { mcpToolsList, mcpCheckBadge, mcpAgentOf, mcpAgentsByOwner, MCP_URL } from './mcp-client.mjs';
+import { checkBalances, topUpPayer, BALANCE_OK_MICROCCD } from './balance-watch.mjs';
+import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } from './buyer-agent.mjs';
+import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
+import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
 import { listableRows, statsBody } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
@@ -41,8 +53,21 @@ import {
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
   FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS,
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
-  txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash,
+  txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash, ENV,
 } from './config.mjs';
+
+// ---- process guard (fix-back-2, M5 CRITICAL): no single request may kill
+// the API. The SDK's createChecked calls compareContexts WITHOUT await; a
+// mismatch throw inside it becomes an unhandled promise rejection, which
+// Node turns into a process exit — that is how one cross-payable replay
+// POST (a valid presentation for payable 2000 submitted to payable 1066)
+// killed the server twice on the identical input. The mismatch is now
+// pre-filtered (Nonce check in handleConsentVerifyPresentation +
+// assertContextsMatch in anchorConsentVaa), but this guard is the last
+// line: log the rejection and keep serving instead of dying.
+process.on('unhandledRejection', (reason) => {
+  console.error('[api] unhandledRejection (server kept alive):', String(reason?.message ?? reason).slice(0, 500));
+});
 
 // ---- startup readiness: migrate + seed + reconcile once, before serving.
 // The listen block awaits it (fail fast on a dead DB); the request handler
@@ -224,6 +249,21 @@ async function handleConfig(req, res) {
       attempts_per_minute_per_ip: LIMITS.attemptsPerMinutePerIp,
     },
     verifier: { file: 'verify-payable-v2.mjs', version_date: '2026-11-24' },
+    // Workshop fix-back (W-01/W-11, W-26, W-23, W-07, W-31): consent anchor
+    // (ask-me threshold), the hosted registry MCP (testnet only), the buyer
+    // agent, the fee peg, and the balance watch.
+    consent: {
+      ask_me_threshold: '1 CCD or 1.00 EUDemo (1,000,000 base units)',
+      ask_me_threshold_base: ASK_ME_THRESHOLD_BASE.toString(),
+      validity_seconds: CONSENT_VALIDITY_SECS,
+      domain: CONSENT_DOMAIN,
+      lab_anchors: { vra: LAB_CONSENT_ANCHORS.vra, vaa: LAB_CONSENT_ANCHORS.vaa, consent_sha256: LAB_CONSENT_ANCHORS.consentSha256 },
+      va_anchors: { vra: LAB_VA_ANCHORS.vra, vaa: LAB_VA_ANCHORS.vaa },
+    },
+    mcp: { url: MCP_URL, network: 'testnet', tools: 41, note: 'network=testnet is passed on every call; the server default is mainnet' },
+    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: null, status: 'not_registered' },
+    fee_peg: { per_transaction_eur: 0.01, basis: 'Concordium fee peg (W1 §1.2): €0.01 per transaction; see the fee table on the judge page' },
+    balance_watch: { ok_threshold_micro_ccd: BALANCE_OK_MICROCCD.toString(), accounts: ['payer (seller B)', 'sponsor (owner)', 'EUDemo wallet'] },
     as_of: new Date().toISOString(),
   });
 }
@@ -424,10 +464,27 @@ async function handleVerify(req, res, id) {
     if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
     counters.lastVerifierRunAt = new Date().toISOString();
     await saveCounters(counters);
+    // Consent anchor (W-01, reported beside the 9 P3 checks — the check
+    // counts stay exactly 9/10/12, so the existing suites keep passing).
+    const consentRecord = await consentFor(id);
+    const consent = consentRecord
+      ? {
+          ...publicConsent(consentRecord),
+          anchor_verified: consentRecord.vraTx ? (await verifyConsentVra({ grpcClient: c, record: consentRecord })).ok : false,
+        }
+      : {
+          payable_id: id,
+          status: isAboveAskMeThreshold(view) ? 'required' : 'not_required',
+          above_threshold: isAboveAskMeThreshold(view),
+          note: isAboveAskMeThreshold(view)
+            ? 'At or above the ask-me threshold (1 CCD / 1.00 EUDemo): the owner must approve this payable first (POST /api/consent/request).'
+            : 'Below the ask-me threshold (1 CCD / 1.00 EUDemo): owner consent is not required for this payable.',
+        };
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: result.verdict,
       passed: result.passed, total: result.total,
       blocked_reason: result.blockedReason, checks: result.checks,
+      consent,
       checked_at: new Date().toISOString(), read_ms: Date.now() - started,
     });
   }
@@ -575,6 +632,14 @@ async function handlePay(req, res, id) {
   }
   if (view.status === 'Voided') {
     return apiError(res, 409, 'wrong_status', 'chain', `Payable ${id} is Voided and cannot be paid.`);
+  }
+  // Consent gate (W-01): an above-threshold payable needs an approved,
+  // unexpired, unused owner consent before the pay job is created. Below
+  // the threshold the gate passes (consent is optional there).
+  const consentRecord = await consentFor(id);
+  const consentGate = consentGateCheck(view, consentRecord);
+  if (consentGate) {
+    return apiError(res, consentGate.status, consentGate.code, consentGate.layer, consentGate.message, { consent_url: consentGate.consent_url, payable_id: consentGate.payable_id });
   }
   // G8 age gate: payables >= 1 CCD or >= 1.00 EUDemo need a fresh
   // (<=10 min) verified 18+ presentation for the payer on file for this
@@ -754,12 +819,264 @@ async function handleJudgeFiles(req, res, name) {
   res.end(bytes);
 }
 
+// ---- workshop fix-back handlers (consent, MCP, buyer agent, balance, CIS-8) ----
+
+async function handleConsentRequest(req, res) {
+  const ip = clientIp(req);
+  const body = await readBody(req).catch(() => ({}));
+  const payableId = Number(body.payable_id);
+  if (!Number.isInteger(payableId) || payableId < 1) return badRequest(res, 'consent/request needs { payable_id }.');
+  const budget = await hitWindow(`cns:${ip}`, 3_600_000, 3);
+  if (!budget.allowed) {
+    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo budget for consent anchors is used up for this hour (3/hour).', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  }
+  const c = await grpc();
+  const view = await getPayableOrNull(c, SELLER, payableId);
+  if (!view) return notFound(res, `No payable ${payableId} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
+  if (view.status === 'Paid') return apiError(res, 409, 'already_paid', 'chain', `Payable ${payableId} is already Paid — consent is for an unpaid order.`);
+  let record = await consentFor(payableId);
+  if (record && record.vraTx && !isConsentExpired(record) && record.status !== 'used') {
+    const verified = await verifyConsentVra({ grpcClient: c, record });
+    return sendJson(res, 200, { ...publicConsent(record), anchor_verified: verified.ok, already_requested: true });
+  }
+  if (!record || record.status === 'used' || isConsentExpired(record)) {
+    record = buildConsentRecord(view);
+  }
+  // Anchor the VRA on chain (one registerData tx, owner-signed). A record
+  // without its anchor is saved but flagged — the approve/verify paths
+  // refuse until the anchor exists.
+  try {
+    record = await anchorConsentVra({ grpcClient: c, signers, record });
+  } catch (e) {
+    const { saveConsent } = await import('./store.mjs');
+    await saveConsent(record);
+    return apiError(res, 503, 'anchor_failed', 'chain', `The consent request was recorded, but its VRA anchor could not be sent (${String(e?.message ?? e).slice(0, 200)}). Retry the request.`, { consent: publicConsent(record), retryable: true });
+  }
+  return sendJson(res, 201, { ...publicConsent(record), anchor_verified: true });
+}
+
+async function handleConsentGet(req, res, id) {
+  const record = await consentFor(id);
+  if (!record) {
+    return sendJson(res, 200, {
+      payable_id: id, status: 'none',
+      note: 'No consent request exists for this payable. POST /api/consent/request to create one.',
+      lab_anchors: { vra: LAB_CONSENT_ANCHORS.vra, vaa: LAB_CONSENT_ANCHORS.vaa, consent_sha256: LAB_CONSENT_ANCHORS.consentSha256 },
+    });
+  }
+  const c = await grpc();
+  const verified = record.vraTx ? await verifyConsentVra({ grpcClient: c, record }) : { ok: false, reason: 'no_anchor' };
+  return sendJson(res, 200, { ...publicConsent(record), anchor_verified: verified.ok, anchor_check: verified.reason ?? 'ok' });
+}
+
+async function handleConsentApprove(req, res, id) {
+  const ip = clientIp(req);
+  const budget = await hitWindow(`cns:${ip}`, 3_600_000, 3);
+  if (!budget.allowed) {
+    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo budget for consent anchors is used up for this hour (3/hour).', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  }
+  const record = await consentFor(id);
+  if (!record) return notFound(res, `No consent request exists for payable ${id}. Create one first (POST /api/consent/request).`);
+  if (record.status === 'approved') return sendJson(res, 200, { ...publicConsent(record), lab_only: true, already_approved: true });
+  if (record.status === 'used') return apiError(res, 409, 'consent_used', 'app', `The consent for payable ${id} was already used (one-time use). Request a fresh consent.`);
+  if (isConsentExpired(record)) return apiError(res, 409, 'consent_expired', 'app', `The consent for payable ${id} expired (5-minute window). Request a fresh consent.`);
+  if (!record.vraTx) return apiError(res, 409, 'no_anchor', 'chain', `The consent for payable ${id} has no VRA anchor on chain yet. Re-request it (POST /api/consent/request).`);
+  const c = await grpc();
+  try {
+    const { record: updated, vaaTx, vaaMethod } = await approveConsentHeadless({ grpcClient: c, signers, record, env: ENV });
+    return sendJson(res, 200, { ...publicConsent(updated), lab_only: true, vaa_method: vaaMethod, node_verified: true, note: 'LAB-ONLY approval: the owner presentation was built headlessly in-process from the seed-derived credential. Production approvals arrive as wallet presentations via POST /api/consent/:id/verify-presentation.' });
+  } catch (e) {
+    return apiError(res, 502, 'approval_failed', 'chain', `The lab-only approval failed: ${String(e?.message ?? e).slice(0, 300)}`, { retryable: true });
+  }
+}
+
+async function handleConsentVerifyPresentation(req, res, id) {
+  const ip = clientIp(req);
+  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
+  if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
+  const body = await readBody(req, 64 * 1024).catch(() => null);
+  if (!body || typeof body !== 'object' || !body.presentation || typeof body.presentation !== 'object') {
+    return badRequest(res, 'verify-presentation needs { presentation: <VerifiablePresentationV1 JSON> }.');
+  }
+  const record = await consentFor(id);
+  if (!record) return notFound(res, `No consent request exists for payable ${id}. Create one first (POST /api/consent/request).`);
+  if (record.status === 'approved') return sendJson(res, 200, { ...publicConsent(record), already_approved: true });
+  if (record.status === 'used') return apiError(res, 409, 'consent_used', 'app', `The consent for payable ${id} was already used (one-time use). Request a fresh consent.`);
+  if (isConsentExpired(record)) return apiError(res, 409, 'consent_expired', 'app', `The consent for payable ${id} expired (5-minute window). Request a fresh consent.`);
+  if (!record.vraTx || !record.requestJson) return apiError(res, 409, 'no_anchor', 'chain', `The consent for payable ${id} has no VRA anchor on chain yet.`);
+  let presentation;
+  try {
+    presentation = VerifiablePresentationV1.fromJSON(body.presentation);
+  } catch (e) {
+    return badRequest(res, `presentation is not a valid VerifiablePresentationV1 JSON (${String(e?.message ?? e).slice(0, 150)}).`);
+  }
+  // FIX-BACK-2 (M5, layer 1): pre-validate the presentation's Nonce
+  // against THIS payable's stored consentSha256 BEFORE any SDK call —
+  // no node verification, no createAndAnchor. A presentation built for a
+  // different payable (different Nonce) is refused here as 400
+  // valid:false; it never reaches the SDK's un-awaited compareContexts,
+  // which is what killed the server twice on the identical replay input.
+  try {
+    assertPresentationNonceMatches(presentation, record);
+  } catch (e) {
+    return sendJson(res, 400, { valid: false, reason: String(e.message).slice(0, 300), filed_for_payable: null, stage: 'nonce_prevalidation', note: 'The presentation is valid, but its Nonce does not match this payable\u2019s consent request — it was built for a different consent. Build it against this payable\u2019s anchored request.' });
+  }
+  const c = await grpc();
+  const nodeVerdict = await verifyV1PresentationWithNode(presentation, c);
+  if (!nodeVerdict.ok) {
+    // Refusal stage 2 — node verification: the presentation does not
+    // verify against its OWN embedded request (tampered question, wrong
+    // holder, stale proof). Note the handler does NOT verify the
+    // presentation against the stored request here; the binding to THIS
+    // payable's request is enforced by the Nonce pre-validation above
+    // (stage 1) and by assertContextsMatch before the VAA anchor
+    // (stage 3) — a presentation for a different consent is refused at
+    // stage 1, never here.
+    return sendJson(res, 400, { valid: false, reason: nodeVerdict.reason, filed_for_payable: null, stage: 'node_verification', note: 'A presentation for a different consent text, a different holder, or an expired request fails here — the question is hash-bound, so tampering is flagged.' });
+  }
+  const { VerificationRequestV1 } = await import('@concordium/web-sdk');
+  const request = VerificationRequestV1.fromJSON(record.requestJson);
+  try {
+    const { vaaTx, method } = await anchorConsentVaa({ grpcClient: c, signers, record, request, presentation });
+    const { saveConsent } = await import('./store.mjs');
+    const updated = { ...record, status: 'approved', approvedAt: new Date().toISOString(), vaaTx };
+    await saveConsent(updated);
+    return sendJson(res, 200, { ...publicConsent(updated), valid: true, node_verified: true, vaa_method: method });
+  } catch (e) {
+    // A presentation that passed stages 1–2 but still fails the VAA
+    // anchor: assertContextsMatch (stage 3, inside anchorConsentVaa)
+    // throws a controlled `context_mismatch:` for a context that does
+    // not match the stored request — a client error, not a chain
+    // failure. Any other throw is a chain failure (502). The mismatch
+    // can no longer reach the SDK's un-awaited compareContexts: it is
+    // filtered by the Nonce pre-validation (stage 1) and by
+    // assertContextsMatch (stage 3) first, and the process-level
+    // unhandledRejection guard is the last line.
+    if (String(e?.message ?? '').startsWith('context_mismatch:')) {
+      return sendJson(res, 400, { valid: false, reason: String(e.message).slice(0, 300), filed_for_payable: null, stage: 'context_match', note: 'The presentation is valid, but it answers a different consent request (different nonce/context). Build it against this payable\u2019s anchored request.' });
+    }
+    return apiError(res, 502, 'vaa_anchor_failed', 'chain', `The presentation verified, but its VAA anchor could not be sent (${String(e?.message ?? e).slice(0, 200)}). Nothing was filed; retry.`, { retryable: true });
+  }
+}
+
+async function handleMcpTools(req, res) {
+  try {
+    const out = await mcpToolsList();
+    return sendJson(res, 200, { url: MCP_URL, network: 'testnet', ...out });
+  } catch (e) {
+    return apiError(res, 502, 'mcp_unreachable', 'node', `The registry MCP did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
+  }
+}
+
+async function handleMcpBadge(req, res, id) {
+  if (!id) return badRequest(res, 'badge id (token address or numeric token id) is required.');
+  try {
+    let tokenAddress = id;
+    if (/^\d+$/.test(id)) {
+      // Numeric token id: resolve the badge token address via agent_of first.
+      const agent = await mcpAgentOf({ tokenId: Number(id) });
+      tokenAddress = agent?.payload?.token_address;
+      if (!tokenAddress) throw new Error(`agent_of ${id} returned no token_address`);
+    }
+    const out = await mcpCheckBadge({ id: tokenAddress });
+    return sendJson(res, 200, { ...out, token_id: /^\d+$/.test(id) ? Number(id) : undefined });
+  } catch (e) {
+    return apiError(res, 502, 'mcp_unreachable', 'node', `The registry MCP did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
+  }
+}
+
+async function handleBuyerAgentGet(req, res) {
+  const record = await buyerAgent();
+  if (!record) {
+    return sendJson(res, 200, { account: BUYER_ACCOUNT, token_id: null, status: 'not_registered', note: 'The buyer agent is not registered yet. POST /api/buyer-agent/register to mint its CIS-8004 token from the payer account.' });
+  }
+  return sendJson(res, 200, record);
+}
+
+async function handleBuyerAgentRegister(req, res) {
+  const ip = clientIp(req);
+  const budget = await hitWindow(`reg:${ip}`, 3_600_000, 3);
+  if (!budget.allowed) {
+    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo budget for agent registrations is used up for this hour (3/hour).', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  }
+  const existing = await buyerAgent();
+  if (existing?.tokenId) return sendJson(res, 200, { ...existing, already_registered: true });
+  const c = await grpc();
+  try {
+    const record = await registerBuyerAgent({ grpcClient: c, signers });
+    return sendJson(res, 201, record);
+  } catch (e) {
+    return apiError(res, 502, 'registration_failed', 'chain', `Buyer agent registration failed: ${String(e?.message ?? e).slice(0, 300)}`, { retryable: true });
+  }
+}
+
+async function handleFulfilmentCheck(req, res) {
+  const body = await readBody(req).catch(() => ({}));
+  const tokenId = Number(body.buyer_token_id ?? body.token_id);
+  const payableId = Number(body.payable_id);
+  if (!Number.isInteger(tokenId) || tokenId < 1) return badRequest(res, 'fulfilment/check needs { buyer_token_id }.');
+  const expectedOwner = typeof body.expected_owner === 'string' ? body.expected_owner : BUYER_ACCOUNT;
+  const c = await grpc();
+  const result = await merchantCheckBuyer({ grpcClient: c, tokenId, expectedOwner });
+  if (Number.isInteger(payableId) && payableId >= 1) result.payable_id = payableId;
+  return sendJson(res, 200, result);
+}
+
+async function handleBalanceWatch(req, res) {
+  try {
+    return sendJson(res, 200, await checkBalances());
+  } catch (e) {
+    return apiError(res, 503, 'chain_unreachable', 'node', `Balance watch could not read the chain (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
+  }
+}
+
+async function handleTopUp(req, res) {
+  const ip = clientIp(req);
+  const budget = await hitWindow(`top:${ip}`, 3_600_000, 3);
+  if (!budget.allowed) {
+    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo budget for top-ups is used up for this hour (3/hour).', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  }
+  const body = await readBody(req).catch(() => ({}));
+  const amount = body.amount_micro_ccd != null ? BigInt(body.amount_micro_ccd) : 50_000_000n;
+  const c = await grpc();
+  try {
+    const out = await topUpPayer({ grpcClient: c, signers, amountMicroCcd: amount });
+    return sendJson(res, 200, { ...out, note: 'Owner -> payer top-up (testnet CCD). Record the tx hash; the balance watch reports the new balance.' });
+  } catch (e) {
+    return apiError(res, 502, 'topup_failed', 'chain', `Top-up failed: ${String(e?.message ?? e).slice(0, 300)}`, { retryable: true });
+  }
+}
+
+async function handleCis8Status(req, res) {
+  const held = externalKeyFromEnv(ENV);
+  return sendJson(res, 200, {
+    contract: CIS8_CONTRACT,
+    seller_token: CIS8_SELLER_TOKEN,
+    binding: 'none — no CIS-8 binding exists for token 1476',
+    external_key_held: held ? { namespace: held.namespace, key_type: held.key_type, public_key_hex: held.public_key_hex } : null,
+    blocked: held ? null : 'No external key is held. The user must supply or generate a real external key (e.g. an Ethereum key the team holds); no key is invented here. See POST /api/cis8/request.',
+    badge: 'fully valid without a CIS-8 binding (15/15) — this is a missing cross-chain link, not a validity gap',
+  });
+}
+
+async function handleCis8Request(req, res) {
+  const body = await readBody(req).catch(() => ({}));
+  const key = body.key ?? null;
+  const proof = body.proof ?? null;
+  try {
+    const out = await requestCis8Binding({ key, proof, sender: OWNER_ADDRESS, env: ENV });
+    return sendJson(res, 200, out);
+  } catch (e) {
+    return apiError(res, 409, 'cis8_blocked', 'app', String(e?.message ?? e).slice(0, 600), { owner: 'user' });
+  }
+}
+
 // ---- router ----
 const routes = [
   ['GET', /^\/$/, async (req, res) => sendJson(res, 200, {
     service: 'payonce-api', network: NETWORK,
     registry: `<${REGISTRY.index},${REGISTRY.subindex}> (${REGISTRY.name})`,
-    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files', 'GET /api/age-proof/health', 'POST /api/age-proof/policy-check', 'POST /api/age-proof/verify', 'POST /api/age-proof/verify-presentation'],
+    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files', 'POST /api/consent/request', 'GET /api/consent/:id', 'POST /api/consent/:id/approve', 'POST /api/consent/:id/verify-presentation', 'GET /api/mcp/tools', 'GET /api/mcp/badge/:id', 'GET /api/buyer-agent', 'POST /api/buyer-agent/register', 'POST /api/fulfilment/check', 'GET /api/balance-watch', 'POST /api/balance-watch/top-up', 'GET /api/cis8/status', 'POST /api/cis8/request', 'GET /api/age-proof/health', 'POST /api/age-proof/policy-check', 'POST /api/age-proof/verify', 'POST /api/age-proof/verify-presentation'],
   })],
   ['GET', /^\/api\/config$/, handleConfig],
   ['GET', /^\/api\/health$/, handleHealth],
@@ -784,6 +1101,19 @@ const routes = [
   ['POST', /^\/api\/age-proof\/policy-check$/, (req, res) => ageProof.handlePolicyCheck(req, res)],
   ['POST', /^\/api\/age-proof\/verify$/, (req, res) => ageProof.handleVerify(req, res)],
   ['POST', /^\/api\/age-proof\/verify-presentation$/, (req, res) => ageProof.handleVerifyPresentation(req, res)],
+  ['POST', /^\/api\/consent\/request$/, handleConsentRequest],
+  ['GET', /^\/api\/consent\/(\d+)$/, (req, res, m) => handleConsentGet(req, res, Number(m[1]))],
+  ['POST', /^\/api\/consent\/(\d+)\/approve$/, (req, res, m) => handleConsentApprove(req, res, Number(m[1]))],
+  ['POST', /^\/api\/consent\/(\d+)\/verify-presentation$/, (req, res, m) => handleConsentVerifyPresentation(req, res, Number(m[1]))],
+  ['GET', /^\/api\/mcp\/tools$/, handleMcpTools],
+  ['GET', /^\/api\/mcp\/badge\/([^/]+)$/, (req, res, m) => handleMcpBadge(req, res, decodeURIComponent(m[1]))],
+  ['GET', /^\/api\/buyer-agent$/, handleBuyerAgentGet],
+  ['POST', /^\/api\/buyer-agent\/register$/, handleBuyerAgentRegister],
+  ['POST', /^\/api\/fulfilment\/check$/, handleFulfilmentCheck],
+  ['GET', /^\/api\/balance-watch$/, handleBalanceWatch],
+  ['POST', /^\/api\/balance-watch\/top-up$/, handleTopUp],
+  ['GET', /^\/api\/cis8\/status$/, handleCis8Status],
+  ['POST', /^\/api\/cis8\/request$/, handleCis8Request],
 ];
 
 const server = createServer(async (req, res) => {

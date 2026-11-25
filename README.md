@@ -45,7 +45,7 @@ no trust in us.
   15 PLT checks), deterministic co-signer (decision gate + server),
   x402 facilitator (Doris's 9 checks + 4 safeguards), x402 flows, MCP tool
   server, Art. 12 receipt verifier, EasyPost test capture, D5 invoice
-  adapter (OFF by default). 110/110 tests — see `backend/BACKEND_REPORT.md`.
+  adapter (OFF by default). 175/175 tests — see `backend/BACKEND_REPORT.md`.
 - `design/` — the "dawn teal / ink" design system (tokens, landing +
   dashboard mockups, generated assets). The static mockups are the design
   reference; the live app is `frontend/`.
@@ -70,15 +70,18 @@ cd contracts/payable_registry_v2_1 && cargo concordium build && cargo concordium
 # Co-signer decision table (35 cases)
 node --test contracts/cosigner/test/decide.test.mjs
 
-# Backend (110 tests: verifier, co-signer, facilitator, x402, MCP, receipts)
+# Backend (175 tests: verifier, co-signer, facilitator, x402, MCP, receipts)
 cd backend && npm ci && node --test test/*.test.mjs
 
 # Keyless verifier (no keys needed — reads the chain only)
 cd backend && node src/verifier/verify-payable.mjs <payable-id> <tx-hash> --rail ccd
 
-# Frontend (69 unit tests; 18/18 contrast pairs; 34/34 headless click-test)
+# Frontend (155 unit tests; 18/18 contrast pairs; 34/34 headless click-test)
 cd frontend && npm ci && npm run build && npm test && npm run check:contrast
 node ../clicktest/clicktest.mjs   # drives the real app in Chromium
+
+# API server (47 unit tests: consent, MCP client, balance watch, buyer agent, CIS-8, Art. 12 receipts, G7 fix-back-3–9 verifier checks)
+cd api && npm ci && node --test test/unit.test.mjs
 ```
 
 ## Status
@@ -95,7 +98,7 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
   (`d0f30224…`). **Not the deploy target yet** — the deploy target stays
   v2 `<13150,0>` until the API server's v2.1-switch fix lands (see
   `VERIFY.md` §6).
-- Verifier v2 + live backend: merged (110/110 tests; F10 proven live by an
+- Verifier v2 + live backend: merged (175/175 tests; F10 proven live by an
   independent re-run; MCP live pay Rail A 12/12 + Rail B 15/15).
 - Known limits are listed in `VERIFY.md` — including what is *not* yet live.
 
@@ -131,6 +134,41 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
 - Precision: no under-18-holder test has ever been run — the proven live
   rejections are forbidden shapes (prover 403) and a tampered presentation
   (verifier 400). No copy here claims otherwise.
+
+## Path to production
+
+PayOnce runs on Concordium testnet today. The path to the live network is:
+
+1. **A new seed before any publish.** One testnet seed holds the keys in this
+   demo (in-process, testnet only) and it must never reach a publish.
+2. **Sponsored onboarding.** Merchants and agents onboard to the live network
+   without buying CCD first — registration is sponsored.
+3. **Euro rail: PLL migration.** Simple locks land January 2027 (recipients,
+   PLT-only, expiry, grants that fund/send/release/cancel, keep-alive);
+   Enhanced locks land March 2027 (smart-contract-driven). Our mapping today:
+   recipients = the merchant allow-list; tokens = EUDemo; expiry = the order
+   window; send grant = the agent; fund grant = the owner; release and cancel
+   = the owner. Until the locks land, the mandate contract is the on-chain
+   version of the same controls.
+4. **Custody stays non-custodial.** The owner recovery key stays in the user's
+   own wallet, never on the server; the agent acts through a headless
+   credential of the human identity and holds only the ZK proof. Named
+   alternatives, none integrated: Agent IDP (the agent holds only revealed
+   attributes — testnet status unverified, no migration claimed), DFNS
+   wallet-as-a-service (MPC, API signing), Tether WDK branded wallet (human
+   consent on the roadmap).
+5. **The co-signer moves out.** It runs inside this API server today; in
+   production it is a separate service on a separate host.
+6. **Company identity is a user-side step.** LEI / Global FinReg approval is
+   not built here and not claimed.
+7. **Second store: Varox evaluated.** Varox (the programme's V&A partner) was
+   evaluated for the second store's verification: no public evidence of its
+   API or demo exists, so we build V&A V1 ourselves and keep Varox as the
+   named partner option for the second store, contacted via the programme.
+8. **Fees at the peg.** Concordium's fee peg is €0.01 per transaction: a CCD
+   payment is 3 transactions (€0.03), an EUDemo payment 5 (€0.05), an
+   above-threshold EUDemo payment 7 (€0.07, consent VRA + VAA included). See
+   the fee table on the judge page.
 
 ## Rules
 

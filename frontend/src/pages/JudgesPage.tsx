@@ -40,10 +40,10 @@ const KNOWN_LIMITS = [
   'Seller identity: the seller holds an Active agent token (1476) on the official registry <12802,0>, cross-checked by the contract at registration and at payment. No LEI and no company proof — the seller is the owner’s own identity, not a company. The company-identity check runs in the verifier, not in the contract (contracts cannot verify V&A proofs).',
   'One testnet seed holds the keys (in-process, testnet only; a new seed is required before any publish). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
   'Each party pays its own testnet fees (no sponsored transactions in this demo run).',
-  'Refused transactions still cost a fee. The fee for a successful CCD payment (16.2 testnet CCD in the recorded run) is larger than the 0.5 CCD invoice. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
+  'Refused transactions still cost a fee. The fee for a successful CCD payment (19.6 testnet CCD in the v2 run) is larger than the 0.5 CCD invoice. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
-  'Not in this flow: age proof for alcohol and similar, consent anchor (V&A). Both come from earlier lab phases and are not part of this idea’s flow.',
+  'Not in this flow: age proof for alcohol and similar. The consent anchor IS in this flow now: an above-threshold payment (1 CCD / 1.00 EUDemo or more) refuses until the owner approves a hash-bound question, anchored on chain as a VRA/VAA registerData pair (see “Consent anchor” below). Age proof stays out — it comes from an earlier lab phase.',
 ]
 
 export function JudgesPage() {
@@ -112,7 +112,177 @@ export function JudgesPage() {
                 </span>
               </dd>
             </div>
+            <div>
+              <dt className="text-muted">What the badge proves</dt>
+              <dd>
+                Badge = a verified human stands behind this agent. Spending is gated by the on-chain mandate, not by
+                the badge. The badge proves accountability only — never spending permission, code quality, or
+                reputation.
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted">Payment address</dt>
+              <dd>
+                Payment goes to the merchant account recorded on the payable, not necessarily the registry owner. The
+                badge check does not link the payment address to the owner — live example: CCD payee{' '}
+                <code className="font-mono text-xs text-ink">4gedLUop…</code> vs registry owner{' '}
+                <code className="font-mono text-xs text-ink">42jaZZgd…</code>.
+              </dd>
+            </div>
           </dl>
+        </section>
+
+        <section aria-labelledby="verify-pay" className="mt-10">
+          <h2 id="verify-pay" className="text-xl font-medium text-ink">
+            Verify &amp; Pay
+          </h2>
+          <div className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
+            <p className="text-muted">
+              This is Concordium’s name for the flow: verify first, then pay once. The two checks are (1) verify the
+              seller and the invoice — the verifier re-reads the registry, the badge, and the document from the chain
+              — and (2) pay exactly once, to the account the supplier put on the payable. Nothing is delivered before
+              both pass.
+            </p>
+            <h3 className="mt-5 font-medium text-ink">Consent anchor (ask-me threshold)</h3>
+            <p className="mt-2 text-muted">
+              A payment at or above 1 CCD / 1.00 EUDemo refuses until the owner approves a hash-bound question. The
+              approval is anchored on chain as a VRA/VAA registerData pair (CBOR, type CCD-VRA / CCD-VAA), and the
+              receipt check verifies the anchor exists and matches. Below the threshold no consent is needed. The
+              approval is one-time use and expires after 5 minutes. Live anchors:
+            </p>
+            <ul className="mt-3 space-y-2">
+              <li className="flex flex-wrap items-center gap-2">
+                <span className="w-64 shrink-0 text-muted">Consent VRA — payable 2000 (2.00 EUDemo)</span>
+                <HashLink hash="6edb6e5497d5bf1aed822ac67fc7cca17aa9f16aef9b0be12e372b30a77f3849" explorerBase={TX_BASE} />
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                <span className="w-64 shrink-0 text-muted">Consent VRA — payable 2001 (2.00 EUDemo)</span>
+                <HashLink hash="03daeba1a57daca2df7bf5c8faa094a9ce7a921a316a0d2ca3a2212ac4e754fc" explorerBase={TX_BASE} />
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                <span className="w-64 shrink-0 text-muted">Consent VAA — payable 2001 (approved)</span>
+                <HashLink hash="df08af0f81f8902527c9a14f18b655a73196be9bd3c1a87ee2c0945c1c28ecf5" explorerBase={TX_BASE} />
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                <span className="w-64 shrink-0 text-muted">Lab consent VRA — goal 2 (earlier run)</span>
+                <HashLink hash="ed92afaf8b3a7806a838f96d210ae2b0ffce9769297fa38973462b1a933bee00" explorerBase={TX_BASE} />
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                <span className="w-64 shrink-0 text-muted">Lab consent VAA — goal 2 (earlier run)</span>
+                <HashLink hash="2b3e6ddd84bd6a23ccb8ec395a647ed7c91c1b700cc8c751fcf4f5a7f16cbc06" explorerBase={TX_BASE} />
+              </li>
+            </ul>
+            <p className="mt-3 text-muted">
+              Payable 2001 (2.00 EUDemo) went through the whole flow live: the pay endpoint refused with
+              consent_required, the owner approved the hash-bound question (VRA/VAA above, node-verified), the
+              payment went through (
+              <HashLink hash="759f3a5e5035167a016bb8f974121dce297b35d9a35ef6d7a1b2e324e05de89f" explorerBase={TX_BASE} />
+              ), and the receipt carries the Art. 12 record with nonce, record hash and a registerData anchor (
+              <HashLink hash="0650d654328d423c3ae53d26afcb9258fc21ac8f23d83aaac5bbc64313324294" explorerBase={TX_BASE} />
+              , verified on read-back) — receipt verifier 14/14. The consent was one-time use and is marked used.
+            </p>
+            <h3 className="mt-5 font-medium text-ink">Doris’s five checks, mapped to the receipt verifier</h3>
+            <p className="mt-2 text-muted">
+              The receipt verifier’s checks map onto the five checks like this — all five pass on the seller badge
+              (token 1476), checked live through the registry MCP (network=testnet on every call):
+            </p>
+            <ul className="mt-3 list-disc space-y-1 pl-6 text-muted">
+              <li>Registry — the agent is found on the official CIS-8004 registry &lt;12802,0&gt;: pass.</li>
+              <li>Active — the agent status is Active, not revoked: pass.</li>
+              <li>URL — the agent card is fetched from the published agent URI: pass.</li>
+              <li>Hash — the fetched card’s SHA-256 matches the hash on chain: pass.</li>
+              <li>Owner — the card owner matches the on-chain owner account: pass.</li>
+            </ul>
+            <p className="mt-3 text-muted">
+              Second agent checked the same way: the buyer agent (token 1488, owner = the demo payer account). Registry:
+              pass. Active: pass. Owner: pass. URL and hash: not run — the buyer agent has published no card or URI
+              yet, so there is no card to fetch or hash; the merchant gate for it is Active + owner, stated plainly.
+            </p>
+          </div>
+        </section>
+
+        <section aria-labelledby="fees" className="mt-10">
+          <h2 id="fees" className="text-xl font-medium text-ink">
+            Fee table
+          </h2>
+          <div className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
+            <p className="text-muted">
+              Concordium’s fee peg is €0.01 per transaction. Every transaction in a payment is counted below, at the
+              peg. Testnet CCD energy costs are a separate number and are larger — a successful CCD payment cost 19.6
+              testnet CCD in the v2 run — and are not mainnet estimates.
+            </p>
+            <table className="mt-4 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-muted">
+                  <th className="py-2 pr-4 font-medium">Order flow</th>
+                  <th className="py-2 pr-4 font-medium">Transactions counted</th>
+                  <th className="py-2 font-medium">Total at the peg</th>
+                </tr>
+              </thead>
+              <tbody className="text-muted">
+                <tr className="border-b border-line">
+                  <td className="py-2 pr-4">CCD payment</td>
+                  <td className="py-2 pr-4">register, pay, receipt anchor (3)</td>
+                  <td className="py-2">€0.03</td>
+                </tr>
+                <tr className="border-b border-line">
+                  <td className="py-2 pr-4">EUDemo payment</td>
+                  <td className="py-2 pr-4">register, reserve, transfer, confirm, receipt anchor (5)</td>
+                  <td className="py-2">€0.05</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4">EUDemo payment, above the ask-me threshold</td>
+                  <td className="py-2 pr-4">the 5 above + consent VRA + consent VAA (7)</td>
+                  <td className="py-2">€0.07</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="mt-3 text-muted">
+              Reconciled against the €0.20–€0.30 per €12 basket estimate: that figure is not reproduced by counting
+              this flow’s transactions — the longest flow here is 7 transactions, €0.07 at the peg. The estimate would
+              need 20–30 transactions at the peg, or a per-transaction cost well above the peg.
+            </p>
+          </div>
+        </section>
+
+        <section aria-labelledby="path" className="mt-10">
+          <h2 id="path" className="text-xl font-medium text-ink">
+            Path to production
+          </h2>
+          <div className="mt-4 rounded-none border border-line bg-card p-6 text-sm">
+            <h3 className="font-medium text-ink">Euro rail: PLL migration</h3>
+            <p className="mt-2 text-muted">
+              Simple locks land January 2027: recipients, PLT-only (not CCD), expiry, grants that fund, send, release
+              and cancel, plus keep-alive. Enhanced locks land March 2027: smart-contract-driven. Our mapping today:
+              recipients = the merchant allow-list; tokens = EUDemo; expiry = the order window; send grant = the
+              agent; fund grant = the owner; release and cancel = the owner. Until the locks land, our mandate
+              contract is the on-chain version of the same controls.
+            </p>
+            <h3 className="mt-5 font-medium text-ink">Custody: what we use, what we don’t</h3>
+            <p className="mt-2 text-muted">
+              What we use in this demo: the owner’s recovery key stays in the user’s own wallet, never on the server;
+              the agent acts through a headless credential of the human identity (the agent holds only the ZK proof,
+              never the identity itself). What we don’t use: DFNS wallet-as-a-service (MPC, API signing) and Tether’s
+              WDK branded wallet (human consent on the roadmap) — neither is integrated. The Agent IDP path (the agent
+              holds only revealed attributes) is the team’s sanctioned direction, but its testnet status is unverified
+              — no testnet endpoint or announcement exists — so no migration is claimed.
+            </p>
+            <h3 className="mt-5 font-medium text-ink">Onboarding</h3>
+            <p className="mt-2 text-muted">
+              Merchants and agents onboard to the live network without buying CCD first — registration is sponsored.
+              Long-running work: payments here complete in seconds, so the long-running anchoring pattern (hash +
+              anchor, or a longer expiry) does not apply to the current flow; the same registerData anchoring is what
+              the consent VRA/VAA pair already uses. Second store: Varox (the programme’s V&amp;A partner) was
+              evaluated and no public evidence of its API or demo exists, so we build V&amp;A V1 ourselves and keep
+              Varox as the named partner option for the second store, contacted via the programme.
+            </p>
+            <h3 className="mt-5 font-medium text-ink">Security basis</h3>
+            <p className="mt-2 text-muted">
+              Concordium’s own chain was covered by a CertiK gray-box audit, December 2025 – May 2026: 13 findings, 2
+              critical, all availability-related (chain stopping, never stolen funds or malicious accounting); most
+              fixed, some acknowledged. That audit is of the chain, not of this demo.
+            </p>
+          </div>
         </section>
 
         <section aria-labelledby="sample-txs" className="mt-10">
@@ -185,8 +355,9 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
           <p className="mt-4 rounded-none border border-line bg-card p-6 text-sm text-muted">
             80 Rust tests pass (<code className="font-mono text-ink">cargo concordium test</code> in{' '}
             <code className="font-mono text-ink">contracts/payable_registry_v2</code>). Co-signer decision cases: 35
-            (pure function, no transaction). Backend suite: 110 tests. API server suite: 26 tests (unit 10 + live
-            read-only 16).
+            (pure function, no transaction). Backend suite: 175 tests. API server suite: 47 unit tests (consent,
+            MCP client, balance watch, buyer agent, CIS-8, Art. 12 receipts, G7 fix-back-3–9 verifier checks) + live route proofs on a scratch server.
+            Frontend suite: 155 tests.
           </p>
         </section>
 

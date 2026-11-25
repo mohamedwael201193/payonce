@@ -89,6 +89,9 @@ export const GLOSSARY: Array<[string, string]> = [
   ['Co-signer', 'second approver of the agent wallet'],
   ['Sponsor', 'pays the fee for a transaction'],
   ['Fingerprint', 'SHA-256 of the document bytes'],
+  ['Verify & Pay', 'Concordium’s name for the flow: verify the seller and the invoice first, then pay once'],
+  ['Consent anchor', 'a hash-bound owner approval recorded on chain before an above-threshold payment'],
+  ['Fee peg', '€0.01 per transaction on Concordium'],
 ]
 
 // Layer badges — P3 §2 rule 1: every refusal carries exactly one badge.

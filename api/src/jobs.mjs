@@ -102,6 +102,15 @@ async function finishJob(job, state, outcome) {
   job.outcome = outcome;
   job.finished_at = new Date().toISOString();
   await saveJob(job);
+  // One-time-use consent: a successful payment consumes the approved
+  // consent for this payable (W-01: one-time use). A refused/failed job
+  // leaves the consent approved until its 5-minute window expires.
+  if (state === 'succeeded' && outcome === 'paid') {
+    try {
+      const { markConsentUsed } = await import('./consent.mjs');
+      await markConsentUsed(job.payable_id);
+    } catch { /* consent marking never fails the job */ }
+  }
   emit(job.job_id, { type: 'done', outcome, receipt_url: `/api/receipts/${job.payable_id}` });
 }
 
