@@ -115,7 +115,9 @@ describe('useJobEvents never-done path (FIX-2 fix-back-2)', () => {
   })
 
   it('fails the pay after consecutive stream errors with no event between them', async () => {
-    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000 }))
+    // minErrorWindowMs: 0 pins the count logic deterministically; the
+    // production 10 s window is pinned by the next test.
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000, minErrorWindowMs: 0 }))
     const es = MockEventSource.instances[0]
     await act(async () => {
       es.onerror?.()
@@ -128,7 +130,9 @@ describe('useJobEvents never-done path (FIX-2 fix-back-2)', () => {
   })
 
   it('a single stream error stays silent (transient reconnect), and an event resets the failure count', async () => {
-    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000 }))
+    // minErrorWindowMs: 0 pins the count/reset logic deterministically; the
+    // production 10 s window is pinned by the window test below.
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000, minErrorWindowMs: 0 }))
     const es = MockEventSource.instances[0]
     await act(async () => {
       es.onerror?.()
@@ -148,7 +152,30 @@ describe('useJobEvents never-done path (FIX-2 fix-back-2)', () => {
     await waitFor(() => expect(result.current.error).not.toBeNull())
   })
 
-  it('a step event restarts the silence watchdog — a live job is not failed early', async () => {
+  it('does not fail the pay on three rapid stream errors inside the error window — only after the window, on the next error', async () => {
+    // Production behaviour at small scale: three `onerror` fires inside
+    // seconds of a brief outage must not fail a healthy job (fix-back-3
+    // O1). A dead stream keeps erroring past the window and still fails.
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000, minErrorWindowMs: 200 }))
+    const es = MockEventSource.instances[0]
+    await act(async () => {
+      es.onerror?.()
+      es.onerror?.()
+      es.onerror?.()
+    })
+    expect(result.current.error).toBeNull()
+    expect(es.closed).toBe(false)
+    // Past the window, the next consecutive error fails the pay.
+    await new Promise((r) => setTimeout(r, 250))
+    await act(async () => {
+      es.onerror?.()
+    })
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.error).toContain('went quiet')
+    expect(es.closed).toBe(true)
+  })
+
+  it('a step event restarts the silence watchdog — a live job is not failed inside the 180 s silence bound', async () => {
     const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 200 }))
     const es = MockEventSource.instances[0]
     // Emit a step every 100 ms: the stream never goes quiet for 200 ms, so
@@ -162,5 +189,40 @@ describe('useJobEvents never-done path (FIX-2 fix-back-2)', () => {
     expect(result.current.error).toBeNull()
     // Then stop emitting: silence past the watchdog fails the pay.
     await waitFor(() => expect(result.current.error).not.toBeNull(), { timeout: 3000 })
+  })
+
+  it('a 120 s finality silence does not fail the pay — only silence past the 180 s bound does (fix-back-3 MF-1)', async () => {
+    // Models the real server bound, not the 100 ms step intervals above:
+    // one `wait_finality` `running` step event, then silence while
+    // `waitFinalized` polls up to 120 s with no `data:` event
+    // (`backend/src/send.mjs:69-84`). The 5 s `: ping` is an SSE comment
+    // and never fires `onmessage`, so nothing re-arms the watchdog in
+    // between. Production defaults (no opts override): the pay must survive
+    // a 120 s gap — and a 150 s gap — and fail only past 180 s.
+    vi.useFakeTimers()
+    try {
+      const { result } = renderHook(() => useJobEvents('job-1'))
+      const es = MockEventSource.instances[0]
+      await act(async () => {
+        es.emit({ type: 'step', step: { step: 'wait_finality', status: 'running' } })
+      })
+      await act(async () => {
+        vi.advanceTimersByTime(120_000)
+      })
+      expect(result.current.error).toBeNull()
+      expect(es.closed).toBe(false)
+      await act(async () => {
+        vi.advanceTimersByTime(30_000)
+      })
+      expect(result.current.error).toBeNull()
+      expect(es.closed).toBe(false)
+      await act(async () => {
+        vi.advanceTimersByTime(31_000)
+      })
+      expect(result.current.error).toContain('went quiet')
+      expect(es.closed).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

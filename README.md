@@ -155,8 +155,10 @@ grid with corner squares, hero demo merged in with phase-aware button
 labels (`Checked ✓` / `Paid ✓ — demo`) and phase-follow scrolling.
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs: frontend vitest 147/147 (21 files), `tsc -b`
-clean, `vite build` clean (554.06 kB JS), API stats-reconcile test 2/2,
+Verified by my own runs: frontend vitest 155/155 (21 files), `tsc -b`
+clean, `vite build` clean (554.92 kB JS, 554,920 B, `assets/index-yk-0nZxL.js`,
+sha256 `a3045efbc9111afe6966165f34abb663178037ab7a3a0487a6870e0d0bcbc4f4`, identical
+across two clean scratch builds), API stats-reconcile test 2/2,
 secret scan clean on the diff (the one repo-wide hit is a false positive:
 English prose in pre-existing `backend/src/planner/llm-planner.mjs`).
 NOT yet verified: live screenshots — the VM lost every working browser in

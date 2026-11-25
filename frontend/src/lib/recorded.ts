@@ -92,4 +92,4 @@ export const RECORDED_FEES: RecordedFeeBar[] = [
 
 /** The headline fee fact of the recorded run (P3 §14 / §16.13). */
 export const FEE_HEADLINE =
-  'A successful CCD payment cost 16.2 testnet CCD in the recorded run — more than the 0.5 CCD invoice. These are testnet fees, not mainnet estimates.'
+  'A successful CCD payment cost 16.2 testnet CCD in the recorded run — more than the 0.5 CCD invoice. Fees vary per transaction. These are testnet fees, not mainnet estimates.'
