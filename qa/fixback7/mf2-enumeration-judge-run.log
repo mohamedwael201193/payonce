@@ -1,0 +1,52 @@
+# MF2-ENUM judge run — 2026-11-25T13:40:52Z — stub PID 29796 port 7401 — DIST frontend/dist — CHROME headless-shell 159.0.8154.6
+PASS  loading state: no forbidden registry-total string while /api/invoices is delayed — clean
+PASS  loading state: new loading label renders ("Loading invoices tracked by this API…")
+PASS  noscript: no "live test registry" claim in the shipped noscript block
+PASS  noscript: new wording present ("is tracked by this API")
+PASS  static: design/index.html has no "5 on registry"
+PASS  static: design/index.html has no "on the test registry" count claim
+PASS  static: frontend/index.html noscript has no "live test registry"
+PASS  route / renders — 10259 chars
+PASS  route /dashboard renders — 1661 chars
+PASS  route /receipt/1 renders — 1458 chars
+PASS  route /judges renders — 8546 chars
+PASS  no "payables on the registry" on any route
+PASS  no "live from the test registry" on any route
+PASS  no "registry total" on any route
+PASS  no "live registry stats" on any route
+PASS  no "live from the registry" on any route
+PASS  no "from the test registry" on any route
+PASS  no "PAYABLES ON THE REGISTRY" on any route
+PASS  new label present: "Payables tracked by this API"
+PASS  new label present: "Tracked by this API"
+PASS  new label present: "Live from this API"
+PASS  new label present: "Refused (7 recorded)"
+PASS  dashboard renders live invoices + new footer label
+PASS  receipt/1 renders a real payable (not the not-found state)
+
+--- failed responses (expected stub 404s for uncarried ids are named, not hidden) ---
+PASS  zero unexpected console/page errors
+PASS  zero unexpected failed responses
+
+--- remaining lines mentioning "registry" (triage: must be links/loading/feature copy, never a count/total claim) ---
+  / :: Agent registry
+  / :: Choose a payable from the live registry, load an invoice file, or create a fresh one from the demo budget.
+  / :: Fetch payable. Payable 1 is registered on the test registry.
+  / :: No invoice with this number is on the registry. Nothing was moved.
+  / :: Read from the testnet registry and the seller’s agent. This step pays nothing.
+  / :: Registry
+  / :: Registry <13149,0>
+  / :: Registry <13149,0> · Reservation (reserve) window 300s · Co-signer (the second approver) margin 60s
+  / :: Seller agent active on the official registry. Agent token 01000000… is active and owned by the seller.
+  / :: The registry, live.
+  / :: Three sources — invoice file, registry, agent registry — feed the 9 checks
+  /dashboard :: Registry <13149,0>
+  /judges :: 80 Rust tests pass (cargo concordium test in contracts/payable_registry_v2). Co-signer decision cases: 35 (pure function, no transaction). Backend suite: 110 tests. API server suite: 26 tests (unit 10 + live read-only 16).
+  /judges :: <12802,0> on the explorer — the official registry. The seller’s agent token 1476 is registered there (Active, owned by the deployer) and is cross-checked by the contract at registration and at payment.
+  /judges :: Official CIS-8004 registry
+  /judges :: Payable registry
+  /judges :: Seller identity: the seller holds an Active agent token (1476) on the official registry <12802,0>, cross-checked by the contract at registration and at payment. No LEI and no company proof — the seller is the owner’s own identity, not a company. The company-identity check runs in the verifier, not in the contract (contracts cannot verify V&A proofs).
+  /receipt/1 :: Registry <13149,0> · Verifier verify-payable.mjs (2026-11-24)
+
+MF2-ENUMERATION: 26 passed, 0 failed
+MF2-ENUM-EXIT:0
