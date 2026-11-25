@@ -149,7 +149,18 @@ export function PayFlowTabs() {
     }
   }, [liveJob, queryClient])
 
+  // ?payable=<id> preload. The ref records the id of the most recent load
+  // (every load path sets it — see loadFacts), so the effect below can
+  // tell a failed load of an id ("do not retry it forever") from a URL
+  // that names a different payable than the loaded facts.
+  const preloadedId = useRef<number | null>(null)
+
   const loadFacts = useCallback(async (id: number) => {
+    // Fix-back-13 MF-1: record the id being loaded here, not only in the
+    // preload effect — every load path (preload, hand-pick, fresh) marks
+    // its id, so the effect below can tell "already loaded / loading"
+    // from "the URL names a different payable than the loaded facts".
+    preloadedId.current = id
     dispatch({ type: 'FACTS_LOADING' })
     try {
       const facts = await api.getPayable(id)
@@ -166,29 +177,58 @@ export function PayFlowTabs() {
     }
   }, [])
 
-  // ?payable=<id> preload. The ref records the param VALUE itself, so a
-  // tab switch never re-loads or clobbers a hand-picked invoice — only a
-  // new payable= value triggers a load.
-  const preloadedId = useRef<number | null>(null)
+  // Fix-back-13 MF-1: the URL always names the loaded payable. A hand-pick
+  // (lab list, number field, pasted/file invoice, fresh invoice) writes
+  // its id into ?payable= (replace, so the back button is untouched), so
+  // a later dashboard row Pay link to a different id is a real param
+  // change the preload effect below can act on — a stale id can never
+  // be resurrected by a link the user did not click.
+  const syncPayableParam = useCallback(
+    (id: number) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('payable', String(id))
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setParams],
+  )
+
+  // ?payable=<id> preload. The old guard compared ONLY the ref (the param
+  // value already seen): hand-picking 5 after preloading 3 left the ref
+  // at 3, so a row Pay link back to payable=3 was suppressed and the pay
+  // panel kept showing Payable 5 while the URL said 3. The guard now
+  // compares the param against the LOADED facts id: any param that names
+  // a different payable than the facts on screen reloads. The ref is
+  // kept for one job only — a load that 404'd is not retried on every
+  // tab switch — and loads in flight are not duplicated.
   useEffect(() => {
     const id = Number.parseInt(params.get('payable') ?? '', 10)
-    if (Number.isFinite(id) && id > 0 && preloadedId.current !== id) {
-      preloadedId.current = id
-      void loadFacts(id)
-    }
-  }, [params, loadFacts])
+    if (!Number.isFinite(id) || id <= 0) return
+    if (state.facts?.payable_id === id) return
+    if (state.factsState === 'loading') return
+    if (state.factsState === 'not-found' && preloadedId.current === id) return
+    void loadFacts(id)
+  }, [params, loadFacts, state.facts, state.factsState])
 
   const onLoaded = useCallback((text: string, hash: string, payableId: number | null) => {
     setDocText(text)
     dispatch({ type: 'INVOICE_LOADED', docText: text, docSha256: hash, payableId })
-    if (payableId !== null) void loadFacts(payableId)
-  }, [loadFacts])
+    if (payableId !== null) {
+      syncPayableParam(payableId)
+      void loadFacts(payableId)
+    }
+  }, [loadFacts, syncPayableParam])
 
   const onNumber = useCallback(
     (id: number) => {
+      syncPayableParam(id)
       void loadFacts(id)
     },
-    [loadFacts],
+    [loadFacts, syncPayableParam],
   )
 
   const onFresh = useCallback(
@@ -202,6 +242,7 @@ export function PayFlowTabs() {
           docSha256: '',
           payableId: created.payable_id,
         })
+        syncPayableParam(created.payable_id)
         await loadFacts(created.payable_id)
       } catch (e) {
         setPageError(
@@ -290,7 +331,7 @@ export function PayFlowTabs() {
 
   return (
     <section id="pay" aria-labelledby="pay-title" className="card-glass mt-8 scroll-mt-4 p-6 sm:p-8">
-      <h2 id="pay-title" className="text-[24px] leading-[1.15] font-medium tracking-[-0.02em] text-ink">
+      <h2 id="pay-title" className="text-[22px] leading-[1.15] font-medium tracking-[-0.01em] text-ink">
         Pay an invoice
       </h2>
       <p className="mt-2 text-[15px] text-muted">

@@ -618,7 +618,7 @@ describe('fetchLiveSnapshot', () => {
   // binds: 3 × 5 s verification), so the tick is 3 × 5 s + 1 s + 2 s
   // backoff = 18 s — the same bound fix-back-10 stated, now qualified
   // as the hung shape only. Real timers: own 40 s timeout, as above.
-  it('still fails fast on a hung first page: 3 attempts x 5 s + backoff = 18 s (MF-1 tick budget)', { timeout: 40_000 }, async () => {
+  it('still fails fast on a hung first page: 3 attempts x 5 s verification + backoff = 18 s (verification+backoff only — pair fetches can add up to 15 s each) (MF-1 tick budget)', { timeout: 40_000 }, async () => {
     const { api } = await import('./api')
     let verifyCalls = 0
     vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))

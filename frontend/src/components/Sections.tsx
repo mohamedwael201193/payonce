@@ -1,4 +1,5 @@
-// Landing sections below the flow — P2 §4.2 section mapping + design §3/§5.
+// Landing sections — the pay flow lives on /dashboard now (fix-back-12);
+// nothing on this page pays anything. P2 §4.2 section mapping + design §3/§5.
 // Features: 4-column card row with shared hairlines + corner handle squares
 // (design §2: 5px ink squares on every outer corner via .handles + <i>).
 // How it works: 3 step cards, each with a visual slot over the dawn-terrain
@@ -472,7 +473,15 @@ function ReceiptChecker() {
             ? COPY.statsNoData
             : invoices.isLoading
               ? 'Loading payables…'
-              : 'No paid invoice yet — pay one in the flow above and the checker runs here.'}
+              : (
+                <>
+                  No paid invoice yet —{' '}
+                  <Link to="/dashboard?tab=pick#pay" className="font-medium text-brand-700 underline-offset-2 hover:underline">
+                    pay one on the dashboard
+                  </Link>{' '}
+                  and the checker runs here.
+                </>
+              )}
         </p>
       ) : error && !keptForTarget ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">{error}</p>
@@ -556,7 +565,7 @@ export function HowItWorks() {
           </h2>
         </div>
         <p className="max-w-[320px] text-[15px] leading-[1.5] text-muted">
-          A judge can run the whole flow in about thirty seconds, with no wallet and no sign-in.
+          A judge can run the whole flow on the dashboard in about thirty seconds, with no wallet and no sign-in.
         </p>
       </div>
 
@@ -641,7 +650,17 @@ export function HowItWorks() {
                 </p>
               ) : (
                 <p className="text-sm text-muted">
-                  {invoices.isError ? COPY.statsNoData : 'No paid invoice yet. Pay one above and it appears here.'}
+                  {invoices.isError ? (
+                    COPY.statsNoData
+                  ) : (
+                    <>
+                      No paid invoice yet.{' '}
+                      <Link to="/dashboard?tab=pick#pay" className="font-medium text-brand-700 underline-offset-2 hover:underline">
+                        Pay one on the dashboard
+                      </Link>{' '}
+                      and it appears here.
+                    </>
+                  )}
                 </p>
               )}
               {config.data ? (

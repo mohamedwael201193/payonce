@@ -141,12 +141,18 @@ House rules applied, with locations:
   app-frame"), unchanged in size/behaviour; the tab bar is a flex pill row with
   `overflow-x-auto` so it cannot overflow at 390. VERIFY-BY-BROWSER — see §8.
 - **(3) One section per screen.** Landing structure unchanged (hero alone on the
-  first screen; sections are 1–2 screens at 1440×900 by the shared `.wrap` grid).
+  first screen; sections are 1–2 screens at 1440×900 by the shared
+  `mx-auto max-w-[1101px] px-4 sm:px-6` section shell).
   The dashboard tabs show ONE step panel at a time — the old stacked-cards
   layout (all steps on one page) is gone. VERIFY-BY-BROWSER — see §8.
-- **(4) Equal left and right content edges.** Tabs section uses the dashboard's
-  shared `.wrap` (`mx-auto max-w-[1101px] px-4 sm:px-6`) — same edges as every
-  other dashboard section. `PayFlowTabs.tsx:1–30`, `DashboardPage.tsx`.
+- **(4) Equal left and right content edges.** [CORRECTED fix-back-13 M-3: the
+  cited shared `.wrap` class DOES NOT EXIST — no `.wrap` in `index.css` or
+  anywhere in `frontend/src`.] The tabs section sits inside the dashboard's
+  single `<main id="main" className="min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10">`
+  (`DashboardPage.tsx:168`, closing `:525`), rendered as `<PayFlowTabs />` at
+  `:517` — the same `<main>` and the same `px-4 sm:px-8` edges as every other
+  dashboard section, so the substance (equal edges) still holds.
+  `PayFlowTabs.tsx:1–30`, `DashboardPage.tsx`.
 - **(5) Hover micro-animations, no tilt/carousels/TIMED tabs.** Tab buttons:
   inactive `hover:bg-card/70`, active is a static pill; no transform, no tilt.
   Buttons keep the existing `PrimaryButton` hover/press. The tabs are MANUAL —
