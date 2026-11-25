@@ -1,0 +1,51 @@
+# MF2-HIDE judge run 1/3 — 2026-11-25T13:37:10Z — stub PID 29796 port 7401 — DIST frontend/dist (fresh build, chunk 530281 B sha 632d5957…) — CHROME headless-shell 159.0.8154.6 — TMPDIR /root/fb7-adversarial/pw-tmp
+PASS  no forbidden string: /receipt/2 (1094 chars)
+PASS  no forbidden string: /receipt/3 (565 chars)
+PASS  no forbidden string: /receipt/5 (565 chars)
+PASS  no forbidden string: /receipt/999 (535 chars)
+  receipt/999 snippet: Skip to the invoice | PayOnce | TESTNET | Home | Dashboard | For judges | Connect wallet | Verify an invoice | LIVE |  | ← Back to home |  | Receipt — payable 999 | No payable with this number is on the test registry. |  | For jud
+PASS  no forbidden string: /receipt/abc (533 chars)
+  /: 32 clickable elements
+PASS  no forbidden string: / after click #0 [Skip to the invoice]
+PASS  no forbidden string: / after click #1 [Start verifying]
+PASS  no forbidden string: / after click #2 [See how it works]
+PASS  no forbidden string: / after click #3 [Pick an invoice]
+PASS  no forbidden string: / after click #4 [Check]
+PASS  no forbidden string: / after click #5 [Pay]
+PASS  no forbidden string: / after click #6 [Receipt]
+PASS  no forbidden string: / after click #7 [Try to break it]
+PASS  no forbidden string: / after click #8 [Live console]
+PASS  no forbidden string: / after click #9 [Export]
+PASS  no forbidden string: / after click #10 [+ New invoice]
+PASS  no forbidden string: / after click #11 [Overview]
+PASS  no forbidden string: / after click #12 [Paid (3)]
+PASS  no forbidden string: / after click #13 [Unpaid (2)]
+PASS  no forbidden string: / after click #14 [Refused (7 recorded)]
+PASS  no forbidden string: / after click #15 [Dismiss]
+PASS  no forbidden string: / after click #16 [Other ways to load an invoice (file, paste, number)]
+PASS  no forbidden string: / after click #17 [Drop a file here, or choose one]
+PASS  no forbidden string: / after click #18 [Use pasted text]
+PASS  no forbidden string: / after click #19 [Use this number]
+PASS  no forbidden string: / after click #20 [Check invoice]
+PASS  no forbidden string: / after click #21 [Pay — on chain]
+PASS  no forbidden string: / after click #22 [Pay — (3 steps)]
+PASS  no forbidden string: / after click #23 [Tamper with the invoice]
+PASS  no forbidden string: / after click #24 [Pay it twice]
+PASS  no forbidden string: / after click #25 [Wrong amount]
+PASS  no forbidden string: / after click #26 [Pay a fraudster’s invoice]
+PASS  no forbidden string: / after click #27 [Injection: tell the agent to pay another account]
+PASS  no forbidden string: / after click #28 [Watch the recorded run]
+PASS  no forbidden string: / after click #29 [All]
+PASS  no forbidden string: / after click #30 [Unpaid (2)]
+PASS  no forbidden string: / after click #31 [Paid (3)]
+  /dashboard: 1 clickable elements
+PASS  no forbidden string: /dashboard after click #0 [Export CSV]
+  /judges: 1 clickable elements
+PASS  no forbidden string: /judges after click #0 [Skip to the invoice]
+PASS  no forbidden string: title/alt/placeholder attributes on /
+  title attr sample: PayOnce — back to home | No wallet needed — judges verify without signing anything. | PayOnce — back to home | Payable 1 · 0.5 CCD | Payable 4 · 0.5 CCD | PayOnce — back to home |  |  |  |  | 
+PASS  no forbidden string: /dashboard mid-load (all-API 5s delay)
+PASS  no forbidden string: / mid-load (all-API 5s delay)
+
+MF2-HIDE: 42 passed, 0 failed
+MF2-HIDE-RUN1-EXIT:0
