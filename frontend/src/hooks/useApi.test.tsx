@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { POLL_MS, useHealth, useInvoices, useStats } from './useApi'
+import { POLL_MS, useHealth, useInvoices, useLiveSnapshot, useStats } from './useApi'
 
 const ITEMS = [
   { payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
@@ -112,5 +112,72 @@ describe('useApi polling', () => {
     expect(result.current.stats.data).toEqual(STATS)
     expect(result.current.invoices.data).toEqual(ITEMS)
     expect(result.current.stats.dataUpdatedAt).toBe(result.current.invoices.dataUpdatedAt)
+  })
+})
+
+describe('useLiveSnapshot retry (fix-back-10 MF-4)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  const flush = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await Promise.resolve()
+      })
+    }
+  }
+
+  // The wrapper here uses a PLAIN QueryClient — no retry:false default
+  // — so the hook's own retry: 0 is what stops a second queryFn run.
+  // A disagreeing pair (stats 51/31 vs a 1-item list) makes
+  // fetchLiveSnapshot throw after its 3 in-loop attempts (1 s + 2 s
+  // backoff); with retry: 0 the query settles in error after exactly
+  // those 3 attempts (6 fetch calls). With retry: 1 the whole queryFn
+  // would run a second time (12 calls) — doubling the worst case per
+  // poll tick from 18 s to ~36 s, past the 30 s poll budget.
+  it('does not retry a failed snapshot at the react-query level (retry: 0)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const body = url.includes('/api/stats')
+          ? { payables_total: 51, paid_total: 31, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+          : { items: [ITEMS[0]] }
+        return { ok: true, status: 200, json: async () => body }
+      }),
+    )
+    function defaultWrapper({ children }: { children: ReactNode }) {
+      const client = new QueryClient()
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    }
+    const { result } = renderHook(() => useLiveSnapshot(), { wrapper: defaultWrapper })
+    await flush()
+    // Attempt 1 fails the pure check, then the 1 s backoff.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    await flush()
+    // Attempt 2 fails, then the 2 s backoff.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    await flush()
+    // Attempt 3 fails and the query settles in error. Advance 5 s more:
+    // a react-query retry (default delay ~1 s) would have started a
+    // second queryFn by now — 6 more fetch calls — if retry were not 0.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    await flush()
+    expect(result.current.isError).toBe(true)
+    // Exactly 3 in-loop attempts × the pair (invoices + stats).
+    expect(fetch).toHaveBeenCalledTimes(6)
   })
 })

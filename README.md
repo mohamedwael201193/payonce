@@ -194,17 +194,27 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-9, 2026-11-25 ~09:45 UTC): frontend
-vitest 228/228 (23 files), TWICE in a row (run 1: 61.86 s, run 2: 96.98 s),
+Verified by my own runs (fix-back-10, 2026-11-25 ~10:30 UTC): frontend
+vitest 244/244 (23 files), TWICE in a row (run 1: 56.72 s, run 2: 56.29 s),
 `tsc -b` clean (and `tsc --noEmit -p tsconfig.json` clean — this repo has
 no `tsconfig.app.json`; the build script's `tsc -b` is the check), `vite
-build` clean twice (547.98 kB JS, 547,977 B, `assets/index-BpaXc6RM.js`,
-sha256 `9fd3ddf5706753c49895b678f83b5469912c76580e8aac8cd258fce195f35fd2`,
-identical across both builds; CSS unchanged, sha256 `1805692b…9c0`), API
-stats-reconcile test 3/3, handler-level stats/invoices test 5/5, NEW
-handler-level payableFacts test 7/7 (from a `/tmp` copy with read-only
-symlinked node_modules; `api/node_modules` in-tree is still absent — see
-`qa/fixback9.md`), secret scan clean on the diff (0 genuine hits).
+build` clean twice (547.99 kB JS, 547,992 B, `assets/index-DT97w9nz.js`,
+sha256 `50bbeaf8c28281575147788ce3b3ec71c016565b16dac12bead7bb05365bb510`,
+identical across both builds; CSS byte-identical to fix-back-9, sha256
+`1805692b…9c0`), API stats-reconcile test 3/3, handler-level stats/invoices
+test 5/5, handler-level payableFacts test 7/7 (from a `/tmp` copy with
+read-only symlinked node_modules; `api/node_modules` in-tree is still
+absent — see `qa/fixback10.md`), secret scan clean on the diff (0 genuine
+hits).
+Fix-back-10 fixes the fix-back-9 panel list: the feasibility rule is now
+the TIGHT one (Δreserved+Δvoided ≥ shrink, both regimes — the fix-back-9
+rule treated a confirm as list-neutral and double-counted voided growth,
+and the old no-fall rule assumed zero creates); verification has a 5 s
+deadline PER PAGE, so a legit 11-drop shrink heals on a 3 s/page host;
+the caller abort really reaches the fetch on runtimes without
+`AbortSignal.any` (manual forwarding controller); `useLiveSnapshot` has
+`retry: 0` (fetchLiveSnapshot already retries in-loop, so one poll tick
+tops out at 18 s, inside the 30 s poll). See `qa/fixback10.md`.
 Fix-back-9 fixes the fix-back-8 panel list: reserved is NOT terminal on
 chain, so monotonicity is voided/paid-only and a reserved fall is accepted
 when explained (release / confirm / void-of-reserved, feasibility

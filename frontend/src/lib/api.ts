@@ -396,12 +396,34 @@ export const FETCH_TIMEOUT_MS = 15_000
 
 export function timedFetch(url: string, init?: RequestInit): Promise<Response> {
   const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS)
-  // A caller signal (fix-back-9 MF-3: the verification deadline) aborts
-  // the fetch as well as the timeout — AbortSignal.any combines them, so
-  // either one firing cancels the request instead of leaving it running
-  // in the background. Guarded for runtimes without AbortSignal.any.
-  const signal =
-    init?.signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, timeout]) : timeout
+  let signal: AbortSignal = timeout
+  if (init?.signal) {
+    if (typeof AbortSignal.any === 'function') {
+      // A caller signal (fix-back-9 MF-3: the verification deadline)
+      // aborts the fetch as well as the timeout — AbortSignal.any
+      // combines them, so either one firing cancels the request instead
+      // of leaving it running in the background.
+      signal = AbortSignal.any([init.signal, timeout])
+    } else {
+      // Fix-back-10 MF-3: runtimes WITHOUT AbortSignal.any (jsdom 25 in
+      // the test env — AbortSignal.any is undefined there; Node 24 and
+      // browsers have it) used to fall back to the bare timeout signal,
+      // silently dropping the caller's abort: a verification-deadline
+      // abort at 100 ms then took the full 15 s fetch timeout instead
+      // of cancelling the in-flight read. Combine manually with a
+      // forwarding AbortController so either source aborts the fetch.
+      const controller = new AbortController()
+      const caller = init.signal
+      if (caller.aborted) controller.abort(caller.reason)
+      else if (timeout.aborted) controller.abort(timeout.reason)
+      else {
+        const onAbort = () => controller.abort(caller.aborted ? caller.reason : timeout.reason)
+        caller.addEventListener('abort', onAbort, { once: true })
+        timeout.addEventListener('abort', onAbort, { once: true })
+      }
+      signal = controller.signal
+    }
+  }
   return fetch(url, { ...init, signal })
 }
 

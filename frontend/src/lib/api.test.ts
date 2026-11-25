@@ -206,3 +206,79 @@ describe('api.getPayable', () => {
     })
   })
 })
+
+describe('timedFetch abort combining (fix-back-10 MF-3)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  // A REAL stubbed fetch (not a mocked getPayable): the stub returns a
+  // promise that only settles when the signal it was handed aborts, so
+  // the test sees exactly what the production read path sees. Fix-back-9
+  // silently dropped the caller signal on runtimes without
+  // AbortSignal.any (jsdom 25 in this test env): the guard fell back to
+  // the bare 15 s timeout signal, so an abort at 100 ms took 15,005 ms.
+  // The manual forwarding controller (api.ts) must cancel the in-flight
+  // read at ~100 ms instead.
+  it('cancels the in-flight read when the caller aborts at ~100 ms (real stubbed fetch)', async () => {
+    let capturedSignal: AbortSignal | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedSignal = init?.signal ?? undefined
+        return new Promise<never>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+            { once: true },
+          )
+        })
+      }),
+    )
+    const controller = new AbortController()
+    const start = Date.now()
+    const pending = api.getPayable(51, { signal: controller.signal }).then(
+      () => 'resolved',
+      (e) => e as Error,
+    )
+    setTimeout(() => controller.abort(), 100)
+    const err = await pending
+    const elapsed = Date.now() - start
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toMatch(/did not answer in time/)
+    // ~100 ms, not the 15 s fetch timeout: the caller abort really
+    // reached the fetch. (Under fix-back-9 this took 15,005 ms.)
+    expect(elapsed).toBeLessThan(2000)
+    // The fetch was handed a live signal that is aborted now — the old
+    // code handed it the bare 15 s timeout signal instead, which was
+    // still pending at this point.
+    expect(capturedSignal).toBeDefined()
+    expect(capturedSignal?.aborted).toBe(true)
+    // No retry on a timeout abort: exactly one fetch call.
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects at once when the caller signal is already aborted', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<never>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+            { once: true },
+          )
+          if (init?.signal?.aborted) reject(new DOMException('The operation was aborted.', 'AbortError'))
+        })
+      }),
+    )
+    const controller = new AbortController()
+    controller.abort()
+    const start = Date.now()
+    const err = await api.getPayable(51, { signal: controller.signal }).catch((e) => e)
+    expect((err as Error).message).toMatch(/did not answer in time/)
+    expect(Date.now() - start).toBeLessThan(1000)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})

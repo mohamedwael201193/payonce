@@ -10,16 +10,23 @@
 // dataUpdatedAt, so it advances on every successful poll.
 //
 // One snapshot (fix-back-6 B1/B11, corrected fix-back-7 MF-1, hardened
-// fix-back-8 MF-1): stats and invoices are ONE query (useLiveSnapshot)
-// whose queryFn fetches the pair together and only accepts it when the two
-// agree with each other and a list shrink is exactly accounted for by
-// voided+reserved growth since the last accepted snapshot (lib/snapshot.ts
-// — a reserve or a void legitimately removes a row from the listable set),
-// the excluded counters never decrease, AND every dropped id reads back
-// as reserved/voided via GET /api/payables/:id. A partial scan throws, so
-// react-query keeps the last good snapshot on screen instead of rendering
-// shrunken numbers, and the dashboard renders that kept snapshot with a
-// could-not-refresh note (DashboardPage, MF-6).
+// fix-back-8 MF-1, corrected fix-back-9 MF-1, corrected again in
+// fix-back-10 MF-1): stats and invoices are ONE query (useLiveSnapshot)
+// whose queryFn fetches the pair together and only accepts it when the
+// two agree with each other and the pair is FEASIBLE under the on-chain
+// transition model (lib/snapshot.ts) — a shrink is accepted iff
+// Δreserved + Δvoided ≥ shrink (d = Δreserved + Δvoided − shrink ≥ 0
+// creates must exist), in BOTH the reserved-fall and the no-fall regime
+// (the fix-back-7 exact-equality rule and the fix-back-9
+// Δreserved+Δpaid+2·Δvoided rule were both wrong — see snapshot.ts
+// header rule 2), the voided/paid counters never decrease, AND every
+// dropped id reads back as reserved/voided via GET /api/payables/:id.
+// A partial scan throws, so react-query keeps the last good snapshot on
+// screen instead of rendering shrunken numbers, and the dashboard
+// renders that kept snapshot with a could-not-refresh note
+// (DashboardPage, MF-6). Verification pages in 10s with a 5 s deadline
+// PER PAGE (fix-back-10 MF-2), so a legit >10 shrink heals on a slow
+// host instead of freezing.
 // useStats and useInvoices are thin selects over that one query, so the
 // home hero and the dashboard — and every section on one page — always
 // read the SAME snapshot and can never disagree in the same minute.
@@ -44,10 +51,10 @@ export function useLiveSnapshot() {
             count: prev.items.length,
             voidedTotal: prev.stats.voided_total ?? 0,
             reservedTotal: prev.stats.reserved_total ?? 0,
-            // Fix-back-9 MF-1 (a): the feasibility check needs paid
-            // growth to tell a legit confirm from an unexplained
-            // reserved fall, and paid monotonicity needs it too — thread
-            // it with the counts, from the same cached snapshot.
+            // Fix-back-9 MF-1 (a): paid monotonicity needs the previous
+            // paid total — thread it with the counts, from the same
+            // cached snapshot. (Fix-back-10: the tight feasibility
+            // check no longer uses paid growth — see lib/snapshot.ts.)
             paidTotal: prev.stats.paid_total,
             // Fix-back-8 MF-1: the shrink rule verifies every dropped id
             // against the previous snapshot's id set — thread the ids, not
@@ -59,7 +66,14 @@ export function useLiveSnapshot() {
       return fetchLiveSnapshot(prevSnapshot)
     },
     refetchInterval: POLL_MS,
-    retry: 1,
+    // Fix-back-10 MF-4: retry: 0 — fetchLiveSnapshot already retries
+    // in-loop (3 attempts with 1 s / 2 s backoff). A react-query retry
+    // would run the WHOLE queryFn again, doubling the worst case per
+    // poll tick: 3 attempts × 5 s page deadline + 3 s backoff = 18 s
+    // once (inside the 30 s poll), ~36 s doubled (past it). The other
+    // hooks keep retry: 1 — only the snapshot queryFn carries its own
+    // retry loop, so only it needs the 0.
+    retry: 0,
   })
 }
 
