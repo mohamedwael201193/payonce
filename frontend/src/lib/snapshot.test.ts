@@ -12,6 +12,7 @@ import { fetchLiveSnapshot, snapshotAccepts, VERIFY_TICK_BUDGET_MS, type PrevSna
 import type { InvoiceItem, Stats } from './types'
 
 const item = (id: number, status: 'paid' | 'unpaid'): InvoiceItem => ({
+  seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
   payable_id: id,
   asset: 'ccd',
   amount_display: '0.500000 CCD',
@@ -980,7 +981,8 @@ describe('fetchLiveSnapshot', () => {
     let verifyCalls = 0
     vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(50, 31))
     vi.spyOn(api, 'getStats').mockImplementation(async () => stats(50, 31, 1, 6))
-    vi.spyOn(api, 'getPayable').mockImplementation(async (_id: number, init?: RequestInit) => {
+    vi.spyOn(api, 'getPayable').mockImplementation(async (_id: number, sellerOrInit?: string | RequestInit) => {
+      const init = typeof sellerOrInit === 'string' ? undefined : sellerOrInit
       verifyCalls += 1
       return new Promise<never>((_resolve, reject) => {
         init?.signal?.addEventListener(

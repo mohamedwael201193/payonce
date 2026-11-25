@@ -53,7 +53,7 @@ const STATS = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy:
 // stats.paid_total === paid-in-list) — a disagreeing pair is a partial
 // scan and is retried, never rendered. So this mock's stats MUST match
 // its 3-item list (1 paid), or the home hero stays on its loading
-// skeleton and the 'Live Invoices' wait below times out.
+// skeleton and the 'Payables overview' wait below times out.
 const DAY_MS = 24 * 60 * 60 * 1000
 // Mock dues are relative to Date.now() — NOT fixed calendar dates
 // (fix-back-5 O4a, same dueInDays pattern as MF-H1/MF-H4). These items
@@ -61,7 +61,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // InvoiceShowcase + DashboardPage (real-now derivedStatus pills). Fixed
 // dues would flip the pick 2 → 1004 after Dec 1 and, after Dec 26, leave
 // NO future unpaid CCD payable — the demo would render "Demo unavailable"
-// and the 'Live Invoices' wait in the viewport test below would time out.
+// and the 'Payables overview' wait in the viewport test below would time out.
 // Relative dues preserve the pick (2, soonest-due unpaid CCD), the order
 // 2 < 1004, and both Unpaid pills at any run date. (The 'Due
 // 2026-12-01…' string in VERIFY_AFTER_PAY below is a canned verify-response
@@ -313,11 +313,11 @@ describe('App routing (tab bug repro)', () => {
 
   it('the hero demo never yanks the viewport while the user reads below it', async () => {
     renderApp('/')
-    // Wait for LIVE data (not the static sidebar text): 'Live Invoices' only
-    // renders once the glimpse's live table is on screen. Waiting for the
+    // Wait for LIVE data (not the static sidebar text): 'Payables overview' only
+    // renders once the demo's live panels are on screen. Waiting for the
     // static 'Pick an invoice' text resolves before the fetch lands, and
     // then the demo is still in its static frame and the test is vacuous.
-    await waitFor(() => expect(screen.getByText('Live Invoices')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
     // Let the page sit through 20 s of rAF ticks (CountUp + any animation).
     // Fix-back-6 B6: the hero is now a static glimpse — no autoplay loop,
     // no cursor, no steps — so there is nothing left that could scroll.

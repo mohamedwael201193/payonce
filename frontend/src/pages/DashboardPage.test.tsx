@@ -356,7 +356,7 @@ describe('DashboardPage', () => {
     expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe('/dashboard?tab=pay&payable=3#pay')
     const row1 = within(table).getByText('Payable 1').closest('tr') as HTMLElement
     expect(within(row1).queryByText('Pay')).not.toBeInTheDocument()
-    expect(within(row1).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1')
+    expect(within(row1).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB')
   })
 
   it('clicking a row Pay stays on /dashboard and preloads the invoice in the pay tab', async () => {

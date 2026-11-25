@@ -14,9 +14,9 @@ const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOSt
 
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
-    { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
   ],
 }
 const STATS = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
@@ -92,8 +92,8 @@ describe('HomePage (display-only landing)', () => {
   it('renders the hero, the demo glimpse and the explainers', async () => {
     renderHome()
     expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument()
-    // The small demo glimpse loads the live list (display only).
-    await waitFor(() => expect(screen.getByText('Live Invoices')).toBeInTheDocument())
+    // The tall demo dashboard loads the live list (display only).
+    await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
     // The explainer keeps its step titles — explanation, not pay flow.
     expect(screen.getByText('Pick an invoice')).toBeInTheDocument()
     expect(screen.getByText('Check the invoice')).toBeInTheDocument()
@@ -103,7 +103,7 @@ describe('HomePage (display-only landing)', () => {
 
   it('renders NO pay-flow section and NO link/button to a pay flow', async () => {
     renderHome()
-    await waitFor(() => expect(screen.getByText('Live Invoices')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
     // No tabs, no picker, no check/pay buttons, no try panel, no build status.
     expect(screen.queryByRole('tablist')).toBeNull()
     expect(screen.queryByText('Try to break it')).toBeNull()
@@ -120,7 +120,7 @@ describe('HomePage (display-only landing)', () => {
 
   it('every "Pay an invoice" and "Verify an invoice" link points at the dashboard pay tabs', async () => {
     renderHome()
-    await waitFor(() => expect(screen.getByText('Live Invoices')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
     const payLinks = screen.getAllByRole('link', { name: 'Pay an invoice' })
     expect(payLinks.length).toBeGreaterThan(0)
     for (const link of payLinks) {

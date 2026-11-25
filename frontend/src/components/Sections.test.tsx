@@ -245,6 +245,7 @@ describe('HowItWorks latest-payment card (FIX-4) + one latest rule (FIX-7f)', ()
 const INVOICES_1049 = {
   items: [
     {
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
       payable_id: 1049,
       asset: 'eudemo',
       amount_display: '0.01 EUDemo',

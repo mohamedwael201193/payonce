@@ -10,11 +10,11 @@ import type { ReactNode } from 'react'
 import { POLL_MS, useHealth, useInvoices, useLiveSnapshot, useStats } from './useApi'
 
 const ITEMS = [
-  { payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 2, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 3, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 4, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 5, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 4, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
 ]
 // The pair must agree (B1): stats 5/3 matches the 5-item list, 3 paid.
 const STATS = { payables_total: 5, paid_total: 3, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }

@@ -16,10 +16,10 @@ const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOSt
 
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice 2' },
-    { payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
-    { payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 5' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice 2' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 5' },
   ],
 }
 const FACTS_3 = {
@@ -223,7 +223,7 @@ describe('PayFlowTabs (manual tabs)', () => {
     expect(screen.getByRole('button', { name: /Continue to Check/ })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText('Pick an invoice first.')).toBeInTheDocument()
     // Pick invoice 3 from the lab list — the facts load, the tab does NOT move.
-    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:3' } })
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     const cont = screen.getByRole('button', { name: /Continue to Check/ })
     expect(cont).not.toHaveAttribute('aria-disabled', 'true')
@@ -296,7 +296,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
     await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
     // Hand-pick 5 in the Pick tab — facts show Payable 5, and the URL
     // must now name 5 too (hand-pick syncs ?payable=).
-    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:5' } })
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     // The sync lands through a startTransition navigation, so it can
     // arrive a beat after the facts render — wait for it, do not assert
@@ -320,7 +320,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
     const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:5' } })
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
     go('/dashboard?tab=pay&payable=5#pay')
@@ -503,7 +503,7 @@ describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-
     )
     // Hand-pick 5 in the Pick tab, then check 5.
     await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:5' } })
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
     await runCheck(user)

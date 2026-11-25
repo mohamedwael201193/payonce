@@ -1,10 +1,12 @@
-// HeroDemo — the SMALL demo glimpse in the hero card (fix-back-6 B6).
-// Asserts: the card is a glimpse only — stat chips + a 3-row invoice
-// table + a link to the real dashboard. No walkthrough, no checks, no pay
-// button, no progress bar, no receipt box, no cursor, no auto-play; the
-// label is "Demo" (never "Simulation"); the demo makes ZERO network calls
-// (no fetch, no pay POST) and shows no real-looking transaction hash.
-import { render, screen, within } from '@testing-library/react'
+// HeroDemo — the TALL demo dashboard in the hero card (user ruling
+// 2026-11-26 00:37: match the Altura reference video frame by frame).
+// Asserts: the panel is a tall dashboard preview — sidebar, Payables
+// overview chart, paid-once gauge, payment rails, insights and due-soon
+// panels — with live numbers only. Still a glimpse, not a walkthrough:
+// no steps, no checks, no pay button, no receipt, no cursor, no tabs;
+// the label is "Demo" (never "Simulation"); the demo makes ZERO network
+// calls (no fetch, no pay POST) and shows no real-looking transaction hash.
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeroDemo } from './HeroDemo'
@@ -13,24 +15,24 @@ import type { InvoiceItem, Stats } from '../lib/types'
 
 // Same live shape as HeroOverview.test.tsx: 13 payables, 8 paid, 5
 // unpaid, 18 refused. Dues are relative to Date.now() (MF-H1 pattern):
-// payable 5 is past due (−1 d, Overdue pill, first in the table),
-// payable 1004 is the soonest-due unpaid (+1 d), 1/2/3 sit at +7 d.
+// payable 5 is past due (−1 d, first in Due soon), payable 1004 is the
+// soonest-due unpaid (+1 d), 1/2/3 sit at +7 d.
 const DAY_MS = 24 * 60 * 60 * 1000
 const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
 const COMPONENT_INVOICES: InvoiceItem[] = [
-  { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: dueInDays(-1), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: dueInDays(-1), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
 ]
 const STATS: Stats = {
   payables_total: 14,
@@ -65,7 +67,7 @@ describe('heroDemo lib (glimpse only)', () => {
   })
 })
 
-describe('HeroDemo component (small glimpse, B6)', () => {
+describe('HeroDemo component (tall dashboard preview)', () => {
   let fetchSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
@@ -78,32 +80,46 @@ describe('HeroDemo component (small glimpse, B6)', () => {
     vi.restoreAllMocks()
   })
 
-  it('labels itself Demo (never Simulation) and shows chips + a 3-row table + the real-dashboard link', () => {
+  it('labels itself Demo (never Simulation) and shows the tall shape: sidebar, chart, gauge, rails, insights, dues', () => {
     const { container } = renderDemo(COMPONENT_INVOICES, STATS)
     expect(screen.getByText('Demo')).toBeInTheDocument()
+    // Sidebar — the real dashboard's nav as preview labels.
+    expect(screen.getByText('Search')).toBeInTheDocument()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Live Invoices')).toBeInTheDocument()
-    expect(screen.getByText(/Showing 3 of 13 invoices/)).toBeInTheDocument()
-    // The 4 stat chips mirror the real dashboard's 4 stat cards.
-    expect(screen.getByText('Total')).toBeInTheDocument()
-    expect(screen.getByText('Paid')).toBeInTheDocument()
-    expect(screen.getAllByText('Unpaid').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Refused')).toBeInTheDocument()
-    // The table shows the soonest-due unpaid payables, with pills.
-    expect(screen.getByText('Payable 1004')).toBeInTheDocument()
+    expect(screen.getByText('Pay an invoice')).toBeInTheDocument()
+    expect(screen.getByText('For judges')).toBeInTheDocument()
+    // Chart — big CCD total + EUDemo chip (each sum real, own asset).
+    expect(screen.getByText('Payables overview')).toBeInTheDocument()
+    expect(screen.getAllByText('19.00 CCD')).toHaveLength(2) // big number + Rail A
+    expect(screen.getAllByText('1.03 EUDemo')).toHaveLength(2) // chip + Rail B
+    expect(screen.getByText('8 paid once · 5 unpaid · 13 listed')).toBeInTheDocument()
+    expect(screen.getByText('EUDemo payables are not on this axis — they are in Payment rails.')).toBeInTheDocument()
+    // Panels.
+    expect(screen.getByText('Paid once')).toBeInTheDocument()
+    expect(screen.getByText('8 of 13 payables paid once')).toBeInTheDocument()
+    expect(screen.getByText('Payment rails')).toBeInTheDocument()
+    expect(screen.getByText('Rail A · CCD')).toBeInTheDocument()
+    expect(screen.getByText('Rail B · EUDemo')).toBeInTheDocument()
+    expect(screen.getByText('Insights')).toBeInTheDocument()
+    expect(screen.getByText('5 invoices still unpaid')).toBeInTheDocument()
+    expect(screen.getByText('18 payments refused on chain since deploy')).toBeInTheDocument()
+    expect(screen.getByText('Due soon')).toBeInTheDocument()
     expect(screen.getByText('Payable 5')).toBeInTheDocument()
+    expect(screen.getByText('Payable 1004')).toBeInTheDocument()
     expect(screen.getByText('View the real dashboard →')).toBeInTheDocument()
-    // No "Simulation" anywhere, no real-looking transaction hash.
+    // No "Simulation" anywhere, no real-looking transaction hash, no AI.
     expect(container.textContent).not.toMatch(/simulat/i)
+    expect(container.textContent).not.toMatch(/AI insights/i)
     expect(document.body.textContent).not.toMatch(/[0-9a-f]{64}/)
   })
 
-  it('is a glimpse, not a walkthrough: no steps, no checks, no pay button, no receipt, no cursor', () => {
+  it('is a glimpse, not a walkthrough: no steps, no checks, no pay button, no receipt, no cursor, no tabs', () => {
     const { container } = renderDemo(COMPONENT_INVOICES, STATS)
     expect(screen.queryByText('Pick an invoice')).toBeNull()
     expect(screen.queryByText('Check the invoice')).toBeNull()
     expect(screen.queryByText('Pay once')).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('tablist')).toBeNull()
     expect(screen.queryByText(/Demo verdict/)).toBeNull()
     expect(screen.queryByText(/Demo receipt/)).toBeNull()
     expect(screen.queryByText(/Paid once — demo/)).toBeNull()
@@ -117,35 +133,35 @@ describe('HeroDemo component (small glimpse, B6)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('shows the N1 refused caption under the live chips (one refused number + its basis)', () => {
+  it('shows the N1 refused caption under the gauge (one refused number + its basis)', () => {
     renderDemo(COMPONENT_INVOICES, STATS)
     expect(screen.getByText('Recorded run, 24 Nov 2026 · 18 refused on chain since deploy')).toBeInTheDocument()
   })
 
-  it('shows the N1 caption with no number while the stats have not loaded', () => {
+  it('shows the N1 caption with no number while the stats have not loaded (never 0)', () => {
     renderDemo(COMPONENT_INVOICES, undefined)
     expect(screen.getByText('Recorded run, 24 Nov 2026')).toBeInTheDocument()
-  })
-
-  it('shows "—" for Refused when the stats have not loaded (never 0)', () => {
-    renderDemo(COMPONENT_INVOICES, undefined)
-    const list = screen.getByLabelText('Live totals')
-    const refused = within(list).getByText('Refused').closest('li') as HTMLElement
-    expect(refused).toHaveTextContent('—')
-    expect(refused).not.toHaveTextContent('0')
-    // The other chips still show live counts from the list.
-    expect(within(list).getByText('Total').closest('li')).toHaveTextContent('13')
+    expect(screen.queryByText(/refused on chain since deploy/)).toBeNull()
   })
 
   it('shows the loading skeleton while the live list loads', () => {
     renderDemo([], undefined)
     expect(screen.getByText(/Demo unavailable — the live invoice list is still loading/)).toBeInTheDocument()
-    expect(screen.queryByText('Live Invoices')).toBeNull()
+    expect(screen.queryByText('Payables overview')).toBeNull()
+  })
+
+  it('shows an honest empty state when the list loads empty (never a loading skeleton)', () => {
+    renderDemo([], STATS)
+    expect(screen.queryByText(/still loading/)).toBeNull()
+    expect(screen.getByText('No CCD payables on the test registry yet.')).toBeInTheDocument()
+    expect(screen.getByText('No payables on the test registry yet.')).toBeInTheDocument()
+    // The refused total still comes from stats — an empty list hides nothing.
+    expect(screen.getByText('18 payments refused on chain since deploy')).toBeInTheDocument()
   })
 
   // Fix-back-7 MF-7: a first-load error is an error, not an endless
   // loading skeleton — and an error WITH kept data still renders the
-  // chips and table, never the error box.
+  // panels, never the error box.
   it('shows a load error — not the loading skeleton — when the snapshot errors with no data', () => {
     render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -167,13 +183,13 @@ describe('HeroDemo component (small glimpse, B6)', () => {
       </MemoryRouter>,
     )
     expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.getByText('Live Invoices')).toBeInTheDocument()
+    expect(screen.getByText('Payables overview')).toBeInTheDocument()
   })
 
   // Fix-back-8 MF-4: an error WITH kept data must disclose the staleness
   // — the same could-not-refresh note as the dashboard banner — instead
-  // of silently labelling kept numbers "Live totals". The note names the
-  // kept time when the caller passes it.
+  // of silently labelling kept numbers live. The note names the kept
+  // time when the caller passes it.
   it('shows a could-not-refresh note (not an alert) when the snapshot errors with kept data', () => {
     render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -186,7 +202,7 @@ describe('HeroDemo component (small glimpse, B6)', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Could not refresh the live numbers just now — showing the last verified numbers from 10:42:07 UTC. The page retries every 30 s.',
     )
-    expect(screen.getByText('Live Invoices')).toBeInTheDocument()
+    expect(screen.getByText('Payables overview')).toBeInTheDocument()
   })
 
   it('shows the stale note without a time when no last-updated time is passed', () => {
@@ -201,7 +217,7 @@ describe('HeroDemo component (small glimpse, B6)', () => {
     expect(screen.getByRole('status')).not.toHaveTextContent('from')
   })
 
-  // Fix-back-8 MF-4: home shows a "Last updated" line for the demo card
+  // Fix-back-8 MF-4: home shows a "Last updated" line for the demo
   // (it had none); on a fresh load there is no stale note.
   it('shows a Last updated line on a fresh load and no stale note', () => {
     render(
