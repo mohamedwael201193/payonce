@@ -176,6 +176,13 @@ export function PayFlowTabs() {
       // been requested since this one started.
       if (loadGen.current !== gen) return null
       dispatch({ type: 'FACTS_LOADED', facts })
+      // Fix-back-15 MF-2: a successful load clears the banner a failed
+      // load left behind. The catch below sets pageError, and nothing
+      // cleared it — so "The testnet did not answer in time…" survived
+      // on screen after a later load succeeded. The stale-resolution
+      // return above must NOT clear it: a stale success belongs to an
+      // older load, not to the error the current load may have set.
+      setPageError(null)
       return facts
     } catch (e) {
       // Fix-back-14 MF-2: a stale failure must not 404 the payable the
@@ -197,8 +204,37 @@ export function PayFlowTabs() {
   // a later dashboard row Pay link to a different id is a real param
   // change the preload effect below can act on — a stale id can never
   // be resurrected by a link the user did not click.
+  // Fix-back-15 MF-1: the id of the most recent ?payable= sync that has
+  // not yet been observed to land. syncPayableParam sets it
+  // synchronously (below); the preload effect clears it the moment a
+  // navigation is observed (see lastSearch). It tracks the pending
+  // sync, not mere param sightings — the fix-back-14 seen-param guard
+  // recorded only params the effect acted on, never the id a direct
+  // load delivered, so after preload 3 -> hand-pick 5 -> row link to 3
+  // mid-load -> release 5, seen was still 3 and the effect refused to
+  // reload 3 forever: the panel stranded on Payable 5 while the URL
+  // said 3, and tab switches re-ran the same guard.
+  const pendingSyncId = useRef<number | null>(null)
+
+  // Fix-back-15 MF-1: the query string the preload effect last
+  // observed. Any observed change resolves a pending sync: it either
+  // landed (the param now names the pending id) or a later navigation
+  // superseded it (a row link / tab click issued before the sync
+  // landed — the router's final URL names something else). Either way
+  // the sync is over and must not suppress a later load; without this
+  // a superseded sync would strand the panel exactly like the
+  // seen-param guard did.
+  const lastSearch = useRef<string | null>(null)
+
   const syncPayableParam = useCallback(
     (id: number) => {
+      // Fix-back-15 MF-1: record the pending sync SYNCHRONOUSLY — the
+      // navigation lands a beat later (startTransition), and the
+      // preload effect must know a sync to this id is outstanding in
+      // that beat. Without this the effect cannot tell the T2 beat
+      // (visible param is the stale pre-sync value) from a real param
+      // change (a row Pay link that has landed).
+      pendingSyncId.current = id
       setParams(
         (prev) => {
           const next = new URLSearchParams(prev)
@@ -211,53 +247,41 @@ export function PayFlowTabs() {
     [setParams],
   )
 
-  // Fix-back-14 MF-2/T2: the param value the preload effect below last
-  // acted on. The effect must reload ONLY when ?payable= CHANGES — a
-  // re-run triggered by a facts change alone must never reload. Why:
-  // a hand-pick syncs ?payable= through a startTransition navigation,
-  // which lands a beat AFTER the facts render (fix-back-13 finding).
-  // In that beat the effect sees the STALE param (3) against the new
-  // facts (5) and would fire a redundant loadFacts(3) — which, now
-  // that FACTS_LOADING clears facts (MF-1), wipes the just-loaded
-  // payable 5 off the screen until 3 resolves. The deferred T2 test
-  // caught this: with 3 held in flight, the redundant reload left the
-  // panel showing "pick an invoice first" instead of the checked 5.
-  // The seen-param guard closes it; a real param change (row Pay link
-  // 5 -> 3, after the sync has landed) still reloads, and a param
-  // change that arrives mid-load is NOT marked seen, so it is retried
-  // when the in-flight load settles instead of being lost.
-  const seenParamId = useRef<number | null>(null)
-
-  // ?payable=<id> preload. The old guard compared ONLY the ref (the param
-  // value already seen): hand-picking 5 after preloading 3 left the ref
-  // at 3, so a row Pay link back to payable=3 was suppressed and the pay
-  // panel kept showing Payable 5 while the URL said 3. The guard now
-  // compares the param against the LOADED facts id: any param that names
-  // a different payable than the facts on screen reloads. The ref is
-  // kept for one job only — a load that 404'd is not retried on every
-  // tab switch — and loads in flight are not duplicated.
+  // ?payable=<id> preload. The guard compares the param against the
+  // LOADED facts id: any param that names a different payable than the
+  // facts on screen reloads — EXCEPT in the one beat where a hand-pick
+  // has rendered its facts but its ?payable= sync has not landed yet
+  // (the visible param is the stale pre-sync value, and a sync to a
+  // different id is outstanding — pendingSyncId). That beat is the
+  // fix-back-14 T2 hazard: suppressing it there is the ONLY job the
+  // old seen-param guard had, and the pending-sync ref does it without
+  // the strand — a param that names a different payable than the
+  // loaded facts, with NO sync outstanding, always reloads, including
+  // a param change that arrived mid-load and is retried when the
+  // in-flight load settles. Loads in flight are not duplicated, and a
+  // load that 404'd is not retried on every tab switch (preloadedId).
   useEffect(() => {
+    // A navigation has landed since this effect last ran: any sync
+    // issued before it has landed or been superseded — resolve it, so
+    // a superseded sync can never suppress a later load.
+    const search = params.toString()
+    if (lastSearch.current !== null && lastSearch.current !== search) {
+      pendingSyncId.current = null
+    }
+    lastSearch.current = search
     const id = Number.parseInt(params.get('payable') ?? '', 10)
     if (!Number.isFinite(id) || id <= 0) return
-    if (state.facts?.payable_id === id) {
-      seenParamId.current = id
-      return
-    }
-    // Fix-back-14: a load is in flight — do NOT mark this param seen.
-    // The effect re-runs when the load settles and retries the param
-    // then; marking it now would lose a param change that arrived
-    // mid-load (the new id would never load).
+    if (state.facts?.payable_id === id) return
+    // A load is in flight — do not fire a second one. The effect
+    // re-runs when the load settles and retries the param then; a
+    // param change that arrived mid-load is not lost.
     if (state.factsState === 'loading') return
-    if (state.factsState === 'not-found' && preloadedId.current === id) {
-      seenParamId.current = id
-      return
-    }
-    // Fix-back-14: the param did not change since this effect last
-    // acted — this run was triggered by a facts change alone (e.g. a
-    // hand-pick whose ?payable= sync has not landed yet). Reloading
-    // the stale param would undo the hand-pick.
-    if (seenParamId.current === id) return
-    seenParamId.current = id
+    if (state.factsState === 'not-found' && preloadedId.current === id) return
+    // A sync to a different id is still outstanding: the visible param
+    // is the stale pre-sync value (T2 beat) — do not act on it.
+    // With no sync outstanding the param is current, and a mismatch
+    // against the loaded facts always reloads (X1 strand fix).
+    if (pendingSyncId.current !== null && pendingSyncId.current !== id) return
     void loadFacts(id)
   }, [params, loadFacts, state.facts, state.factsState])
 
