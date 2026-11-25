@@ -89,11 +89,21 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
     case 'INVOICE_RESET':
       return { ...initialFlowState }
     case 'FACTS_LOADING':
-      return { ...state, factsState: 'loading' }
+      // Fix-back-14 MF-1/MF-3: a load in flight invalidates everything the
+      // old facts carried. The old facts are CLEARED (not kept): while a
+      // load for id N is in flight the pay panel must never show a
+      // different payable's facts with an enabled Pay button — keeping
+      // them on screen for the whole load (up to the 15 s fetch timeout)
+      // was the T1 window. The check is reset too: a check that passed
+      // for the old payable must not survive a facts change (S1/S2).
+      return { ...state, facts: null, factsState: 'loading', check: { kind: 'idle' }, pay: { kind: 'idle' }, checkFreshUntil: null }
     case 'FACTS_LOADED':
-      return { ...state, facts: action.facts, factsState: 'loaded' }
+      // Fix-back-14 MF-3: new facts invalidate the old check and payment,
+      // exactly as INVOICE_LOADED does for a new document — a check run
+      // for payable A must not carry over to payable B.
+      return { ...state, facts: action.facts, factsState: 'loaded', check: { kind: 'idle' }, pay: { kind: 'idle' }, checkFreshUntil: null }
     case 'FACTS_NOT_FOUND':
-      return { ...state, facts: null, factsState: 'not-found' }
+      return { ...state, facts: null, factsState: 'not-found', check: { kind: 'idle' }, pay: { kind: 'idle' }, checkFreshUntil: null }
     case 'CHECK_RUNNING':
       return { ...state, check: { kind: 'running', done: action.done, total: action.total } }
     case 'CHECK_READY':
@@ -144,6 +154,13 @@ export function payDisabledReason(
   if (!isCheckFresh(state)) return 'The check is more than 10 minutes old. Check again.'
   const facts = state.facts
   if (!facts) return 'Load an invoice first (step 1).'
+  // Fix-back-14 MF-3 (S1/S2): the check is bound to the payable it was
+  // run for. A ready check for payable A must never enable Pay for
+  // payable B — the reducer resets the check on every facts change, and
+  // this is the second layer, for any state that still carries a
+  // mismatched check (e.g. built by hand or by an older path).
+  if (state.check.result.payable_id !== facts.payable_id)
+    return 'The check was run for a different invoice. Check again.'
   if (facts.status.kind === 'paid') return 'This invoice is already paid.'
   if (facts.status.kind === 'reserved') return 'Reserved for another payment.'
   // Fix-back-8 MF-1: Voided is its own facts kind now — it can never be

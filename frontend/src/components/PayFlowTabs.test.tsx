@@ -71,6 +71,22 @@ const HEALTH = {
   budget: { new_invoices_left_this_hour: 3, attack_sends_left_this_hour: 10 },
 }
 
+// Fix-back-14 MF-3: verify fixtures — a ready check run for a given
+// payable, so S1/S2 can prove Pay is bound to the checked payable.
+const verifyFor = (payable_id: number) => ({
+  payable_id,
+  mode: 'before_pay',
+  verdict: 'ready',
+  passed: 9,
+  total: 9,
+  blocked_reason: null,
+  checks: [],
+  checked_at: '2026-11-24T10:42:07Z',
+  read_ms: 120,
+})
+const VERIFY_3 = verifyFor(3)
+const VERIFY_5 = verifyFor(5)
+
 function mockApi() {
   vi.stubGlobal(
     'fetch',
@@ -80,6 +96,16 @@ function mockApi() {
       }
       if (url.includes('/api/payables/5/document')) {
         return { ok: true, status: 200, text: async () => 'Payable 5\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      // Fix-back-14 MF-3: the verify endpoint must answer BEFORE the
+      // facts branch below — '/api/payables/5/verify' contains
+      // '/api/payables/5', which would otherwise return the facts body
+      // and fail verify-schema parsing.
+      if (url.includes('/api/payables/3/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_3 }
+      }
+      if (url.includes('/api/payables/5/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_5 }
       }
       const body = url.includes('/api/invoices')
         ? INVOICES
@@ -334,5 +360,242 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
     await waitFor(() =>
       expect(within(screen.getByRole('tabpanel')).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
     )
+  })
+})
+
+describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-2/MF-3)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  // The adversarial judge's T1/T2 repros need a load that stays in
+  // flight while the user acts. This mock is mockApi with holdable
+  // facts responses: any id in holdIds never answers until the test
+  // calls release(id). Verify/document/invoices/stats/config/health
+  // always answer at once.
+  function mockApiDeferred(holdIds: number[]) {
+    const pending = new Map<number, () => void>()
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/payables/3/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 3\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/5/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 5\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/3/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_3 }
+      }
+      if (url.includes('/api/payables/5/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_5 }
+      }
+      const held = holdIds.find((id) => url.includes(`/api/payables/${id}`))
+      if (held !== undefined) {
+        const facts = held === 3 ? FACTS_3 : FACTS_5
+        return new Promise((resolve) => {
+          pending.set(held, () => resolve({ ok: true, status: 200, json: async () => facts }))
+        })
+      }
+      const body = url.includes('/api/invoices')
+        ? INVOICES
+        : url.includes('/api/stats')
+          ? STATS
+          : url.includes('/api/config')
+            ? CONFIG
+            : url.includes('/api/payables/3')
+              ? FACTS_3
+              : url.includes('/api/payables/5')
+                ? FACTS_5
+                : url.includes('/api/health')
+                  ? HEALTH
+                  : null
+      if (!body) return { ok: false, status: 404, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => body }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return {
+      fetchMock,
+      release: (id: number) => pending.get(id)?.(),
+    }
+  }
+
+  // Run the check for the payable currently loaded, from the Check tab.
+  async function runCheck(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('tab', { name: /Check/ }))
+    await user.click(screen.getByRole('button', { name: 'Check invoice' }))
+    await waitFor(() => expect(screen.getByText(/All gating checks passed/)).toBeInTheDocument())
+  }
+
+  // The visible (active) tab panel, scoped for every pay-panel assertion.
+  function activePanel() {
+    return screen.getByRole('tabpanel')
+  }
+
+  function payEudemoButton() {
+    return within(activePanel()).getByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })
+  }
+
+  function expectPayDisabled(reason: string) {
+    expect(payEudemoButton()).toHaveAttribute('aria-disabled', 'true')
+    expect(within(activePanel()).getAllByText(reason).length).toBeGreaterThanOrEqual(1)
+  }
+
+  function expectPayEnabled() {
+    expect(payEudemoButton()).not.toHaveAttribute('aria-disabled', 'true')
+  }
+
+  // T1 (MF-1, TRANSIENT): check 5 ready → row Pay link to 3 with the
+  // reload held in flight → the pay panel must NEVER show Payable 5
+  // with an enabled Pay button while the URL says payable=3. The old
+  // code kept the old facts (FACTS_LOADING left them in place), so the
+  // panel showed "Payable 5" with EUDemo Pay ENABLED for the whole load
+  // (up to the 15 s fetch timeout). The fix clears facts on
+  // FACTS_LOADING, so the panel shows the prerequisite note instead.
+  it('T1: while a reload for 3 is in flight, the pay panel shows no stale payable 5 with an enabled Pay (then shows 3, Pay disabled)', async () => {
+    const user = userEvent.setup()
+    const controls = mockApiDeferred([3])
+    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=5')
+    await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    expectPayEnabled()
+    // A dashboard row Pay link to payable=3 — the reload is held in
+    // flight by the deferred mock.
+    go('/dashboard?tab=pay&payable=3#pay')
+    await waitFor(() =>
+      expect(
+        within(activePanel()).getByText(
+          'Pick an invoice first — this step needs a payable loaded from the test registry.',
+        ),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.getByTestId('location')).toHaveTextContent('payable=3')
+    // While loading: no stale payable and no enabled Pay anywhere in
+    // the pay panel (there is no Pay button at all until facts load).
+    expect(within(activePanel()).queryByText(/Payable 5 — 0.01 EUDemo/)).toBeNull()
+    expect(within(activePanel()).queryByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })).toBeNull()
+    // Resolve the reload: the panel shows 3 — and Pay is DISABLED,
+    // because the load reset the check that had passed for 5.
+    controls.release(3)
+    await waitFor(() =>
+      expect(within(activePanel()).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    expect(within(activePanel()).queryByText(/Payable 5 — 0.01 EUDemo/)).toBeNull()
+    expectPayDisabled('Run the check first.')
+  })
+
+  // T2 (MF-2, TRANSIENT): slow preload 3 → hand-pick 5 + check 5 → the
+  // late 3 lands → the panel must NEVER show Payable 3 with an enabled
+  // Pay while the URL says 5. The old code overwrote facts
+  // unconditionally on FACTS_LOADED, so the late 3 landed on screen
+  // (self-healing only when the effect re-loaded 5). The generation
+  // guard ignores the stale resolution, so 3 never lands at all.
+  it('T2: a late stale load of 3 never overwrites the checked payable 5 (URL says 5, Pay stays enabled for 5)', async () => {
+    const user = userEvent.setup()
+    const controls = mockApiDeferred([3])
+    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    // The preload of 3 is in flight (held by the mock).
+    await waitFor(() =>
+      expect(controls.fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/payables/3'),
+        expect.anything(),
+      ),
+    )
+    // Hand-pick 5 in the Pick tab, then check 5.
+    await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '5' } })
+    await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    // During the window (3 still in flight): panel shows 5, Pay enabled.
+    await waitFor(() =>
+      expect(within(activePanel()).getByText(/Payable 5 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    expect(within(activePanel()).queryByText(/Payable 3 — 0.01 EUDemo/)).toBeNull()
+    expectPayEnabled()
+    expect(screen.getByTestId('location')).toHaveTextContent('payable=5')
+    // The late 3 lands — the generation guard must ignore it.
+    controls.release(3)
+    await new Promise((r) => setTimeout(r, 100))
+    expect(within(activePanel()).getByText(/Payable 5 — 0.01 EUDemo/)).toBeInTheDocument()
+    expect(within(activePanel()).queryByText(/Payable 3 — 0.01 EUDemo/)).toBeNull()
+    expectPayEnabled()
+    expect(screen.getByTestId('location')).toHaveTextContent('payable=5')
+    // The stale load must not have triggered any reload of 3 either:
+    // exactly one facts fetch for 3 (the initial preload) happened —
+    // the hand-pick must not fire a redundant loadFacts(3) while the
+    // ?payable= sync is still in flight (fix-back-14 seen-param guard).
+    // (Facts fetches for 5 are 2, not 1: the lab-list path calls
+    // loadFacts once via onLoaded and once via onNumber — pre-existing,
+    // harmless under the generation guard — so no count is asserted
+    // for 5.)
+    expect(
+      controls.fetchMock.mock.calls.filter(([url]) => url.includes('/api/payables/3') && !url.includes('/verify') && !url.includes('/document')).length,
+    ).toBe(1)
+    void go
+  })
+
+  // S1 (MF-3, SETTLED): check 5 ready → row Pay link to 3 → settled
+  // facts 3 + URL 3, but verify() was called only for 5. The old code
+  // never compared check.result.payable_id to facts.payable_id and never
+  // reset the check on a facts change, so Pay stayed ENABLED for 3 on
+  // the strength of 5's check. Now Pay is DISABLED until 3 is checked.
+  it('S1: check 5 ready, then a row Pay link to 3 leaves Pay DISABLED until 3 is checked', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=5')
+    await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    expectPayEnabled()
+    go('/dashboard?tab=pay&payable=3#pay')
+    await waitFor(() =>
+      expect(within(activePanel()).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    expect(within(activePanel()).queryByText(/Payable 5 — 0.01 EUDemo/)).toBeNull()
+    expect(screen.getByTestId('location')).toHaveTextContent('payable=3')
+    expectPayDisabled('Run the check first.')
+    // Checking 3 re-enables Pay — for 3, on the strength of 3's check.
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    expect(within(activePanel()).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument()
+    expectPayEnabled()
+  })
+
+  // S2 (MF-3, SETTLED): check 3 ready → number-field pick of 5 →
+  // settled facts 5 + URL 5, but verify() was called only for 3. The
+  // old onNumber path swapped facts without resetting the check, so Pay
+  // stayed ENABLED for 5 on the strength of 3's check. Now Pay is
+  // DISABLED until 5 is checked.
+  it('S2: check 3 ready, then a number-field pick of 5 leaves Pay DISABLED until 5 is checked', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    expectPayEnabled()
+    // Back to Pick, open the number field, pick 5.
+    await user.click(screen.getByRole('tab', { name: /Pick an invoice/ }))
+    await user.click(
+      screen.getByRole('button', { name: 'Other ways to load an invoice (file, paste, number)' }),
+    )
+    fireEvent.change(screen.getByLabelText('Or type a payable number'), { target: { value: '5' } })
+    await user.click(screen.getByRole('button', { name: 'Use this number' }))
+    await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
+    // Pay tab: facts 5, URL 5 — Pay DISABLED (3's check does not carry).
+    await user.click(screen.getByRole('tab', { name: /Pay once/ }))
+    await waitFor(() =>
+      expect(within(activePanel()).getByText(/Payable 5 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    expect(within(activePanel()).queryByText(/Payable 3 — 0.01 EUDemo/)).toBeNull()
+    expectPayDisabled('Run the check first.')
+    // Checking 5 re-enables Pay — for 5, on the strength of 5's check.
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    expect(within(activePanel()).getByText(/Payable 5 — 0.01 EUDemo/)).toBeInTheDocument()
+    expectPayEnabled()
   })
 })

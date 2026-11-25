@@ -155,18 +155,32 @@ export function PayFlowTabs() {
   // that names a different payable than the loaded facts.
   const preloadedId = useRef<number | null>(null)
 
+  // Fix-back-14 MF-2: generation counter for loadFacts. Each load tags
+  // its generation; a resolution (or failure) belonging to an older
+  // generation is ignored — a slow load of payable 3 that lands AFTER
+  // the user hand-picked 5 must not overwrite 5's facts. Without this,
+  // the late 3 landed on screen while the URL said 5, with Pay enabled.
+  const loadGen = useRef(0)
+
   const loadFacts = useCallback(async (id: number) => {
     // Fix-back-13 MF-1: record the id being loaded here, not only in the
     // preload effect — every load path (preload, hand-pick, fresh) marks
     // its id, so the effect below can tell "already loaded / loading"
     // from "the URL names a different payable than the loaded facts".
     preloadedId.current = id
+    const gen = ++loadGen.current
     dispatch({ type: 'FACTS_LOADING' })
     try {
       const facts = await api.getPayable(id)
+      // Fix-back-14 MF-2: ignore a stale resolution — a newer load has
+      // been requested since this one started.
+      if (loadGen.current !== gen) return null
       dispatch({ type: 'FACTS_LOADED', facts })
       return facts
     } catch (e) {
+      // Fix-back-14 MF-2: a stale failure must not 404 the payable the
+      // newer load is fetching either.
+      if (loadGen.current !== gen) return null
       dispatch({ type: 'FACTS_NOT_FOUND' })
       setPageError(
         e instanceof ApiError
@@ -197,6 +211,23 @@ export function PayFlowTabs() {
     [setParams],
   )
 
+  // Fix-back-14 MF-2/T2: the param value the preload effect below last
+  // acted on. The effect must reload ONLY when ?payable= CHANGES — a
+  // re-run triggered by a facts change alone must never reload. Why:
+  // a hand-pick syncs ?payable= through a startTransition navigation,
+  // which lands a beat AFTER the facts render (fix-back-13 finding).
+  // In that beat the effect sees the STALE param (3) against the new
+  // facts (5) and would fire a redundant loadFacts(3) — which, now
+  // that FACTS_LOADING clears facts (MF-1), wipes the just-loaded
+  // payable 5 off the screen until 3 resolves. The deferred T2 test
+  // caught this: with 3 held in flight, the redundant reload left the
+  // panel showing "pick an invoice first" instead of the checked 5.
+  // The seen-param guard closes it; a real param change (row Pay link
+  // 5 -> 3, after the sync has landed) still reloads, and a param
+  // change that arrives mid-load is NOT marked seen, so it is retried
+  // when the in-flight load settles instead of being lost.
+  const seenParamId = useRef<number | null>(null)
+
   // ?payable=<id> preload. The old guard compared ONLY the ref (the param
   // value already seen): hand-picking 5 after preloading 3 left the ref
   // at 3, so a row Pay link back to payable=3 was suppressed and the pay
@@ -208,9 +239,25 @@ export function PayFlowTabs() {
   useEffect(() => {
     const id = Number.parseInt(params.get('payable') ?? '', 10)
     if (!Number.isFinite(id) || id <= 0) return
-    if (state.facts?.payable_id === id) return
+    if (state.facts?.payable_id === id) {
+      seenParamId.current = id
+      return
+    }
+    // Fix-back-14: a load is in flight — do NOT mark this param seen.
+    // The effect re-runs when the load settles and retries the param
+    // then; marking it now would lose a param change that arrived
+    // mid-load (the new id would never load).
     if (state.factsState === 'loading') return
-    if (state.factsState === 'not-found' && preloadedId.current === id) return
+    if (state.factsState === 'not-found' && preloadedId.current === id) {
+      seenParamId.current = id
+      return
+    }
+    // Fix-back-14: the param did not change since this effect last
+    // acted — this run was triggered by a facts change alone (e.g. a
+    // hand-pick whose ?payable= sync has not landed yet). Reloading
+    // the stale param would undo the hand-pick.
+    if (seenParamId.current === id) return
+    seenParamId.current = id
     void loadFacts(id)
   }, [params, loadFacts, state.facts, state.factsState])
 
@@ -252,7 +299,10 @@ export function PayFlowTabs() {
         )
       }
     },
-    [loadFacts],
+    // Fix-back-14 N2: onFresh uses syncPayableParam — it belongs in the
+    // deps (harmless omission before: setParams is stable — but the
+    // exhaustive-deps rule is right and the dep costs nothing).
+    [loadFacts, syncPayableParam],
   )
 
   const onCheck = useCallback(async () => {
@@ -278,6 +328,11 @@ export function PayFlowTabs() {
     async (rail: 'ccd' | 'eudemo') => {
       const facts = state.facts
       if (!facts) return
+      // Fix-back-14 MF-3: second guard — never start a pay for a payable
+      // the ready check was not run for. The button is disabled in that
+      // state (payDisabledReason binds check to facts); this closes the
+      // handler path too, so a stale enabled button could never pay.
+      if (state.check.kind !== 'ready' || state.check.result.payable_id !== facts.payable_id) return
       // The button is disabled at once in the UI; this is the second guard.
       dispatch({ type: 'RESET_PAY' })
       try {
@@ -308,7 +363,7 @@ export function PayFlowTabs() {
         })
       }
     },
-    [state.facts, state.invoice],
+    [state.facts, state.invoice, state.check],
   )
 
   const payDisabled = useCallback(
