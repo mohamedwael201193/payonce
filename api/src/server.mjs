@@ -35,10 +35,6 @@ import { ledgerForDecide } from './ledger.mjs';
 import {
   createAgeProofHandlers, ageGateCheck,
 } from './age-proof.mjs';
-// TEMPORARY migration bridge (Render move, 2026-11-25) — see migrate-bridge.mjs.
-// Remove this import + the two /api/migrate routes below right after the
-// migration verifies, together with the MIGRATION_TOKEN env var.
-import { createMigrateHandlers } from './migrate-bridge.mjs';
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
@@ -121,9 +117,6 @@ const ageProof = createAgeProofHandlers({
   attemptsPerMinutePerIp: LIMITS.attemptsPerMinutePerIp,
   resolveHolderAccount,
 });
-
-// TEMPORARY migration bridge (Render move, 2026-11-25) — remove with migrate-bridge.mjs.
-const migrateBridge = createMigrateHandlers({ readBody, sendJson, notFound, badRequest });
 
 async function readBody(req, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
@@ -735,9 +728,6 @@ const routes = [
   ['POST', /^\/api\/age-proof\/policy-check$/, (req, res) => ageProof.handlePolicyCheck(req, res)],
   ['POST', /^\/api\/age-proof\/verify$/, (req, res) => ageProof.handleVerify(req, res)],
   ['POST', /^\/api\/age-proof\/verify-presentation$/, (req, res) => ageProof.handleVerifyPresentation(req, res)],
-  // TEMPORARY migration bridge (Render move, 2026-11-25) — remove with migrate-bridge.mjs.
-  ['POST', /^\/api\/migrate\/export$/, (req, res) => migrateBridge.handleMigrateExport(req, res)],
-  ['POST', /^\/api\/migrate\/import$/, (req, res) => migrateBridge.handleMigrateImport(req, res)],
 ];
 
 const server = createServer(async (req, res) => {
