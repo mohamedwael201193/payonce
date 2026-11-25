@@ -4,6 +4,12 @@
 //   payonce_receipts    payable_id INT PK, payload JSONB (one row per receipt)
 //   payonce_counters    id INT PK (=1), payload JSONB (verifier runs,
 //                       live refusals, nextFreshId, freshIds)
+//   payonce_consents    payable_id INT PK, payload JSONB (one consent
+//                       record per payable, keyed by payableId —
+//                       main-defect fix 2026-11-25: b55ae35 imported
+//                       loadConsents/saveConsent but no backend had them)
+//   payonce_buyer_agent id INT PK (=1), payload JSONB (the single
+//                       buyer-agent registration record — same defect)
 //   payonce_rate_hits   (key, window_start) PK, hits INT (hourly budgets)
 //   payonce_ledger      BIGSERIAL PK, payable_key TEXT, payload JSONB
 //                       (co-signer ledger, append-only)
@@ -41,6 +47,16 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS payonce_counters (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS payonce_consents (
+      payable_id INTEGER PRIMARY KEY,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS payonce_buyer_agent (
       id INTEGER PRIMARY KEY DEFAULT 1,
       payload JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
@@ -111,6 +127,16 @@ export async function seedIfEmpty() {
       console.log(`[seed] counters: verifierRuns=${counters.verifierRuns} liveRefusals=${(counters.liveRefusals ?? []).length} nextFreshId=${counters.nextFreshId}`);
     }
   }
+  if ((await tableCount(pool, 'payonce_consents')) === 0) {
+    const consents = readSeedJson('consents.json') ?? {};
+    for (const [payableId, payload] of Object.entries(consents)) {
+      await pool.query('INSERT INTO payonce_consents (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO NOTHING', [Number(payableId), payload]);
+    }
+    if (Object.keys(consents).length) { imported = true; console.log(`[seed] consents: ${Object.keys(consents).length} imported`); }
+  }
+  // No seed for payonce_buyer_agent: the record exists only once the
+  // buyer agent is registered on chain (registerBuyerAgent); there is no
+  // committed seed file for it.
   if ((await tableCount(pool, 'payonce_ledger')) === 0) {
     const p = join(DATA_DIR, 'cosigner-ledger.jsonl');
     let n = 0;
@@ -195,6 +221,34 @@ export async function saveCounters(c) {
   await getPool().query(
     'INSERT INTO payonce_counters (id, payload, updated_at) VALUES (1, $1, now()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
     [c],
+  );
+}
+
+// ---- consents (one record per payable, keyed by payableId) ----
+// Main-defect fix (2026-11-25): same upsert-by-payable_id shape as
+// saveReceipt; loadConsents() returns {} when the table is empty.
+export async function loadConsents() {
+  const r = await getPool().query('SELECT payable_id, payload FROM payonce_consents');
+  return Object.fromEntries(r.rows.map((row) => [row.payable_id, row.payload]));
+}
+export async function saveConsent(record) {
+  await getPool().query(
+    'INSERT INTO payonce_consents (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [record.payableId, record],
+  );
+}
+
+// ---- buyer agent (single row, id = 1) ----
+// Main-defect fix (2026-11-25): same single-row shape as the counters
+// table; loadBuyerAgent() returns null when never registered.
+export async function loadBuyerAgent() {
+  const r = await getPool().query('SELECT payload FROM payonce_buyer_agent WHERE id = 1');
+  return r.rows[0]?.payload ?? null;
+}
+export async function saveBuyerAgent(record) {
+  await getPool().query(
+    'INSERT INTO payonce_buyer_agent (id, payload, updated_at) VALUES (1, $1, now()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [record],
   );
 }
 

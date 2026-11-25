@@ -178,8 +178,13 @@ export function rejectReasonOf(status) {
  *  211 -> 213 in 18 s while the v2.1 worker was deploying): the rejected
  *  tx never entered the mempool, so rebuilding it with a fresh nonce is
  *  safe — it cannot double-send. Bounded (6 attempts, 4 s apart); any
- *  other error throws immediately. */
-async function withNonceRetry(fn) {
+ *  other error throws immediately.
+ *  Exported by the main-defect fix (2026-11-25): the helper already
+ *  existed here (used by sendUpdate/sendTokenTransfer below) but was not
+ *  exported, while b55ae35's receipts.mjs imports it for anchorRecordHash
+ *  (fix-back-2 M4) — so server.mjs could not be imported. One-word fix:
+ *  export the existing function, semantics unchanged. */
+export async function withNonceRetry(fn) {
   let lastErr;
   for (let attempt = 1; attempt <= 6; attempt++) {
     try {

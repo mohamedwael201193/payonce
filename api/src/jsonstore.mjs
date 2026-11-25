@@ -78,6 +78,31 @@ export async function saveCounters(c) {
   saveJson('counters.json', c);
 }
 
+// ---- consents (one record per payable, keyed by payableId) ----
+// Main-defect fix (2026-11-25): b55ae35's consent.mjs / receipts.mjs /
+// server.mjs import these, but no backend ever implemented them.
+// Same map-file shape as receipts: loadConsents() returns {} when no
+// consent has ever been recorded; saveConsent upserts by payableId.
+export async function loadConsents() {
+  return loadJson('consents.json', {});
+}
+export async function saveConsent(record) {
+  const consents = loadJson('consents.json', {});
+  consents[record.payableId] = record;
+  saveJson('consents.json', consents);
+}
+
+// ---- buyer agent (single record: the demo payer's CIS-8004 registration) ----
+// Main-defect fix (2026-11-25): same missing-export defect as consents.
+// loadBuyerAgent() returns the record or null when never registered;
+// saveBuyerAgent overwrites the single record.
+export async function loadBuyerAgent() {
+  return loadJson('buyer-agent.json', null);
+}
+export async function saveBuyerAgent(record) {
+  saveJson('buyer-agent.json', record);
+}
+
 // ---- rate limits (in-memory sliding windows; reset on restart —
 // the JSON backend is dev-only, so this is documented, not hidden) ----
 const windows = new Map(); // key -> [epochMs, ...]

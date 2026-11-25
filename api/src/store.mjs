@@ -6,7 +6,9 @@
 // explicitly at startup so a dead DB fails fast instead of failing the
 // first request.
 // What lives here: pay jobs, receipts, verifier-run counters, live-refusal
-// records, rate-limit windows, the co-signer ledger, lab documents.
+// records, rate-limit windows, the co-signer ledger, lab documents,
+// consent records (one per payable, keyed by payableId), the buyer-agent
+// registration (single record).
 // Nothing here holds keys. The payables themselves live ON CHAIN (the
 // registry is the payable store); this store holds only server-side state.
 // Single-row saves (saveJob/saveReceipt) are the hot path: a whole-table
@@ -67,6 +69,36 @@ export async function loadCounters() {
 export async function saveCounters(c) {
   await initStore();
   return impl().saveCounters(c);
+}
+
+// ---- consents (one record per payable, keyed by payableId) ----
+// Added by the main-defect fix (2026-11-25): b55ae35 imported
+// loadConsents/saveConsent from this facade (consent.mjs, receipts.mjs,
+// server.mjs) without ever implementing them, so server.mjs could not
+// even be imported. Semantics are exactly what the callers already
+// assume: loadConsents() returns the { payableId: record } map ({} when
+// none exist) and saveConsent(record) upserts by record.payableId.
+export async function loadConsents() {
+  await initStore();
+  return impl().loadConsents();
+}
+export async function saveConsent(record) {
+  await initStore();
+  return impl().saveConsent(record);
+}
+
+// ---- buyer agent (single record: the demo payer's CIS-8004 registration) ----
+// Same defect as consents: b55ae35 imported loadBuyerAgent/saveBuyerAgent
+// (buyer-agent.mjs, server.mjs) without implementing them.
+// loadBuyerAgent() returns the record or null when never registered;
+// saveBuyerAgent(record) overwrites the single record.
+export async function loadBuyerAgent() {
+  await initStore();
+  return impl().loadBuyerAgent();
+}
+export async function saveBuyerAgent(record) {
+  await initStore();
+  return impl().saveBuyerAgent(record);
 }
 
 // ---- rate limits ----
