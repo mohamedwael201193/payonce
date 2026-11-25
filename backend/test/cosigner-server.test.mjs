@@ -147,11 +147,16 @@ test('C-35: ledger write failure -> REFUSE with ledger-write-failed, NO signatur
   }
 });
 
-test('recheck: the signed transfer entry resolves against the live chain', async () => {
-  // The ledger now holds the live 7cc2f94f transfer; recheck must resolve it.
+test('recheck: the signed transfer entry is transfer-only-verified against the live chain (MF-1: no reserve/confirm evidence, never resolved)', async () => {
+  // The ledger now holds the live 7cc2f94f transfer. Recheck loads only
+  // the transfer tx, so PLT-13/PLT-12 SKIP (reservation/confirm never
+  // checked) — G7 fix-back-3 MF-1: that is 'transfer-only-verified',
+  // never 'resolved'. 'resolved' requires both to PASS, which only a
+  // future recheck that loads reserve/confirm evidence can emit.
   const { execFileSync } = await import('node:child_process');
   const out = execFileSync('node', ['src/cosigner/recheck.mjs', '--ledger', ledgerPath], { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname });
-  assert.match(out, /1 resolved/);
-  assert.match(out, /4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs:2: resolved/);
+  assert.match(out, /0 resolved, 1 transfer-only/);
+  assert.match(out, /4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs:2: transfer-only-verified/);
+  assert.doesNotMatch(out, /: resolved/);
   assert.match(out, /0 pending\/no-tx-hash/);
 });

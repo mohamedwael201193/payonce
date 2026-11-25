@@ -17,16 +17,21 @@
 //   payable 1007 (CCD, Unpaid, 1.000000 CCD) — the judge's F1 probe id.
 //   payable 3 (EUDemo, Unpaid) — the receipt "not paid yet" fixture.
 //
-// KNOWN VERIFIER GAP (stated, not hidden): the backend CCD/PLT verifier
-// still checks v1 shapes — a v2 CCD pay tx fails CCD-03/04/05/08 (v1
-// contract events) and a v2 EUDemo transfer fails PLT-07/08 (the v2 memo
-// is seller-qualified, `payable:<seller>:<id>`, while the verifier expects
-// the v1 `payable:<id>`). So the 1001 verify test asserts the checks that
-// DO pass (11) and names the 2 that fail for the memo shape; the v2
-// verifier re-scope is Batch B's work. No v1 tx is ever verified against
-// a v2 view — that would mix registries.
+// KNOWN VERIFIER GAP (stated, not hidden): the CCD branch now accepts
+// v1, v2 and v2.1 pay_ccd shapes (checks.mjs PAY_CCD_TARGETS — payable
+// 10's v2 pay tx verifies 11/11, see the CCD test below). The PLT memo
+// gap is CLOSED (G7 fix-back-6 MF-4): the backend memo expectation is
+// generation-aware, so a v2 EUDemo transfer with the seller-qualified
+// memo `payable:<seller>:<id>` now passes PLT-07/08. The remaining gap
+// is evidence only: the MCP has no reserve/confirm legs for v2 payables
+// (evidenceFor covers only the v1 payables 6/7), so PLT-13/12 still
+// fail closed here — the transfer itself is real (13 checks pass). A
+// v1/v2.1 tx checked against a v2 view fails CCD-03 on the registry
+// binding (G7 fix-back-2 F-B) — it can never certify against the wrong
+// registry's view.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
@@ -62,20 +67,67 @@ async function assertRefusesWithoutSend(promise, reasonPattern) {
 
 // ---- verify_invoice (live, v2) ----
 
-test('verify_invoice live: v2 payable 1001 + transfer tx + doc runs the PLT checks (11 pass; PLT-07/08 fail on the v2 seller-qualified memo)', async () => {
+test('verify_invoice live: v2 payable 1001 + transfer tx + doc runs the PLT checks (13 pass; PLT-13/12 fail-closed, no evidence)', async () => {
   const r = await verifyInvoice({ payableId: 1001, txHash: TRANSFER1001_TX, docPath: DOC1001 });
   assert.equal(r.asset, 'EUDemo');
   assert.equal(r.status, 'Paid');
   // The v2 view loads, the transfer matches the view (payer/payee/amount/
-  // stored-hash/due/balance/doc all pass) — but PLT-07/08 fail because the
-  // v2 memo is `payable:<seller>:1001` and this verifier still expects the
-  // v1 `payable:<id>` shape. That is the known Batch B verifier gap, not a
-  // bad transfer: the test names it instead of hiding it.
-  assert.equal(r.passed, 11, JSON.stringify(r.checks));
+  // stored-hash/due/balance/doc all pass) — and PLT-07/08 now PASS too:
+  // the v2 memo is `payable:<seller>:1001` and the verifier expects the
+  // seller-qualified memo for a v2 ctx (G7 fix-back-6 MF-4). The only
+  // remaining failures are the fail-closed evidence rows.
+  // G7 fix-back-2 F-A: PLT-13/12 FAIL (not SKIP) — the MCP has
+  // no reserve/confirm evidence for v2 payables (evidenceFor covers only
+  // the v1 payables 6/7), so the reservation is uncertified here. The
+  // transfer itself is real (13 checks pass); it cannot certify via the
+  // MCP until verify_invoice gains reserveTx/confirmTx inputs (which
+  // would clear PLT-13/12).
+  assert.equal(r.passed, 13, JSON.stringify(r.checks));
   assert.equal(r.failed, 2);
-  assert.deepEqual(failedIds(r), ['PLT-07', 'PLT-08']);
-  assert.deepEqual(skippedIds(r), ['PLT-13', 'PLT-12']);
+  assert.deepEqual(failedIds(r), ['PLT-13', 'PLT-12']);
+  assert.deepEqual(skippedIds(r), []);
   assert.equal(r.allPass, false);
+});
+
+// Payable-10 v2 CCD pay tx (live ground truth, probed 2026-11-24):
+// pay_ccd on <13150,0>, 500000 microCCD from the registry to the payee.
+const PAY10_TX = '7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197';
+
+test('verify_invoice live: v2 payable 10 + pay_ccd tx passes ALL CCD checks (11/11, doc skipped)', async () => {
+  const r = await verifyInvoice({ payableId: 10, txHash: PAY10_TX });
+  assert.equal(r.asset, 'CCD');
+  assert.equal(r.status, 'Paid');
+  // Regression anchor for the v1-hardcoded verifier bug (G7, 2026-11-24):
+  // this exact tx used to fail CCD-03/04/05/06/07 (no v1 event) and
+  // CCD-08 (from-contract leg) — 5 PASS / 6 FAIL / 1 SKIP, allPass false.
+  // The verifier now accepts the v2 registry <13150,0> /
+  // payable_registry_v2.pay_ccd shapes, so the known-good v2 payment
+  // verifies end to end.
+  assert.equal(r.allPass, true, JSON.stringify(r.checks));
+  assert.equal(r.passed, 11, JSON.stringify(r.checks));
+  assert.equal(r.failed, 0);
+  assert.deepEqual(failedIds(r), []);
+  assert.deepEqual(skippedIds(r), ['CCD-12']);
+});
+
+test('verify_invoice live (F-B): v2.1 pay tx d0f30224 for payable 10 does NOT certify against the v2 view (CCD-03 registry mismatch)', async () => {
+  // The v2.1 payment (paid 11:01:49 on <13152,0>) used to certify
+  // allPass=true (11/12) against the v2 <13150,0> view — same id/seller/
+  // amount/payee, so every other check passes. The F-B binding makes
+  // CCD-03 fail with the mismatch named; only CCD-03 fails.
+  const TX21 = 'd0f30224c57f811b53c5ddf11a4cdbb45e0f8fbd78d30b38397c255b9952919e';
+  const r = await verifyInvoice({ payableId: 10, txHash: TX21 });
+  assert.equal(r.asset, 'CCD');
+  assert.equal(r.status, 'Paid');
+  assert.equal(r.allPass, false, JSON.stringify(r.checks));
+  assert.equal(r.passed, 10, JSON.stringify(r.checks));
+  assert.equal(r.failed, 1);
+  assert.deepEqual(failedIds(r), ['CCD-03']);
+  assert.deepEqual(skippedIds(r), ['CCD-12']);
+  const c03 = r.checks.find((c) => c.id === 'CCD-03');
+  assert.match(c03.detail, /registry mismatch/);
+  assert.match(c03.detail, /<13152,0>/);
+  assert.match(c03.detail, /<13150,0>/);
 });
 
 test('verify_invoice negative: payable-1003 tx checked against payable 1001 FAILS (PLT-07 + PLT-11), no crash', async () => {
@@ -106,7 +158,7 @@ test('verify_invoice refuses doc mismatch (no crash)', async () => {
 
 // ---- receipt (live, v2) ----
 
-test('receipt live: v2 payable 1001 is Paid, transfer tx + verifier (10 pass, PLT-07/08 the known memo gap)', async () => {
+test('receipt live: v2 payable 1001 is Paid, transfer tx + verifier (12 pass, PLT-13/12 fail-closed, no evidence)', async () => {
   const r = await getReceipt({ payableId: 1001 });
   assert.equal(r.paid, true);
   assert.equal(r.status, 'Paid');
@@ -114,9 +166,9 @@ test('receipt live: v2 payable 1001 is Paid, transfer tx + verifier (10 pass, PL
   assert.ok(r.transferBlockTime);
   assert.equal(r.confirmTxHash, null);
   assert.equal(r.reserveTxHash, null);
-  assert.equal(r.verifier.passed, 10);
+  assert.equal(r.verifier.passed, 12);
   assert.equal(r.verifier.failed, 2);
-  assert.deepEqual(failedIds(r.verifier), ['PLT-07', 'PLT-08']);
+  assert.deepEqual(failedIds(r.verifier), ['PLT-13', 'PLT-12']);
   assert.equal(r.verifier.allPass, false);
 });
 
@@ -213,6 +265,34 @@ test('pay_payable refusals sent nothing: payables 1005 and 1006 are still Paid, 
   const byId = Object.fromEntries(r.payables.map((p) => [p.id, p]));
   assert.equal(byId[1005].status, 'Paid');
   assert.equal(byId[1006].status, 'Paid');
+});
+
+// G7 fix-back-4 ADV-1: the pay_payable CCD rail used to verify with
+// unbound:true, so a v2.1 pay certified 11/11 against the v2 view — the
+// exact F-B hole re-opened on the send path (dual-registry ids 1-5, 10,
+// 11 exist on BOTH registries, so the "v1 send rejects v2-only ids"
+// defense does not cover them). The verifyCcd call in that rail must
+// now bind registryIndex '13150' (the v2 view, as verifyInvoice does)
+// and must never pass unbound:true. The call itself is send-gated — no
+// test executes it — so this pins the call site; the live behaviour
+// (same v2.1 tx vs v2 view FAILS CCD-03) is proven by fixback4/probe-adv1.
+test('ADV-1: pay_payable CCD verification binds registryIndex 13150, never unbound:true', () => {
+  const src = readFileSync(SERVER_PATH, 'utf8');
+  const railA = src.slice(src.indexOf("// ---- Rail A"), src.indexOf("// ---- Rail B"));
+  assert.ok(railA.length > 0, 'Rail A section not found in server.mjs');
+  // Pin the verifyCcd CALL itself (not the surrounding comment prose,
+  // which names unbound:true to say it must never be passed here).
+  const callLine = railA.split('\n').find((l) => l.includes('verifyCcd({'));
+  assert.ok(callLine, 'verifyCcd call not found in the pay_payable CCD rail');
+  assert.match(callLine, /registryIndex: '13150'/, 'pay_payable CCD rail must bind the v2 view registry');
+  assert.doesNotMatch(callLine, /unbound/, 'pay_payable CCD rail must never pass unbound:true');
+  // Belt and braces: no `unbound: true` anywhere in the payPayable
+  // function CODE (comment lines stripped — the comments name unbound:true
+  // to say it must never be passed here; the only live unbound:true caller
+  // left is the offline fixture loader in verify-payable.mjs).
+  const payFn = src.slice(src.indexOf('export async function payPayable'), src.indexOf('// MCP server wiring'));
+  const payFnCode = payFn.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  assert.doesNotMatch(payFnCode, /unbound:\s*true/, 'payPayable must never pass unbound:true on any rail');
 });
 
 // ---- stdio smoke test: real server process over MCP ----

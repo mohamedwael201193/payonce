@@ -236,6 +236,8 @@ function ccdCtx({ docBytes, docHash }) {
     },
     balance: '0',
     docBytes,
+    // G7 fix-back-3 MF-2: registry-less offline fixture — explicit opt-in.
+    unbound: true,
   };
 }
 

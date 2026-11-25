@@ -3,7 +3,14 @@
 // function is deterministic (same snapshot+request -> same decision).
 //   node src/cosigner/recheck.mjs --ledger <path> [--out <report.json>]
 // For each entry with state 'unresolved' and a txHash:
-//   - transfer finalized AND the PLT verifier passes  -> resolved
+//   - transfer finalized AND the PLT verifier passes WITH PLT-13 and
+//     PLT-12 both PASS (reservation + confirm evidence checked) -> resolved
+//   - transfer finalized and the verifier passes but PLT-13/PLT-12 were
+//     SKIPPED (no reserve/confirm evidence was loaded — the recheck CLI
+//     loads only the transfer tx) -> transfer-only-verified, NEVER
+//     resolved: allPass alone certifies a transfer whose reservation was
+//     never checked (G7 fix-back-3 MF-1). 'resolved' is reachable only
+//     from a future recheck that loads reserve/confirm evidence.
 //   - reservation window passed with no finalized transfer -> expired
 //   - otherwise -> still-pending
 // Entries without a txHash are reported as 'no-tx-hash' (the facilitator
@@ -48,7 +55,17 @@ for (const entry of ledger.entries) {
     const view = await getPayable(client, payableId);
     const balance = await getRegistryBalance(client);
     const result = verifyPlt({ payableId, txHash: entry.txHash, summary, blockTime, view, balance });
-    item.verdict = result.allPass ? 'resolved' : 'transfer-not-verified';
+    // G7 fix-back-3 MF-1: allPass alone is NOT 'resolved'. The recheck
+    // loads no reserve/confirm evidence, so PLT-13/PLT-12 SKIP here and
+    // the reservation was never checked — a transfer that verifies with
+    // either SKIPPED is 'transfer-only-verified'. 'resolved' requires
+    // both to PASS (only a future recheck that loads the evidence can
+    // emit it).
+    const plt13 = result.checks.find((c) => c.id === 'PLT-13');
+    const plt12 = result.checks.find((c) => c.id === 'PLT-12');
+    item.verdict = result.allPass
+      ? (plt13?.status === 'PASS' && plt12?.status === 'PASS' ? 'resolved' : 'transfer-only-verified')
+      : 'transfer-not-verified';
     item.failed = result.checks.filter((c) => c.status === 'FAIL').map((c) => c.id);
     item.txStatus = summary.status;
   } catch (e) {
@@ -63,8 +80,9 @@ for (const entry of ledger.entries) {
 
 const unresolved = report.filter((r) => r.verdict === 'still-pending' || r.verdict === 'no-tx-hash').length;
 const resolved = report.filter((r) => r.verdict === 'resolved').length;
+const transferOnly = report.filter((r) => r.verdict === 'transfer-only-verified').length;
 const expired = report.filter((r) => r.verdict === 'expired').length;
 const bad = report.filter((r) => r.verdict === 'transfer-not-verified').length;
-console.log(`recheck: ${report.length} entries — ${resolved} resolved, ${expired} expired, ${bad} not-verified, ${unresolved} pending/no-tx-hash`);
+console.log(`recheck: ${report.length} entries — ${resolved} resolved, ${transferOnly} transfer-only, ${expired} expired, ${bad} not-verified, ${unresolved} pending/no-tx-hash`);
 for (const r of report) console.log(`  ${r.seq} ${r.kind} ${r.payableKey}: ${r.verdict}${r.failed?.length ? ` (${r.failed.join(', ')})` : ''}`);
 if (outPath) writeFileSync(outPath, JSON.stringify(report, null, 2));

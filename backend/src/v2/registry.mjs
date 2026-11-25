@@ -10,15 +10,21 @@ import { accountFromBytes, accountBytes } from '../registry.mjs';
 
 export const REGISTRY_V2 = { index: 13150n, subindex: 0n };
 export const CONTRACT_NAME_V2 = 'payable_registry_v2';
+export const REGISTRY_V2_1 = { index: 13152n, subindex: 0n };
+export const CONTRACT_NAME_V2_1 = 'payable_registry_v2_1';
 export const CIS8004_OFFICIAL = { index: 12802n, subindex: 0n };
 export const OWNER_TOKEN_V2 = 1476; // deployer's agent token on <12802,0>, Active (probed live)
 export const RESERVATION_SECS_V2 = 3600;
 
-async function invokeView(client, method, paramBuf, blockHashHex = null) {
+// contract/contractName default to the v2 registry: every existing caller
+// reads <13150,0> unchanged. v2.1 (<13152,0> payable_registry_v2_1) shares
+// the v2 view layout (same shapes as v2 — G7 verifier fix), so a v2.1
+// view is read by passing REGISTRY_V2_1 / CONTRACT_NAME_V2_1.
+async function invokeView(client, method, paramBuf, blockHashHex = null, contract = REGISTRY_V2, contractName = CONTRACT_NAME_V2) {
   const res = await client.invokeContract(
     {
-      contract: ContractAddress.create(REGISTRY_V2.index, REGISTRY_V2.subindex),
-      method: ReceiveName.fromString(`${CONTRACT_NAME_V2}.${method}`),
+      contract: ContractAddress.create(contract.index, contract.subindex),
+      method: ReceiveName.fromString(`${contractName}.${method}`),
       parameter: Parameter.fromBuffer(paramBuf),
     },
     blockHashHex ? BlockHash.fromHexString(blockHashHex) : undefined,
@@ -117,16 +123,18 @@ export function parsePayableV2(buf, seller, expectedId) {
   };
 }
 
-/** get_payable view for a v2 (seller, id) key. blockHashHex pins the read. */
-export async function getPayableV2(client, seller, id, blockHashHex = null) {
+/** get_payable view for a v2 (seller, id) key. blockHashHex pins the read.
+ * contract/contractName select the registry (default v2 <13150,0>);
+ * pass REGISTRY_V2_1 / CONTRACT_NAME_V2_1 for a v2.1 view. */
+export async function getPayableV2(client, seller, id, blockHashHex = null, contract = REGISTRY_V2, contractName = CONTRACT_NAME_V2) {
   const param = Buffer.concat([accountBytes(seller), (() => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(id)); return b; })()]);
-  return parsePayableV2(await invokeView(client, 'get_payable', param, blockHashHex), seller, id);
+  return parsePayableV2(await invokeView(client, 'get_payable', param, blockHashHex, contract, contractName), seller, id);
 }
 
 /** getPayableV2, but null when the payable is unregistered (view = None). */
-export async function getPayableV2OrNull(client, seller, id) {
+export async function getPayableV2OrNull(client, seller, id, contract = REGISTRY_V2, contractName = CONTRACT_NAME_V2) {
   try {
-    return await getPayableV2(client, seller, id);
+    return await getPayableV2(client, seller, id, null, contract, contractName);
   } catch (e) {
     if (String(e.message).includes('payable view is None')) return null;
     throw e;
@@ -220,8 +228,8 @@ export async function agentOf(client, tokenId) {
 }
 
 /** Live instance balance (microCCD string) — the zero-balance invariant. */
-export async function getRegistryBalanceV2(client) {
-  const info = await client.getInstanceInfo(ContractAddress.create(REGISTRY_V2.index, REGISTRY_V2.subindex));
+export async function getRegistryBalanceV2(client, contract = REGISTRY_V2) {
+  const info = await client.getInstanceInfo(ContractAddress.create(contract.index, contract.subindex));
   const j = JSON.parse(JSON.stringify(info, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
   const amt = j.amount;
   return String(typeof amt === 'object' ? amt.microCcdAmount ?? amt.value ?? amt : amt);

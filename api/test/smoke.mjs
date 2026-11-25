@@ -138,11 +138,11 @@ async function main() {
   const transferTx = jobE.steps.find((s) => s.step === 'submit_transfer')?.txHash;
   log('pay EUDemo succeeded', `transfer ${transferTx} (${jobE.steps.find((s) => s.step === 'verify')?.detail})`);
   const receiptE = await req('GET', `/api/receipts/${eId}`);
-  if (receiptE.status !== 200 || receiptE.json.verifier.passed !== 14) fail(`receipt #${eId}: ${JSON.stringify(receiptE.json)}`);
-  log('receipt EUDemo', `verifier ${receiptE.json.verifier.passed}/${receiptE.json.verifier.total} (12 after-pay + 2 receipt-binding), source ${receiptE.json.payment_tx_source}`);
+  if (receiptE.status !== 200 || receiptE.json.verifier.passed !== 15) fail(`receipt #${eId}: ${JSON.stringify(receiptE.json)}`);
+  log('receipt EUDemo', `verifier ${receiptE.json.verifier.passed}/${receiptE.json.verifier.total} (14 after-pay incl. reservation+paid_at + 1 stored-tx extra), source ${receiptE.json.payment_tx_source}`);
   const afterE = await req('POST', `/api/payables/${eId}/verify`, { mode: 'after_pay' });
-  if (afterE.json.passed !== 12 || afterE.json.total !== 12) fail(`after_pay #${eId}: ${afterE.json.passed}/${afterE.json.total}`);
-  log('after_pay EUDemo', `12/12`);
+  if (afterE.json.passed !== 14 || afterE.json.total !== 14) fail(`after_pay #${eId}: ${afterE.json.passed}/${afterE.json.total}`);
+  log('after_pay EUDemo', `14/14`);
 
   // ---- 4. Live wrong_amount attack on a fresh unpaid CCD payable ----
   const createdW = await req('POST', '/api/payables', { asset: 'ccd' });

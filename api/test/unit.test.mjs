@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { backend } from '../src/backend.mjs';
+import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2, pltReservationRow, pltConfirmRow, pltReceiptExtraChecks } from '../src/verifier-v2.mjs';
 import { generateLabDocument, matrixDocBytes } from '../src/docs.mjs';
 import { CCD_STEPS, EUDEMO_STEPS, rejectInfo } from '../src/jobs.mjs';
 import { hitWindow, leftInWindow } from '../src/store.mjs';
@@ -161,4 +162,328 @@ test('co-signer decide() refuses a reserve for an unlisted seller (no-approval)'
   const d = decide(snap, { kind: 'reserve_plt', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, numSignatures: 1, nonce: 7 }, { unresolved: [] });
   assert.equal(d.decision, 'REFUSE');
   assert.equal(d.code, 'no-approval');
+});
+
+// ---- G7 fix-back-3 MF-3 (API verifier, fail-closed) ----
+// The API verifier used to certify PLT payments with zero reservation
+// evidence: verifyPltV2 ran no reservation check, and
+// verifyPltTransferV2 reported reservation_precedes_transfer as
+// `not_run` — which passes, because allPass is failed===0. These tests
+// pin the fail-closed rule with synthetic (offline) transfer shapes;
+// the live p11 shapes are proven by the fixback3 live probe (real
+// transfer 690c5e2b… with real reserve a36aa1e0… / confirm adf55f61…).
+
+const MF3_PAYEE = '4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg';
+const MF3_CONFIRM_SLOT = '2026-11-24T10:30:00.000Z';
+
+async function mf3Ctx({ reserve = 'good', confirm = 'good' } = {}) {
+  const { chain } = await backend();
+  const memo = chain.encodeCborMemo(`payable:${OWNER_ADDRESS}:11`).toString('hex');
+  const view = {
+    seller: OWNER_ADDRESS, id: 11, amount: '10000', asset: 'EUDemo',
+    payee: MF3_PAYEE, dueMs: String(Date.parse('2026-12-26T12:00:00.000Z')),
+    due: '2026-12-26T12:00:00.000Z', docHash: '00'.repeat(32),
+    agentToken: 1476, status: 'Paid',
+    record: { payer: PAYER_ADDRESS, paidAtMs: String(Date.parse(MF3_CONFIRM_SLOT)), paidAt: MF3_CONFIRM_SLOT, txHash: 'ab'.repeat(32) },
+  };
+  const goodReserve = {
+    blockTime: { slotTime: '2026-11-24T09:00:00.000Z' },
+    logged: [{ event: 'Reserved', seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, expiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), expires: '2026-11-24T12:00:00.000Z' }],
+  };
+  return {
+    payableId: 11,
+    txHash: 'ab'.repeat(32),
+    summary: {
+      status: 'finalized',
+      summary: {
+        transactionType: 'transfer',
+        events: [{ tag: 'TokenTransfer', tokenId: 'EUDemo', from: { address: PAYER_ADDRESS }, to: { address: MF3_PAYEE }, amount: { value: '10000' }, memo }],
+      },
+    },
+    blockTime: { slotTime: '2026-11-24T10:00:00.000Z' },
+    view,
+    balance: '0',
+    reserve: reserve === 'good' ? goodReserve : null,
+    // G7 fix-back-4 ADV-2: the 'good' confirm carries a decoded
+    // PltConfirmed event bound to this payable + transfer (the shape
+    // pltEvidenceFor builds live from the confirm tx) — a bare
+    // {blockTime} object no longer passes pltConfirmRow.
+    // G7 fix-back-6 MF-2: the good event carries a finite reservation
+    // expiry equal to the reserve's (12:00) — a v2 event with no finite
+    // expiry now FAILS, so the fixture must model a real v2 event.
+    confirm: confirm === 'good' ? { blockTime: { slotTime: MF3_CONFIRM_SLOT }, logged: [{ event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' }] } : null,
+  };
+}
+const mf3Row = (r, id) => r.checks.find((c) => c.id === id);
+
+test('MF-3 (API): verifyPltTransferV2 with no reserve FAILS reservation_precedes_transfer (never not_run-pass)', async () => {
+  const ctx = await mf3Ctx({ reserve: null });
+  const r = await verifyPltTransferV2(ctx);
+  assert.equal(mf3Row(r, 'reservation_precedes_transfer').status, 'fail');
+  assert.match(mf3Row(r, 'reservation_precedes_transfer').detail, /no reserve transaction supplied/);
+  assert.equal(r.allPass, false);
+  assert.equal(r.passed, 7); // 6 transfer rows + memo pass; reservation fails
+  assert.equal(r.total, 8);
+  assert.equal(r.checks.filter((c) => c.status === 'not_run').length, 0, 'no check may be not_run in the transfer gate');
+});
+
+test('MF-3 (API): verifyPltTransferV2 with a real in-window reserve PASSES the reservation row (8/8)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good' });
+  const r = await verifyPltTransferV2(ctx);
+  assert.equal(mf3Row(r, 'reservation_precedes_transfer').status, 'ok');
+  assert.equal(r.allPass, true, JSON.stringify(r.checks));
+  assert.equal(r.passed, 8);
+  assert.equal(r.total, 8);
+});
+
+test('MF-3 (API): pltReservationRow / pltConfirmRow fail closed on missing evidence', () => {
+  const view = { seller: OWNER_ADDRESS, record: { payer: PAYER_ADDRESS } };
+  assert.equal(pltReservationRow({ payableId: 11, blockTime: { slotTime: '2026-11-24T10:00:00.000Z' }, view, reserve: null }).status, 'fail');
+  assert.equal(pltReservationRow({ payableId: 11, blockTime: { slotTime: '2026-11-24T10:00:00.000Z' }, view, reserve: undefined }).status, 'fail');
+  assert.equal(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: null }).status, 'fail');
+  assert.equal(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: undefined }).status, 'fail');
+});
+
+// G7 fix-back-8 (adversarial O2): pltReservationRow used to THROW
+// TypeError on a Reserved event without a payer (unguarded
+// reserved.payer.slice). The detail is display-only — the row's
+// pass/fail is decided by reserveOk — so the guard fails closed
+// (payer undefined !== view payer) instead of throwing.
+test('MF-3 (API, FB8): pltReservationRow does not throw on a Reserved event without a payer — fails closed', () => {
+  const view = { seller: OWNER_ADDRESS, record: { payer: PAYER_ADDRESS } };
+  const reserve = {
+    logged: [{ event: 'Reserved', seller: OWNER_ADDRESS, payableId: 11, expiresMs: '9999999999999', expires: '2096-01-01T00:00:00.000Z' }],
+    blockTime: { slotTime: '2026-11-24T09:00:00.000Z' },
+  };
+  let r;
+  assert.doesNotThrow(() => { r = pltReservationRow({ payableId: 11, blockTime: { slotTime: '2026-11-24T10:00:00.000Z' }, view, reserve }); });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /reserved by \?/);
+});
+
+test('MF-3 (API): verifyPltV2 with no reserve/confirm FAILS reservation + paid_at (stub client: agent fails by construction)', async () => {
+  // verifyPltV2 needs a chain client only for the agent check; the stub
+  // {} makes agentOf throw, so the agent row FAILS here by construction
+  // — the test asserts the reservation/confirm rows, not allPass. The
+  // full live run (real client, real p11 evidence) is the fixback3 probe.
+  const ctx = await mf3Ctx({ reserve: null, confirm: null });
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'reservation_precedes_transfer').status, 'fail');
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.equal(r.total, 14);
+  assert.equal(r.checks.filter((c) => c.status === 'not_run').length, 1, 'only the doc row may be not_run');
+  assert.equal(mf3Row(r, 'doc').status, 'not_run');
+});
+
+test('MF-3 (API): verifyPltV2 with real reserve+confirm PASSES both rows (stub client: only agent fails)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'reservation_precedes_transfer').status, 'ok');
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'ok');
+  assert.equal(r.total, 14);
+  assert.equal(r.passed, 12);
+  assert.deepEqual(r.checks.filter((c) => c.status === 'fail').map((c) => c.id), ['agent']);
+});
+
+// ---- G7 fix-back-4 ADV-2: confirm evidence must be a real confirm_plt
+// event, not a timestamp. The adversarial judge fabricated
+// {blockTime:{slotTime:paidAt}} and got verifyPltV2 allPass=true 14/14;
+// each shape below must now FAIL paid_at_is_confirm_time. ----
+test('ADV-2 (API): fabricated timestamp-only confirm FAILS paid_at (no PltConfirmed event)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm = { blockTime: { slotTime: MF3_CONFIRM_SLOT } }; // the fabricated shape: no logged event
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no PltConfirmed event/);
+  assert.equal(r.allPass, false);
+});
+
+test('ADV-2 (API): confirm event for a DIFFERENT transfer FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'cd'.repeat(32) }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /different transfer/);
+  assert.equal(r.allPass, false);
+});
+
+test('ADV-2 (API): confirm event for a DIFFERENT payable FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', seller: OWNER_ADDRESS, payableId: 10, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32) }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /for payable 10, not 11/);
+  assert.equal(r.allPass, false);
+});
+
+// ---- G7 fix-back-5 MF-1/MF-2/MF-3 (adversarial 0486): the payer binds
+// unconditionally, the seller binds for v2-gen events, the confirm must
+// land inside the event's own reservation window, and a missing/invalid
+// confirm blockTime FAILS instead of throwing. ----
+test('FB5 MF-1 (API): real event with seller+payer STRIPPED FAILS paid_at (v2-gen, schemaVersion present)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, payableId: 11, txHash: 'ab'.repeat(32) }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no payer/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB5 MF-1 (API): v2 event with seller STRIPPED (payer present) FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32) }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no seller/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB6 MF-1 (API): v1-shaped event (no schemaVersion, no seller, payer present) FAILS the row — the generation is a caller signal, not the event shape', async () => {
+  // Fix-back-5 pinned the bypass shape ("v1-shaped event still
+  // PASSES"); fix-back-6 closes it: this verifier is v2-only, so with
+  // no caller generation signal the seller is required and a stripped
+  // v2 event can no longer pass as v1.
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no seller/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB7 MF-1 (API): the v1-shaped event FAILS even when the caller says v1 (registryIndex 13149) — the lift is gone', async () => {
+  // G7 fix-back-7 MF-1: the fix-back-6 v1 lift is removed. This verifier
+  // is v2-only (views from <13150,0>, memo unconditionally v2), so a
+  // genuine v1 payment could never certify through it anyway and the
+  // lift had no legitimate live use — its only effect was a bypass
+  // switch: a stripped v2 event + registryIndex '13149' certified
+  // 14/14. No generation signal is read anymore, from the ctx or from
+  // the confirm object: seller + finite expiry are always required.
+  const v1Shape = async (extra = {}, confirmExtra = {}) => {
+    const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+    ctx.confirm.logged = [{ event: 'PltConfirmed', payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' }];
+    Object.assign(ctx, extra);
+    Object.assign(ctx.confirm, confirmExtra);
+    return verifyPltV2({}, ctx);
+  };
+  const failShape = async (name, extra = {}, confirmExtra = {}) => {
+    const r = await v1Shape(extra, confirmExtra);
+    assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail', name);
+    assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no seller/, name);
+    assert.equal(r.allPass, false, name);
+  };
+  await failShape('ctx registryIndex 13149', { registryIndex: '13149' });
+  await failShape('ctx gen v1', { gen: 'v1' });
+  await failShape('ctx gen v1 + registryIndex 13150 (v1 used to win the conflict)', { gen: 'v1', registryIndex: '13150' });
+  await failShape('ctx gen v2 + registryIndex 13149 (v1 used to win the conflict)', { gen: 'v2', registryIndex: '13149' });
+  await failShape('confirm.gen v1 alone (no ctx signal)', {}, { gen: 'v1' });
+  await failShape('confirm.registryIndex 13149 alone (no ctx signal)', {}, { registryIndex: '13149' });
+  // The receipt paid_at extra fails the same stripped shape + 13149.
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' }];
+  const extras = pltReceiptExtraChecks(ctx.view, 'ab'.repeat(32), ctx.confirm, { registryIndex: '13149', reserve: ctx.reserve });
+  assert.equal(extras.find((c) => c.id === 'paid_at_is_confirm_time').status, 'fail');
+});
+
+test('FB7 MF-1 (API): a FULL v2 event still PASSES with a v1 signal present — it certifies on its own bindings, the signal is inert', async () => {
+  // The full event carries seller + finite expiry + payer, so it
+  // certifies as v2 regardless of any caller signal. The paired proof
+  // that the signal contributes nothing is the test above: the same
+  // event with seller stripped FAILS under every signal. (A full event
+  // passing here is the held live control — real p11 verifies 14/14 —
+  // not a v1 ride: nothing about the verdict depends on the signal.)
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.registryIndex = '13149';
+  ctx.gen = 'v1';
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'ok');
+});
+
+test('FB6 MF-1 (API): stripped schemaVersion+seller FAILS with an explicit v2 caller signal too (registryIndex 13150)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' }];
+  ctx.registryIndex = '13150';
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no seller/);
+});
+
+test('FB5 MF-2 (API): confirm past the event reservation expiry FAILS paid_at; in-window expiry PASSES', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  const confirmMs = Date.parse(MF3_CONFIRM_SLOT);
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(confirmMs - 60_000), reservationExpires: new Date(confirmMs - 60_000).toISOString() }];
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /past the reservation expiry/);
+  assert.equal(r.allPass, false);
+  ctx.confirm.logged[0].reservationExpiresMs = String(confirmMs + 3_600_000);
+  ctx.confirm.logged[0].reservationExpires = new Date(confirmMs + 3_600_000).toISOString();
+  const r2 = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r2, 'paid_at_is_confirm_time').status, 'ok');
+});
+
+// ---- G7 fix-back-6 MF-2 (adversarial A2e/A2g/A2h): the expiry check is
+// anchored to the reserve, and a v2 event must carry a finite expiry
+// that does not run past the reserve's. Deleting the event's expiry,
+// garbling it, or forging a later one must FAIL — the old check was
+// presence-conditional and self-asserted. The fixture reserve expires
+// 12:00; the past-expiry confirm time below is 13:00. ----
+
+test('FB6 MF-2 (API): v2 event with expiry fields DELETED + confirm past the reserve expiry FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32) }];
+  ctx.confirm.blockTime = { slotTime: '2026-11-24T13:00:00.000Z' };
+  ctx.view.record.paidAt = '2026-11-24T13:00:00.000Z';
+  ctx.view.record.paidAtMs = String(Date.parse('2026-11-24T13:00:00.000Z'));
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no finite reservation expiry/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB6 MF-2 (API): v2 event with expiry Ms GARBLED + confirm past the reserve expiry FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: 'not-a-number' }];
+  ctx.confirm.blockTime = { slotTime: '2026-11-24T13:00:00.000Z' };
+  ctx.view.record.paidAt = '2026-11-24T13:00:00.000Z';
+  ctx.view.record.paidAtMs = String(Date.parse('2026-11-24T13:00:00.000Z'));
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /no finite reservation expiry/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB6 MF-2 (API): v2 event with expiry FORGED later than the reserve + confirm past the reserve expiry FAILS paid_at', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.logged = [{ event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T14:00:00.000Z')), reservationExpires: '2026-11-24T14:00:00.000Z' }];
+  ctx.confirm.blockTime = { slotTime: '2026-11-24T13:00:00.000Z' };
+  ctx.view.record.paidAt = '2026-11-24T13:00:00.000Z';
+  ctx.view.record.paidAtMs = String(Date.parse('2026-11-24T13:00:00.000Z'));
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'fail');
+  assert.match(mf3Row(r, 'paid_at_is_confirm_time').detail, /later than the reservation expiry/);
+  assert.equal(r.allPass, false);
+});
+
+test('FB6 MF-2 (API): confirm EXACTLY at the reserve expiry still PASSES paid_at (at or before, by design)', async () => {
+  const ctx = await mf3Ctx({ reserve: 'good', confirm: 'good' });
+  ctx.confirm.blockTime = { slotTime: '2026-11-24T12:00:00.000Z' };
+  ctx.view.record.paidAt = '2026-11-24T12:00:00.000Z';
+  ctx.view.record.paidAtMs = String(Date.parse('2026-11-24T12:00:00.000Z'));
+  const r = await verifyPltV2({}, ctx);
+  assert.equal(mf3Row(r, 'paid_at_is_confirm_time').status, 'ok');
+});
+
+test('FB5 MF-3 (API): confirm with NO blockTime FAILS paid_at (never throws); invalid blockTime FAILS too', () => {
+  const view = { id: 11, seller: OWNER_ADDRESS, record: { payer: PAYER_ADDRESS, paidAtMs: String(Date.parse(MF3_CONFIRM_SLOT)), paidAt: MF3_CONFIRM_SLOT } };
+  // G7 fix-back-6 MF-2: the event carries a finite expiry (in-window)
+  // so the binding passes and only the missing blockTime can fail it.
+  const goodEvent = { event: 'PltConfirmed', schemaVersion: 2, seller: OWNER_ADDRESS, payableId: 11, payer: PAYER_ADDRESS, txHash: 'ab'.repeat(32), reservationExpiresMs: String(Date.parse('2026-11-24T12:00:00.000Z')), reservationExpires: '2026-11-24T12:00:00.000Z' };
+  assert.equal(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: { logged: [goodEvent] } }).status, 'fail');
+  assert.match(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: { logged: [goodEvent] } }).detail, /missing or invalid/);
+  assert.equal(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: { blockTime: { slotTime: 'not-a-date' }, logged: [goodEvent] } }).status, 'fail');
+  assert.equal(pltConfirmRow({ payableId: 11, txHash: 'ab'.repeat(32), view, confirm: { blockTime: {}, logged: [goodEvent] } }).status, 'fail');
+  // The receipt extra check fails the same way, without throwing.
+  const extras = pltReceiptExtraChecks(view, 'ab'.repeat(32), { logged: [goodEvent] });
+  assert.equal(extras.find((c) => c.id === 'paid_at_is_confirm_time').status, 'fail');
 });

@@ -95,7 +95,7 @@ node src/verifier/verify-payable.mjs 1 78377f18f61f6ef475bc9176240e876ed18d31e46
 |---|---|---|
 | Payable 11 registered (EUDemo 0.01, payee2) | `129f8943fd5c8a08241fe608899792acde712fe1ae3d9ee1d0eb067d2a790851` | Finalized |
 | `reserve_plt` (window exactly 3600 s) | `a36aa1e0d2ea71a4702075cd0d94752fac7f088dfb52d4038322b7e617180f0d` | Finalized |
-| Co-signed 0.01 EUDemo to the stored payee, memo `payable:<owner>:11` | `690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214` | Finalized; verifier 12/12 |
+| Co-signed 0.01 EUDemo to the stored payee, memo `payable:<owner>:11` | `690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214` | Finalized; verifier 14/14 (API after_pay EUDemo run) |
 | `confirm_plt`, tx hash pinned (PltConfirmed) | `adf55f61c1345d14f05c6c0ee59b996dae8aaef06213e485a17cfb96376100c2` | Finalized |
 
 ```sh

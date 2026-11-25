@@ -52,11 +52,19 @@ export async function buildSnapshot(client, opts) {
       const upd = (rs.summary?.events ?? []).find(
         (e) => e.tag === 'Updated' && String(e.address?.index) === '13149' && e.receiveName === 'payable_registry.reserve_plt',
       );
-      reserve = { blockTime: rbt, logged: upd ? decodeLoggedEvents(upd) : [] };
+      // G7 fix-back-3 MF-1: the reserve seek is v1-only, so the reserve
+      // carries registryIndex '13149' (from the found event) and the
+      // view is the v1 view — the binding below is real, not assumed.
+      reserve = { blockTime: rbt, logged: upd ? decodeLoggedEvents(upd) : [], registryIndex: String(upd?.address?.index ?? '13149') };
     }
+    // G7 fix-back-3 MF-1: requireReserve:true — a confirm-gate snapshot
+    // with no reserve evidence must NOT verify the transfer (PLT-13
+    // FAILS instead of SKIP). No behaviour change for the MCP confirm
+    // gate, which always supplies reserveTxHash; any future caller that
+    // omits it now fails closed (decide() refuses transfer-not-verified).
     const result = verifyPltTransfer({
       payableId, txHash: transferTxHash, summary, blockTime: tBlock, view,
-      reserve,
+      reserve, requireReserve: true, registryIndex: '13149',
     });
     const t = (summary.summary?.events ?? []).find((e) => e.tag === 'TokenTransfer');
     transfer = {

@@ -16,6 +16,7 @@ import {
   grpc, chainNow, getPayable, getRegistryBalance, getTx, getBlockTime,
   SELLER,
 } from './chain-v2.mjs';
+import { REGISTRY } from './config.mjs';
 import { verifyCcdV2, verifyPltV2 } from './verifier-v2.mjs';
 
 const [,, idArg, txArg, ...rest] = process.argv;
@@ -39,7 +40,10 @@ const blockTime = await getBlockTime(c, summary.blockHash);
 const balance = await getRegistryBalance(c);
 const result = rail === 'ccd'
   ? await verifyCcdV2(c, { payableId, txHash: txArg.toLowerCase(), summary, blockTime, view, balance, docBytes })
-  : await verifyPltV2(c, { payableId, txHash: txArg.toLowerCase(), summary, blockTime, view, balance, docBytes });
+  // G7 fix-back-7 MF-1: the registryIndex/gen pair below is passed for
+  // interface stability only — the verifier no longer reads any
+  // generation signal. This CLI reads the view from the v2 registry.
+  : await verifyPltV2(c, { payableId, txHash: txArg.toLowerCase(), summary, blockTime, view, balance, docBytes, registryIndex: String(REGISTRY.index), gen: 'v2' });
 for (const ch of result.checks) {
   console.log(`${ch.status === 'ok' ? 'PASS' : ch.status === 'fail' ? 'FAIL' : ch.status.toUpperCase()} ${ch.id} ${ch.detail}`);
 }

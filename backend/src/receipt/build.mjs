@@ -84,7 +84,10 @@ export async function buildReceipt(args) {
   const payBlockTime = await getBlockTime(client, paySummary.blockHash);
   const balance = await getRegistryBalance(client);
 
-  const ctx = { payableId, txHash: paymentTx.toLowerCase(), summary: paySummary, blockTime: payBlockTime, view, balance, docBytes };
+  // G7 fix-back-3 MF-2: the view here is the v1 registry <13149,0>
+  // (getPayable above) — bind it explicitly so a v2/v2.1 payment can
+  // never certify against this view (CCD-03 / PLT-13 fail closed).
+  const ctx = { payableId, txHash: paymentTx.toLowerCase(), summary: paySummary, blockTime: payBlockTime, view, balance, docBytes, registryIndex: '13149' };
   const blockTimes = { register: regBlockTime.slotTime };
   let result;
   if (isCcd) {
@@ -99,7 +102,13 @@ export async function buildReceipt(args) {
     ctx.reserve = { blockTime: rbt, logged: upd ? decodeLoggedEvents(upd) : [] };
     const cs = await getTxStatus(client, confirmTx.toLowerCase());
     const cbt = await getBlockTime(client, cs.blockHash);
-    ctx.confirm = { blockTime: cbt };
+    // G7 fix-back-4 ADV-2: the confirm carries its decoded PltConfirmed
+    // event (v1 receipt path, <13149,0>) — PLT-12 requires the event,
+    // not just the block time.
+    const cupd = (cs.summary?.events ?? []).find(
+      (e) => e.tag === 'Updated' && String(e.address?.index) === '13149' && e.receiveName === 'payable_registry.confirm_plt',
+    );
+    ctx.confirm = { blockTime: cbt, logged: cupd ? decodeLoggedEvents(cupd) : [] };
     blockTimes.reserve = rbt.slotTime;
     blockTimes.transfer = payBlockTime.slotTime;
     blockTimes.confirm = cbt.slotTime;

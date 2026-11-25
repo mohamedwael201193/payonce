@@ -1,6 +1,1 @@
-{
-  "blockTime": {
-    "slotTime": "2026-11-24T04:52:17.593Z",
-    "height": "51218664"
-  }
-}
+{"blockTime":{"height":"51218664","slotTime":"2026-11-24T04:52:17.593Z"},"logged":[{"event":"PltConfirmed","payableId":2,"payer":"3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n","txHash":"7cc2f94f73f9fdb133d59c8546bdfc026a3ae91ace5f9a3716846823909632ef"}]}

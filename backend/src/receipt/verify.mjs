@@ -106,7 +106,9 @@ export async function verifyReceipt(receipt, { docBytes } = {}) {
   try {
     const paySummary = await getTxStatus(client, paymentTx);
     const payBlockTime = await getBlockTime(client, paySummary.blockHash);
-    const ctx = { payableId, txHash: paymentTx, summary: paySummary, blockTime: payBlockTime, view, balance, docBytes };
+    // G7 fix-back-3 MF-2: the view here is the v1 registry <13149,0>
+    // (getPayable above) — bind it explicitly, as in build.mjs.
+    const ctx = { payableId, txHash: paymentTx, summary: paySummary, blockTime: payBlockTime, view, balance, docBytes, registryIndex: '13149' };
     let result;
     if (isCcd) {
       result = verifyCcd(ctx);
@@ -122,7 +124,12 @@ export async function verifyReceipt(receipt, { docBytes } = {}) {
       if (receipt.confirmTx) {
         const cs = await getTxStatus(client, receipt.confirmTx);
         const cbt = await getBlockTime(client, cs.blockHash);
-        ctx.confirm = { blockTime: cbt };
+        // G7 fix-back-4 ADV-2: see build.mjs — PLT-12 requires the
+        // PltConfirmed event, not just the block time.
+        const cupd = (cs.summary?.events ?? []).find(
+          (e) => e.tag === 'Updated' && String(e.address?.index) === '13149' && e.receiveName === 'payable_registry.confirm_plt',
+        );
+        ctx.confirm = { blockTime: cbt, logged: cupd ? decodeLoggedEvents(cupd) : [] };
       }
       result = verifyPlt(ctx);
     }

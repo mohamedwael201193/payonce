@@ -14,7 +14,7 @@ import { backend } from './backend.mjs';
 import {
   grpc, chainNow, getPayable, getPayableOrNull, getConfig as getChainConfig,
   getVendor, getAccount, getTx, getRegistryBalance, getBlockTime, microCcdOf,
-  sendUpdate, waitFinalized, signers, SELLER, PAYER,
+  sendUpdate, waitFinalized, signers, updatedEvent, SELLER, PAYER,
 } from './chain-v2.mjs';
 import { verifyBeforePay, verifyCcdV2, verifyPltV2 } from './verifier-v2.mjs';
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
@@ -354,6 +354,55 @@ async function handleDocument(req, res, id) {
   res.end(doc);
 }
 
+/** Reservation + confirm evidence for an EUDemo after_pay run, from the
+ * stored payment legs (receipt store / recorded evidence — the same
+ * legs paymentTxsFor returns). G7 fix-back-3 MF-3: verifyPltV2 is now
+ * fail-closed on missing reserve/confirm, so the handler must supply
+ * the evidence it already holds — otherwise /api/verify could never
+ * certify any PLT payment. A leg that cannot be fetched (or has no
+ * reserve_plt event) comes back null and the verifier FAILS that row
+ * instead of passing it silently; a fetch failure never throws here. */
+async function pltEvidenceFor(c, txs) {
+  const leg = (label) => txs.find(([l]) => l === label)?.[1] ?? null;
+  let reserve = null;
+  let confirm = null;
+  const reserveHash = leg('Reservation');
+  if (reserveHash) {
+    try {
+      const { v2ev } = await backend();
+      const rs = await getTx(c, reserveHash);
+      const rbt = await getBlockTime(c, rs.blockHash);
+      const upd = updatedEvent(rs, 'reserve_plt');
+      reserve = { blockTime: rbt, logged: upd ? v2ev.decodeLoggedEventsV2(upd) : [] };
+    } catch {
+      reserve = null;
+    }
+  }
+  const confirmHash = leg('Confirm');
+  if (confirmHash) {
+    try {
+      const { v2ev } = await backend();
+      const cs = await getTx(c, confirmHash);
+      // G7 fix-back-4 ADV-2: the confirm carries its decoded PltConfirmed
+      // event (same shape as the reserve leg above) — pltConfirmRow now
+      // requires the event, not just the block time.
+      // G7 fix-back-6 MF-1: gen 'v2' is a CALLER signal — this handler
+      // reads the view from the v2 registry, so the confirm it builds is
+      // v2 by construction; the verifier must not re-derive the
+      // generation from the event's own (strippable) schemaVersion.
+      // G7 fix-back-7 MF-1: the verifier no longer reads ANY generation
+      // signal (ctx or confirm) — seller + finite expiry are
+      // unconditional. The gen field below is kept for shape stability
+      // only; it decides nothing.
+      const cupd = updatedEvent(cs, 'confirm_plt');
+      confirm = { blockTime: await getBlockTime(c, cs.blockHash), logged: cupd ? v2ev.decodeLoggedEventsV2(cupd) : [], gen: 'v2' };
+    } catch {
+      confirm = null;
+    }
+  }
+  return { reserve, confirm };
+}
+
 async function handleVerify(req, res, id) {
   const body = await readBody(req).catch(() => ({}));
   const mode = body.mode === 'after_pay' ? 'after_pay' : 'before_pay';
@@ -392,7 +441,7 @@ async function handleVerify(req, res, id) {
   if (view.status !== 'Paid') {
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: 'blocked',
-      passed: 0, total: view.asset === 'CCD' ? 10 : 12,
+      passed: 0, total: view.asset === 'CCD' ? 10 : 14, // MF-3: EUDemo after_pay is now a 14-check run
       blocked_reason: 'status',
       checks: [{
         id: 'status_paid', label: 'Registry status is Paid', status: 'fail',
@@ -407,7 +456,7 @@ async function handleVerify(req, res, id) {
   if (!payHash) {
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: 'blocked',
-      passed: 0, total: view.asset === 'CCD' ? 10 : 12,
+      passed: 0, total: view.asset === 'CCD' ? 10 : 14, // MF-3: EUDemo after_pay is now a 14-check run
       blocked_reason: 'no_payment_tx',
       checks: [{
         id: 'tx_finalized', label: 'Payment transaction is finalized', status: 'not_run',
@@ -419,9 +468,19 @@ async function handleVerify(req, res, id) {
   }
   const summary = await getTx(c, payHash);
   const blockTime = await getBlockTime(c, summary.blockHash);
+  // MF-3: the EUDemo run supplies the stored reserve/confirm evidence
+  // (pltEvidenceFor) — without it the fail-closed rows would fail every
+  // PLT verification, including real paid payables.
+  const pltEvidence = view.asset === 'EUDemo' ? await pltEvidenceFor(c, txs) : { reserve: null, confirm: null };
   const result = view.asset === 'CCD'
     ? await verifyCcdV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256 })
-    : await verifyPltV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256 });
+    // G7 fix-back-7 MF-1: the registryIndex/gen pair below is passed
+    // for interface stability only — the verifier no longer reads any
+    // generation signal (fix-back-6's caller threading let a '13149' /
+    // 'v1' signal lift the seller + expiry requirements). This run is
+    // v2 because the view comes from the v2 registry <13150,0> and the
+    // verifier is v2-only unconditionally.
+    : await verifyPltV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256, reserve: pltEvidence.reserve, confirm: pltEvidence.confirm, registryIndex: String(REGISTRY.index), gen: 'v2' });
   const counters = await loadCounters();
   counters.verifierRuns += 1;
   if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;

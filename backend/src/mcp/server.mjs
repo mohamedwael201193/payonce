@@ -17,17 +17,16 @@
 // product API uses. The v1 registry <13149,0> holds only the legacy
 // payables 6/7/8/9; every fresh payable (1000+) lives on v2 only, so the
 // v1 reads could not see them. KNOWN SPLIT (not hidden): the SEND path
-// below (pay_payable's sendUpdate + the co-signer gate snapshot + the
-// CCD/PLT verifier's contract-event checks) still targets the v1 contract
-// and v1 event shapes — the v2 send/verifier re-scope is Batch B's
+// below (pay_payable's sendUpdate + the co-signer gate snapshot) still
+// targets the v1 contract — the v2 send re-scope is Batch B's
 // registry-scoping work, not this file. Consequences, stated plainly:
 // (a) pay_payable validates a v2 payable, then its v1 send is rejected by
 // the v1 contract for a v2-only id — fail-closed, no money moves;
-// (b) verify_invoice on a v2 CCD pay tx fails CCD-03/04/05/08 (the
-// verifier looks for v1 contract events) and on a v2 EUDemo transfer
-// fails PLT-07/08 (the v2 memo is seller-qualified, `payable:<seller>:<id>`)
-// — the verifier is v1-shaped until Batch B re-scopes it. The tool
-// descriptions say exactly which registry each leg reads.
+// (b) verify_invoice's CCD branch now accepts v1, v2 and v2.1 pay_ccd
+// shapes (checks.mjs PAY_CCD_TARGETS); the PLT memo expectation is
+// generation-aware (G7 fix-back-6 MF-4), so a v2 EUDemo transfer with
+// its seller-qualified memo `payable:<seller>:<id>` passes PLT-07/08.
+// The tool descriptions say exactly which registry each leg reads.
 //
 // Testnet only. No mocks, no fakes: every result comes from a live chain
 // read (or, for pay_payable, a live send). Keys are loaded in-process only
@@ -67,8 +66,8 @@ import {
 // ids >= 256; using the v2 views sidesteps it — the v1 padding is NOT
 // "fixed" here, the v1 read path is simply not used.
 import { getPayableV2OrNull, getRegistryBalanceV2 } from '../v2/registry.mjs';
-import { verifyCcd, verifyPlt, verifyPltTransfer } from '../verifier/checks.mjs';
-import { decodeLoggedEvents } from '../events.mjs';
+import { verifyCcd, verifyPlt, verifyPltTransfer, findTargetUpdated, RESERVE_TARGETS, CONFIRM_TARGETS } from '../verifier/checks.mjs';
+import { decodeLoggedEvents, decodeLoggedEventsForGen } from '../events.mjs';
 import {
   loadSigners,
   sendUpdate,
@@ -161,7 +160,12 @@ function loadEvidence() {
  * real on-chain transactions, not a substitute for them.
  * NOTE: this evidence is v1-anchored (payables 6/7, which do not exist on
  * v2), so for v2 payables it returns null and the PLT reserve/confirm
- * checks SKIP — the verifier never passes them silently.
+ * checks FAIL closed (G7 fix-back-2 F-A) — the verifier never passes
+ * them silently, and never certifies a v2 PLT payment without
+ * reservation evidence. verify_invoice gains reserveTx/confirmTx inputs
+ * as the follow-up that would let a caller supply that evidence
+ * (which would clear PLT-13/12; PLT-07/08 already pass on a v2 memo
+ * since G7 fix-back-6 MF-4).
  */
 export function evidenceFor(payableId) {
   const ev = loadEvidence();
@@ -190,8 +194,9 @@ function updatedEvent(status, receiveName) {
  * Reserve + confirm contexts for the full PLT verifier, recovered live
  * from the evidence tx hashes when the checked tx is the known transfer
  * for this payable. Returns { reserve, confirm } with nulls when the
- * hashes are unknown — the verifier then SKIPs PLT-12/PLT-13 instead of
- * passing them silently.
+ * hashes are unknown — the verifier then FAILS PLT-12/PLT-13 (G7
+ * fix-back-2 F-A: the MCP is the certification path, so missing evidence
+ * is a failure, never a SKIP) instead of passing them silently.
  */
 async function pltContextsFor(client, payableId, txHash) {
   const ev = evidenceFor(payableId);
@@ -203,8 +208,19 @@ async function pltContextsFor(client, payableId, txHash) {
     try {
       const rs = await getTxStatus(client, ev.reserveTx);
       const rbt = await getBlockTime(client, rs.blockHash);
-      const upd = updatedEvent(rs, 'payable_registry_v2.reserve_plt');
-      reserve = { blockTime: rbt, logged: upd ? decodeLoggedEvents(upd) : [] };
+      // G7 fix-back MF1 (adversarial/compliance): the reserve seek
+      // accepts v1/v2/v2.1 reserve_plt targets and decodes the logged
+      // events with the matched generation's own decoder — a v2 Reserved
+      // (tag 0x04, 82 B) via the v1 decoder comes back {event:'Unknown'}
+      // and PLT-13 can never pass. The reserve also carries its
+      // registry/generation so PLT-13 can bind it (checks.mjs MF4).
+      const found = findTargetUpdated(rs, RESERVE_TARGETS);
+      reserve = {
+        blockTime: rbt,
+        logged: found ? decodeLoggedEventsForGen(found.event, found.target.gen) : [],
+        gen: found?.target.gen ?? 'v1',
+        registryIndex: found?.target.index ?? '13149',
+      };
     } catch {
       reserve = null;
     }
@@ -213,7 +229,11 @@ async function pltContextsFor(client, payableId, txHash) {
   if (ev.confirmTx) {
     try {
       const cs = await getTxStatus(client, ev.confirmTx);
-      confirm = { blockTime: await getBlockTime(client, cs.blockHash) };
+      // G7 fix-back-4 ADV-2: the confirm carries its decoded PltConfirmed
+      // event (generation-aware, like the reserve above) — PLT-12 now
+      // requires the event, not just the block time.
+      const found = findTargetUpdated(cs, CONFIRM_TARGETS);
+      confirm = { blockTime: await getBlockTime(client, cs.blockHash), logged: found ? decodeLoggedEventsForGen(found.event, found.target.gen) : [] };
     } catch {
       confirm = null;
     }
@@ -283,11 +303,22 @@ export async function verifyInvoice({ payableId, txHash, docPath = null }) {
   const blockTime = await getBlockTime(client, summary.blockHash);
   const balance = await getRegistryBalanceV2(client);
   if (view.asset === 'CCD') {
-    const result = verifyCcd({ payableId, txHash, summary, blockTime, view, balance, docBytes });
+    // G7 fix-back-2 F-B: the view here is always the v2 registry
+    // <13150,0> — bind the tx's target registry to it, so a v2.1 pay
+    // (or v1 pay) can never certify against this view (CCD-03 fails
+    // with the mismatch named).
+    const result = verifyCcd({ payableId, txHash, summary, blockTime, view, balance, docBytes, registryIndex: '13150' });
     return { tool: 'verify_invoice', network: NETWORK, payableId, txHash, asset: view.asset, status: view.status, blockTime: blockTime.slotTime, ...result };
   }
   const { reserve, confirm } = await pltContextsFor(client, payableId, txHash);
-  const result = verifyPlt({ payableId, txHash, summary, blockTime, view, balance, docBytes, reserve, confirm });
+  // Views in this server are v2 (<13150,0> — see header): the reserve
+  // must come from that same registry, or PLT-13 fails (checks.mjs MF4).
+  // G7 fix-back-2 F-A: the MCP is the certification path — a missing
+  // reserve/confirm is a FAIL (PLT-13/12), never a SKIP. evidenceFor
+  // covers only the v1 payables 6/7, so a v2 PLT payment cannot certify
+  // here until verify_invoice gains reserveTx/confirmTx inputs (which
+  // would clear PLT-13/12; PLT-07/08 already pass since fix-back-6 MF-4).
+  const result = verifyPlt({ payableId, txHash, summary, blockTime, view, balance, docBytes, reserve, confirm, registryIndex: '13150', requireReserve: true, requireConfirm: true });
   return { tool: 'verify_invoice', network: NETWORK, payableId, txHash, asset: view.asset, status: view.status, blockTime: blockTime.slotTime, ...result };
 }
 
@@ -468,7 +499,21 @@ export async function payPayable({ payableId, rail, docPath }) {
     const blockTime = await getBlockTime(client, status.blockHash);
     const viewAfter = await loadPayableOrFail(client, payableId);
     const balance = await getRegistryBalanceV2(client);
-    const verification = verifyCcd({ payableId, txHash: pay.txHash, summary: status, blockTime, view: viewAfter, balance, docBytes });
+    // G7 fix-back-4 ADV-1: this verification is BOUND to the v2 view
+    // registry <13150,0> (registryIndex: '13150', exactly as verifyInvoice
+    // binds it) — the unbound:true opt-in that used to sit here is REMOVED.
+    // The send path still targets the v1 contract (see header split), so a
+    // v1/v2.1-targeted pay now FAILS CCD-03 against this v2 view instead
+    // of certifying 11/11: the v2 view cannot certify a payment from a
+    // different registry, and a dual-registry id (1-5, 10, 11 exist on
+    // BOTH registries) is no exception — the v1 send is NOT rejected for
+    // those ids before this line. The payment itself was still sent and
+    // finalized; only the certification refuses, and the warning below
+    // surfaces that (allPass=false -> warning non-null). Never pass
+    // unbound:true on this path: the opt-in survives only for explicitly
+    // registry-less offline fixtures (verify-payable --fixture, unit
+    // fixtures), never for a live payment.
+    const verification = verifyCcd({ payableId, txHash: pay.txHash, summary: status, blockTime, view: viewAfter, balance, docBytes, registryIndex: '13150' });
     return {
       tool: 'pay_payable', network: NETWORK, payableId, rail,
       paymentTxHash: pay.txHash, paymentBlockTime: blockTime.slotTime,
@@ -516,13 +561,20 @@ export async function payPayable({ payableId, rail, docPath }) {
     fail(`transfer tx ${transfer.txHash} finalized but no TokenTransfer event was logged — stopping before confirm (reserve tx: ${reserve.txHash})`);
   }
   // Pre-confirm transfer verification (fail-closed: a bad transfer is never confirmed).
+  // The reserve here is the v1-contract reserve from the send path
+  // below (see header: the send path still targets v1), so it carries
+  // gen 'v1' / registry <13149,0> — against the v2 view this server
+  // reads, PLT-13's registry binding fails closed, as it must for a
+  // cross-registry reservation (checks.mjs MF4).
   const reserveCtx = {
     blockTime: await getBlockTime(client, reserveStatus.blockHash),
     logged: reserveUpd ? decodeLoggedEvents(reserveUpd) : [],
+    gen: 'v1',
+    registryIndex: '13149',
   };
   const transferCheck = verifyPltTransfer({
     payableId, txHash: transfer.txHash, summary: transferStatus,
-    blockTime: transferBlockTime, view: viewReserved, reserve: reserveCtx,
+    blockTime: transferBlockTime, view: viewReserved, reserve: reserveCtx, registryIndex: '13150',
   });
   if (!transferCheck.allPass) {
     const failed = transferCheck.checks.filter((c) => c.status === 'FAIL').map((c) => c.id).join(', ');
@@ -548,8 +600,10 @@ export async function payPayable({ payableId, rail, docPath }) {
   const balance = await getRegistryBalanceV2(client);
   const verification = verifyPlt({
     payableId, txHash: transfer.txHash, summary: transferStatus, blockTime: transferBlockTime,
-    view: viewAfter, balance, reserve: reserveCtx,
-    confirm: { blockTime: confirmBlockTime }, docBytes,
+    view: viewAfter, balance, reserve: reserveCtx, registryIndex: '13150',
+    // G7 fix-back-4 ADV-2: the PltConfirmed event decoded above (this
+    // send path targets v1, so the v1 decoder) — PLT-12 requires it.
+    confirm: { blockTime: confirmBlockTime, logged: confirmUpd ? decodeLoggedEvents(confirmUpd) : [] }, docBytes,
   });
   return {
     tool: 'pay_payable', network: NETWORK, payableId, rail,
@@ -574,7 +628,7 @@ export function createMcpServer() {
   const server = new McpServer({ name: 'payonce', version: '1.0.0' });
 
   server.registerTool('verify_invoice', {
-    description: 'Verify a payment transaction against a payable on the Concordium testnet registry <13150,0> (v2 views, seller = owner account). Runs the CCD verifier (12 checks) or the PLT/EUDemo verifier (up to 15 checks) live from chain state and returns the full check list plus allPass. Throws a tool error (no crash) on unknown payable, unknown tx, or invoice-doc mismatch. NOTE: the verifier still checks v1 contract-event shapes, so a v2 CCD pay tx fails CCD-03/04/05/08 and a v2 EUDemo transfer fails PLT-07/08 on its seller-qualified memo — the v2 verifier re-scope is pending (Batch B).',
+    description: 'Verify a payment transaction against a payable on the Concordium testnet registry <13150,0> (v2 views, seller = owner account). Runs the CCD verifier (12 checks) or the PLT/EUDemo verifier (up to 15 checks) live from chain state and returns the full check list plus allPass. Throws a tool error (no crash) on unknown payable, unknown tx, or invoice-doc mismatch. NOTE: the CCD verifier accepts v1, v2 and v2.1 pay_ccd shapes; the PLT memo expectation is generation-aware (v2 transfers carry the seller-qualified memo).',
     inputSchema: {
       payableId: z.number().int().min(1).describe('Payable id on registry <13150,0>'),
       txHash: z.string().regex(/^[0-9a-fA-F]{64}$/).describe('64-hex transaction hash to verify'),

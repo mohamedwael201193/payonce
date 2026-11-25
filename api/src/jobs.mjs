@@ -415,8 +415,8 @@ async function runEudemo(job) {
       return await finishJob(job, 'refused', 'refused');
     }
     const confirmUpd = updatedEvent(confirmStatus, 'confirm_plt');
-    const confirmedEvent = confirmUpd ? v2ev.decodeLoggedEventsV2(confirmUpd).find((e) => e.event === 'PltConfirmed') : null;
-    if (!confirmedEvent) {
+    const confirmLogged = confirmUpd ? v2ev.decodeLoggedEventsV2(confirmUpd) : [];
+    const confirmedEvent = confirmLogged.find((e) => e.event === 'PltConfirmed');    if (!confirmedEvent) {
       await setStep(job, 'confirm', 'failed', `confirm_plt finalized (${shortHash(confirm.txHash)}) but no PltConfirmed event was logged.`, { layer: 'chain' });
       return await finishJob(job, 'failed', 'failed');
     }
@@ -433,7 +433,14 @@ async function runEudemo(job) {
     const confirmBlockTime = await getBlockTime(c, confirmStatus.blockHash);
     const verification = await verifyPltV2(c, {
       payableId: job.payable_id, txHash: transfer.txHash, summary: transferStatus, blockTime: transferBlockTime,
-      view, balance, docBytes, reserve: reserveCtx, confirm: { blockTime: confirmBlockTime },
+      view, balance, docBytes, reserve: reserveCtx,
+      registryIndex: String(REGISTRY.index), gen: 'v2',
+      // G7 fix-back-4 ADV-2: the PltConfirmed event decoded above —
+      // pltConfirmRow requires the event, not just the block time.
+      // G7 fix-back-6 MF-1: gen 'v2' is a CALLER signal (v2 registry
+      // view); see server.mjs pltEvidenceFor. G7 fix-back-7 MF-1: the
+      // verifier no longer reads it — kept for shape stability.
+      confirm: { blockTime: confirmBlockTime, logged: confirmLogged, gen: 'v2' },
     });
     await recordVerifierRun(verification);
     const receipt = buildReceipt(job, view, [

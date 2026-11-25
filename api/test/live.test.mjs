@@ -161,7 +161,7 @@ test('POST /api/payables/:id/verify before_pay: ready / blocked / paid', async (
   assert.equal(mismatch.json.blocked_reason, 'doc');
 });
 
-test('POST /api/payables/:id/verify after_pay: 10/10 CCD, 12/12 EUDemo', async () => {
+test('POST /api/payables/:id/verify after_pay: 10/10 CCD, 14/14 EUDemo', async () => {
   const ccd = await post('/api/payables/10/verify', { mode: 'after_pay' });
   assert.equal(ccd.status, 200);
   assert.equal(ccd.json.verdict, 'paid');
@@ -172,10 +172,13 @@ test('POST /api/payables/:id/verify after_pay: 10/10 CCD, 12/12 EUDemo', async (
 
   const plt = await post('/api/payables/11/verify', { mode: 'after_pay' });
   assert.equal(plt.json.verdict, 'paid');
-  assert.equal(plt.json.total, 12);
-  assert.equal(plt.json.passed, 12);
+  assert.equal(plt.json.total, 14);
+  assert.equal(plt.json.passed, 14);
   const pltIds = plt.json.checks.map((c) => c.id);
-  assert.deepEqual(pltIds, ['registered', 'doc', 'agent', 'registry_zero', 'status_paid', 'tx_finalized', 'one_token_transfer', 'token_eudemo', 'from_payer', 'to_payee', 'amount', 'memo']);
+  // G7 fix-back-3 MF-3: the 12 P3 checks plus the fail-closed
+  // reservation + paid_at rows; the handler supplies the stored
+  // reserve/confirm evidence, so the real p11 payment still verifies.
+  assert.deepEqual(pltIds, ['registered', 'doc', 'agent', 'registry_zero', 'status_paid', 'tx_finalized', 'one_token_transfer', 'token_eudemo', 'from_payer', 'to_payee', 'amount', 'memo', 'reservation_precedes_transfer', 'paid_at_is_confirm_time']);
 
   const unpaid = await post('/api/payables/1/verify', { mode: 'after_pay' });
   assert.equal(unpaid.json.verdict, 'blocked');
@@ -259,8 +262,8 @@ test('GET /api/receipts/:id rebuilds the receipt live; unpaid 404s', async () =>
   assert.equal(r11.status, 200);
   assert.equal(r11.json.txs.length, 3);
   assert.equal(r11.json.payment_tx_source, 'chain');
-  assert.equal(r11.json.verifier.passed, 14); // 12 after-pay + 2 receipt-binding extras
-  assert.equal(r11.json.verifier.total, 14);
+  assert.equal(r11.json.verifier.passed, 15); // 14 after-pay (12 P3 + reservation + paid_at) + 1 stored-tx-hash extra
+  assert.equal(r11.json.verifier.total, 15);
 
   const unpaid = await get('/api/receipts/1');
   assert.equal(unpaid.status, 404);

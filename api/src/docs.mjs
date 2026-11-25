@@ -168,7 +168,7 @@ export function recordedRunFor(id) {
     push('reserve', 'Seller B reserved the payable (co-signer gate: SIGN)', r.reserveTx);
     push('transfer', 'EUDemo transfer 0.01 to payee2, memo payable:<seller>:11', r.transferTx);
     push('confirm', 'Seller confirmed the transfer hash on chain', r.confirmTx);
-    push('verify', 'Verifier re-run: 12/12 checks pass (EUDemo branch)', null, 'app');
+    push('verify', 'Verifier re-run: 12/12 checks pass (EUDemo branch) — as recorded 2026-11-24; the branch now runs 14 checks', null, 'app');
     return { payable_id: 11, date: '2026-11-24', steps };
   }
   if (ev.v1) {

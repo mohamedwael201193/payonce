@@ -8,12 +8,13 @@
 //   - EUDemo: confirm_plt records the transfer hash on chain, so the
 //     source is `chain` (the stored hash is checked against the live view).
 // The receipt's verifier field is the fresh after-pay re-run (10 checks
-// CCD / 12 checks EUDemo), plus the two receipt-binding extras
-// (stored-tx-hash, paid_at == confirm block time) run inside the
-// re-verification.
+// CCD / 14 checks EUDemo — the 12 P3 checks plus the fail-closed
+// reservation + paid_at rows, G7 fix-back-3 MF-3), plus the stored-tx-hash
+// receipt-binding extra (paid_at is already covered by the after-pay run,
+// so it is not counted twice — see buildReceiptFor).
 import { backend } from './backend.mjs';
 import {
-  grpc, getPayableOrNull, getRegistryBalance, getTx, getBlockTime,
+  grpc, getPayableOrNull, getRegistryBalance, getTx, getBlockTime, updatedEvent,
   SELLER,
 } from './chain-v2.mjs';
 import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.mjs';
@@ -80,18 +81,43 @@ export async function buildReceiptFor(payableId) {
     } else {
       const transferHash = txs.find(([l]) => l === 'Transfer')?.[1];
       const confirmHash = txs.find(([l]) => l === 'Confirm')?.[1];
+      const reserveHash = txs.find(([l]) => l === 'Reservation')?.[1];
       if (transferHash) {
         const summary = await getTx(c, transferHash);
         const blockTime = await getBlockTime(c, summary.blockHash);
         let confirm = null;
         if (confirmHash) {
+          const { v2ev } = await backend();
           const cs = await getTx(c, confirmHash);
-          confirm = { blockTime: await getBlockTime(c, cs.blockHash) };
+          // G7 fix-back-4 ADV-2: the confirm carries its decoded
+          // PltConfirmed event — pltConfirmRow requires the event, not
+          // just the block time.
+          // G7 fix-back-6 MF-1: gen 'v2' is a CALLER signal (v2 registry
+          // view); see server.mjs pltEvidenceFor. G7 fix-back-7 MF-1:
+          // the verifier no longer reads it — kept for shape stability.
+          const cupd = updatedEvent(cs, 'confirm_plt');
+          confirm = { blockTime: await getBlockTime(c, cs.blockHash), logged: cupd ? v2ev.decodeLoggedEventsV2(cupd) : [], gen: 'v2' };
+        }
+        // G7 fix-back-3 MF-3: the receipt re-run supplies the real
+        // reserve too (it is in the stored legs) — without it the
+        // fail-closed reservation row would fail every receipt.
+        let reserve = null;
+        if (reserveHash) {
+          const { v2ev } = await backend();
+          const rs = await getTx(c, reserveHash);
+          const rbt = await getBlockTime(c, rs.blockHash);
+          const upd = updatedEvent(rs, 'reserve_plt');
+          reserve = { blockTime: rbt, logged: upd ? v2ev.decodeLoggedEventsV2(upd) : [] };
         }
         const result = await verifyPltV2(c, {
-          payableId, txHash: transferHash, summary, blockTime, view, balance, docBytes, confirm,
+          payableId, txHash: transferHash, summary, blockTime, view, balance, docBytes, confirm, reserve,
+          registryIndex: String(REGISTRY.index), gen: 'v2',
         });
-        const extras = pltReceiptExtraChecks(view, transferHash, confirm);
+        // verifyPltV2 now covers paid_at_is_confirm_time itself, so the
+        // receipt extras contribute only stored_tx_hash — counting
+        // paid_at twice would inflate the receipt verifier total.
+        const extras = pltReceiptExtraChecks(view, transferHash, confirm, { registryIndex: String(REGISTRY.index), gen: 'v2', reserve })
+          .filter((ch) => ch.id === 'stored_tx_hash');
         const extraPassed = extras.filter((ch) => ch.status === 'ok').length;
         verifier = {
           passed: result.passed + extraPassed,
