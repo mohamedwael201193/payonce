@@ -18,9 +18,12 @@ if (!OLD_URL || !NEW_URL) {
   process.exit(2);
 }
 
+// Internal Render hostnames (e.g. dpg-...-a) have no dots and need no TLS;
+// external Render Postgres hostnames require TLS.
+const oldHost = (() => { try { return new URL(OLD_URL).hostname; } catch { return ''; } })();
 const oldPool = new pg.Pool({
   connectionString: OLD_URL,
-  ssl: { rejectUnauthorized: false }, // old DB via its external URL: TLS required
+  ssl: oldHost.includes('.') ? { rejectUnauthorized: false } : false,
   max: 2,
   connectionTimeoutMillis: 15_000,
 });
