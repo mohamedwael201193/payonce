@@ -394,7 +394,22 @@ export function DashboardPage() {
                     </span>
                   )}
                 </div>
-                {feed.length === 0 ? (
+                {/* FIX-4 sibling (fix-back-2): the feed used to assert
+                    "No activity yet" whenever it was empty — including
+                    during the 5–8 s load and on API error, while the badge
+                    directly above said "Loading…" / "Paused". Same gate as
+                    the stat cards / gauge / rails / dues: skeleton while
+                    loading, the error on failure, "No activity yet" only
+                    when loaded and truly empty. */}
+                {failed ? (
+                  <p className="mt-5 text-sm text-muted">{COPY.statsNoData}</p>
+                ) : loading ? (
+                  <div className="mt-5 space-y-3">
+                    <Skeleton className="h-[36px] w-full" />
+                    <Skeleton className="h-[36px] w-full" />
+                    <Skeleton className="h-[36px] w-full" />
+                  </div>
+                ) : feed.length === 0 ? (
                   <p className="mt-5 text-sm text-muted">No activity yet — pay an invoice and it appears here.</p>
                 ) : (
                   <ul className="mt-5 space-y-5">
@@ -426,7 +441,20 @@ export function DashboardPage() {
                 </h2>
                 <p className="mt-2 text-sm text-muted">Paid once vs unpaid, from the live invoice list.</p>
                 <div className="mt-5">
-                  <Donut segments={donut} />
+                  {/* FIX-4 sibling (fix-back-2): the donut used to render
+                      ungated, so during load and on error it showed a big
+                      "0 payables" centre number, "Paid once · 0" /
+                      "Unpaid · 0" and aria-label "No payables yet" — a
+                      false zero. Same gate as the gauge: skeleton while
+                      loading, the error on failure, the donut only once
+                      the live list is in. */}
+                  {failed ? (
+                    <p className="text-sm text-muted">{COPY.statsNoData}</p>
+                  ) : loading ? (
+                    <Skeleton className="h-[180px] w-[180px] rounded-full" />
+                  ) : (
+                    <Donut segments={donut} />
+                  )}
                 </div>
               </section>
             </Reveal>

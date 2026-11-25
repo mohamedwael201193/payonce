@@ -2,13 +2,16 @@
 // Mocked fetch returns stub-shaped payloads (5 payables, 3 paid). Asserts:
 // the 4 stat cards show the live numbers, the table lists the live invoices
 // with status pills, the search filters, the activity feed lists paid first,
-// and the donut splits paid / unpaid.
+// and the donut splits paid / unpaid. Fix-back-2 adds the FIX-4 sibling
+// gates: the feed and the donut must show skeletons while loading and the
+// error on failure — never a false "No activity yet" / false-zero donut.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
+import { COPY } from '../lib/copy'
 
 const INVOICES = {
   items: [
@@ -154,6 +157,41 @@ describe('DashboardPage', () => {
     expect(within(donut).getByText(/60%/)).toBeInTheDocument()
     expect(within(donut).getByText(/40%/)).toBeInTheDocument()
     expect(within(donut).getByText(/Unpaid ·/)).toBeInTheDocument()
+  })
+
+  it('feed and donut show skeletons — not false-empty / false-zero — while the live list loads', async () => {
+    renderPage()
+    // Before the mocked fetch resolves: no "No activity yet" assertion
+    // (the feed is empty only because nothing arrived yet) and no donut
+    // at all — in particular no "No payables yet" aria-label and no big
+    // "0 payables" centre number. (Skeleton is aria-hidden, so the
+    // absence of the false states is the assertion.)
+    const feed = screen.getByText('Live Activity Feed').closest('section') as HTMLElement
+    expect(within(feed).queryByText('No activity yet — pay an invoice and it appears here.')).not.toBeInTheDocument()
+    expect(within(feed).getByText('Loading…')).toBeInTheDocument()
+    const donut = screen.getByText('Payment Split').closest('section') as HTMLElement
+    expect(within(donut).queryByLabelText('No payables yet')).not.toBeInTheDocument()
+    // Once loaded, the real content appears — guards against asserting on
+    // a page that never loads at all.
+    await waitFor(() => expect(screen.getByText('Payable 4 paid once')).toBeInTheDocument())
+    expect(within(donut).getByText(/60%/)).toBeInTheDocument()
+  })
+
+  it('feed and donut show the error — not false-empty / false-zero — when the API fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }) as Response),
+    )
+    renderPage()
+    const feed = screen.getByText('Live Activity Feed').closest('section') as HTMLElement
+    const donut = screen.getByText('Payment Split').closest('section') as HTMLElement
+    // The hooks retry once (retry: 1) with backoff, so the error state
+    // lands ~1–2 s after the failed fetch, not immediately.
+    await waitFor(() => expect(within(feed).getByText(COPY.statsNoData)).toBeInTheDocument(), { timeout: 5000 })
+    expect(within(donut).getByText(COPY.statsNoData)).toBeInTheDocument()
+    expect(within(feed).getByText('Paused')).toBeInTheDocument()
+    expect(within(feed).queryByText('No activity yet — pay an invoice and it appears here.')).not.toBeInTheDocument()
+    expect(within(donut).queryByLabelText('No payables yet')).not.toBeInTheDocument()
   })
 
   it('sidebar links to the real routes, and Export CSV is present', async () => {

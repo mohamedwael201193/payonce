@@ -366,6 +366,10 @@ function ReceiptChecker() {
   const [error, setError] = useState<string | null>(null)
   const [shown, setShown] = useState(0)
   const [run, setRun] = useState(0)
+  // Same Still-loading suffix as the sibling loaders (fix-back-2 minor):
+  // a checker still verifying after 15 s says so instead of spinning
+  // silently. Active only while a target exists and no result/error yet.
+  const checkSlow = useSlowLoad(!result && !error && !!target)
 
   // Fetch as soon as a paid invoice exists (read-only verify). The old
   // inView gate never fired when the page was jumped to the bottom before
@@ -454,6 +458,7 @@ function ReceiptChecker() {
       ) : !result ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">
           Checking payable {target.payable_id} against the chain…
+          {checkSlow ? ' Still loading — the test API is slow right now.' : null}
         </p>
       ) : (
         <ol className="mt-6 space-y-2.5">

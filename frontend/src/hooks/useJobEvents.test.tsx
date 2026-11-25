@@ -94,3 +94,73 @@ describe('useJobEvents snapshot poll (FIX-2)', () => {
     expect(result.current.job).toBeNull()
   })
 })
+
+describe('useJobEvents never-done path (FIX-2 fix-back-2)', () => {
+  beforeEach(() => {
+    MockEventSource.instances = []
+    vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => SNAPSHOT }) as Response))
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('fails the pay when the stream stays silent past the watchdog — no `done`, no hang', async () => {
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 50 }))
+    await waitFor(() => expect(result.current.error).not.toBeNull(), { timeout: 3000 })
+    expect(result.current.error).toContain('went quiet')
+    expect(result.current.job).toBeNull()
+    expect(MockEventSource.instances[0].closed).toBe(true)
+  })
+
+  it('fails the pay after consecutive stream errors with no event between them', async () => {
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000 }))
+    const es = MockEventSource.instances[0]
+    await act(async () => {
+      es.onerror?.()
+      es.onerror?.()
+      es.onerror?.()
+    })
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.error).toContain('went quiet')
+    expect(es.closed).toBe(true)
+  })
+
+  it('a single stream error stays silent (transient reconnect), and an event resets the failure count', async () => {
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 60_000 }))
+    const es = MockEventSource.instances[0]
+    await act(async () => {
+      es.onerror?.()
+      es.onerror?.()
+    })
+    expect(result.current.error).toBeNull()
+    // An event between failures proves the stream alive: the count restarts.
+    await act(async () => {
+      es.emit({ type: 'step', step: { step: 'reserve', status: 'running' } })
+      es.onerror?.()
+      es.onerror?.()
+    })
+    expect(result.current.error).toBeNull()
+    await act(async () => {
+      es.onerror?.()
+    })
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+  })
+
+  it('a step event restarts the silence watchdog — a live job is not failed early', async () => {
+    const { result } = renderHook(() => useJobEvents('job-1', { streamTimeoutMs: 200 }))
+    const es = MockEventSource.instances[0]
+    // Emit a step every 100 ms: the stream never goes quiet for 200 ms, so
+    // the watchdog must not fire even though `done` never arrives.
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 100))
+      await act(async () => {
+        es.emit({ type: 'step', step: { step: 'reserve', status: 'running' } })
+      })
+    }
+    expect(result.current.error).toBeNull()
+    // Then stop emitting: silence past the watchdog fails the pay.
+    await waitFor(() => expect(result.current.error).not.toBeNull(), { timeout: 3000 })
+  })
+})

@@ -40,7 +40,7 @@ const KNOWN_LIMITS = [
   'Seller identity: the seller holds an Active agent token (1476) on the official registry <12802,0>, cross-checked by the contract at registration and at payment. No LEI and no company proof — the seller is the owner’s own identity, not a company. The company-identity check runs in the verifier, not in the contract (contracts cannot verify V&A proofs).',
   'One testnet seed holds the keys (in-process, testnet only; a new seed is required before any publish). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
   'Each party pays its own testnet fees (no sponsored transactions in this demo run).',
-  'Refused transactions still cost a fee. The fee for a successful CCD payment (19.6 testnet CCD in the v2 run) is larger than the 0.5 CCD invoice. These are testnet fees, not mainnet estimates.',
+  'Refused transactions still cost a fee. The fee for a successful CCD payment (16.2 testnet CCD in the recorded run) is larger than the 0.5 CCD invoice. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
   'Not in this flow: age proof for alcohol and similar, consent anchor (V&A). Both come from earlier lab phases and are not part of this idea’s flow.',
