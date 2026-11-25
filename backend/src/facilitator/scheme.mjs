@@ -15,8 +15,12 @@
 //   4. Watch balance / top-up — sponsorBalance() + LOW_BALANCE_CCD warning;
 //      the server's /health reports it. (Top-up is a human step.)
 //
-// The hosted testnet facilitator (API key by DM to Piotr) is a USER step;
-// this self-hosted facilitator is the fallback and the one exercised live.
+// The hosted testnet facilitator (API key via process env
+// X402_FACILITATOR_API_KEY) is the DEFAULT path — see hosted.mjs /
+// hosted-payonce.mjs. This self-hosted facilitator is the FALLBACK, used
+// only when the hosted facilitator is unreachable (never on a hosted
+// rejection); hosted-payonce.mjs owns that precedence.
+import { checkPayableBinding } from './binding.mjs';
 import { ExactConcordiumScheme as FacilitatorScheme } from '@x402/concordium/exact/facilitator';
 import {
   toConcordiumFacilitatorSigner,
@@ -24,7 +28,7 @@ import {
   parseGrpcUrl,
   CONCORDIUM_TESTNET_CAIP2,
 } from '@x402/concordium';
-import { grpcClient, getAccountInfo, encodeCborMemo, decodeCborMemo } from '../chain.mjs';
+import { grpcClient, getAccountInfo } from '../chain.mjs';
 import { getPayable } from '../registry.mjs';
 import { loadSigners, OWNER_ADDRESS } from '../send.mjs';
 
@@ -91,47 +95,14 @@ export class RateLimiter {
  * Returns { isValid, payer, invalidReason?, invalidMessage?, payonce: {checks} }.
  */
 export async function payonceVerify(facilitator, payload, requirements, { payableId, expectedStatus = null } = {}) {
-  const checks = [];
-  const fail = (reason, message) => ({ isValid: false, payer: '', invalidReason: reason, invalidMessage: message, payonce: { checks } });
   const v = await facilitator.scheme.verify(payload, requirements);
-  checks.push({ name: 'x402-9-checks', ok: v.isValid, detail: v.isValid ? 'scheme verify passed' : `${v.invalidReason}: ${v.invalidMessage ?? ''}` });
-  if (!v.isValid) return fail(v.invalidReason ?? 'x402_verify_failed', v.invalidMessage ?? 'scheme verify failed');
   const client = grpcClient();
-  let view = null;
-  try {
-    view = await getPayable(client, payableId);
-  } catch (e) {
-    checks.push({ name: 'payable-exists', ok: false, detail: String(e.message).slice(0, 120) });
-    return fail('payable_not_found', `payable ${payableId} not found: ${e.message}`);
-  }
-  checks.push({ name: 'payable-exists', ok: true, detail: `status=${view.status} asset=${view.asset} amount=${view.amount}` });
-  if (expectedStatus && view.status !== expectedStatus) {
-    checks.push({ name: 'payable-status', ok: false, detail: `expected ${expectedStatus}, got ${view.status}` });
-    return fail('payable_wrong_status', `payable ${payableId} is ${view.status}, expected ${expectedStatus}`);
-  }
-  checks.push({ name: 'payable-status', ok: true, detail: `status=${view.status}` });
-  if (String(requirements.amount) !== String(view.amount)) {
-    checks.push({ name: 'amount-is-stored', ok: false, detail: `requirements=${requirements.amount}, stored=${view.amount}` });
-    return fail('amount_mismatch', `requirements amount ${requirements.amount} != stored ${view.amount}`);
-  }
-  checks.push({ name: 'amount-is-stored', ok: true, detail: `amount=${view.amount}` });
-  if (requirements.payTo !== view.payee) {
-    checks.push({ name: 'payee-is-stored', ok: false, detail: `payTo=${requirements.payTo}, stored=${view.payee}` });
-    return fail('payee_mismatch', `payTo ${requirements.payTo} != stored payee ${view.payee}`);
-  }
-  checks.push({ name: 'payee-is-stored', ok: true, detail: `payee=${view.payee}` });
-  if (view.asset !== 'CCD') {
-    const opsHex = payload?.payload?.signedTransaction?.payload?.operations ?? null;
-    const memoHex = encodeCborMemo(`payable:${payableId}`).toString('hex');
-    const hasMemo = typeof opsHex === 'string' && opsHex.toLowerCase().includes(memoHex);
-    checks.push({ name: 'memo-is-payable-id', ok: hasMemo, detail: hasMemo ? `memo payable:${payableId} present` : 'canonical memo bytes missing from operations' });
-    if (!hasMemo) return fail('memo_missing', `transfer carries no canonical memo payable:${payableId}`);
-    // The memo must decode to exactly `payable:<id>` (not a longer string
-    // that merely contains it) — decode the memo bytes found in the ops.
-    const decoded = decodeCborMemo(memoHex);
-    checks.push({ name: 'memo-canonical', ok: decoded.canonical && decoded.text === `payable:${payableId}`, detail: `memo=${decoded.text} canonical=${decoded.canonical}` });
-  }
-  return { isValid: true, payer: v.payer, payonce: { checks, view } };
+  // The payable binding lives in binding.mjs, shared with the hosted path —
+  // same checks, same names, same order. See that module for the rules.
+  return checkPayableBinding({
+    verifyResult: v, payload, requirements, payableId, expectedStatus,
+    loadPayable: (id) => getPayable(client, id),
+  });
 }
 
 /** Settle through the facilitator after the PayOnce layer passes. Records nothing on its own; the caller ledgers the result. */
