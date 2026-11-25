@@ -18,15 +18,21 @@ const queryClient = new QueryClient({
 
 // Route changes reset the scroll position — otherwise a jump from the
 // bottom of /dashboard lands mid-page on the landing page and the return
-// feels like a dead end. Hash links (/#invoice, /#check, …) scroll to their
-// anchor instead; the browser does not do that for client-side routing.
+// feels like a dead end. Hash links (#pay on the dashboard, #how on the
+// landing) scroll to their anchor instead; the browser does not do that
+// for client-side routing.
+//
+// The old /#invoice anchor is gone with the landing flow (fix-back-12);
+// the same-hash re-click and instant-scroll fixes below still apply to
+// the surviving hashes (e.g. clicking "Pay an invoice" while already on
+// /dashboard?tab=pick#pay).
 //
 // TAB BUG (2026-11-25, user-reported, browser test pass 1 bug 1): "Pay an
 // invoice" from /dashboard or the footer left the URL at /#invoice but the
 // view at the hero — three causes, all fixed here:
 //   (1) Same-hash re-clicks were dead: the effect depended on [pathname,
-//       hash], and clicking "Pay an invoice" while already on /#invoice
-//       changes neither, so nothing scrolled. It now also depends on
+//       hash], and clicking "Pay an invoice" while already on the same
+//       hash changes neither, so nothing scrolled. It now also depends on
 //       location.key — React Router mints a new key per navigation,
 //       including a same-URL one, so every tab click scrolls.
 //   (2) The scroll was smooth: the landing's heights shift while live data

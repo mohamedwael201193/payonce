@@ -68,6 +68,31 @@ const CONFIG = {
   as_of: '2026-11-24T10:42:07Z',
 }
 
+// Payable 3 facts for the pay-tabs preload (per-row Pay link test).
+const FACTS_3 = {
+  payable_id: 3,
+  asset: { kind: 'eudemo', token: 'TOK' },
+  amount: '0.01',
+  amount_display: '0.01 EUDemo',
+  payee: 'PAYEE-PLACEHOLDER',
+  seller: 'SELLER-PLACEHOLDER',
+  due: dueInDays(2),
+  is_past_due: false,
+  status: { kind: 'unpaid' },
+  agent: { registry: { index: 13144, subindex: 0 }, token: 'AGENTTOKEN' },
+  doc_sha256: '0'.repeat(64),
+  label: 'Lab invoice 3',
+}
+const HEALTH = {
+  chain: { reachable: true, checked_at: '2026-11-24T10:42:07Z' },
+  node_busy: false,
+  payer: { status: 'ok' },
+  sponsor: { status: 'ok' },
+  wallet_eudemo: { status: 'ok' },
+  co_signer: { status: 'ok' },
+  budget: { new_invoices_left_this_hour: 3, attack_sends_left_this_hour: 10 },
+}
+
 function mockApi() {
   vi.stubGlobal(
     'fetch',
@@ -78,18 +103,25 @@ function mockApi() {
           ? STATS
           : url.includes('/api/config')
             ? CONFIG
-            : null
+            : url.includes('/api/payables/3')
+              ? FACTS_3
+              : url.includes('/api/health')
+                ? HEALTH
+                : null
       if (!body) return { ok: false, status: 404, json: async () => ({}) }
       return { ok: true, status: 200, json: async () => body }
     }),
   )
 }
 
-function renderPage() {
+function renderPage(initialEntry = '/dashboard') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const rendered = render(
     <QueryClientProvider client={client}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter
+        initialEntries={[initialEntry]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <DashboardPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -302,11 +334,48 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Paused')).toBeInTheDocument()
   })
 
+  it('sidebar shows exactly one active pill: Pay on the pay tabs, Dashboard on the overview', async () => {
+    const { unmount } = renderPage('/dashboard?tab=pick')
+    await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
+    const nav = screen.getByLabelText('Dashboard')
+    expect(within(nav).getByText('Pay an invoice').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByText('Dashboard').closest('a')).not.toHaveAttribute('aria-current', 'page')
+    unmount()
+    renderPage('/dashboard')
+    await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
+    const nav2 = screen.getByLabelText('Dashboard')
+    expect(within(nav2).getByText('Dashboard').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(within(nav2).getByText('Pay an invoice').closest('a')).not.toHaveAttribute('aria-current', 'page')
+  })
+
+  it('unpaid rows get a Pay link to the pay tab, paid rows get View only', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
+    const table = screen.getByRole('table')
+    const row3 = within(table).getByText('Payable 3').closest('tr') as HTMLElement
+    expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe('/dashboard?tab=pay&payable=3#pay')
+    const row1 = within(table).getByText('Payable 1').closest('tr') as HTMLElement
+    expect(within(row1).queryByText('Pay')).not.toBeInTheDocument()
+    expect(within(row1).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1')
+  })
+
+  it('clicking a row Pay stays on /dashboard and preloads the invoice in the pay tab', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
+    const table = screen.getByRole('table')
+    const row3 = within(table).getByText('Payable 3').closest('tr') as HTMLElement
+    await user.click(within(row3).getByText('Pay'))
+    // Same pathname, pay tab selected, facts preloaded — no navigation away.
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Pay once/ })).toHaveAttribute('aria-selected', 'true'))
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+  })
+
   it('sidebar links to the real routes, and Export CSV is present', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
     const nav = screen.getByLabelText('Dashboard')
-    expect(within(nav).getByText('Pay an invoice').closest('a')?.getAttribute('href')).toBe('/#invoice')
+    expect(within(nav).getByText('Pay an invoice').closest('a')?.getAttribute('href')).toBe('/dashboard?tab=pick#pay')
     expect(within(nav).getByText('For judges').closest('a')?.getAttribute('href')).toBe('/judges')
     expect(screen.getByText('Export CSV')).toBeInTheDocument()
   })

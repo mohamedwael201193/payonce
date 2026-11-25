@@ -11,8 +11,10 @@
 // header scrolls away.
 // "Verify — no wallet needed" is the honest label: in the app it opens the
 // verify flow — it never asks a judge to sign anything. The CTAs are router
-// Links to "/#invoice" (not plain <a href>, which would full-reload from
-// every other page and lose app state) so they work from every page.
+// Links to the dashboard pay tabs (not plain <a href>, which would
+// full-reload from every other page and lose app state) so they work from
+// every page. (Fix-back-12: the old "/#invoice" target is gone with the
+// landing flow.)
 import { Link, NavLink } from 'react-router-dom'
 import { useHealth } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
@@ -101,7 +103,7 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
         href={skipTarget}
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:text-ink"
       >
-        Skip to the invoice
+        Skip to main content
       </a>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -117,13 +119,13 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
         </nav>
         <div className="flex items-center gap-3">
           <Link
-            to="/#invoice"
+            to="/dashboard?tab=pick#pay"
             title="No wallet needed — judges verify without signing anything."
             className="hidden rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-[14px] font-medium text-white hover:bg-white/25 sm:inline-flex"
           >
             Verify — no wallet needed
           </Link>
-          <Link to="/#invoice" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
+          <Link to="/dashboard?tab=pick#pay" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
             Verify an invoice
           </Link>
           <span className="ml-2 hidden lg:block">

@@ -10,6 +10,7 @@ import { ArrowRight, Download, Home, LayoutDashboard, Receipt, Search, Wallet } 
 import { useConfig, useInvoices, useStats } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
 import { Logo } from '../components/Logo'
+import { PayFlowTabs } from '../components/PayFlowTabs'
 import { activityFeed, dashboardStats, derivedStatus, donutSegments, filterInvoices, invoicesToCsv } from '../lib/dashboard'
 import { heroOverview } from '../lib/heroOverview'
 import { formatUtcDateTime, formatUtcTime } from '../lib/format'
@@ -18,17 +19,23 @@ import { CountUp, Donut, Gauge, InvoiceStatusPill, Reveal, Skeleton, Sparkline, 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, kind: 'route' as const, end: true },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, kind: 'route' as const, end: true },
-  { to: '/#invoice', hash: '#invoice', label: 'Pay an invoice', icon: Wallet, kind: 'hash' as const },
+  // Fix-back-12: "Pay an invoice" stays inside /dashboard — it opens the
+  // manual pay tabs below (?tab=pick, #pay anchor). The old '/#invoice'
+  // target left /dashboard for the landing page, whose flow is gone.
+  { to: '/dashboard?tab=pick#pay', label: 'Pay an invoice', icon: Wallet, kind: 'pay' as const },
   { to: '/judges', label: 'For judges', icon: Receipt, kind: 'route' as const, end: false },
 ]
 
 function Sidebar() {
-  // TAB BUG (2026-11-25): the two hash items were NavLinks with end={false}.
-  // A NavLink to "/#invoice" matches every pathname ("/" is a prefix of all
-  // of them), so "Pay an invoice" and "Live console" showed the active pill
-  // on EVERY page, next to the truly active tab. Hash items are plain Links
-  // now, active only when the landing page is showing that anchor.
-  const { pathname, hash } = useLocation()
+  // ACTIVE PILL (fix-back-12): "Dashboard" and "Pay an invoice" share the
+  // same pathname (/dashboard), so NavLink prefix-matching cannot tell them
+  // apart — both pills would show active at once. Both are plain Links now,
+  // with exactly one active at a time: "Pay an invoice" when the dashboard
+  // is showing the pay tabs (?tab= present, or the #pay anchor), "Dashboard"
+  // otherwise. Home / For judges keep NavLink (distinct pathnames).
+  const { pathname, hash, search } = useLocation()
+  const payView = pathname === '/dashboard' && (new URLSearchParams(search).has('tab') || hash === '#pay')
+  const overviewView = pathname === '/dashboard' && !payView
   const itemClass = (active: boolean) =>
     `flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition-colors ${
       active ? 'bg-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]' : 'text-white/85 hover:bg-white/10 hover:text-white'
@@ -44,24 +51,40 @@ function Sidebar() {
         </span>
       </div>
       <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto px-4 pb-4 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-4 lg:pb-0">
-        {NAV.map((n) =>
-          n.kind === 'hash' ? (
-            <Link
-              key={n.to}
-              to={n.to}
-              aria-current={pathname === '/' && hash === n.hash ? 'page' : undefined}
-              className={itemClass(pathname === '/' && hash === n.hash)}
-            >
-              <n.icon className="h-5 w-5" aria-hidden="true" />
-              {n.label}
-            </Link>
-          ) : (
+        {NAV.map((n) => {
+          if (n.kind === 'pay') {
+            return (
+              <Link
+                key={n.to}
+                to={n.to}
+                aria-current={payView ? 'page' : undefined}
+                className={itemClass(payView)}
+              >
+                <n.icon className="h-5 w-5" aria-hidden="true" />
+                {n.label}
+              </Link>
+            )
+          }
+          if (n.to === '/dashboard') {
+            return (
+              <Link
+                key={n.to}
+                to={n.to}
+                aria-current={overviewView ? 'page' : undefined}
+                className={itemClass(overviewView)}
+              >
+                <n.icon className="h-5 w-5" aria-hidden="true" />
+                {n.label}
+              </Link>
+            )
+          }
+          return (
             <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => itemClass(isActive)}>
               <n.icon className="h-5 w-5" aria-hidden="true" />
               {n.label}
             </NavLink>
-          ),
-        )}
+          )
+        })}
       </nav>
       {/* Sidebar art — the bottom of the sidebar was a long empty brown
           gradient (user's mobile/desktop screenshot). A hairline sunset
@@ -412,6 +435,14 @@ export function DashboardPage() {
                           </td>
                           <td className="px-4 py-4 text-muted">{formatUtcDateTime(inv.due)}</td>
                           <td className="px-4 py-4 text-right">
+                            {derivedStatus(inv) !== 'paid' ? (
+                              <Link
+                                to={`/dashboard?tab=pay&payable=${inv.payable_id}#pay`}
+                                className="mr-3 inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+                              >
+                                Pay <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                              </Link>
+                            ) : null}
                             <Link
                               to={`/receipt/${inv.payable_id}?seller=${inv.seller}`}
                               className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
@@ -532,10 +563,12 @@ export function DashboardPage() {
           </div>
         </div>
 
+        <PayFlowTabs />
+
         <p className="mt-8 text-sm text-muted">
-          <Link to="/" className="font-medium text-brand-700">
-            ← Back to the payment flow
-          </Link>{' '}
+          <a href="#pay" className="font-medium text-brand-700">
+            ↑ Pay an invoice
+          </a>{' '}
           · <Link to="/judges" className="font-medium text-brand-700">For judges →</Link>
         </p>
       </main>

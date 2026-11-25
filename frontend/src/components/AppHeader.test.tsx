@@ -49,6 +49,21 @@ describe('AppHeader navigation', () => {
     for (const link of home) expect(link).toHaveAttribute('aria-current', 'page')
   })
 
+  it('both header CTAs point at the dashboard pay tabs, never at #invoice', () => {
+    renderHeader('/')
+    const ctas = screen.getAllByRole('link', { name: /Verify/ })
+    expect(ctas.length).toBeGreaterThan(0)
+    for (const cta of ctas) {
+      expect(cta.getAttribute('href')).toBe('/dashboard?tab=pick#pay')
+    }
+  })
+
+  it('no rendered header link points at #invoice', () => {
+    renderHeader('/')
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
+    expect(hrefs.filter((href) => href.includes('#invoice'))).toEqual([])
+  })
+
   it('shows all three tabs', () => {
     renderHeader('/')
     expect(screen.getAllByRole('link', { name: 'Home' })).toHaveLength(2)

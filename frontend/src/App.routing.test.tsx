@@ -4,8 +4,11 @@
 // from every start page, asserting the URL, the rendered view, and that the
 // anchor scroll actually fires. Scroll is observed, not assumed: window.scrollTo
 // and Element.scrollIntoView are stubbed spies, because jsdom has no layout.
+// Fix-back-12: the old /#invoice anchor is gone — the pay flow lives in the
+// dashboard tabs now, so the "Pay an invoice" tests assert the dashboard
+// pay view (/dashboard?tab=pick#pay) instead of the landing anchor.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, configure, render, screen, waitFor } from '@testing-library/react'
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -200,20 +203,22 @@ describe('App routing (tab bug repro)', () => {
     }
   }
 
-  it('dashboard sidebar "Pay an invoice" lands on /#invoice and scrolls to the invoice section', async () => {
+  it('dashboard sidebar "Pay an invoice" stays on /dashboard and opens the pay tabs', async () => {
     const user = userEvent.setup()
     renderApp('/dashboard')
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
     scrollIntoViewSpy.mockClear()
     await user.click(screen.getByRole('link', { name: 'Pay an invoice' }))
-    await waitFor(() => expect(window.location.pathname).toBe('/'))
-    expect(window.location.hash).toBe('#invoice')
-    // The invoice flow (not just the hero) is on screen: the step-1 heading.
-    expect(screen.getAllByText('Pick an invoice').length).toBeGreaterThan(0)
-    // And the page actually scrolled to the #invoice anchor.
+    // Still on /dashboard — the pay flow is the tabs view, not the landing.
+    await waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
+    expect(window.location.search).toContain('tab=pick')
+    expect(window.location.hash).toBe('#pay')
+    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
+    // And the page actually scrolled to the #pay anchor.
     expect(scrollIntoViewSpy).toHaveBeenCalled()
     const targets = scrollIntoViewSpy.mock.instances as unknown as Element[]
-    expect(targets.some((el) => el?.id === 'invoice')).toBe(true)
+    expect(targets.some((el) => el?.id === 'pay')).toBe(true)
   })
 
   it('dashboard sidebar has no dead "Live console" tab — the console lives here, in /dashboard', async () => {
@@ -254,38 +259,60 @@ describe('App routing (tab bug repro)', () => {
 
   it('clicking "Pay an invoice" twice scrolls the second time too (same-hash re-click)', async () => {
     const user = userEvent.setup()
-    renderApp('/#invoice')
-    await waitFor(() => expect(screen.getAllByText('Pick an invoice').length).toBeGreaterThan(0))
+    renderApp('/dashboard?tab=pick#pay')
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
     scrollIntoViewSpy.mockClear()
-    // Footer "Pay an invoice" link, same URL as the current one.
-    const footerLink = screen.getByRole('link', { name: 'Pay an invoice' })
-    await user.click(footerLink)
-    expect(window.location.pathname).toBe('/')
-    expect(window.location.hash).toBe('#invoice')
+    // Sidebar "Pay an invoice" link, same URL as the current one.
+    await user.click(screen.getByRole('link', { name: 'Pay an invoice' }))
+    expect(window.location.pathname).toBe('/dashboard')
+    expect(window.location.search).toContain('tab=pick')
+    expect(window.location.hash).toBe('#pay')
     const targets = scrollIntoViewSpy.mock.instances as unknown as Element[]
-    expect(targets.some((el) => el?.id === 'invoice')).toBe(true)
+    expect(targets.some((el) => el?.id === 'pay')).toBe(true)
   })
 
-  it('footer "Pay an invoice" scrolls to the invoice section from the home page (bug 1c)', async () => {
+  it('footer "Pay an invoice" opens the dashboard pay tabs from the home page (bug 1c)', async () => {
     const user = userEvent.setup()
     renderApp('/')
     await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
     scrollIntoViewSpy.mockClear()
-    // The footer's "Pay an invoice" link: the page is already at /, so the
-    // click only adds the hash — the scroll must still fire (the old
-    // ScrollToTop stayed put because the URL "did not change").
-    const footerLink = screen.getByRole('link', { name: 'Pay an invoice' })
+    // The footer's "Pay an invoice" link: it leaves the landing for the
+    // dashboard pay tabs — the scroll must still fire on arrival.
+    const footer = screen.getByRole('contentinfo')
+    const footerLink = within(footer).getByRole('link', { name: 'Pay an invoice' })
     await user.click(footerLink)
-    expect(window.location.pathname).toBe('/')
-    expect(window.location.hash).toBe('#invoice')
-    expect(screen.getAllByText('Pick an invoice').length).toBeGreaterThan(0)
+    await waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
+    expect(window.location.search).toContain('tab=pick')
+    expect(window.location.hash).toBe('#pay')
+    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
     expect(scrollIntoViewSpy).toHaveBeenCalled()
     const targets = scrollIntoViewSpy.mock.instances as unknown as Element[]
-    expect(targets.some((el) => el?.id === 'invoice')).toBe(true)
+    expect(targets.some((el) => el?.id === 'pay')).toBe(true)
+  })
+
+  it('an old /?payable= link redirects to the dashboard pay tabs', async () => {
+    renderApp('/?payable=2')
+    await waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
+    expect(window.location.search).toContain('tab=pick')
+    expect(window.location.search).toContain('payable=2')
+    expect(window.location.hash).toBe('#pay')
+    expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('no rendered link anywhere in the app points at #invoice', async () => {
+    const { unmount } = renderApp('/')
+    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
+    const landingHrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
+    expect(landingHrefs.filter((href) => href.includes('#invoice'))).toEqual([])
+    unmount()
+    renderApp('/dashboard')
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
+    const dashHrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
+    expect(dashHrefs.filter((href) => href.includes('#invoice'))).toEqual([])
   })
 
   it('the hero demo never yanks the viewport while the user reads below it', async () => {
-    renderApp('/#invoice')
+    renderApp('/')
     // Wait for LIVE data (not the static sidebar text): 'Live Invoices' only
     // renders once the glimpse's live table is on screen. Waiting for the
     // static 'Pick an invoice' text resolves before the fetch lands, and

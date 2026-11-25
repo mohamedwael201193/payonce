@@ -12,7 +12,8 @@
 // calls: no fetch, no pay POST, no chain call — it only renders props.
 // Loading: the skeleton holds the same slots (chips + 3 rows) so the card
 // holds its height while the live list loads and the flow section below
-// does not jump (bug 1: an anchor scroll to #invoice landed short because
+// does not jump (bug 1: an anchor scroll to the old #invoice target landed
+// short because
 // the card grew under it).
 import { Link } from 'react-router-dom'
 import { InvoiceStatusPill, Skeleton } from './polish'

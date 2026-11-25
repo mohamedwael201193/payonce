@@ -577,10 +577,13 @@ describe('fetchLiveSnapshot', () => {
   // With the 20 s whole-round tick budget, attempt 1 spends ~9.8 s,
   // attempt 2 spends the ~10.2 s that is left, and attempt 3 fails
   // immediately on the exhausted budget (or on a sub-second shortened
-  // page deadline) — the tick stays inside the 30 s poll. Real timers:
+  // page deadline) — the tick's verification + backoff stays ~23 s.
+  // (The pair fetches are mocked instant here, so this pins
+  // verification + backoff only — the pair fetches sit outside the
+  // budget; see snapshot.ts rule 6.) Real timers:
   // the 15 s default test timeout cannot hold this shape, so the test
   // carries its own 60 s timeout.
-  it('caps a fail-late slow host inside the 30 s poll: 4.9 s/page, page 2 unpaid (MF-1 tick budget)', { timeout: 60_000 }, async () => {
+  it('caps fail-late verification+backoff at ~23 s (pair fetches mocked instant — outside the budget): 4.9 s/page, page 2 unpaid (MF-1 tick budget)', { timeout: 60_000 }, async () => {
     const { api } = await import('./api')
     let verifyCalls = 0
     vi.spyOn(api, 'getInvoices').mockImplementation(async () => listOf(40, 31))
@@ -963,7 +966,9 @@ describe('fetchLiveSnapshot', () => {
   })
 
   // Fix-back-10 MF-3: a per-id endpoint that never answers must fail the
-  // attempt FAST — well inside the 30 s poll — instead of stalling it.
+  // attempt FAST — in ~5 s (the per-page deadline), well inside the 30 s
+  // poll — instead of stalling it. (Per-attempt, not per-tick: the
+  // whole-tick bound is verification + backoff only; see rule 6.)
   // The mock respects the abort signal exactly as the production
   // getPayable does (request() maps an abort to "The testnet did not
   // answer in time"), so the rejection carries the PRODUCTION wording —

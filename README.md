@@ -194,26 +194,32 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-11, 2026-11-25 ~12:15 UTC): frontend
-vitest 246/246 (23 files), TWICE in a row (run 1: 138.22 s, run 2: 140.62 s),
-`tsc -b` clean (and `tsc --noEmit -p tsconfig.json` clean — this repo has
-no `tsconfig.app.json`; the build script's `tsc -b` is the check), `vite
-build` clean twice (548.33 kB JS, 548,331 B, `assets/index-L0LS_bTJ.js`,
-sha256 `514cbfda8de4f35750ef36a94276e01f1404603cfbdd4a19612d507553ff0063`,
-identical across both builds; CSS byte-identical to fix-back-9, sha256
-`1805692b…9c0`), API stats-reconcile test 3/3, handler-level stats/invoices
-test 5/5, handler-level payableFacts test 7/7 (from a `/var/tmp` copy with
-read-only symlinked node_modules; `api/node_modules` in-tree is still
-absent — see `qa/fixback11.md`), secret scan clean on the diff (0 genuine
-hits).
+Verified by my own runs (fix-back-12, 2026-11-25 ~13:26 UTC): frontend
+vitest 257/257 (24 files), TWICE in a row (run 1: 98.54 s, run 2: 105.18 s),
+`tsc -b` clean (this repo has no `tsconfig.app.json`; the build script's
+`tsc -b` is the check), `vite build` clean twice (547.06 kB JS, 547,060 B,
+`assets/index-BcWdgTs-.js`, sha256
+`0916be6ee81f42c9378a336a8a069ed5a8eb5d7265721afe6198a1ca0341a525`, identical
+across both builds; CSS 50.20 kB, 50,196 B, sha256 `47236f54…f558` — NOT
+byte-identical to fix-back-9: 15 B smaller from Tailwind v4 tree-shaking
+after the home pay flow was removed, see `qa/fixback12.md` §9), API
+stats-reconcile test 3/3, handler-level stats/invoices test 5/5,
+handler-level payableFacts test 7/7 (from a `/var/tmp` copy with read-only
+symlinked node_modules; `api/node_modules` in-tree is still absent — see
+`qa/fixback11.md`), secret scan clean on the diff (0 genuine hits).
 Fix-back-11 fixes the fix-back-10 panel list (0/3 — all three judges
 converged on one defect): verification now has a whole-round budget of
 20 s per poll tick on top of the 5 s per-page deadline, so a slow host
 failing late can no longer re-pay full slow pages on every attempt —
 one poll tick's verification + backoff tops out at 23 s (a hung first
-page is 18 s), inside the 30 s poll for any page count, while the
-legit 11-drop heal at 3 s/page still lands on attempt 1 in ~6 s; the
-three unqualified "18 s" claims are corrected to that qualified bound
+page is 18 s of verification), inside the 30 s poll ONLY when the pair
+fetches are fast — the pair fetches sit outside the budget (each capped
+only by the 15 s fetch timeout), so the whole-tick worst case is 68 s
+(3 × 15 s pair + 20 s verify + 3 s backoff); while the legit 11-drop
+heal at 3 s/page still lands on attempt 1 in ~6 s, a heal needing more
+than 20 s of verification fails closed that tick and stays stale under
+a sustained slow host; the three unqualified "18 s" claims are corrected
+to that qualified bound
 (hung-first-page 18 s vs slow-host 5 s × pages per attempt, capped by
 the 20 s tick budget). See `qa/fixback11.md`.
 Fix-back-10 fixes the fix-back-9 panel list: the feasibility rule is now
@@ -226,7 +232,9 @@ the caller abort really reaches the fetch on runtimes without
 `retry: 0` (fetchLiveSnapshot already retries in-loop). Fix-back-10
 stated one poll tick as topping out at 18 s — that holds only for a
 hung first page; fix-back-11 corrects it to the qualified bound
-(verification ≤ 20 s + 3 s backoff = 23 s, plus the pair fetches).
+(verification ≤ 20 s + 3 s backoff = 23 s of verification + backoff only;
+whole-tick worst case 68 s with the pair fetches, "inside the 30 s poll"
+only when they are fast).
 See `qa/fixback10.md` and `qa/fixback11.md`.
 Fix-back-9 fixes the fix-back-8 panel list: reserved is NOT terminal on
 chain, so monotonicity is voided/paid-only and a reserved fall is accepted
@@ -234,7 +242,8 @@ when explained (release / confirm / void-of-reserved, feasibility
 Δreserved+Δpaid+2·Δvoided ≥ shrink); per-id verification now runs whenever
 ANY id dropped, not only on a net shrink (same-count swap and net-growth
 drop both rejected); verification pages in 10s so a legit >10 shrink heals
-instead of freezing; verification has a 5 s deadline so a slow per-id
+instead of freezing (within the 20 s whole-round tick budget added in
+fix-back-11); verification has a 5 s deadline so a slow per-id
 endpoint fails the attempt fast; `payableFacts`/`handleGetPayable` are
 exported with the read through the S5 seam and the Voided mapping has an
 offline test (see `qa/fixback9.md`).

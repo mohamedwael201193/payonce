@@ -121,16 +121,26 @@
 //      with R ms of budget left races a min(5 s, R) deadline, and once
 //      the budget is spent later attempts fail immediately with zero
 //      further verify calls. Worst case per poll tick, verification +
-//      backoff: verification ≤ 20 s + backoff 3 s = 23 s, plus the pair
-//      fetches (fast in every measured shape; each capped by the API
-//      client's own 15 s fetch timeout) — inside the 30 s poll for ANY
-//      page count. Hung-first-page stays 3 × 5 s + 3 s = 18 s (the
-//      budget never binds there). Fail-late 2-page at 4.9 s/page now
-//      tops out at ~23 s (pinned by a real-timer test), not 32.5 s.
+//      backoff: verification ≤ 20 s + backoff 3 s = 23 s. That 23 s is
+//      verification + backoff ONLY — the pair fetches sit OUTSIDE the
+//      budget (Promise.all at :439, no deadline, no budget deduction;
+//      each capped only by the API client's 15 s fetch timeout). The
+//      whole-tick worst case is 3 × 15 s pair + 20 s verify + 3 s
+//      backoff = 68 s; one hung pair fetch alone is ~38 s. Measured
+//      break: pair fetches at 10 s/attempt with instant-fail
+//      verification = one tick of 33,033 ms > 30,000 ms. "Inside the
+//      30 s poll" holds ONLY when the pair fetches are fast (as in every
+//      measured shape). Hung-first-page verification stays 3 × 5 s + 3 s
+//      = 18 s (the budget never binds there) — 63 s with a hung pair on
+//      top. Fail-late 2-page at 4.9 s/page now tops out at ~23 s of
+//      verification + backoff (pinned by a real-timer test), not 32.5 s.
 //      Disclosed price: a legit heal needing MORE than 20 s of
 //      verification on attempt 1 (≥ 5 pages at ~4.9 s/page) fails
 //      closed that tick and retries on the NEXT tick with a fresh
-//      budget; while the host stays that slow it never heals. That is
+//      budget; while the host stays that slow it never heals —
+//      adversarial two-tick simulation (50 dropped ids at 4.9 s/page):
+//      tick 1 23,004 ms / 50 calls rejects, tick 2 23,045 ms rejects,
+//      permanent staleness under a sustained slow host. That is
 //      staleness, not wrong numbers — the alternative (no whole-round
 //      cap) blew the poll for the common 2-page shape instead.
 //   7. FIX-BACK-9 MF-3: verification has its own deadline. The round
@@ -203,7 +213,9 @@ export const EMPTY_PREV: PrevSnapshot = { count: 0, voidedTotal: 0, reservedTota
     unverified, with no heal. Now it is only the page size — verification
     runs page by page however many dropped ids there are, so a legit
     >10-row shrink heals on the same poll instead of freezing until a
-    cold load, while a partial scan still fails on the first page. */
+    cold load (within the 20 s whole-round budget — rule 6; a heal
+    needing more than 20 s of verification stays stale under a sustained
+    slow host), while a partial scan still fails on the first page. */
 export const MAX_DROPPED_VERIFY = 10
 
 /** Deadline for ONE verification page (fix-back-10 MF-2 — was a
@@ -228,12 +240,17 @@ export const VERIFY_PAGE_TIMEOUT_MS = 5_000
     (11 dropped ids at 3 s/page need ~6 s); attempts 2–3 share only
     what is left, so a slow host failing late cannot re-pay full slow
     pages on every attempt. Worst case per poll tick, verification +
-    backoff: 20 s + 3 s = 23 s, plus the pair fetches (fast in every
-    measured shape) — inside the 30 s poll for ANY page count. A hung
-    first page still costs 3 × 5 s + 3 s = 18 s (the budget never binds
-    there). A legit heal needing more than 20 s of verification on
-    attempt 1 fails closed that tick and retries on the next tick with
-    a fresh budget — staleness, never wrong numbers. */
+    backoff: 20 s + 3 s = 23 s — verification + backoff ONLY. The pair
+    fetches sit outside this budget (Promise.all, no deadline, each
+    capped only by the 15 s fetch timeout), so the whole-tick worst
+    case is 3 × 15 s pair + 20 s verify + 3 s backoff = 68 s, and
+    "inside the 30 s poll" holds only when the pair fetches are fast.
+    A hung first page still costs 3 × 5 s + 3 s = 18 s of verification
+    (the budget never binds there) — 63 s with a hung pair on top. A
+    legit heal needing more than 20 s of verification on attempt 1
+    fails closed that tick and retries on the next tick with a fresh
+    budget — and under a sustained slow host it stays stale, never
+    wrong numbers. */
 export const VERIFY_TICK_BUDGET_MS = 20_000
 
 export type SnapshotRejection = { ok: false; reason: string }

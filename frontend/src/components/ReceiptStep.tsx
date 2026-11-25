@@ -1,4 +1,5 @@
 // Step 4 — Receipt (P3 §7.6). Paid facts, transaction list, verifier result.
+// (Fix-back-12: rendered in the dashboard pay tabs now, not on the landing.)
 // "Check again on chain" re-runs the after-pay verifier. "Copy verifier
 // command" copies the keyless verifier command for the judge to run alone.
 import { useEffect, useRef, useState } from 'react'

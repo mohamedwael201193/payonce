@@ -76,28 +76,36 @@ try {
     await page.screenshot({ path: `${EVIDENCE}/d-home-top-1440.png` })
   })
 
-  await section('P3 §1 fit', async () => {
+  // Fix-back-12: the flow moved to /dashboard manual tabs — the P3 §1
+  // "steps 1–3 fit" home check is gone with it. The tabs show one step at
+  // a time; this section checks the pay-tabs section lands on screen and
+  // the dashboard has no horizontal overflow at 1440.
+  await section('pay tabs fit (fix-back-12)', async () => {
+    await page.goto(`${BASE}/dashboard?tab=pick#pay`, { waitUntil: 'networkidle' })
+    await page.getByRole('tab', { name: /Pick an invoice/ }).waitFor()
     const fit = await page.evaluate(() => {
       const pay = document.getElementById('pay')
-      const inv = document.getElementById('invoice')
-      return { payBottom: pay ? Math.round(pay.getBoundingClientRect().bottom) : null, invTop: inv ? Math.round(inv.getBoundingClientRect().top) : null }
+      return { payTop: pay ? Math.round(pay.getBoundingClientRect().top) : null }
     })
-    step('steps 1–3 fit at 1440×900 (pay bottom ≤ 900)', fit.payBottom !== null && fit.payBottom <= 900, `pay bottom ${fit.payBottom}px, invoice top ${fit.invTop}px`)
+    step('pay-tabs section is on screen after nav', fit.payTop !== null && fit.payTop >= 0, `pay top ${fit.payTop}px`)
     const overflowD = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }))
     step('no horizontal overflow at 1440', overflowD.sw === overflowD.iw, `scrollWidth ${overflowD.sw} vs innerWidth ${overflowD.iw}`)
   })
 
   await section('skip link (F4)', async () => {
+    // Fix-back-12: the skip link now reads "Skip to main content" and
+    // jumps to #main — the old #invoice target is gone with the landing flow.
+    await page.goto(BASE, { waitUntil: 'networkidle' })
     await page.keyboard.press('Tab')
-    const skipFocused = await page.evaluate(() => document.activeElement?.textContent?.includes('Skip to the invoice'))
+    const skipFocused = await page.evaluate(() => document.activeElement?.textContent?.includes('Skip to main content'))
     step('skip link is first Tab stop', skipFocused === true)
     await page.keyboard.press('Enter')
     await page.waitForTimeout(600)
     const skipTarget = await page.evaluate(() => {
-      const el = document.getElementById('invoice')
+      const el = document.getElementById('main')
       return el ? Math.round(el.getBoundingClientRect().top) : null
     })
-    step('skip link jumps to #invoice', skipTarget !== null && Math.abs(skipTarget) < 120, `invoice top after jump: ${skipTarget}px`)
+    step('skip link jumps to #main', skipTarget !== null && Math.abs(skipTarget) < 120, `main top after jump: ${skipTarget}px`)
   })
 
   await section('dashboard console tabs', async () => {
@@ -119,15 +127,19 @@ try {
   })
 
   await section('invoice 3 + 9 checks + honest pay 503', async () => {
-    await page.locator('#invoice').scrollIntoViewIfNeeded()
+    // Fix-back-12: the flow lives in the dashboard tabs now.
+    await page.goto(`${BASE}/dashboard?tab=pick#pay`, { waitUntil: 'networkidle' })
+    await page.locator('#pay').scrollIntoViewIfNeeded()
     await page.locator('#lab-invoice').selectOption({ value: '3' })
     await page.getByText('Payable 3 — 0.01 EUDemo').waitFor({ timeout: 10000 })
     step('lab invoice 3 loads with chain facts', true, 'Payable 3 — 0.01 EUDemo')
     await page.getByText(/Fingerprint [0-9a-f]{8}…[0-9a-f]{6}/).waitFor()
     step('fingerprint shown first-8 + last-6', true)
-    await page.getByRole('button', { name: 'Check invoice', exact: true }).click()
+    await page.getByRole('button', { name: /Continue to Check/ }).click()
+    await page.locator('#panel-check').getByRole('button', { name: 'Check invoice', exact: true }).click()
     await page.getByText(/All checks passed/).waitFor({ timeout: 15000 })
     step('9 checks run, verdict ready', (await page.locator('text=Document matches the on-chain fingerprint').count()) >= 1, 'verdict: All checks passed')
+    await page.getByRole('button', { name: /Continue to Pay/ }).click()
     step('Pay in EUDemo enabled after ready check', await page.locator('#pay-eudemo').isEnabled())
     await page.screenshot({ path: `${EVIDENCE}/d-flow-checked-1440.png` })
     await page.locator('#pay-eudemo').click()
@@ -233,20 +245,22 @@ try {
     await page.goto(BASE, { waitUntil: 'networkidle' })
     const overflowM = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }))
     step('no horizontal overflow at 390', overflowM.sw === overflowM.iw, `scrollWidth ${overflowM.sw} vs innerWidth ${overflowM.iw}`)
-    const bar = page.locator('text=Check invoice').last()
-    await bar.waitFor()
-    step('sticky bottom bar visible on mobile with disabled reason', (await bar.isVisible()) && (await page.getByText('Load an invoice first (step 1).').count()) >= 1)
+    // Fix-back-12: the sticky bottom pay bar is deleted with the landing
+    // flow — no fixed pay bar may exist on the landing at 390.
+    step('no sticky pay bar on the landing at 390', (await page.locator('div.fixed.inset-x-0.bottom-0').count()) === 0)
     await page.screenshot({ path: `${EVIDENCE}/m-home-390.png` })
-    await page.locator('#invoice').scrollIntoViewIfNeeded()
+    // The flow is driven in the dashboard tabs at 390.
+    await page.goto(`${BASE}/dashboard?tab=pick#pay`, { waitUntil: 'networkidle' })
+    await page.locator('#pay').scrollIntoViewIfNeeded()
     await page.screenshot({ path: `${EVIDENCE}/m-flow-390.png` })
     await page.locator('#lab-invoice').selectOption({ value: '3' })
     await page.getByText('Payable 3 — 0.01 EUDemo').waitFor({ timeout: 10000 })
-    // At 390 px the sticky bar also has a "Check invoice" button: scope the
-    // click to the step card, not the bar.
-    await page.locator('#check').getByRole('button', { name: 'Check invoice', exact: true }).click()
+    await page.getByRole('button', { name: /Continue to Check/ }).click()
+    await page.locator('#panel-check').getByRole('button', { name: 'Check invoice', exact: true }).click()
     await page.getByText(/All checks passed/).waitFor({ timeout: 15000 })
-    step('sticky bar becomes Pay in EUDemo (0.01 EUDemo) after check', (await page.getByText(/Pay in EUDemo \(0.01 EUDemo\)/).count()) >= 1)
-    await page.screenshot({ path: `${EVIDENCE}/m-sticky-pay-390.png` })
+    await page.getByRole('button', { name: /Continue to Pay/ }).click()
+    step('pay tab shows Pay 0.01 EUDemo (3 steps) after check', (await page.getByText('Pay 0.01 EUDemo (3 steps)').count()) >= 1)
+    await page.screenshot({ path: `${EVIDENCE}/m-flow-pay-390.png` })
   })
 
   writeFileSync(`${EVIDENCE}/CLICKTEST_LOG.md`, `# PayOnce click-test log\n\n${log.join('\n')}\n\nConsole errors: ${consoleErrors.length ? consoleErrors.join(' | ') : 'none'}\nPage errors: ${pageErrors.length ? pageErrors.join(' | ') : 'none'}\nFailed responses: ${badResponses.length ? badResponses.join(' | ') : 'none'}\n\nResult: ${errors.length === 0 ? 'ALL PASS' : `${errors.length} FAILURES: ${errors.join(', ')}`}\n`)

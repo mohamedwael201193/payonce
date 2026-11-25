@@ -29,7 +29,7 @@ export function ReceiptPage() {
     void api
       .getReceipt(id, seller)
       .then(setReceipt)
-      .catch(() => setError('The receipt could not be loaded. The transaction links on the home page are still correct.'))
+      .catch(() => setError('The receipt could not be loaded. The transaction links in the dashboard pay flow are still correct.'))
   }, [id, valid, seller])
 
   const explorerBase = config.data?.explorer.tx ?? 'https://ccdexplorer.io/testnet/transaction/'
@@ -67,12 +67,9 @@ export function ReceiptPage() {
           <AlertInline>No payable with this number is on the test registry.</AlertInline>
         ) : unpaid ? (
           <div className="mt-4 rounded-none border border-line bg-card p-6">
-            <p className="text-[15px] text-ink">Not paid yet. This invoice can be paid once, on the home page.</p>
+            <p className="text-[15px] text-ink">Not paid yet. This invoice can be paid once, on the dashboard.</p>
             <p className="mt-3">
-              <Link
-                to={`/?payable=${id}${seller ? `&seller=${encodeURIComponent(seller)}` : ''}`}
-                className="font-medium text-brand-700"
-              >
+              <Link to={`/dashboard?tab=pay&payable=${id}${seller ? `&seller=${encodeURIComponent(seller)}` : ''}#pay`} className="font-medium text-brand-700">
                 Go to the invoice →
               </Link>
             </p>

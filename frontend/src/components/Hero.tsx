@@ -10,6 +10,7 @@
 // nowhere else; the full live dashboard lives in /dashboard.
 // The hero shows a glimpse, not the product.
 // Design v2 polish: glossy 3D ember CTAs with a shine sweep.
+import { Link } from 'react-router-dom'
 import { COPY } from '../lib/copy'
 import { AppHeader } from './AppHeader'
 
@@ -46,7 +47,7 @@ export function Hero() {
         style={{ background: 'linear-gradient(180deg, rgba(250,246,239,0) 0%, #FAF6EF 100%)' }}
       />
       <div className="relative z-10">
-        <AppHeader dark skipTarget="#invoice" />
+        <AppHeader dark />
         <div className="mx-auto max-w-[1101px] px-4 pt-10 pb-[120px] text-center sm:px-6 sm:pt-12">
           <h1
             id="hero-title"
@@ -58,9 +59,9 @@ export function Hero() {
             {COPY.heroSub}
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-            <a href="#invoice" className="btn-ember">
-              Start verifying
-            </a>
+            <Link to="/dashboard?tab=pick#pay" className="btn-ember">
+              Pay an invoice
+            </Link>
             <a href="#how" className="btn-glass">
               See how it works
             </a>

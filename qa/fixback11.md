@@ -49,10 +49,13 @@ scoping note below):
   3 s/page = 18 s).
 - Attempts 2–3 share only the remainder: a slow host failing late cannot
   re-pay full slow pages on every attempt.
-- Worst case per poll tick: verification ≤ 20 s + backoff 3 s = **23 s**, plus
-  the pair fetches — inside the 30 s poll for ANY page count.
+- Worst case per poll tick, verification + backoff ONLY: verification ≤ 20 s + backoff 3 s = **23 s**.
+  The pair fetches sit OUTSIDE the budget (Promise.all, no deadline, each capped only by the
+  15 s fetch timeout) — whole-tick worst case 68 s (3 × 15 s pair + 20 s verify + 3 s backoff);
+  "inside the 30 s poll" holds only when the pair fetches are fast. Measured break: pair fetches
+  at 10 s/attempt with instant-fail verification = one tick of 33,033 ms.
 - Hung-first-page stays 3 × 5 s + 3 s = **18 s** (the budget never binds there).
-- Fail-late 2-page at 4.9 s/page now tops out at **~23 s**, not 32.5 s.
+- Fail-late 2-page at 4.9 s/page now tops out at **~23 s of verification + backoff**, not 32.5 s.
 
 Measured evidence (real timers, targeted runs before the full runs):
 
@@ -70,9 +73,10 @@ Measured evidence (real timers, targeted runs before the full runs):
   attempt 1's heal).
 
 Why 20 s, not 15 s or 25 s: 20 s leaves the MF-2 heal (6 s) with 14 s of
-headroom and still heals 6 pages at 3 s/page (18 s), while the worst-case
-tick (23 s + pair fetches) keeps ~7 s of margin inside the 30 s poll. A
-25 s budget would put the worst case at 28 s + pair fetches — no margin.
+headroom and still heals 6 pages at 3 s/page (18 s), while the worst case
+of verification + backoff (23 s) keeps ~7 s of margin inside the 30 s poll
+WHEN the pair fetches are fast. A 25 s budget would put the
+verification+backoff worst case at 28 s — no margin even before the pair fetches.
 
 Disclosed price (stated in the code, header rule 6, and here): a legit heal
 needing MORE than 20 s of verification on attempt 1 (≥ 5 pages at
@@ -88,9 +92,13 @@ fetches (`getInvoices` + `getStats`) are outside this budget — each is
 capped by the API client's own 15 s fetch timeout (`FETCH_TIMEOUT_MS`), and
 in every measured shape they answer in milliseconds. A pair fetch that hung
 for its full 15 s could still push a tick past 30 s; that is pre-existing,
-outside this defect, and unchanged by this patch. The bound is stated this
-way everywhere it appears (code, README, this file) — no unqualified
-"one poll tick tops out at X s" remains.
+outside this defect, and unchanged by this patch — and the round-6 panel
+measured exactly that break (pair fetches at 10 s/attempt, instant-fail
+verification: one tick of 33,033 ms). The bound is stated this way
+everywhere it appears (code, README, this file): 23 s is verification +
+backoff only; the whole-tick worst case is 68 s, and "inside the 30 s
+poll" is conditioned on fast pair fetches — no unqualified "one poll tick
+tops out at X s" remains.
 
 ## MF-2 (wording — honesty + compliance + adversarial): the three unqualified "18 s" claims are corrected
 
@@ -98,14 +106,17 @@ way everywhere it appears (code, README, this file) — no unqualified
   18 s, inside the 30 s poll" clause is corrected in place — it now says
   fix-back-10 stated 18 s, that it holds only for a hung first page, and
   that fix-back-11 corrects it to the qualified bound (verification ≤ 20 s
-  + 3 s backoff = 23 s, plus the pair fetches). A new fix-back-11 paragraph
+  + 3 s backoff = 23 s of verification + backoff only; whole-tick worst
+  case 68 s with the pair fetches). A new fix-back-11 paragraph
   (newest first) states the bound the same way, and the "Verified by my own
   runs" paragraph carries the fix-back-11 gate numbers.
 - `frontend/src/hooks/useApi.ts:69-76` (retry: 0 comment): rewritten — one
-  queryFn spends at most 20 s verification + 3 s backoff = 23 s plus the
-  pair fetches (inside the 30 s poll); hung first page is 18 s; doubled
-  (retry: 1) would be ~46 s. The old "18 s once / ~36 s doubled" is named
-  as the unqualified statement it was.
+  queryFn spends at most 20 s verification + 3 s backoff = 23 s of
+  verification + backoff only (whole-tick worst case 68 s; "inside the
+  30 s poll" only when the pair fetches are fast); hung first page is
+  18 s of verification (63 s with a hung pair on top); doubled (retry: 1)
+  would be ~46 s of verification + backoff, 136 s whole-tick. The old
+  "18 s once / ~36 s doubled" is named as the unqualified statement it was.
 - `frontend/src/lib/snapshot.ts` header rule 6: rewritten as the fix-back-11
   rule (see the MF-1 section above) — hung-first-page 18 s vs slow-host
   5 s × pages per attempt, capped by the 20 s tick budget, new bound
