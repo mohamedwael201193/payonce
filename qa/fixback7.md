@@ -160,9 +160,15 @@ patch fixes the consolidated 7+5 list below.
 - `node --test api/test/stats-reconcile.test.mjs` — **3/3**.
 - `node --test api/test/handlers-stats.test.mjs` (S5, from the `/tmp`
   install) — **5/5** (5.7 s).
-- Secrets scan of the diff — 0 genuine hits (no `token` matches at all
-  in the diff; the only "secret" grep hit is the pre-existing comment
-  word "secret sidecar file" in `server.mjs:94`, not a value).
+- Secrets scan of the diff — 0 genuine hits (CORRECTED fix-back-8 S1: the
+  fix-back-7 text said "no `token` matches at all in the diff" — FALSE.
+  `git show e475acd | grep -i token` returns 3 lines: two removed README
+  prose lines naming public on-chain identifiers (agent token 1476, the
+  `one_token_transfer` check id, `tokenId=EUDemo`) and this sentence
+  itself. The substantive claim holds — 0 genuine hits, all three lines
+  are prose about public identifiers, not values; the only "secret" grep
+  hit is the pre-existing comment word "secret sidecar file" in
+  `server.mjs:94`, not a value).
   New file scanned separately — 0 hits. `git diff --check` clean.
 - README gate numbers updated from these runs only.
 

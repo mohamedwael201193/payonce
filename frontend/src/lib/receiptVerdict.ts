@@ -36,19 +36,29 @@ const TRANSFER_CHECK_IDS = [
   'memo',
 ] as const
 
-export const EVIDENCE_GAP_NOTE =
-  'Paid on chain — but this host cannot certify the reservation ordering: the reservation and confirm records for this payment are not on this API host, so those two checks fail closed. The transfer itself re-verifies: payer, payee, amount and memo all match the chain.'
+// Fix-back-7 S1, corrected fix-back-8 MF-3: the note must be accurate
+// about WHICH records are missing, not just how many checks fail. Each
+// evidence check fails because its own record is not on this host: the
+// reservation check fails when the reservation record is missing, the
+// confirm check when the confirm record is missing. The old note always
+// said "the reservation and confirm records … are not on this API host"
+// even when only ONE check failed and the other record EXISTS on the
+// host. The single-check case now names only its own record.
+const MISSING_RECORD: Record<string, string> = {
+  reservation_precedes_transfer: 'the reservation record',
+  paid_at_is_confirm_time: 'the confirm record',
+}
 
-// Fix-back-7 S1: the note must be count-accurate. evidenceGap only fires
-// when every failing check is one of the two evidence rows — but that can
-// be ONE failing check, not two, and the old note always said "those two
-// checks". The single-check case names its check.
 export function evidenceGapNote(failedIds: string[]): string {
   const named = failedIds.join(' and ')
   const count = failedIds.length === 1 ? `the ${named} check fails closed` : 'those two checks fail closed'
+  const missing =
+    failedIds.length === 1
+      ? `${MISSING_RECORD[failedIds[0]] ?? 'the evidence record'} for this payment is not on this API host`
+      : 'the reservation and confirm records for this payment are not on this API host'
   return (
-    'Paid on chain — but this host cannot certify the reservation ordering: the reservation and confirm records for this payment are not on this API host, so ' +
-    `${count}. The transfer itself re-verifies: payer, payee, amount and memo all match the chain.`
+    'Paid on chain — but this host cannot certify the reservation ordering: ' +
+    `${missing}, so ${count}. The transfer itself re-verifies: payer, payee, amount and memo all match the chain.`
   )
 }
 

@@ -21,7 +21,20 @@ import { refusedCaption } from '../lib/copy'
 import type { InvoiceItem, Stats } from '../lib/types'
 import { demoStatChips, demoTableRows } from '../lib/heroDemo'
 
-export function HeroDemo({ items, stats, error = false }: { items: InvoiceItem[]; stats: Stats | undefined; error?: boolean }) {
+export function HeroDemo({
+  items,
+  stats,
+  error = false,
+  lastUpdated = null,
+}: {
+  items: InvoiceItem[]
+  stats: Stats | undefined
+  error?: boolean
+  /** Last successful poll, pre-formatted ("10:42:07 UTC") — the dashboard
+      shows this; home showed no "Last updated" line at all (fix-back-8
+      MF-4). Null while nothing has loaded yet. */
+  lastUpdated?: string | null
+}) {
   const chips = demoStatChips(items, stats)
   const rows = demoTableRows(items)
   // Fix-back-7 MF-7: an error with no data is an error, not an endless
@@ -30,6 +43,13 @@ export function HeroDemo({ items, stats, error = false }: { items: InvoiceItem[]
   // refresh) still renders the kept chips and table.
   const loading = items.length === 0 && stats === undefined && !error
   const loadFailed = error && items.length === 0 && stats === undefined
+  // Fix-back-8 MF-4: an error WITH kept data used to render the chips and
+  // table labelled "Live totals" with NO staleness disclosure — while the
+  // dashboard showed its could-not-refresh banner for the same failure.
+  // The pages disagreed about whether the numbers were fresh. The hero
+  // now renders the same note as the dashboard banner when it shows kept
+  // data after a failed refresh.
+  const stale = error && !loadFailed && !loading
 
   return (
     <div className="px-4 py-5 sm:px-5">
@@ -79,6 +99,19 @@ export function HeroDemo({ items, stats, error = false }: { items: InvoiceItem[]
           </div>
         ) : (
           <>
+            {/* Fix-back-8 MF-4: staleness disclosure + "Last updated" for
+                kept data after a failed refresh — same wording as the
+                dashboard's could-not-refresh banner, so the two pages no
+                longer disagree about whether the numbers are fresh. */}
+            {stale ? (
+              <p role="status" className="mt-4 rounded-[8px] border border-line bg-paper px-3 py-2 text-xs leading-relaxed text-body">
+                Could not refresh the live numbers just now — showing the last verified numbers
+                {lastUpdated ? ` from ${lastUpdated}` : ''}. The page retries every 30 s.
+              </p>
+            ) : null}
+            {lastUpdated && !stale ? (
+              <p className="mt-4 text-xs text-muted">Last updated: {lastUpdated} · refreshing every 30 s</p>
+            ) : null}
             {/* Stat chips — mirror the real dashboard's 4 stat cards. */}
             <ul className="mt-4 flex flex-wrap gap-2" aria-label="Live totals">
               {chips.map((c) => (

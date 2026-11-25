@@ -92,4 +92,35 @@ describe('evidenceGap', () => {
   it('says "those two checks" only when both evidence rows fail', () => {
     expect(evidenceGap(result({}))).toContain('those two checks fail closed')
   })
+
+  // Fix-back-8 MF-3: the missing-records clause is per failed id. When
+  // only the reservation check fails, the confirm record EXISTS on the
+  // host — the note must name only the reservation record, never "the
+  // reservation and confirm records".
+  it('names only the reservation record when only the reservation check fails', () => {
+    const r = result({})
+    r.checks = r.checks.map((c) =>
+      c.id === 'paid_at_is_confirm_time' ? { ...c, status: 'ok' as const } : c,
+    )
+    const note = evidenceGap(r)
+    expect(note).toContain('the reservation record for this payment is not on this API host')
+    expect(note).not.toContain('the reservation and confirm records')
+    expect(note).not.toContain('the confirm record for this payment')
+  })
+
+  it('names only the confirm record when only the confirm check fails', () => {
+    const r = result({})
+    r.checks = r.checks.map((c) =>
+      c.id === 'reservation_precedes_transfer' ? { ...c, status: 'ok' as const } : c,
+    )
+    const note = evidenceGap(r)
+    expect(note).toContain('the confirm record for this payment is not on this API host')
+    expect(note).not.toContain('the reservation and confirm records')
+    expect(note).not.toContain('the reservation record for this payment')
+  })
+
+  it('names both records only when both evidence rows fail', () => {
+    const note = evidenceGap(result({}))
+    expect(note).toContain('the reservation and confirm records for this payment are not on this API host')
+  })
 })

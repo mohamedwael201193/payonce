@@ -86,6 +86,16 @@ describe('payDisabledReason (P3 §6 order)', () => {
     )
     expect(payDisabledReason(s, 'ccd', 'ok', 'ok')).toBe('This invoice is already paid.')
   })
+  // Fix-back-8 MF-1: Voided is its own facts kind now — the pay gate
+  // must block it by name instead of falling through to the rail checks.
+  it('blocks a voided invoice', () => {
+    const s = flowReducer(
+      { ...initialFlowState, facts: facts({ kind: 'voided' }), factsState: 'loaded' },
+      { type: 'CHECK_READY', result: verifyResult() },
+    )
+    expect(payDisabledReason(s, 'ccd', 'ok', 'ok')).toBe('Voided on chain — cannot be paid.')
+    expect(payDisabledReason(s, 'eudemo', 'ok', 'ok')).toBe('Voided on chain — cannot be paid.')
+  })
   it('blocks the wrong rail for the asset', () => {
     const s = flowReducer(
       { ...initialFlowState, facts: facts({ kind: 'unpaid' }), factsState: 'loaded' },

@@ -194,22 +194,26 @@ grid with corner squares, hero demo reshaped into a small static glimpse
 checks, no pay button, no receipt, no cursor — the walkthrough is gone).
 N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
 Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
-Verified by my own runs (fix-back-7, 2026-11-25 ~08:35 UTC): frontend
-vitest 188/188 (23 files), `tsc -b` clean (and `tsc --noEmit -p
+Verified by my own runs (fix-back-8, 2026-11-25 ~09:05 UTC): frontend
+vitest 209/209 (23 files), TWICE in a row (the MF-2 flake fix is proven
+by two consecutive green full runs), `tsc -b` clean (and `tsc --noEmit -p
 tsconfig.json` clean — this repo has no `tsconfig.app.json`; the build
-script's `tsc -b` is the check), `vite build` clean twice (544.57 kB JS,
-544,569 B, `assets/index-BHumCPmU.js`, sha256
-`2822d07f67d7968a9839457a4bb604491d1b4ec4284495f962fe3f8a1dac3f94`, identical
-across both builds), API stats-reconcile test 3/3, secret scan clean on
-the diff (0 genuine hits). Fix-back-7 fixes the fix-back-6 panel list:
-exclusion-aware snapshot shrink (a reserve/void legitimately removes a
-row), in-loop retries on endpoint throws, the 20 s stats cache removed,
-empty cold-load pairs rejected, dashboard renders the kept snapshot with
-a could-not-refresh note, hero shows a load error instead of loading
-forever, plus the S1–S5 small items (see `qa/fixback7.md`). The new handler-level
-stats/invoices test runs 5/5 from a `/tmp` install (`npm ci` in-tree is
-blocked by a home-filesystem quota; `api/node_modules` is still absent —
-see `qa/fixback7.md` "Quota incident").
+script's `tsc -b` is the check), `vite build` clean twice (547.04 kB JS,
+547,043 B, `assets/index-BxN7cXc0.js`, sha256
+`9ce53252a30fa8e3d8d3554aefbd6760b52a809573298f4ffa06589103c9a5b6`, identical
+across both builds), API stats-reconcile test 3/3, handler-level
+stats/invoices test 5/5 (from a `/tmp` copy with read-only symlinked
+node_modules; `api/node_modules` in-tree is still absent — see
+`qa/fixback8.md`), secret scan clean on the diff (0 genuine hits).
+Fix-back-8 fixes the fix-back-7 panel list: the snapshot shrink rule is
+now two layers — per-counter monotonicity plus per-id verification of
+every dropped id via GET /api/payables/:id (Voided is its own facts kind
+now, `{kind:'voided'}`) — closing the adversarial id-50 hole where a
+partial scan coincided with a net add; the flaky MF-6 test waits for the
+settled CountUp values; the receipt single-fail note names only the
+missing record; the hero shows the same could-not-refresh note as the
+dashboard plus a "Last updated" line; plus the S1–S3 small items (see
+`qa/fixback8.md`).
 NOT yet verified: live screenshots — the VM lost every working browser in
 the 01:45 EET reboot (Chromium 1255 dead, stock Firefox lacks Playwright's
 Juggler protocol, Playwright's Firefox CDN returns 400 via the egress

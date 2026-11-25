@@ -145,3 +145,64 @@ describe('api seller threading (second-seller fix-back §4.3/§4.5)', () => {
     expect(fn.mock.calls[0][0]).not.toContain('?seller=')
   })
 })
+
+describe('api.getPayable', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  // Fix-back-8 MF-1: the API reports Voided as its own facts kind now
+  // (payableFacts returns {kind:'voided'}) — the client's zod schema
+  // must parse that body instead of rejecting it as malformed. This runs
+  // the REAL parse boundary (stubbed fetch, real schema).
+  it('parses a voided facts body (new {kind: voided})', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: {
+        payable_id: 4,
+        asset: { kind: 'ccd', token: 'CCD' },
+        amount: '500000',
+        amount_display: '0.500000 CCD',
+        payee: '4MvdMEGC',
+        seller: '4MvdMEGC',
+        due: '2026-12-01T08:03:26.555Z',
+        is_past_due: false,
+        status: { kind: 'voided' },
+        agent: { registry: { index: 13144, subindex: 0 }, token: '1476' },
+        doc_sha256: '00',
+        label: 'Voided on chain — Lab invoice (testnet, not a real invoice)',
+      },
+    })
+    await expect(api.getPayable(4)).resolves.toMatchObject({
+      payable_id: 4,
+      status: { kind: 'voided' },
+    })
+  })
+
+  it('still parses an unpaid facts body', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: {
+        payable_id: 3,
+        asset: { kind: 'ccd', token: 'CCD' },
+        amount: '500000',
+        amount_display: '0.500000 CCD',
+        payee: '4MvdMEGC',
+        seller: '4MvdMEGC',
+        due: '2026-12-01T08:03:26.555Z',
+        is_past_due: false,
+        status: { kind: 'unpaid' },
+        agent: { registry: { index: 13144, subindex: 0 }, token: '1476' },
+        doc_sha256: '00',
+        label: 'Lab invoice',
+      },
+    })
+    await expect(api.getPayable(3)).resolves.toMatchObject({
+      payable_id: 3,
+      status: { kind: 'unpaid' },
+    })
+  })
+})

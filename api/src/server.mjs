@@ -290,9 +290,9 @@ function labelFor(view) {
   const base = view.id >= 1000 || view.id === 10 || view.id === 11
     ? 'Lab invoice (testnet, not a real invoice)'
     : 'Contract-matrix test payable (testnet)';
-  // The P3 facts type has no voided variant: the real status is surfaced
-  // in the label, and the verify endpoint (the enforcement point) reports
-  // the voided status and blocks payment.
+  // The facts type carries its own voided kind (payableFacts, fix-back-8
+  // MF-1); the label still says so in words, and the verify endpoint (the
+  // enforcement point) reports the voided status and blocks payment.
   return view.status === 'Voided' ? `Voided on chain — ${base}` : base;
 }
 
@@ -517,7 +517,15 @@ async function payableFacts(c, view, chainTimeMs) {
               payment_tx: paymentTx,
               payment_tx_source: view.asset === 'EUDemo' && view.record?.txHash ? 'chain' : source,
             }
-          : { kind: 'unpaid' },
+          // Fix-back-8 MF-1: Voided is its own facts kind now (it used to
+          // map to {kind:'unpaid'} with the truth only in the label, so a
+          // frontend could not tell a voided row from a still-payable one
+          // without sniffing the label). The verify/pay endpoints still
+          // enforce on view.status directly — this changes only the facts
+          // surface, and the label still says "Voided on chain — …".
+          : view.status === 'Voided'
+            ? { kind: 'voided' }
+            : { kind: 'unpaid' },
     agent: { registry: { index: CIS8004_OFFICIAL.index, subindex: CIS8004_OFFICIAL.subindex }, token: view.agentToken },
     doc_sha256: view.docHash,
     label: labelFor(view),

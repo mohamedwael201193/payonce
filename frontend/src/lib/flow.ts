@@ -146,6 +146,10 @@ export function payDisabledReason(
   if (!facts) return 'Load an invoice first (step 1).'
   if (facts.status.kind === 'paid') return 'This invoice is already paid.'
   if (facts.status.kind === 'reserved') return 'Reserved for another payment.'
+  // Fix-back-8 MF-1: Voided is its own facts kind now — it can never be
+  // paid, and the check endpoint blocks it, but the pay gate must say so
+  // itself rather than falling through to the rail checks.
+  if (facts.status.kind === 'voided') return 'Voided on chain — cannot be paid.'
   if (rail === 'ccd' && facts.asset.kind !== 'ccd')
     return 'This is an EUDemo invoice. Use Pay in EUDemo.'
   if (rail === 'eudemo' && facts.asset.kind !== 'eudemo')

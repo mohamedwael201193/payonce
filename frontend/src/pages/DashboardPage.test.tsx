@@ -285,8 +285,18 @@ describe('DashboardPage', () => {
     // The snapshot fetch retries its 3 in-loop attempts (~3 s) before it
     // throws and react-query keeps the last good data with isError set.
     await waitFor(() => expect(screen.getByText(/Could not refresh the live numbers just now/)).toBeInTheDocument(), { timeout: 10000 })
-    expect(screen.getByTestId('stat-total')).toHaveTextContent('5')
-    expect(screen.getByTestId('stat-paid')).toHaveTextContent('3')
+    // Fix-back-8 MF-2: these assertions used to run synchronously right
+    // after the banner appeared, and the CountUp numbers had not settled
+    // yet — the honesty judge's full-suite run 1 failed here (expected
+    // '5', got the still-counting chip text). Wait for the settled values
+    // exactly as the file's other CountUp assertions do (lines 90-93).
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('stat-total')).toHaveTextContent('5')
+        expect(screen.getByTestId('stat-paid')).toHaveTextContent('3')
+      },
+      { timeout: 3000 },
+    )
     expect(screen.getByText('Payable 1')).toBeInTheDocument()
     expect(screen.queryByText(COPY.statsNoData)).not.toBeInTheDocument()
     expect(screen.getByText('Paused')).toBeInTheDocument()

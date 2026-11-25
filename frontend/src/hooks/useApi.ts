@@ -9,15 +9,17 @@
 // every 30 s now, and the dashboard's "Last updated" reads the queries'
 // dataUpdatedAt, so it advances on every successful poll.
 //
-// One snapshot (fix-back-6 B1/B11, corrected fix-back-7 MF-1): stats and
-// invoices are ONE query (useLiveSnapshot) whose queryFn fetches the pair
-// together and only accepts it when the two agree with each other and a
-// list shrink is exactly accounted for by voided+reserved growth since
-// the last accepted snapshot (lib/snapshot.ts — a reserve or a void
-// legitimately removes a row from the listable set). A partial scan
-// throws, so react-query keeps the last good snapshot on screen instead
-// of rendering shrunken numbers, and the dashboard renders that kept
-// snapshot with a could-not-refresh note (DashboardPage, MF-6).
+// One snapshot (fix-back-6 B1/B11, corrected fix-back-7 MF-1, hardened
+// fix-back-8 MF-1): stats and invoices are ONE query (useLiveSnapshot)
+// whose queryFn fetches the pair together and only accepts it when the two
+// agree with each other and a list shrink is exactly accounted for by
+// voided+reserved growth since the last accepted snapshot (lib/snapshot.ts
+// — a reserve or a void legitimately removes a row from the listable set),
+// the excluded counters never decrease, AND every dropped id reads back
+// as reserved/voided via GET /api/payables/:id. A partial scan throws, so
+// react-query keeps the last good snapshot on screen instead of rendering
+// shrunken numbers, and the dashboard renders that kept snapshot with a
+// could-not-refresh note (DashboardPage, MF-6).
 // useStats and useInvoices are thin selects over that one query, so the
 // home hero and the dashboard — and every section on one page — always
 // read the SAME snapshot and can never disagree in the same minute.
@@ -42,6 +44,11 @@ export function useLiveSnapshot() {
             count: prev.items.length,
             voidedTotal: prev.stats.voided_total ?? 0,
             reservedTotal: prev.stats.reserved_total ?? 0,
+            // Fix-back-8 MF-1: the shrink rule verifies every dropped id
+            // against the previous snapshot's id set — thread the ids, not
+            // just the count, or a shrink fails closed for lack of an id
+            // set to verify against.
+            ids: prev.items.map((i) => i.payable_id),
           }
         : undefined
       return fetchLiveSnapshot(prevSnapshot)

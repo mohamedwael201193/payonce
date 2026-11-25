@@ -112,6 +112,7 @@ export interface PayableFacts {
   status:
     | { kind: 'unpaid' }
     | { kind: 'reserved'; payer: string; expires: string }
+    | { kind: 'voided' }
     | {
         kind: 'paid'
         payer: string

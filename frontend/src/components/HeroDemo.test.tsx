@@ -169,4 +169,49 @@ describe('HeroDemo component (small glimpse, B6)', () => {
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByText('Live Invoices')).toBeInTheDocument()
   })
+
+  // Fix-back-8 MF-4: an error WITH kept data must disclose the staleness
+  // — the same could-not-refresh note as the dashboard banner — instead
+  // of silently labelling kept numbers "Live totals". The note names the
+  // kept time when the caller passes it.
+  it('shows a could-not-refresh note (not an alert) when the snapshot errors with kept data', () => {
+    render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <section>
+          <HeroDemo items={COMPONENT_INVOICES} stats={STATS} error lastUpdated="10:42:07 UTC" />
+        </section>
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Could not refresh the live numbers just now — showing the last verified numbers from 10:42:07 UTC. The page retries every 30 s.',
+    )
+    expect(screen.getByText('Live Invoices')).toBeInTheDocument()
+  })
+
+  it('shows the stale note without a time when no last-updated time is passed', () => {
+    render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <section>
+          <HeroDemo items={COMPONENT_INVOICES} stats={STATS} error />
+        </section>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Could not refresh the live numbers just now')
+    expect(screen.getByRole('status')).not.toHaveTextContent('from')
+  })
+
+  // Fix-back-8 MF-4: home shows a "Last updated" line for the demo card
+  // (it had none); on a fresh load there is no stale note.
+  it('shows a Last updated line on a fresh load and no stale note', () => {
+    render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <section>
+          <HeroDemo items={COMPONENT_INVOICES} stats={STATS} lastUpdated="10:42:07 UTC" />
+        </section>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Last updated: 10:42:07 UTC · refreshing every 30 s')).toBeInTheDocument()
+    expect(screen.queryByText(/Could not refresh/)).toBeNull()
+  })
 })

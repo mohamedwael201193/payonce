@@ -130,6 +130,10 @@ const payableSchema = z.object({
   status: z.union([
     z.object({ kind: z.literal('unpaid') }),
     z.object({ kind: z.literal('reserved'), payer: z.string(), expires: z.string() }),
+    // Fix-back-8 MF-1: the API reports Voided as its own kind now
+    // (api/src/server.mjs payableFacts); the frontend must parse it
+    // instead of rejecting the facts body as malformed.
+    z.object({ kind: z.literal('voided') }),
     z.object({
       kind: z.literal('paid'),
       payer: z.string(),

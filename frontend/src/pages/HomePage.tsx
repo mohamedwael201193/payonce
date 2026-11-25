@@ -19,6 +19,7 @@ import { CtaBand, Features, Footer, HairlineFigures, HowItWorks, InvoiceShowcase
 import { AlertInline, StepCard } from '../components/ui'
 import { api } from '../lib/api'
 import { buildStatusText, coSignerRunsAsSentence } from '../lib/copy'
+import { formatUtcTime } from '../lib/format'
 import { ApiError, type Receipt } from '../lib/types'
 import { flowReducer, initialFlowState, isCheckFresh, payDisabledReason } from '../lib/flow'
 import { stickyActionFor, type StickyAction } from '../lib/sticky'
@@ -35,6 +36,13 @@ export function HomePage() {
   // No other live-dashboard surface is rendered on the landing.
   const demoInvoices = useInvoices()
   const demoStats = useStats()
+  // Fix-back-8 MF-4: home shows a "Last updated" line for the demo card
+  // (it had none — the dashboard's line is the last successful poll, so
+  // this one reads the same dataUpdatedAt, not the server's verifier
+  // run). demoInvoices and demoStats are the same underlying
+  // ['live-snapshot'] query, so either dataUpdatedAt is the poll time.
+  const demoUpdatedAt = Math.max(demoInvoices.dataUpdatedAt ?? 0, demoStats.dataUpdatedAt ?? 0)
+  const demoLastUpdated = demoUpdatedAt > 0 ? `${formatUtcTime(new Date(demoUpdatedAt).toISOString())} UTC` : null
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
@@ -259,7 +267,7 @@ export function HomePage() {
             over the hero's cloud band. */}
         <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[820px] px-4 sm:px-6">
           <div className="relative -mt-[100px] overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]">
-            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} error={demoInvoices.isError || demoStats.isError} />
+            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} error={demoInvoices.isError || demoStats.isError} lastUpdated={demoLastUpdated} />
           </div>
         </section>
         {/* The real payment flow — pick, check, pay, receipt — with a slim
@@ -360,7 +368,13 @@ export function HomePage() {
                           ? `Paid${state.facts.status.paid_at ? ` on ${new Date(state.facts.status.paid_at).toISOString().slice(0, 10)}` : ''}`
                           : state.facts.status.kind === 'reserved'
                             ? `Reserved for another payment until ${new Date(state.facts.status.expires).toISOString().slice(11, 16)} UTC`
-                            : 'Unpaid. Can be paid once.'}
+                            // Fix-back-8 MF-1: Voided is its own facts kind
+                            // now — it must not render as "Unpaid. Can be
+                            // paid once." (the old fallback, which was
+                            // correct only while voided mapped to 'unpaid').
+                            : state.facts.status.kind === 'voided'
+                              ? 'Voided on chain — cannot be paid.'
+                              : 'Unpaid. Can be paid once.'}
                       </dd>
                     </div>
                     <div>
