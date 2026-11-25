@@ -76,3 +76,72 @@ describe('api.getStats', () => {
     expect((err as ApiError).status).toBe(0)
   })
 })
+
+describe('api seller threading (second-seller fix-back §4.3/§4.5)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const S1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
+  const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+
+  it('getDocument appends ?seller= when a seller is given, and omits it otherwise', async () => {
+    const fn = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => 'PAYONCE LAB INVOICE' })
+    vi.stubGlobal('fetch', fn)
+    await expect(api.getDocument(2, S2)).resolves.toBe('PAYONCE LAB INVOICE')
+    expect(fn).toHaveBeenCalledWith(expect.stringContaining(`/api/payables/2/document?seller=${encodeURIComponent(S2)}`), expect.anything())
+    fn.mockClear()
+    await expect(api.getDocument(1)).resolves.toBe('PAYONCE LAB INVOICE')
+    expect(fn).toHaveBeenCalledWith(expect.stringContaining('/api/payables/1/document'), expect.anything())
+    expect(fn.mock.calls[0][0]).not.toContain('?seller=')
+  })
+
+  it('getRecorded appends ?seller= and parses the seller-2 run', async () => {
+    const run = {
+      payable_id: 2,
+      seller: S2,
+      date: '2026-11-25',
+      steps: [
+        { step: 'register', detail: 'Payable 2 registered (seller 2, EUDemo 10)', txHash: '00'.repeat(32), layer: 'chain' },
+        { step: 'verify', detail: 'Verifier re-run: 12/12 checks pass (EUDemo branch)', txHash: null, layer: 'app' },
+      ],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: run })
+    await expect(api.getRecorded(2, S2)).resolves.toEqual(run)
+  })
+
+  it('getReceipt parses the receipt seller', async () => {
+    const receipt = {
+      payable_id: 1,
+      seller: S2,
+      amount_display: '0.500000 CCD',
+      payee: S2,
+      payer_label: 'Demo payer account (lab)',
+      txs: [{ label: 'Payment', tx_hash: '51'.repeat(32), explorer_url: 'https://example.invalid/tx' }],
+      verifier: { passed: 10, total: 10, checked_at: '2026-11-25T17:11:16.000Z' },
+      payment_tx_source: 'server_store',
+    }
+    mockFetchOnce({ ok: true, status: 200, json: receipt })
+    await expect(api.getReceipt(1, S2)).resolves.toEqual(receipt)
+  })
+
+  it('getPayable without a seller keeps the old URL (no ?seller=)', async () => {
+    const payable = {
+      payable_id: 1,
+      asset: { kind: 'ccd', token: 'CCD' },
+      amount: '10000000',
+      amount_display: '10.000000 CCD',
+      payee: S1,
+      seller: S1,
+      due: '2026-12-01T08:03:26.555Z',
+      is_past_due: false,
+      status: { kind: 'unpaid' },
+      agent: { registry: { index: 12802, subindex: 0 }, token: '1476' },
+      doc_sha256: '00'.repeat(32),
+      label: 'Lab invoice',
+    }
+    const fn = mockFetchOnce({ ok: true, status: 200, json: payable })
+    await expect(api.getPayable(1)).resolves.toEqual(payable)
+    expect(fn.mock.calls[0][0]).not.toContain('?seller=')
+  })
+})

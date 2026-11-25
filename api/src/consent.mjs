@@ -53,7 +53,7 @@ import {
 import { ConcordiumGRPCNodeClient } from '@concordium/web-sdk/nodejs';
 import { credentials } from '@grpc/grpc-js';
 import { PAYER_ADDRESS } from './config.mjs';
-import { loadConsents, saveConsent } from './store.mjs';
+import { loadConsents, saveConsent, consentKey } from './store.mjs';
 import { waitFinalized } from './chain-v2.mjs';
 
 // ---- DUAL-COPY BOUNDARY (read before touching) ----
@@ -551,17 +551,25 @@ export async function approveConsentHeadless({ grpcClient, signers, record, env 
 }
 
 /** Mark a consent used after its payable is paid (one-time use). */
-export async function markConsentUsed(payableId) {
+export async function markConsentUsed(payableId, seller = null) {
   const consents = await loadConsents();
-  const record = consents[payableId];
+  const record = consents[consentKey(seller, payableId)];
   if (!record || record.status !== 'approved') return null;
   const updated = { ...record, status: 'used', usedAt: new Date().toISOString() };
   await saveConsent(updated);
   return updated;
 }
 
-/** Load the consent record for a payable, or null. */
-export async function consentFor(payableId) {
+/** Load the consent record for one seller's payable, or null. */
+export async function consentForSeller(seller, payableId) {
   const consents = await loadConsents();
-  return consents[payableId] ?? null;
+  return consents[consentKey(seller, payableId)] ?? null;
+}
+
+/** Load the consent record for a payable, or null.
+ *  Seller-1 path only: the pay/consent handlers that call this are
+ *  seller-1-only (write endpoints 400 on ?seller= naming seller 2 —
+ *  fix-back §4.4). Seller-aware callers use consentForSeller. */
+export async function consentFor(payableId) {
+  return consentForSeller(null, payableId);
 }

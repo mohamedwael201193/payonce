@@ -14,7 +14,7 @@ import { backend } from './backend.mjs';
 import {
   grpc, chainNow, getPayable, getPayableOrNull, getConfig as getChainConfig,
   getVendor, getAccount, getTx, getRegistryBalance, getBlockTime, microCcdOf,
-  sendUpdate, waitFinalized, signers, updatedEvent, SELLER, PAYER,
+  sendUpdate, waitFinalized, signers, updatedEvent, SELLER, SELLER2, PAYER,
 } from './chain-v2.mjs';
 import { verifyBeforePay, verifyCcdV2, verifyPltV2 } from './verifier-v2.mjs';
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
@@ -22,7 +22,7 @@ import { createOrReturnJob, runJob, subscribeJob, unsubscribeJob, rejectInfo, re
 import { attackPayTwice, attackWrongAmount, attackUnlistedSeller } from './attacks.mjs';
 import { buildReceiptFor, paymentTxsFor } from './receipts.mjs';
 import {
-  docForPayable, generateLabDocument, storeDocument, recordedRunFor,
+  docForPayable, docForPayableForSeller, generateLabDocument, storeDocument, recordedRunFor,
   recordedRefusals, judgeFiles,
 } from './docs.mjs';
 import {
@@ -30,7 +30,7 @@ import {
   hitWindow, leftInWindow, loadConsents, loadBuyerAgent,
 } from './store.mjs';
 import {
-  buildConsentRecord, consentFor, consentGateCheck, publicConsent, anchorConsentVra,
+  buildConsentRecord, consentFor, consentForSeller, consentGateCheck, publicConsent, anchorConsentVra,
   verifyConsentVra, approveConsentHeadless, isConsentExpired, isAboveAskMeThreshold,
   ASK_ME_THRESHOLD_BASE, CONSENT_VALIDITY_SECS, CONSENT_DOMAIN, LAB_CONSENT_ANCHORS,
   LAB_VA_ANCHORS, verifyV1PresentationWithNode, anchorConsentVaa,
@@ -51,6 +51,7 @@ import {
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
+  SELLER2_ADDRESS, SELLER2_TOKEN, SELLER2_BADGE, SELLER2_AGENT_CARD_URL,
   FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS,
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
   txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash, ENV,
@@ -160,9 +161,45 @@ async function readBody(req, limit = 64 * 1024) {
 
 // ---- known payables (matrix + happy path + this server's fresh ids) ----
 const KNOWN_IDS = [1, 2, 3, 4, 5, 10, 11];
+// Second seller's known payables (live 2026-11-25): id 1, 0.5 CCD, paid;
+// id 2, 10 EUDemo, paid.
+const SELLER2_KNOWN_IDS = [1, 2];
 async function knownIds() {
   const counters = await loadCounters();
   return [...new Set([...KNOWN_IDS, ...(counters.freshIds ?? [])])].sort((a, b) => a - b);
+}
+
+// Strict resolver for READ handlers (fix-back §4.6): absent ?seller= →
+// seller 1 (old links keep working); present and exactly seller 1 or
+// seller 2 → that seller; present and anything else → 400 `unknown
+// seller` (fail closed, not silent). A mistyped ?seller= on a receipt
+// link used to serve seller 1's data with a 200 and no warning. Returns
+// null after sending the 400 — callers must `if (!seller) return;`.
+function resolveSellerStrict(req, res) {
+  let q = null;
+  try {
+    q = new URL(req.url, 'http://127.0.0.1').searchParams.get('seller');
+  } catch { q = null; }
+  if (!q) return SELLER;
+  if (q === SELLER2_ADDRESS) return SELLER2;
+  if (q === SELLER) return SELLER;
+  badRequest(res, `unknown seller "${q.slice(0, 32)}": expected seller 1 (${SELLER}) or seller 2 (${SELLER2_ADDRESS}).`);
+  return null;
+}
+
+// Write-endpoint guard (fix-back §4.4): the write handlers hold no
+// seller-2 signing key, so a ?seller= (or a `seller` field in the JSON
+// body) naming anything but seller 1 is a loud 400, never a silent
+// reinterpretation as seller 1. Returns true when it sent the 400.
+function rejectNonSeller1Write(req, res, body = null) {
+  let q = null;
+  try {
+    q = new URL(req.url, 'http://127.0.0.1').searchParams.get('seller');
+  } catch { q = null; }
+  const named = q ?? (typeof body?.seller === 'string' ? body.seller : null);
+  if (!named || named === SELLER) return false;
+  badRequest(res, `seller ${named.slice(0, 16)}… is not supported for writes: this server only signs for seller 1 (${SELLER}). Seller-2 writes are a named follow-up, not yet implemented — seller-2 reads (?seller=) already work.`);
+  return true;
 }
 
 let statsCache = null;
@@ -171,6 +208,12 @@ async function scanPayables(c) {
   for (const id of await knownIds()) {
     try {
       const view = await getPayableOrNull(c, SELLER, id);
+      if (view) rows.push(view);
+    } catch { /* one unreadable row does not fail the scan */ }
+  }
+  for (const id of SELLER2_KNOWN_IDS) {
+    try {
+      const view = await getPayableOrNull(c, SELLER2, id);
       if (view) rows.push(view);
     } catch { /* one unreadable row does not fail the scan */ }
   }
@@ -203,12 +246,25 @@ async function liveConfig(c) {
     configCache.reservationSecs = cfg.reservation_secs;
   } catch { /* keep the configured default */ }
   try {
-    const approval = await getVendor(c, PAYER_ADDRESS, OWNER_ADDRESS);
-    configCache.vendorList = approval
-      ? [{ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' }]
-      : [];
+    // Both approvals are checked live (fix-back §4.7): a seller is
+    // listed only when its on-chain vendor row exists (getVendor returns
+    // null when there is no row). The old code fetched seller 1's
+    // approval into an unused variable and listed both sellers
+    // unconditionally in both branches — so
+    // `build.vendor_list_enforced_by_co_signer: true` was claimed but
+    // not enforced in code. It is now true in code.
+    const approval1 = await getVendor(c, PAYER_ADDRESS, OWNER_ADDRESS);
+    const approval2 = await getVendor(c, PAYER_ADDRESS, SELLER2_ADDRESS);
+    const list = [];
+    if (approval1) list.push({ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' });
+    if (approval2) list.push({ seller: SELLER2_ADDRESS, label: 'Second seller account (PayOnce Seller 2)' });
+    configCache.vendorList = list;
   } catch {
-    configCache.vendorList = [{ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' }];
+    // gRPC error: keep the previous list when there is one; otherwise
+    // fail closed with an empty list (never claim a vendor the chain
+    // did not confirm). The old catch branch listed seller 1
+    // unconditionally — that behaviour is gone, see CHANGES.md.
+    if (!configCache.vendorList) configCache.vendorList = [];
   }
   configCache.at = now;
   return configCache;
@@ -237,6 +293,24 @@ async function handleConfig(req, res) {
     sponsor_label: 'Lab seller account (pays agent-wallet gas)',
     explorer: { tx: EXPLORER_TX, instance: EXPLORER_INSTANCE },
     vendor_list: live.vendorList,
+    sellers: [
+      {
+        seller: OWNER_ADDRESS,
+        label: 'Seller 1 — PayOnce Seller',
+        agent_token: OWNER_TOKEN,
+        badge: 'JyP9XawpXHMjTN5ocrA5a',
+        badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a',
+        agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card.json',
+      },
+      {
+        seller: SELLER2_ADDRESS,
+        label: 'Seller 2 — PayOnce Seller 2',
+        agent_token: SELLER2_TOKEN,
+        badge: SELLER2_BADGE,
+        badge_url: `https://agent-registry-mcp.concordium.com/v1/badge-check/${SELLER2_BADGE}`,
+        agent_card_url: SELLER2_AGENT_CARD_URL,
+      },
+    ],
     build: {
       vendor_list_enforced_by_co_signer: true,
       named_payer_on_invoice: true,
@@ -326,9 +400,10 @@ async function handleInvoices(req, res) {
   const c = await grpc();
   const rows = await scanPayables(c);
   const items = listableRows(rows)
-    .sort((a, b) => a.id - b.id)
+    .sort((a, b) => (a.seller === b.seller ? a.id - b.id : a.seller < b.seller ? -1 : 1))
     .map((r) => ({
       payable_id: r.id,
+      seller: r.seller,
       asset: r.asset === 'CCD' ? 'ccd' : 'eudemo',
       amount_display: amountDisplay(r),
       due: r.due,
@@ -374,18 +449,22 @@ async function payableFacts(c, view, chainTimeMs) {
 }
 
 async function handleGetPayable(req, res, id) {
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, id);
+  const view = await getPayableOrNull(c, seller, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const now = await chainNow(c);
   sendJson(res, 200, await payableFacts(c, view, now.slotMs));
 }
 
 async function handleDocument(req, res, id) {
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, id);
+  const view = await getPayableOrNull(c, seller, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
-  const doc = await docForPayable(id);
+  const doc = await docForPayableForSeller(seller, id);
   if (!doc) return notFound(res, `No lab document is stored for payable ${id}. Only lab documents are served here.`);
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end(doc);
@@ -445,11 +524,13 @@ async function handleVerify(req, res, id) {
   const mode = body.mode === 'after_pay' ? 'after_pay' : 'before_pay';
   const docSha256 = typeof body.doc_sha256 === 'string' ? body.doc_sha256 : null;
   const started = Date.now();
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, id);
+  const view = await getPayableOrNull(c, seller, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const now = await chainNow(c);
-  const docBytes = docSha256 ? null : await docForPayable(id);
+  const docBytes = docSha256 ? null : await docForPayableForSeller(seller, id);
   const { chain } = await backend();
   const payerInfo = await getAccount(c, PAYER_ADDRESS);
   const payerBalances = {
@@ -466,7 +547,9 @@ async function handleVerify(req, res, id) {
     await saveCounters(counters);
     // Consent anchor (W-01, reported beside the 9 P3 checks — the check
     // counts stay exactly 9/10/12, so the existing suites keep passing).
-    const consentRecord = await consentFor(id);
+    // Seller-aware (fix-back §4.3): the verify caller's seller, not the
+    // bare payable id, selects the consent record.
+    const consentRecord = await consentForSeller(seller, id);
     const consent = consentRecord
       ? {
           ...publicConsent(consentRecord),
@@ -506,7 +589,9 @@ async function handleVerify(req, res, id) {
   }
   const payHash = view.asset === 'CCD'
     ? txs.find(([l]) => l === 'Payment')?.[1]
-    : txs.find(([l]) => l === 'Transfer')?.[1];
+    // Defense in depth (fix-back §4.1): accept a 'Payment'-labelled leg
+    // as the transfer hash when no 'Transfer' leg exists.
+    : txs.find(([l]) => l === 'Transfer')?.[1] ?? txs.find(([l]) => l === 'Payment')?.[1];
   if (!payHash) {
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: 'blocked',
@@ -553,6 +638,7 @@ async function handleVerify(req, res, id) {
 async function handleCreatePayable(req, res) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
+  if (rejectNonSeller1Write(req, res, body)) return;
   const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
   if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
@@ -609,6 +695,7 @@ async function handleCreatePayable(req, res) {
 async function handlePay(req, res, id) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
+  if (rejectNonSeller1Write(req, res, body)) return;
   const rail = body.rail === 'eudemo' ? 'eudemo' : body.rail === 'ccd' ? 'ccd' : null;
   if (!rail) return badRequest(res, 'rail must be "ccd" or "eudemo".');
   const docSha256 = typeof body.doc_sha256 === 'string' ? body.doc_sha256 : null;
@@ -717,6 +804,7 @@ async function handleTxStatus(req, res, hash) {
 
 async function handleDryRun(req, res) {
   const body = await readBody(req).catch(() => ({}));
+  if (rejectNonSeller1Write(req, res, body)) return;
   const payableId = Number(body.payable_id);
   const to = typeof body.to === 'string' ? body.to : null;
   const amount = body.amount != null ? String(body.amount) : null;
@@ -763,6 +851,7 @@ async function handleDryRun(req, res) {
 async function handleAttack(req, res, kind) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
+  if (rejectNonSeller1Write(req, res, body)) return;
   const payableId = Number(body.payable_id);
   const mode = body.mode === 'precheck_only' ? 'precheck_only' : body.mode === 'send_to_chain' ? 'send_to_chain' : undefined;
   if (!Number.isInteger(payableId) || payableId < 1) return badRequest(res, 'payable_id must be a positive integer.');
@@ -792,10 +881,12 @@ async function handleAttack(req, res, kind) {
 }
 
 async function handleReceipt(req, res, id) {
-  const receipt = await buildReceiptFor(id);
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
+  const receipt = await buildReceiptFor(id, seller);
   if (!receipt) {
     const c = await grpc();
-    const view = await getPayableOrNull(c, SELLER, id);
+    const view = await getPayableOrNull(c, seller, id);
     if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
     return notFound(res, `Payable ${id} is ${view.status} — no receipt exists yet.`);
   }
@@ -803,8 +894,10 @@ async function handleReceipt(req, res, id) {
 }
 
 async function handleRecorded(req, res, id) {
-  const run = recordedRunFor(id);
-  if (!run) return notFound(res, `No recorded run exists for payable ${id}.`);
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
+  const run = recordedRunFor(id, seller);
+  if (!run) return notFound(res, `No recorded run exists for payable ${id}${seller === SELLER2 ? ' (seller 2)' : ''}.`);
   sendJson(res, 200, run);
 }
 
@@ -824,6 +917,7 @@ async function handleJudgeFiles(req, res, name) {
 async function handleConsentRequest(req, res) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
+  if (rejectNonSeller1Write(req, res, body)) return;
   const payableId = Number(body.payable_id);
   if (!Number.isInteger(payableId) || payableId < 1) return badRequest(res, 'consent/request needs { payable_id }.');
   const budget = await hitWindow(`cns:${ip}`, 3_600_000, 3);
@@ -856,6 +950,9 @@ async function handleConsentRequest(req, res) {
 }
 
 async function handleConsentGet(req, res, id) {
+  // Consent state is seller-1-keyed (fix-back §4.4): a ?seller= naming
+  // seller 2 is a 400, never a silent seller-1 answer.
+  if (rejectNonSeller1Write(req, res)) return;
   const record = await consentFor(id);
   if (!record) {
     return sendJson(res, 200, {
@@ -870,6 +967,7 @@ async function handleConsentGet(req, res, id) {
 }
 
 async function handleConsentApprove(req, res, id) {
+  if (rejectNonSeller1Write(req, res)) return;
   const ip = clientIp(req);
   const budget = await hitWindow(`cns:${ip}`, 3_600_000, 3);
   if (!budget.allowed) {
@@ -895,6 +993,7 @@ async function handleConsentVerifyPresentation(req, res, id) {
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   const body = await readBody(req, 64 * 1024).catch(() => null);
+  if (rejectNonSeller1Write(req, res, body)) return;
   if (!body || typeof body !== 'object' || !body.presentation || typeof body.presentation !== 'object') {
     return badRequest(res, 'verify-presentation needs { presentation: <VerifiablePresentationV1 JSON> }.');
   }

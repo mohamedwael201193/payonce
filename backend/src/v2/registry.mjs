@@ -14,6 +14,7 @@ export const REGISTRY_V2_1 = { index: 13152n, subindex: 0n };
 export const CONTRACT_NAME_V2_1 = 'payable_registry_v2_1';
 export const CIS8004_OFFICIAL = { index: 12802n, subindex: 0n };
 export const OWNER_TOKEN_V2 = 1476; // deployer's agent token on <12802,0>, Active (probed live)
+export const SELLER2_TOKEN_V2 = 1506; // second seller's agent token on <12802,0>, Active (live 2026-11-25)
 export const RESERVATION_SECS_V2 = 3600;
 
 // contract/contractName default to the v2 registry: every existing caller

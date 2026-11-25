@@ -1,0 +1,182 @@
+{
+  "runAt": "2026-11-25T17:11:02.564Z",
+  "network": "testnet",
+  "contract": "<13150,0>",
+  "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+  "sellerAgentToken": 1506,
+  "payableId": 1,
+  "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "preChecks": {
+    "agentToken": {
+      "token": 1506,
+      "owner": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "status": "Active"
+    }
+  },
+  "invoice": {
+    "file": "invoices/invoice-seller2-001-ccd.txt",
+    "docHash": "6b6a232426a6bbd1f8b5467c17e379e92e53248a383aa707b4a78387b630900f",
+    "dueMs": 1795713063665,
+    "due": "2026-11-26T17:11:03.665Z"
+  },
+  "balancesBefore": {
+    "seller2": {
+      "ccdMicro": "19965244067",
+      "nonce": "3"
+    },
+    "buyerB": {
+      "ccdMicro": "347473397",
+      "nonce": "753"
+    }
+  },
+  "registerTx": "9ba837e6c1205d88928110a52328cac5572179962e1c48a6298577e446be9a6e",
+  "registerSummary": {
+    "status": "finalized",
+    "blockHash": "268cf17d6e2b6684b16d8df788529e9854bbd78ff1d226b1f6fb172c9fdb022e",
+    "outcome": "update",
+    "rejectReason": null,
+    "costMicroCcd": "19226686",
+    "costCcd": "19.226686",
+    "energy": "2314"
+  },
+  "registerEvent": {
+    "event": "Registered",
+    "schemaVersion": 2,
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "payableId": 1,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "500000",
+    "asset": "CCD",
+    "dueMs": "1795713063665",
+    "docHash": "6b6a232426a6bbd1f8b5467c17e379e92e53248a383aa707b4a78387b630900f",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null
+  },
+  "registeredView": {
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "id": 1,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "500000",
+    "asset": "CCD",
+    "dueMs": "1795713063665",
+    "due": "2026-11-26T17:11:03.665Z",
+    "docHash": "6b6a232426a6bbd1f8b5467c17e379e92e53248a383aa707b4a78387b630900f",
+    "agentToken": "1506",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null,
+    "status": "Unpaid",
+    "record": null
+  },
+  "payTx": "51dbf9547fedc5e515d1205404b772c1e96d61c7f1ef4c72d635bf2cf3e8b96f",
+  "paySummary": {
+    "status": "finalized",
+    "blockHash": "1cca76dd5cfb2c35b9e0567c54b8bdeb4681f181271b30a0b12e66890ddcfa0f",
+    "outcome": "update",
+    "rejectReason": null,
+    "costMicroCcd": "18969112",
+    "costCcd": "18.969112",
+    "energy": "2283"
+  },
+  "paidView": {
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "id": 1,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "500000",
+    "asset": "CCD",
+    "dueMs": "1795713063665",
+    "due": "2026-11-26T17:11:03.665Z",
+    "docHash": "6b6a232426a6bbd1f8b5467c17e379e92e53248a383aa707b4a78387b630900f",
+    "agentToken": "1506",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null,
+    "status": "Paid",
+    "record": {
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "reservationExpiresMs": null,
+      "reservationExpires": null,
+      "paidAtMs": "1795626676075",
+      "paidAt": "2026-11-25T17:11:16.075Z",
+      "txHash": null
+    }
+  },
+  "seller2DeltaMicroCcd": "-18726686",
+  "contractBalanceAfter": "0",
+  "receipt": {
+    "checks": [
+      {
+        "id": "registered",
+        "label": "Payable is registered on the test registry",
+        "status": "ok",
+        "detail": "seller=3ARQvcVD…, id=1",
+        "layer": "chain"
+      },
+      {
+        "id": "doc",
+        "label": "Invoice document matches the on-chain hash",
+        "status": "ok",
+        "detail": "sha256(doc)=6b6a232426a6bbd1…, stored=6b6a232426a6bbd1…",
+        "layer": "chain"
+      },
+      {
+        "id": "agent",
+        "label": "Seller agent is Active on the official CIS-8004 registry",
+        "status": "ok",
+        "detail": "token 1506 on <12802,0>: owner=3ARQvcVD… (matches seller), status=Active",
+        "layer": "chain"
+      },
+      {
+        "id": "registry_zero",
+        "label": "Registry holds no CCD after the payment",
+        "status": "ok",
+        "detail": "balance=0 microCCD",
+        "layer": "chain"
+      },
+      {
+        "id": "status_paid",
+        "label": "Registry status is Paid",
+        "status": "ok",
+        "detail": "Paid by 4MvdMEGC… at 2026-11-25T17:11:16.075Z",
+        "layer": "chain"
+      },
+      {
+        "id": "tx_finalized",
+        "label": "Payment transaction is finalized",
+        "status": "ok",
+        "detail": "status=finalized",
+        "layer": "chain"
+      },
+      {
+        "id": "invoked_pay_ccd",
+        "label": "The payment transaction invoked pay_ccd for this payable",
+        "status": "ok",
+        "detail": "pay_ccd parameter (seller, id=1) and Paid event agree; payer=4MvdMEGC…, amount=500000",
+        "layer": "chain"
+      },
+      {
+        "id": "sender_is_payer",
+        "label": "The transaction sender is the recorded payer",
+        "status": "ok",
+        "detail": "sender=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, Paid event payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, stored payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "layer": "chain"
+      },
+      {
+        "id": "single_transfer_to_payee",
+        "label": "Exactly one transfer from the registry to the stored payee",
+        "status": "ok",
+        "detail": "Transferred events=1, registry→payee with stored amount=1",
+        "layer": "chain"
+      },
+      {
+        "id": "no_other_transfer",
+        "label": "No other transfer in the payment transaction",
+        "status": "ok",
+        "detail": "all 1 Transferred events are the attached amount into the registry and the payout to the payee",
+        "layer": "chain"
+      }
+    ],
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "allPass": true
+  }
+}

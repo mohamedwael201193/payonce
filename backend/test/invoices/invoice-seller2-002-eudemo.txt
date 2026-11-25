@@ -1,0 +1,7 @@
+PAYONCE TEST INVOICE — seller 2 payable 2 (v2 EUDemo rail)
+Seller: 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr (PayOnce Seller 2, agent token 1506)
+Payee: 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr
+Amount: 10.00 EUDemo (10000000 base units, 6 decimals)
+Due: 2026-11-26T17:22:28.636Z
+Buyer: 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs
+Test only — Concordium testnet, no real goods or services.

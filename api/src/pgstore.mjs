@@ -1,11 +1,18 @@
 // PayOnce API server — Postgres implementation of the server store.
 // Tables (all `payonce_*`, created by ensureSchema, never dropped):
 //   payonce_jobs        job_id TEXT PK, payload JSONB (one row per pay job)
-//   payonce_receipts    payable_id INT PK, payload JSONB (one row per receipt)
+//   payonce_receipts    (seller TEXT, payable_id INT) composite PK,
+//                       payload JSONB (one row per (seller, payable) —
+//                       second-seller fix-back 2026-11-25 §4.2: payable
+//                       ids collide across sellers, so the bare
+//                       payable_id PK is replaced; ensureSchema migrates
+//                       an existing old-shape table, see below)
 //   payonce_counters    id INT PK (=1), payload JSONB (verifier runs,
 //                       live refusals, nextFreshId, freshIds)
-//   payonce_consents    payable_id INT PK, payload JSONB (one consent
-//                       record per payable, keyed by payableId —
+//   payonce_consents    (seller TEXT, payable_id INT) composite PK,
+//                       payload JSONB (one consent record per (seller,
+//                       payable) — second-seller fix-back §4.3, supersedes
+//                       the main-defect fix's bare-payableId keying;
 //                       main-defect fix 2026-11-25: b55ae35 imported
 //                       loadConsents/saveConsent but no backend had them)
 //   payonce_buyer_agent id INT PK (=1), payload JSONB (the single
@@ -26,7 +33,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getPool } from './db.mjs';
-import { DATA_DIR, FRESH_ID_START } from './config.mjs';
+import { DATA_DIR, FRESH_ID_START, OWNER_ADDRESS } from './config.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
 
@@ -42,9 +49,11 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS payonce_receipts (
-      payable_id INTEGER PRIMARY KEY,
+      seller TEXT NOT NULL,
+      payable_id INTEGER NOT NULL,
       payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL
+      updated_at TIMESTAMPTZ NOT NULL,
+      PRIMARY KEY (seller, payable_id)
     )`,
     `CREATE TABLE IF NOT EXISTS payonce_counters (
       id INTEGER PRIMARY KEY DEFAULT 1,
@@ -52,9 +61,11 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS payonce_consents (
-      payable_id INTEGER PRIMARY KEY,
+      seller TEXT NOT NULL,
+      payable_id INTEGER NOT NULL,
       payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL
+      updated_at TIMESTAMPTZ NOT NULL,
+      PRIMARY KEY (seller, payable_id)
     )`,
     `CREATE TABLE IF NOT EXISTS payonce_buyer_agent (
       id INTEGER PRIMARY KEY DEFAULT 1,
@@ -82,6 +93,43 @@ export async function ensureSchema() {
     )`,
   ];
   for (const sql of statements) await pool.query(sql);
+  // Migrate pre-fix-back tables from the bare-payable_id PK to the
+  // composite (seller, payable_id) PK (second-seller fix-back §4.2/§4.3).
+  // A fresh DB already has the new shape (CREATE above) and is skipped:
+  // the migration only fires when the live PK is exactly
+  // `PRIMARY KEY (payable_id)`. Legacy rows are hand-attributed to
+  // seller 1 — every receipt/consent the pre-patch server ever wrote was
+  // seller 1's by construction (the server was seller-1-only), and the
+  // colliding ids 1/2 were Unpaid for seller 1, so no legacy row for a
+  // colliding id exists to misattribute. The equivalent manual SQL is
+  // documented in the fix-back report (FIXBACK_REPORT.md §4.2) for a
+  // DBA-run migration instead of this boot-time one.
+  await migrateToCompositeKey(pool, 'payonce_receipts');
+  await migrateToCompositeKey(pool, 'payonce_consents');
+}
+
+/**
+ * One-table migration: bare `payable_id` PK → composite
+ * `(seller, payable_id)` PK. No-op unless the live PK is exactly the old
+ * single-column one. Runs only against real Postgres (ensureSchema is
+ * only called when DATABASE_URL is set), so pg_catalog introspection is
+ * available here.
+ */
+async function migrateToCompositeKey(pool, table) {
+  const r = await pool.query(
+    `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = $1::regclass AND contype = 'p'`,
+    [table],
+  );
+  if ((r.rows[0]?.def ?? '') !== 'PRIMARY KEY (payable_id)') return;
+  await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS seller TEXT`);
+  await pool.query(
+    `UPDATE ${table} SET seller = COALESCE(payload->>'seller', $1) WHERE seller IS NULL`,
+    [OWNER_ADDRESS],
+  );
+  await pool.query(`ALTER TABLE ${table} ALTER COLUMN seller SET NOT NULL`);
+  await pool.query(`ALTER TABLE ${table} DROP CONSTRAINT ${table}_pkey`);
+  await pool.query(`ALTER TABLE ${table} ADD PRIMARY KEY (seller, payable_id)`);
+  console.log(`[migrate] ${table}: bare payable_id PK -> composite (seller, payable_id) PK`);
 }
 
 async function tableCount(pool, table) {
@@ -115,7 +163,11 @@ export async function seedIfEmpty() {
   if ((await tableCount(pool, 'payonce_receipts')) === 0) {
     const receipts = readSeedJson('receipts.json') ?? {};
     for (const [payableId, payload] of Object.entries(receipts)) {
-      await pool.query('INSERT INTO payonce_receipts (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO NOTHING', [Number(payableId), payload]);
+      // Seed rows are seller-less (pre-patch receipts.json); every one is
+      // seller 1's by construction — see the migration note in
+      // ensureSchema. The payload's own seller wins when present.
+      const seller = payload?.seller ?? OWNER_ADDRESS;
+      await pool.query('INSERT INTO payonce_receipts (seller, payable_id, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (seller, payable_id) DO NOTHING', [seller, Number(payableId), payload]);
     }
     if (Object.keys(receipts).length) { imported = true; console.log(`[seed] receipts: ${Object.keys(receipts).length} imported`); }
   }
@@ -130,7 +182,8 @@ export async function seedIfEmpty() {
   if ((await tableCount(pool, 'payonce_consents')) === 0) {
     const consents = readSeedJson('consents.json') ?? {};
     for (const [payableId, payload] of Object.entries(consents)) {
-      await pool.query('INSERT INTO payonce_consents (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO NOTHING', [Number(payableId), payload]);
+      const seller = payload?.seller ?? OWNER_ADDRESS;
+      await pool.query('INSERT INTO payonce_consents (seller, payable_id, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (seller, payable_id) DO NOTHING', [seller, Number(payableId), payload]);
     }
     if (Object.keys(consents).length) { imported = true; console.log(`[seed] consents: ${Object.keys(consents).length} imported`); }
   }
@@ -186,15 +239,15 @@ export async function saveJobs(jobs) {
   for (const job of Object.values(jobs)) await saveJob(job);
 }
 
-// ---- receipts ----
+// ---- receipts (keyed by (seller, payable_id) — §4.2) ----
 export async function loadReceipts() {
-  const r = await getPool().query('SELECT payable_id, payload FROM payonce_receipts');
-  return Object.fromEntries(r.rows.map((row) => [row.payable_id, row.payload]));
+  const r = await getPool().query('SELECT seller, payable_id, payload FROM payonce_receipts');
+  return Object.fromEntries(r.rows.map((row) => [`${row.seller}:${row.payable_id}`, row.payload]));
 }
 export async function saveReceipt(receipt) {
   await getPool().query(
-    'INSERT INTO payonce_receipts (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
-    [receipt.payable_id, receipt],
+    'INSERT INTO payonce_receipts (seller, payable_id, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (seller, payable_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [receipt.seller ?? OWNER_ADDRESS, receipt.payable_id, receipt],
   );
 }
 export async function saveReceipts(receipts) {
@@ -224,17 +277,19 @@ export async function saveCounters(c) {
   );
 }
 
-// ---- consents (one record per payable, keyed by payableId) ----
-// Main-defect fix (2026-11-25): same upsert-by-payable_id shape as
-// saveReceipt; loadConsents() returns {} when the table is empty.
+// ---- consents (one record per (seller, payable), keyed by seller:payableId) ----
+// Main-defect fix (2026-11-25): same upsert shape as saveReceipt;
+// loadConsents() returns {} when the table is empty. Second-seller
+// fix-back (§4.3): the key is composite, superseding the main-defect
+// fix's bare-payableId keying.
 export async function loadConsents() {
-  const r = await getPool().query('SELECT payable_id, payload FROM payonce_consents');
-  return Object.fromEntries(r.rows.map((row) => [row.payable_id, row.payload]));
+  const r = await getPool().query('SELECT seller, payable_id, payload FROM payonce_consents');
+  return Object.fromEntries(r.rows.map((row) => [`${row.seller}:${row.payable_id}`, row.payload]));
 }
 export async function saveConsent(record) {
   await getPool().query(
-    'INSERT INTO payonce_consents (payable_id, payload, updated_at) VALUES ($1, $2, now()) ON CONFLICT (payable_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
-    [record.payableId, record],
+    'INSERT INTO payonce_consents (seller, payable_id, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (seller, payable_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [record.seller ?? OWNER_ADDRESS, record.payableId, record],
   );
 }
 

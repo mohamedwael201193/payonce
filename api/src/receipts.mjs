@@ -32,11 +32,11 @@ import { backend } from './backend.mjs';
 import {
   grpc, getPayableOrNull, getRegistryBalance, getTx, getBlockTime, updatedEvent, signers,
   nextNonce, withNonceRetry,
-  SELLER,
+  SELLER, SELLER2,
 } from './chain-v2.mjs';
 import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.mjs';
-import { docForPayable, recordedPaymentTx } from './docs.mjs';
-import { loadReceipts, saveReceipt, loadCounters, saveCounters, loadConsents } from './store.mjs';
+import { docForPayable, docForPayableForSeller, recordedPaymentTx, recordedPaymentTxForSeller } from './docs.mjs';
+import { loadReceipts, saveReceipt, loadCounters, saveCounters, loadConsents, receiptKey, consentKey } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, txUrl } from './config.mjs';
 
 export const ART12_RETENTION =
@@ -48,6 +48,13 @@ export const ART12_AGENT = {
   owner: OWNER_ADDRESS,
   badge: 'JyP9XawpXHMjTN5ocrA5a',
 };
+export const ART12_AGENT_SELLER2 = {
+  name: 'PayOnce demo agent (second seller)',
+  registry_token: 1506,
+  registry: '<12802,0>',
+  owner: SELLER2,
+  badge: 'JyP9Y9nGU4KaM7DBDXRgm',
+};
 export const ART12_MODEL =
   'No language model — deterministic decision code (co-signer decide() + mandate contract on <13150,0>). No LLM is anywhere in this payment flow.';
 
@@ -55,7 +62,7 @@ export const ART12_MODEL =
 export function buildArt12Core({ payableId, view, txs, verifier, consent }) {
   const txHashes = txs.map(([, hash]) => hash);
   return {
-    agent: ART12_AGENT,
+    agent: view.seller === SELLER2 ? ART12_AGENT_SELLER2 : ART12_AGENT,
     model: ART12_MODEL,
     task: `Verify & Pay payable ${payableId} (${view.asset === 'CCD' ? `${(Number(view.amount) / 1e6).toFixed(6)} CCD` : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`})`,
     task_giver: `Demo payer account (lab) ${view.record?.payer ?? 'unknown'}`,
@@ -193,12 +200,35 @@ export async function verifyRecordAnchor(txHash) {
 /** Payment transactions for a paid payable, from the store then evidence. */
 export async function paymentTxsFor(payableId, view) {
   const receipts = await loadReceipts();
-  const stored = receipts[payableId];
+  // The receipt store is keyed by (seller, payable id); seller 1's matrix
+  // payable 1 shares the id with seller 2's payable 1. A stored receipt
+  // only counts when its key matches this view's seller EXACTLY — there
+  // is no legacy fallback: a seller-less (pre-patch) stored row is never
+  // served to either seller (fix-back §4.2; the planted-legacy regression
+  // test in test/live.test.mjs proves it).
+  const stored = receipts[receiptKey(view.seller, payableId)];
   if (stored?.txs?.length) {
     return {
       txs: stored.txs.map((t) => [t.label, t.tx_hash]),
       source: stored.payment_tx_source,
     };
+  }
+  if (view.seller === SELLER2) {
+    const rec2 = recordedPaymentTxForSeller(view.seller, payableId);
+    if (rec2) {
+      // Mirror the seller-1 EUDemo branch below: the transfer leg is
+      // labelled 'Transfer' (not 'Payment') and the reserve/confirm legs
+      // ride along — the EUDemo verifier needs all three, and a 'Payment'
+      // label here used to make the verifier never run (fix-back §4.1).
+      if (view.asset === 'EUDemo' && rec2.transferTx) {
+        const txs = [];
+        if (rec2.reserveTx) txs.push(['Reservation', rec2.reserveTx]);
+        txs.push(['Transfer', rec2.transferTx]);
+        if (rec2.confirmTx) txs.push(['Confirm', rec2.confirmTx]);
+        return { txs, source: 'chain' };
+      }
+      if (rec2.payTx) return { txs: [['Payment', rec2.payTx]], source: 'server_store' };
+    }
   }
   const rec = recordedPaymentTx(payableId);
   // PLT fallback: confirm_plt records the transfer hash on chain, so a
@@ -227,13 +257,13 @@ export async function paymentTxsFor(payableId, view) {
 
 /** Build (and store) the receipt for a paid payable. Returns null when
  *  the payable is not Paid, or when the payment tx hash is unknown. */
-export async function buildReceiptFor(payableId) {
+export async function buildReceiptFor(payableId, seller = SELLER) {
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, payableId);
+  const view = await getPayableOrNull(c, seller, payableId);
   if (!view || view.status !== 'Paid') return null;
   const { txs, source } = await paymentTxsFor(payableId, view);
   if (txs.length === 0) return null;
-  const docBytes = await docForPayable(payableId);
+  const docBytes = await docForPayableForSeller(seller, payableId);
   const balance = await getRegistryBalance(c);
 
   let verifier = null;
@@ -247,7 +277,11 @@ export async function buildReceiptFor(payableId) {
       });
       verifier = { passed: result.passed, total: result.total, checked_at: new Date().toISOString() };
     } else {
-      const transferHash = txs.find(([l]) => l === 'Transfer')?.[1];
+      // Defense in depth (fix-back §4.1): the transfer leg is labelled
+      // 'Transfer', but accept a 'Payment'-labelled leg as the transfer
+      // hash when no 'Transfer' leg exists — a mislabelled evidence
+      // entry must not silently skip the verifier again.
+      const transferHash = txs.find(([l]) => l === 'Transfer')?.[1] ?? txs.find(([l]) => l === 'Payment')?.[1];
       const confirmHash = txs.find(([l]) => l === 'Confirm')?.[1];
       const reserveHash = txs.find(([l]) => l === 'Reservation')?.[1];
       if (transferHash) {
@@ -311,6 +345,7 @@ export async function buildReceiptFor(payableId) {
     : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`;
   const receipt = {
     payable_id: payableId,
+    seller: view.seller,
     amount_display: amountDisplay,
     payee: view.payee,
     payer_label: 'Demo payer account (lab)',
@@ -333,9 +368,14 @@ export async function buildReceiptFor(payableId) {
   // so it cannot create a second, different anchor. A receipt that
   // predates Art. 12 anchoring with no record hash at all still gets its
   // anchor only on first build (below); a GET never mints a new record.
-  const stored = (await loadReceipts())[payableId];
+  // The stored Art. 12 core is looked up by the composite (seller, id)
+  // key and only reused when the stored receipt belongs to THIS seller
+  // (fix-back §4.2/§4.3): the old bare-id lookup let one seller's receipt
+  // inherit the other's Art. 12 core (agent token, badge, anchor). The
+  // consent lookup is keyed the same way.
+  const stored = (await loadReceipts())[receiptKey(view.seller, payableId)];
   const consents = await loadConsents();
-  const consent = consents[payableId] ?? null;
+  const consent = consents[consentKey(view.seller, payableId)] ?? null;
   const { receiptBuild } = await backend();
   const ART12_CORE_KEYS = ['agent', 'model', 'task', 'task_giver', 'authoriser', 'decisions', 'payment', 'errors', 'human_overrides', 'consent', 'retention', 'registry', 'network'];
   if (stored?.art12?.record_hash && stored.art12.nonce) {

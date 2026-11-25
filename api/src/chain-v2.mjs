@@ -23,10 +23,12 @@ import {
   REGISTRY,
   CIS8004_OFFICIAL,
   OWNER_ADDRESS,
+  SELLER2_ADDRESS,
   PAYER_ADDRESS,
 } from './config.mjs';
 
 export const SELLER = OWNER_ADDRESS;
+export const SELLER2 = SELLER2_ADDRESS;
 export const PAYER = PAYER_ADDRESS;
 
 let client = null;

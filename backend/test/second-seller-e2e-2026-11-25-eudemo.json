@@ -1,0 +1,261 @@
+{
+  "runAt": "2026-11-25T17:22:19.194Z",
+  "network": "testnet",
+  "contract": "<13150,0>",
+  "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+  "sellerAgentToken": 1506,
+  "payableId": 2,
+  "asset": "EUDemo",
+  "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+  "preChecks": {
+    "agentToken": {
+      "token": 1506,
+      "owner": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "status": "Active"
+    },
+    "buyerEudemoBase": "195820000"
+  },
+  "approve": {
+    "tx": "fd4a14862dd1f6047e44d864c9b39d46b99374a7148c9c13714a3d0498c3f9f9",
+    "summary": {
+      "status": "finalized",
+      "blockHash": "46b50d1ebdbfa61c8ca1008aa66e7ce114ce11639edd701e561b749b9284fe42",
+      "outcome": "update",
+      "rejectReason": null,
+      "costMicroCcd": "10627024",
+      "costCcd": "10.627024",
+      "energy": "1279"
+    },
+    "event": {
+      "event": "VendorApproved",
+      "schemaVersion": 2,
+      "buyer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "tier": 2,
+      "legalRef": null,
+      "perPayableCap": "100000000",
+      "periodCap": "1000000000",
+      "periodSecs": "86400"
+    },
+    "vendor": {
+      "tier": 2,
+      "legalRef": null,
+      "perPayableCap": "100000000",
+      "periodCap": "1000000000",
+      "periodSecs": "86400"
+    }
+  },
+  "invoice": {
+    "file": "invoices/invoice-seller2-002-eudemo.txt",
+    "docHash": "2cba8e33b9e56e8f180e424176885f558e19aa78232c2c3a4bd9ab921d5d5858",
+    "dueMs": 1795713748636,
+    "due": "2026-11-26T17:22:28.636Z"
+  },
+  "balancesBefore": {
+    "seller2EudemoBase": "100000000",
+    "buyerEudemoBase": "195820000"
+  },
+  "registerTx": "0ee3ce4799a7bd9f9cf965757e806a3776d620545c58313678ee5f5ba49d702d",
+  "registerSummary": {
+    "status": "finalized",
+    "blockHash": "3f0584810e8564a71dcde6183c007c7a11a5ecbaf57bb106b55c1bf1a78e07a3",
+    "outcome": "update",
+    "rejectReason": null,
+    "costMicroCcd": "18055138",
+    "costCcd": "18.055138",
+    "energy": "2173"
+  },
+  "registerEvent": {
+    "event": "Registered",
+    "schemaVersion": 2,
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "payableId": 2,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "10000000",
+    "asset": "EUDemo",
+    "dueMs": "1795713748636",
+    "docHash": "2cba8e33b9e56e8f180e424176885f558e19aa78232c2c3a4bd9ab921d5d5858",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null
+  },
+  "registeredView": {
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "id": 2,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "10000000",
+    "asset": "EUDemo",
+    "dueMs": "1795713748636",
+    "due": "2026-11-26T17:22:28.636Z",
+    "docHash": "2cba8e33b9e56e8f180e424176885f558e19aa78232c2c3a4bd9ab921d5d5858",
+    "agentToken": "1506",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null,
+    "status": "Unpaid",
+    "record": null
+  },
+  "reserveTx": "0d73a0d87fc36d3c02c937ae32e4e3339dcbe8e1f3bb32d2a7b1a0358f35be14",
+  "reserveSummary": {
+    "status": "finalized",
+    "blockHash": "c90f099691fe30c459768d28a82b641fe285410fa36af8685ec51b5f4d4ae5de",
+    "outcome": "update",
+    "rejectReason": null,
+    "costMicroCcd": "19617203",
+    "costCcd": "19.617203",
+    "energy": "2361"
+  },
+  "reserveEvent": {
+    "event": "Reserved",
+    "schemaVersion": 2,
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "payableId": 2,
+    "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "expiresMs": "1795630962075",
+    "expires": "2026-11-25T18:22:42.075Z"
+  },
+  "transferTx": "5f5edd7bc9d8a7b0f31143e569456a17dabaadbe7c6b514a5dc50a778ad5cb72",
+  "transferSummary": {
+    "status": "finalized",
+    "blockHash": "3f769a31c2109358aa1e8780c7402f7ba9490066f9b1645bbd2a649adbb5fc46",
+    "outcome": "tokenUpdate",
+    "rejectReason": null,
+    "costMicroCcd": "6048846",
+    "costCcd": "6.048846",
+    "energy": "728"
+  },
+  "confirmTx": "ddb3287eb667e4cd67b8988cd20ce354167f49f3fe9a9f3925d28d9cb1f85c03",
+  "confirmSummary": {
+    "status": "finalized",
+    "blockHash": "2bc0e0558c6643e48c6a53f42610d5061b6fb7bb6326f1360b975710e01f3637",
+    "outcome": "update",
+    "rejectReason": null,
+    "costMicroCcd": "15329834",
+    "costCcd": "15.329834",
+    "energy": "1845"
+  },
+  "confirmEvent": {
+    "event": "PltConfirmed",
+    "schemaVersion": 2,
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "payableId": 2,
+    "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "txHash": "5f5edd7bc9d8a7b0f31143e569456a17dabaadbe7c6b514a5dc50a778ad5cb72",
+    "reservationExpiresMs": "1795630962075",
+    "reservationExpires": "2026-11-25T18:22:42.075Z"
+  },
+  "paidView": {
+    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "id": 2,
+    "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "amount": "10000000",
+    "asset": "EUDemo",
+    "dueMs": "1795713748636",
+    "due": "2026-11-26T17:22:28.636Z",
+    "docHash": "2cba8e33b9e56e8f180e424176885f558e19aa78232c2c3a4bd9ab921d5d5858",
+    "agentToken": "1506",
+    "expectedPayer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "legalRef": null,
+    "status": "Paid",
+    "record": {
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "reservationExpiresMs": "1795630962075",
+      "reservationExpires": "2026-11-25T18:22:42.075Z",
+      "paidAtMs": "1795627376075",
+      "paidAt": "2026-11-25T17:22:56.075Z",
+      "txHash": "5f5edd7bc9d8a7b0f31143e569456a17dabaadbe7c6b514a5dc50a778ad5cb72"
+    }
+  },
+  "seller2EudemoDeltaBase": "10000000",
+  "contractBalanceAfter": "0",
+  "receipt": {
+    "checks": [
+      {
+        "id": "registered",
+        "label": "Payable is registered on the test registry",
+        "status": "ok",
+        "detail": "seller=3ARQvcVD…, id=2",
+        "layer": "chain"
+      },
+      {
+        "id": "doc",
+        "label": "Invoice document matches the on-chain hash",
+        "status": "ok",
+        "detail": "sha256(doc)=2cba8e33b9e56e8f…, stored=2cba8e33b9e56e8f…",
+        "layer": "chain"
+      },
+      {
+        "id": "agent",
+        "label": "Seller agent is Active on the official CIS-8004 registry",
+        "status": "ok",
+        "detail": "token 1506 on <12802,0>: owner=3ARQvcVD… (matches seller), status=Active",
+        "layer": "chain"
+      },
+      {
+        "id": "registry_zero",
+        "label": "Registry holds no CCD after the payment",
+        "status": "ok",
+        "detail": "balance=0 microCCD",
+        "layer": "chain"
+      },
+      {
+        "id": "status_paid",
+        "label": "Registry status is Paid",
+        "status": "ok",
+        "detail": "Paid by 4MvdMEGC… at 2026-11-25T17:22:56.075Z",
+        "layer": "chain"
+      },
+      {
+        "id": "tx_finalized",
+        "label": "Transfer transaction is finalized",
+        "status": "ok",
+        "detail": "status=finalized",
+        "layer": "chain"
+      },
+      {
+        "id": "one_token_transfer",
+        "label": "Exactly one token transfer",
+        "status": "ok",
+        "detail": "TokenTransfer events=1",
+        "layer": "chain"
+      },
+      {
+        "id": "token_eudemo",
+        "label": "Token is EUDemo",
+        "status": "ok",
+        "detail": "tokenId=EUDemo",
+        "layer": "chain"
+      },
+      {
+        "id": "from_payer",
+        "label": "Transfer sender is the reserving payer",
+        "status": "ok",
+        "detail": "from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "layer": "chain"
+      },
+      {
+        "id": "to_payee",
+        "label": "Transfer recipient is the stored payee",
+        "status": "ok",
+        "detail": "to=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr, payee=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+        "layer": "chain"
+      },
+      {
+        "id": "amount",
+        "label": "Transfer amount is the stored amount",
+        "status": "ok",
+        "detail": "amount=10000000, stored=10000000",
+        "layer": "chain"
+      },
+      {
+        "id": "memo",
+        "label": "Transfer memo is the canonical payable memo",
+        "status": "ok",
+        "detail": "memo=\"payable:3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr:2\", expected=\"payable:3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr:2\", canonical=true",
+        "layer": "chain"
+      }
+    ],
+    "passed": 12,
+    "failed": 0,
+    "total": 12,
+    "allPass": true
+  }
+}

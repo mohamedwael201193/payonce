@@ -25,11 +25,11 @@ const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOSt
 
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice 2' },
-    { payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
-    { payable_id: 4, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-3), status: 'paid', label: 'Lab invoice 4' },
-    { payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(3), status: 'unpaid', label: 'Lab invoice 5' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice 2' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 4, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-3), status: 'paid', label: 'Lab invoice 4' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(3), status: 'unpaid', label: 'Lab invoice 5' },
   ],
 }
 const STATS = { payables_total: 5, paid_total: 3, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
@@ -44,6 +44,24 @@ const CONFIG = {
   sponsor_label: 'Lab seller account',
   explorer: { tx: 'https://ccdexplorer.io/testnet/transaction/', instance: 'https://ccdexplorer.io/testnet/instance/' },
   vendor_list: [{ seller: 'SELLER-PLACEHOLDER', label: 'Lab seller' }],
+  sellers: [
+    {
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+      label: 'Seller 1 — PayOnce Seller',
+      agent_token: 1476,
+      badge: 'JyP9XawpXHMjTN5ocrA5a',
+      badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a',
+      agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card.json',
+    },
+    {
+      seller: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr',
+      label: 'Seller 2 — PayOnce Seller 2',
+      agent_token: 1506,
+      badge: 'JyP9Y9nGU4KaM7DBDXRgm',
+      badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y9nGU4KaM7DBDXRgm',
+      agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card-seller2.json',
+    },
+  ],
   build: { vendor_list_enforced_by_co_signer: false, named_payer_on_invoice: false, confirm_by: 'payer_or_seller', header_expiry_bound: false, co_signer_runs_as: 'in_process_lab' },
   limits: { new_invoices_per_hour: 3, attempts_per_minute_per_ip: 10 },
   verifier: { file: 'verify-payable.mjs', version_date: '2026-11-24' },
@@ -114,7 +132,10 @@ describe('DashboardPage', () => {
     // 2 days, 5 due in 3 days — relative dues, see the fixture above).
     const dues = screen.getByText('Next dues').closest('section') as HTMLElement
     const dueLinks = within(dues).getAllByRole('link').map((a) => a.getAttribute('href'))
-    expect(dueLinks).toEqual(['/receipt/3', '/receipt/5'])
+    expect(dueLinks).toEqual([
+      '/receipt/3?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+      '/receipt/5?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+    ])
   })
 
   it('never renders a zero count while the live numbers load', async () => {
@@ -134,8 +155,34 @@ describe('DashboardPage', () => {
     expect(screen.getAllByText('Paid').length).toBeGreaterThanOrEqual(3)
     expect(screen.getAllByText('Unpaid').length).toBeGreaterThanOrEqual(2)
     const row = within(table).getByText('Payable 1').closest('tr') as HTMLElement
-    expect(within(row).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1')
+    expect(within(row).getByText('View').closest('a')?.getAttribute('href')).toBe(
+      '/receipt/1?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+    )
     expect(screen.getByText('Showing 5 of 5 invoices · Live from the test registry')).toBeInTheDocument()
+  })
+
+  it('shows the Sellers section with both sellers and a Seller column (fix-back §4.5)', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Sellers')).toBeInTheDocument())
+    // Both sellers from /api/config, with their agent tokens and live
+    // badge-check links (neutral label — the UI never asserts validity).
+    expect(screen.getByText('Seller 1 — PayOnce Seller')).toBeInTheDocument()
+    expect(screen.getByText('Seller 2 — PayOnce Seller 2')).toBeInTheDocument()
+    expect(screen.getByText(/Agent token 1476/)).toBeInTheDocument()
+    expect(screen.getByText(/Agent token 1506/)).toBeInTheDocument()
+    expect(screen.getAllByText('Badge check — live').length).toBe(2)
+    // Seller column: the seller-1 fixture rows resolve to the "Seller 1"
+    // short label from the config sellers list.
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByText('Seller 1').length).toBeGreaterThanOrEqual(5)
+    // Every receipt link in the table carries its row's seller.
+    const receiptLinks = within(table)
+      .getAllByText('View')
+      .map((el) => el.closest('a')?.getAttribute('href'))
+    expect(receiptLinks).toHaveLength(5)
+    for (const href of receiptLinks) {
+      expect(href).toMatch(/^\/receipt\/\d+\?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB$/)
+    }
   })
 
   it('search filters the table by id', async () => {

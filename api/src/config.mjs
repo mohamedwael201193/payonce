@@ -38,10 +38,22 @@ export const RESERVATION_SECS = Number(env.PAYONCE_RESERVATION_SECS ?? 3600);
 export const CO_SIGNER_MARGIN_SECS = 60;
 export const OWNER_TOKEN = Number(env.PAYONCE_OWNER_TOKEN ?? 1476);
 
-// Roles on v2 (proven live by the v2 E2E run 2026-11-24):
-//   seller = owner (holds the Active agent token 1476 on <12802,0>)
-//   payer  = seller B (the demo payer; approves the seller, pays both rails)
-//   payee  = per-invoice (payee1 for CCD, payee2 for EUDemo in the demo)
+// Second seller (live 2026-11-25): identity 0 counter 0 of the same seed,
+// agent token 1506 on the official registry <12802,0>, badge
+// JyP9Y9nGU4KaM7DBDXRgm (badge_valid:true, 15/15). First payable id 1
+// (0.5 CCD) paid by the demo payer; receipt verifier 10/10.
+export const SELLER2_ADDRESS = env.PAYONCE_SELLER2 ?? '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr';
+export const SELLER2_TOKEN = Number(env.PAYONCE_SELLER2_TOKEN ?? 1506);
+export const SELLER2_BADGE = env.PAYONCE_SELLER2_BADGE ?? 'JyP9Y9nGU4KaM7DBDXRgm';
+export const SELLER2_AGENT_CARD_URL =
+  env.PAYONCE_SELLER2_AGENT_CARD_URL ?? 'https://payonce-tau.vercel.app/.well-known/agent-card-seller2.json';
+
+// Roles on v2 (proven live by the v2 E2E run 2026-11-24; seller 2 added 2026-11-25):
+//   seller  = owner (holds the Active agent token 1476 on <12802,0>)
+//   seller2 = second seller (holds the Active agent token 1506 on <12802,0>)
+//   payer   = seller B (the demo payer; approves the seller, pays both rails)
+//   payee   = per-invoice (payee1 for CCD, payee2 for EUDemo in the demo;
+//             seller 2's own payables pay seller 2 itself)
 export const OWNER_ADDRESS = env.PAYONCE_OWNER ?? '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB';
 export const PAYER_ADDRESS = env.PAYONCE_PAYER ?? '4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs';
 export const PAYEE_CCD = env.PAYONCE_PAYEE_CCD ?? '4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin';

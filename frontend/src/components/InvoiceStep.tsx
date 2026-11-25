@@ -79,11 +79,16 @@ export function InvoiceStep({
   )
 
   const loadLab = useCallback(
-    async (id: number) => {
+    async (id: number, seller?: string) => {
       setBusy(true)
       setError(null)
       try {
-        const text = await api.getDocument(id)
+        // The lab picker lists both sellers' payables (ids collide
+        // across sellers), so the document fetch carries the picked
+        // invoice's seller (fix-back §4.3). The number/paste path has no
+        // seller and keeps the seller-1 default — the pay flow is
+        // seller-1-only.
+        const text = await api.getDocument(id, seller)
         await loadText(text)
         onNumber(id)
       } catch (e) {
@@ -154,8 +159,9 @@ export function InvoiceStep({
             className="mt-1 block w-full rounded-[4px] border border-line bg-card px-3 py-2.5 text-[16px] text-ink focus-visible:outline-2 focus-visible:outline-brand-600"
             defaultValue=""
             onChange={(e) => {
-              const id = Number.parseInt(e.target.value, 10)
-              if (Number.isFinite(id) && id > 0) void loadLab(id)
+              const [pickedSeller, pickedId] = e.target.value.split(':')
+              const id = Number.parseInt(pickedId, 10)
+              if (Number.isFinite(id) && id > 0) void loadLab(id, pickedSeller)
             }}
             disabled={busy || invoices.isLoading}
           >
@@ -163,7 +169,7 @@ export function InvoiceStep({
               {invoices.isLoading ? 'Loading lab invoices…' : 'Choose a lab invoice…'}
             </option>
             {items.map((it) => (
-              <option key={it.payable_id} value={it.payable_id}>
+              <option key={`${it.seller}:${it.payable_id}`} value={`${it.seller}:${it.payable_id}`}>
                 Payable {it.payable_id} · {it.amount_display} · {it.status}
               </option>
             ))}

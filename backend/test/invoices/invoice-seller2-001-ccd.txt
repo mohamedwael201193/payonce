@@ -1,0 +1,7 @@
+PAYONCE TEST INVOICE — seller 2 payable 1 (v2 CCD rail)
+Seller: 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr (PayOnce Seller 2, agent token 1506)
+Payee: 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr
+Amount: 0.5 CCD (500000 microCCD)
+Due: 2026-11-26T17:11:03.665Z
+Buyer: 4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs
+Test only — Concordium testnet, no real goods or services.

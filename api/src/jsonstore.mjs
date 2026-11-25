@@ -9,7 +9,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA_DIR, FRESH_ID_START } from './config.mjs';
+import { DATA_DIR, FRESH_ID_START, OWNER_ADDRESS } from './config.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
 const LEDGER_PATH = join(DATA_DIR, 'cosigner-ledger.jsonl');
@@ -46,13 +46,32 @@ export async function saveJobs(jobs) {
   saveJson('jobs.json', jobs);
 }
 
+// ---- composite keys (second-seller fix-back 2026-11-25, §4.2/§4.3) ----
+// Receipts and consents are keyed by (seller, payable id): payable ids
+// collide across sellers (seller 1's matrix payable 1 vs seller 2's
+// payable 1 are different payables; the registry keys by (seller, id)).
+// A stored row only ever matches the seller it was built for — there is
+// no bare-id fallback anywhere. Legacy seller-less rows are never served:
+// saveReceipt/saveConsent hand-attribute a row with no seller to seller 1
+// (OWNER_ADDRESS) — every receipt/consent this server ever wrote before
+// the second-seller patch was seller 1's by construction (the server was
+// seller-1-only), and the colliding ids 1/2 were Unpaid for seller 1, so
+// no legacy row for a colliding id exists. A row planted or loaded under
+// a bare key is simply never found by a composite lookup.
+export function receiptKey(seller, payableId) {
+  return `${seller ?? OWNER_ADDRESS}:${payableId}`;
+}
+export function consentKey(seller, payableId) {
+  return `${seller ?? OWNER_ADDRESS}:${payableId}`;
+}
+
 // ---- receipts ----
 export async function loadReceipts() {
   return loadJson('receipts.json', {});
 }
 export async function saveReceipt(receipt) {
   const receipts = loadJson('receipts.json', {});
-  receipts[receipt.payable_id] = receipt;
+  receipts[receiptKey(receipt.seller, receipt.payable_id)] = receipt;
   saveJson('receipts.json', receipts);
 }
 export async function saveReceipts(receipts) {
@@ -78,17 +97,21 @@ export async function saveCounters(c) {
   saveJson('counters.json', c);
 }
 
-// ---- consents (one record per payable, keyed by payableId) ----
+// ---- consents (one record per (seller, payable), keyed by seller:payableId) ----
 // Main-defect fix (2026-11-25): b55ae35's consent.mjs / receipts.mjs /
 // server.mjs import these, but no backend ever implemented them.
 // Same map-file shape as receipts: loadConsents() returns {} when no
-// consent has ever been recorded; saveConsent upserts by payableId.
+// consent has ever been recorded; saveConsent upserts by (seller,
+// payableId). Second-seller fix-back (§4.3): the key is composite —
+// the main-defect fix's bare-payableId keying is superseded here, so a
+// consent for seller-1 payable 2 can never be reported (or consumed on
+// pay) as seller-2 payable 2's consent.
 export async function loadConsents() {
   return loadJson('consents.json', {});
 }
 export async function saveConsent(record) {
   const consents = loadJson('consents.json', {});
-  consents[record.payableId] = record;
+  consents[consentKey(record.seller, record.payableId)] = record;
   saveJson('consents.json', consents);
 }
 

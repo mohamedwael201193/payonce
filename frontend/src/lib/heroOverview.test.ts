@@ -8,7 +8,7 @@ const NOW = new Date('2026-11-24T17:30:00.000Z').getTime()
 const STATS = { payables_total: 14, paid_total: 8, refused_on_chain_since_deploy: 18, last_verifier_run_at: '2026-11-24T17:08:24.616Z' }
 
 function item(payable_id: number, asset: 'ccd' | 'eudemo', amount_display: string, due: string, status: 'paid' | 'unpaid'): InvoiceItem {
-  return { payable_id, asset, amount_display, due, status, label: 'Lab invoice (testnet, not a real invoice)' }
+  return { payable_id, seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', asset, amount_display, due, status, label: 'Lab invoice (testnet, not a real invoice)' }
 }
 
 const ITEMS: InvoiceItem[] = [

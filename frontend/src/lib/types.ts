@@ -49,6 +49,14 @@ export interface ApiConfig {
   sponsor_label: string
   explorer: { tx: string; instance: string }
   vendor_list: Array<{ seller: string; label: string }>
+  sellers?: Array<{
+    seller: string
+    label: string
+    agent_token: number
+    badge: string
+    badge_url: string
+    agent_card_url: string
+  }>
   build: {
     vendor_list_enforced_by_co_signer: boolean
     named_payer_on_invoice: boolean
@@ -84,6 +92,7 @@ export interface Stats {
 
 export interface InvoiceItem {
   payable_id: number
+  seller: string
   asset: 'ccd' | 'eudemo'
   amount_display: string
   due: string
@@ -168,6 +177,7 @@ export interface JobSnapshot {
 
 export interface Receipt {
   payable_id: number
+  seller?: string
   amount_display: string
   payee: string
   payer_label: string
@@ -193,6 +203,7 @@ export interface AttackResult {
 
 export interface RecordedRun {
   payable_id: number
+  seller?: string
   date: string
   steps: Array<{ step: string; detail: string; txHash?: string | null; layer?: Layer }>
 }

@@ -181,7 +181,7 @@ export function InvoiceShowcase() {
                 <p className="mt-3 text-sm text-muted">Due {formatUtcDateTime(inv.due)}</p>
                 <p className="mt-1 text-sm text-muted">Rail {inv.asset === 'ccd' ? 'A · CCD' : 'B · EUDemo'}</p>
                 <div className="mt-auto pt-8">
-                  <Link to={`/receipt/${inv.payable_id}`} className="btn-glass w-full !min-h-[44px] !px-5 !py-2 !text-[14px]">
+                  <Link to={`/receipt/${inv.payable_id}?seller=${inv.seller}`} className="btn-glass w-full !min-h-[44px] !px-5 !py-2 !text-[14px]">
                     View receipt →
                   </Link>
                 </div>
@@ -328,7 +328,7 @@ function StepVisual03({ tall = false }: { tall?: boolean }) {
               </p>
             ) : null}
             {ccd ? (
-              <Link to={`/receipt/${ccd.payable_id}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
+              <Link to={`/receipt/${ccd.payable_id}?seller=${ccd.seller}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
                 Payable {ccd.payable_id} · {ccd.amount_display}&nbsp;→
               </Link>
             ) : null}
@@ -346,7 +346,7 @@ function StepVisual03({ tall = false }: { tall?: boolean }) {
               </p>
             ) : null}
             {eudemo ? (
-              <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
+              <Link to={`/receipt/${eudemo.payable_id}?seller=${eudemo.seller}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
                 Payable {eudemo.payable_id} · {eudemo.amount_display}&nbsp;→
               </Link>
             ) : null}
@@ -490,7 +490,7 @@ function ReceiptChecker() {
           <RotateCcw className="h-4 w-4" aria-hidden="true" /> Replay
         </button>
         {target ? (
-          <Link to={`/receipt/${target.payable_id}`} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+          <Link to={`/receipt/${target.payable_id}?seller=${target.seller}`} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700">
             Open the full receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         ) : null}

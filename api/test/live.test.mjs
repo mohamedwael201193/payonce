@@ -8,7 +8,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { server } from '../src/server.mjs';
+import { DATA_DIR } from '../src/config.mjs';
+
+const SELLER1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB';
+const SELLER2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr';
 
 const PORT = 17401;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -45,8 +51,18 @@ test('GET /api/config reports the live v2 registry', async () => {
   assert.equal(json.cis8004_test_instance.official_module_ref, '0e57473715d1c2a364fa626b8783688db32b7fac9d0e2fc97043da91e1a7d3eb');
   assert.equal(json.reservation_secs, 3600);
   assert.equal(json.co_signer_margin_secs, 60);
-  assert.equal(json.vendor_list.length, 1);
+  // Both sellers are listed only when their on-chain vendor rows exist
+  // (fix-back §4.7 — the list is enforced in code, not hardcoded).
+  assert.equal(json.vendor_list.length, 2);
   assert.equal(json.vendor_list[0].seller, '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB');
+  assert.equal(json.vendor_list[1].seller, '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr');
+  assert.equal(json.sellers.length, 2);
+  assert.equal(json.sellers[0].seller, '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB');
+  assert.equal(json.sellers[0].agent_token, 1476);
+  assert.equal(json.sellers[0].badge, 'JyP9XawpXHMjTN5ocrA5a');
+  assert.equal(json.sellers[1].seller, '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr');
+  assert.equal(json.sellers[1].agent_token, 1506);
+  assert.equal(json.sellers[1].badge, 'JyP9Y9nGU4KaM7DBDXRgm');
   assert.equal(json.build.vendor_list_enforced_by_co_signer, true);
   assert.equal(json.build.confirm_by, 'payer (the reserving payer)');
   assert.equal(json.verifier.file, 'verify-payable-v2.mjs');
@@ -80,9 +96,18 @@ test('GET /api/invoices lists unpaid + paid lab payables', async () => {
   assert.ok(ids.includes(1) && ids.includes(2) && ids.includes(3));
   assert.ok(ids.includes(10) && ids.includes(11));
   assert.ok(!ids.includes(4)); // Voided is not listed
-  const p1 = json.items.find((i) => i.payable_id === 1);
+  const p1 = json.items.find((i) => i.payable_id === 1 && i.seller === SELLER1);
   assert.equal(p1.asset, 'ccd');
   assert.equal(p1.amount_display, '10.000000 CCD');
+  // Seller 2's payable 1 (same id, different seller) is listed too, and
+  // is distinguishable by its seller — the bare-id find above must not
+  // pick it up (fix-back §4.5: ids collide across sellers).
+  const p1s2 = json.items.find((i) => i.payable_id === 1 && i.seller === SELLER2);
+  assert.equal(p1s2.asset, 'ccd');
+  assert.equal(p1s2.amount_display, '0.500000 CCD');
+  const p2s2 = json.items.find((i) => i.payable_id === 2 && i.seller === SELLER2);
+  assert.equal(p2s2.asset, 'eudemo');
+  assert.equal(p2s2.amount_display, '10.00 EUDemo');
   const p3 = json.items.find((i) => i.payable_id === 3);
   assert.equal(p3.asset, 'eudemo');
   assert.equal(p3.amount_display, '1.00 EUDemo');
@@ -301,4 +326,159 @@ test('GET /api/jobs/:id 404s for an unknown job', async () => {
   const { status, json } = await get('/api/jobs/job_nope');
   assert.equal(status, 404);
   assert.equal(json.error.code, 'not_found');
+});
+
+// ---- second-seller wiring (fix-back §4.1–§4.6; live, testnet) ----
+// NOTE: the receipt GETs below trigger the server's normal Art. 12
+// anchoring (one registerData tx each, owner-signed, no funds moved) —
+// the same side effect the adversarial wiring judge disclosed for its
+// three anchor txs. No pay/create/attack-send calls are made here.
+
+test('seller-2 read endpoints resolve (seller, id) on chain', async () => {
+  const p1 = await get(`/api/payables/1?seller=${SELLER2}`);
+  assert.equal(p1.status, 200);
+  assert.equal(p1.json.seller, SELLER2);
+  assert.equal(p1.json.amount_display, '0.500000 CCD');
+  assert.equal(p1.json.status.kind, 'paid');
+  // agent.token is a string in the payable-facts shape (the frontend's
+  // payableSchema declares token: z.string()); the chain view returns
+  // the seller-2 token id as '1506'.
+  assert.equal(p1.json.agent.token, '1506');
+  const p2 = await get(`/api/payables/2?seller=${SELLER2}`);
+  assert.equal(p2.status, 200);
+  assert.equal(p2.json.seller, SELLER2);
+  assert.equal(p2.json.amount_display, '10.00 EUDemo');
+  assert.equal(p2.json.status.kind, 'paid');
+  assert.equal(p2.json.agent.token, '1506');
+  // And the same ids without a seller are still seller 1's (Unpaid).
+  const s1 = await get('/api/payables/1');
+  assert.equal(s1.json.seller, SELLER1);
+  assert.equal(s1.json.status.kind, 'unpaid');
+  // Seller-2 documents serve seller 2's invoice text (token 1506).
+  const doc = await get(`/api/payables/2/document?seller=${SELLER2}`);
+  assert.equal(doc.status, 200);
+  assert.match(doc.text, /10\.00 EUDemo/);
+});
+
+test('seller-2 receipts re-verify live: payable 1 is 10/10, payable 2 has a real verifier', async () => {
+  const r1 = await get(`/api/receipts/1?seller=${SELLER2}`);
+  assert.equal(r1.status, 200);
+  assert.equal(r1.json.seller, SELLER2);
+  assert.equal(r1.json.txs[0].tx_hash, '51dbf9547fedc5e515d1205404b772c1e96d61c7f1ef4c72d635bf2cf3e8b96f');
+  assert.notEqual(r1.json.verifier, null);
+  assert.equal(r1.json.verifier.passed, 10);
+  assert.equal(r1.json.verifier.total, 10);
+  assert.equal(r1.json.art12.agent.registry_token, 1506);
+  const r2 = await get(`/api/receipts/2?seller=${SELLER2}`);
+  assert.equal(r2.status, 200);
+  assert.equal(r2.json.seller, SELLER2);
+  // The transfer leg is labelled 'Transfer' (not 'Payment') and the
+  // verifier actually ran: passed === total (the served total is 14 —
+  // the standalone 12 plus receipt extras — see fix-back §4.1).
+  assert.equal(r2.json.txs.find((t) => t.label === 'Transfer')?.tx_hash, '5f5edd7bc9d8a7b0f31143e569456a17dabaadbe7c6b514a5dc50a778ad5cb72');
+  assert.ok(r2.json.txs.some((t) => t.label === 'Reservation'));
+  assert.ok(r2.json.txs.some((t) => t.label === 'Confirm'));
+  assert.notEqual(r2.json.verifier, null);
+  assert.equal(r2.json.verifier.passed, r2.json.verifier.total);
+  assert.equal(r2.json.art12.agent.registry_token, 1506);
+  // Seller 1's payables 1/2 are Unpaid — no receipt, 404.
+  const unpaid = await get('/api/receipts/1');
+  assert.equal(unpaid.status, 404);
+});
+
+test('seller-2 after_pay verify runs the verifier (not blocked/no_payment_tx)', async () => {
+  const v = await post(`/api/payables/2/verify?seller=${SELLER2}`, { mode: 'after_pay' });
+  assert.equal(v.status, 200);
+  assert.equal(v.json.verdict, 'paid');
+  assert.equal(v.json.passed, v.json.total);
+});
+
+test('unknown ?seller= fails closed with 400 on read endpoints', async () => {
+  for (const path of ['/api/payables/1?seller=garbage', '/api/payables/1/document?seller=garbage', `/api/receipts/1?seller=${SELLER1.slice(0, 20)}`, '/api/recorded/1?seller=garbage']) {
+    const r = await get(path);
+    assert.equal(r.status, 400, path);
+    assert.equal(r.json.error.code, 'invalid');
+  }
+});
+
+test('write endpoints 400 on ?seller= naming seller 2 (never silently seller 1)', async () => {
+  const pay = await post(`/api/payables/1/pay?seller=${SELLER2}`, { rail: 'ccd', doc_sha256: '6b6a232426a6bbd1f8b5467c17e379e92e53248a383aa707b4a78387b630900f' });
+  assert.equal(pay.status, 400);
+  assert.equal(pay.json.error.code, 'invalid');
+  const atk = await post(`/api/attacks/pay_twice?seller=${SELLER2}`, { payable_id: 1, mode: 'precheck_only' });
+  assert.equal(atk.status, 400);
+  assert.equal(atk.json.error.code, 'invalid');
+  const dry = await post(`/api/cosigner/dry-run?seller=${SELLER2}`, { payable_id: 1, to: SELLER2, amount: '10000', memo: `payable:${SELLER2}:1` });
+  assert.equal(dry.status, 400);
+  assert.equal(dry.json.error.code, 'invalid');
+  const consent = await post('/api/consent/request?seller=' + SELLER2, { payable_id: 1 });
+  assert.equal(consent.status, 400);
+  assert.equal(consent.json.error.code, 'invalid');
+  // A body `seller` naming seller 2 is refused the same way.
+  const payBody = await post('/api/payables/1/pay', { rail: 'ccd', seller: SELLER2 });
+  assert.equal(payBody.status, 400);
+  assert.equal(payBody.json.error.code, 'invalid');
+});
+
+test('recorded runs are seller-aware: seller 2 gets its own runs, never seller 1’s v1 run', async () => {
+  const r1 = await get(`/api/recorded/1?seller=${SELLER2}`);
+  assert.equal(r1.status, 200);
+  assert.equal(r1.json.seller, SELLER2);
+  assert.deepEqual(r1.json.steps.map((s) => s.step), ['register', 'pay', 'verify']);
+  assert.equal(r1.json.steps[1].txHash, '51dbf9547fedc5e515d1205404b772c1e96d61c7f1ef4c72d635bf2cf3e8b96f');
+  const r2 = await get(`/api/recorded/2?seller=${SELLER2}`);
+  assert.equal(r2.status, 200);
+  assert.equal(r2.json.seller, SELLER2);
+  assert.deepEqual(r2.json.steps.map((s) => s.step), ['register', 'reserve', 'transfer', 'confirm', 'verify']);
+  assert.equal(r2.json.steps[2].txHash, '5f5edd7bc9d8a7b0f31143e569456a17dabaadbe7c6b514a5dc50a778ad5cb72');
+  // No seller → seller 1's v1 run for id 1 (no seller field, 'run' step).
+  const s1 = await get('/api/recorded/1');
+  assert.equal(s1.status, 200);
+  assert.equal(s1.json.steps[0].step, 'run');
+  // Seller 2 has no recorded run for id 10 → 404, not seller 1's run.
+  const miss = await get(`/api/recorded/10?seller=${SELLER2}`);
+  assert.equal(miss.status, 404);
+});
+
+test('planted legacy seller-less receipt never poisons seller 2 (fix-back §4.2)', async () => {
+  const receiptsPath = join(DATA_DIR, 'receipts.json');
+  const countersPath = join(DATA_DIR, 'counters.json');
+  const beforeReceipts = readFileSync(receiptsPath, 'utf8');
+  let beforeCounters = null;
+  try { beforeCounters = readFileSync(countersPath, 'utf8'); } catch { /* counters file may not exist yet */ }
+  try {
+    // Plant exactly what the adversarial judge planted: a legacy
+    // seller-less receipt for id 1 naming seller 1's payable-10 pay tx
+    // and seller 1's Art. 12 record (token 1476).
+    const planted = JSON.parse(beforeReceipts);
+    // Drop any already-saved seller-2 receipt for id 1 first, so the
+    // GET must rebuild from the evidence index (not a cached row) — the
+    // planted legacy row is the only stored candidate for id 1.
+    delete planted[`${SELLER2}:1`];
+    planted['1'] = {
+      payable_id: 1,
+      amount_display: '0.500000 CCD',
+      payee: SELLER1,
+      payer_label: 'Demo payer account (lab)',
+      txs: [{ label: 'Payment', tx_hash: '7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197', explorer_url: 'https://ccdexplorer.io/testnet/transaction/7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197' }],
+      verifier: { passed: 7, total: 10, checked_at: '2026-11-25T00:00:00.000Z' },
+      payment_tx_source: 'server_store',
+      art12: { agent: { registry_token: 1476, badge: 'JyP9XawpXHMjTN5ocrA5a', owner: SELLER1 }, task: 'Verify & Pay payable 10 (0.500000 CCD)', anchor_status: 'verified' },
+    };
+    writeFileSync(receiptsPath, JSON.stringify(planted, null, 2), 'utf8');
+    const r = await get(`/api/receipts/1?seller=${SELLER2}`);
+    assert.equal(r.status, 200);
+    // Seller 2's OWN receipt — never the planted row.
+    assert.equal(r.json.txs[0].tx_hash, '51dbf9547fedc5e515d1205404b772c1e96d61c7f1ef4c72d635bf2cf3e8b96f');
+    assert.notEqual(r.json.verifier, null);
+    assert.equal(r.json.verifier.passed, 10);
+    assert.equal(r.json.verifier.total, 10);
+    assert.equal(r.json.art12.agent.registry_token, 1506);
+    assert.equal(r.json.art12.agent.badge, 'JyP9Y9nGU4KaM7DBDXRgm');
+  } finally {
+    // Restore the store files byte-for-byte (also drops the S2 receipt
+    // this GET saved under its composite key).
+    writeFileSync(receiptsPath, beforeReceipts, 'utf8');
+    if (beforeCounters !== null) writeFileSync(countersPath, beforeCounters, 'utf8');
+  }
 });

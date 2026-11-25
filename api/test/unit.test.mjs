@@ -7,7 +7,8 @@ import { backend } from '../src/backend.mjs';
 import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2, pltReservationRow, pltConfirmRow, pltReceiptExtraChecks } from '../src/verifier-v2.mjs';
 import { generateLabDocument, matrixDocBytes } from '../src/docs.mjs';
 import { CCD_STEPS, EUDEMO_STEPS, rejectInfo } from '../src/jobs.mjs';
-import { hitWindow, leftInWindow } from '../src/store.mjs';
+import { hitWindow, leftInWindow, loadReceipts, saveReceipt, loadConsents, saveConsent, receiptKey, consentKey } from '../src/store.mjs';
+import { join } from 'node:path';
 import { REGISTRY, CIS8004_OFFICIAL, OWNER_ADDRESS, PAYER_ADDRESS } from '../src/config.mjs';
 
 const sha256 = (b) => createHash('sha256').update(b).digest('hex');
@@ -718,4 +719,48 @@ test('FB5 MF-3 (API): confirm with NO blockTime FAILS paid_at (never throws); in
   // The receipt extra check fails the same way, without throwing.
   const extras = pltReceiptExtraChecks(view, 'ab'.repeat(32), { logged: [goodEvent] });
   assert.equal(extras.find((c) => c.id === 'paid_at_is_confirm_time').status, 'fail');
+});
+
+
+test('receipt + consent stores key by (seller, payable_id), never by bare id (fix-back §4.2/§4.3)', async () => {
+  // Runs in a child process with PAYONCE_DATA_DIR pointed at a scratch
+  // dir, so this test never touches the shared api/data files (the live
+  // suite runs concurrently in another process and snapshots them).
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { execFile } = await import('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'payonce-store-keys-'));
+  const script = `
+    import assert from 'node:assert/strict';
+    import { loadReceipts, saveReceipt, loadConsents, saveConsent, receiptKey, consentKey } from '../src/store.mjs';
+    const S1 = '${OWNER_ADDRESS}';
+    const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr';
+    assert.equal(receiptKey(S1, 1), S1 + ':1');
+    assert.notEqual(receiptKey(S1, 1), receiptKey(S2, 1));
+    assert.equal(consentKey(S2, 2), S2 + ':2');
+    await saveReceipt({ payable_id: 1, seller: S1, txs: [{ label: 'Payment', tx_hash: 'aa'.repeat(32) }] });
+    await saveReceipt({ payable_id: 1, seller: S2, txs: [{ label: 'Payment', tx_hash: 'bb'.repeat(32) }] });
+    const receipts = await loadReceipts();
+    assert.equal(receipts[receiptKey(S1, 1)].txs[0].tx_hash, 'aa'.repeat(32));
+    assert.equal(receipts[receiptKey(S2, 1)].txs[0].tx_hash, 'bb'.repeat(32));
+    assert.equal(receipts['1'], undefined);
+    await saveConsent({ payableId: 2, seller: S1, status: 'requested' });
+    await saveConsent({ payableId: 2, seller: S2, status: 'approved' });
+    const consents = await loadConsents();
+    assert.equal(consents[consentKey(S1, 2)].status, 'requested');
+    assert.equal(consents[consentKey(S2, 2)].status, 'approved');
+    assert.equal(consents['2'], undefined);
+    console.log('store-keys-ok');
+  `;
+  try {
+    const out = await new Promise((resolve, reject) => {
+      execFile(process.execPath, ['--input-type=module', '-e', script], {
+        cwd: new URL('.', import.meta.url).pathname,
+        env: { ...process.env, PAYONCE_DATA_DIR: dir },
+      }, (err, stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(stdout)));
+    });
+    assert.match(out, /store-keys-ok/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

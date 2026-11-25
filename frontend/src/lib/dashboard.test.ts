@@ -12,10 +12,10 @@ import {
 import type { InvoiceItem, Stats } from './types'
 
 const ITEMS: InvoiceItem[] = [
-  { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 1' },
-  { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice 2' },
-  { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: '2026-11-20T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 3' },
-  { payable_id: 4, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice 4' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 1' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice 2' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: '2026-11-20T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 3' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 4, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice 4' },
 ]
 
 describe('derivedStatus', () => {

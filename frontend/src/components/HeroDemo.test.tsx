@@ -35,19 +35,19 @@ import type { InvoiceItem, Stats } from '../lib/types'
 // assertions the morning it passed. LIB_INVOICES is used ONLY with the
 // pinned NOW; COMPONENT_INVOICES is used ONLY by the rendered tests.
 const LIB_INVOICES: InvoiceItem[] = [
-  { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: '2026-11-24T08:05:59.988Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:50:03.797Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T10:50:40.533Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:56:58.441Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T10:57:38.512Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:58:25.269Z', status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T13:11:46.300Z', status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T15:07:59.465Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: '2026-11-24T08:05:59.988Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:50:03.797Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T10:50:40.533Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:56:58.441Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: '2026-11-25T10:57:38.512Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:58:25.269Z', status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T13:11:46.300Z', status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T15:07:59.465Z', status: 'paid', label: 'Lab invoice' },
 ]
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -60,19 +60,19 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // can never expire: at any run date the pick is still 1004.
 const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
 const COMPONENT_INVOICES: InvoiceItem[] = [
-  { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: dueInDays(-1), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
-  { payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
-  { payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: dueInDays(-1), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
 ]
 const STATS: Stats = {
   payables_total: 14,

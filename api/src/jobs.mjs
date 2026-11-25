@@ -173,6 +173,10 @@ function buildReceipt(job, view, txs, verifier, paymentTxSource) {
     : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`;
   return {
     payable_id: job.payable_id,
+    // Jobs are seller-1-only (the pay flow holds no seller-2 signing
+    // key); the receipt is stored under the (seller 1, id) key
+    // (fix-back §4.2).
+    seller: view.seller,
     amount_display: amountDisplay,
     payee: view.payee,
     payer_label: 'Demo payer account (lab)',

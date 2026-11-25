@@ -190,7 +190,10 @@ export function TryPanel({
     setBusy('recorded')
     setError(null)
     try {
-      const run = await api.getRecorded(id)
+      // The recorded run is seller-aware (fix-back §4.3): the loaded
+      // payable's seller selects its run, never seller 1's run for the
+      // same id.
+      const run = await api.getRecorded(id, facts?.seller)
       setRecorded(run)
     } catch (e) {
       setError(

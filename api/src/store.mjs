@@ -7,8 +7,8 @@
 // first request.
 // What lives here: pay jobs, receipts, verifier-run counters, live-refusal
 // records, rate-limit windows, the co-signer ledger, lab documents,
-// consent records (one per payable, keyed by payableId), the buyer-agent
-// registration (single record).
+// consent records (one per (seller, payable), keyed by seller:payableId),
+// the buyer-agent registration (single record).
 // Nothing here holds keys. The payables themselves live ON CHAIN (the
 // registry is the payable store); this store holds only server-side state.
 // Single-row saves (saveJob/saveReceipt) are the hot path: a whole-table
@@ -47,7 +47,9 @@ export async function saveJobs(jobs) {
   return impl().saveJobs(jobs);
 }
 
-// ---- receipts ----
+// ---- receipts (keyed by (seller, payable_id) — second-seller fix-back §4.2) ----
+export { receiptKey, consentKey } from './jsonstore.mjs';
+
 export async function loadReceipts() {
   await initStore();
   return impl().loadReceipts();
@@ -71,13 +73,16 @@ export async function saveCounters(c) {
   return impl().saveCounters(c);
 }
 
-// ---- consents (one record per payable, keyed by payableId) ----
+// ---- consents (one record per (seller, payable), keyed by seller:payableId) ----
 // Added by the main-defect fix (2026-11-25): b55ae35 imported
 // loadConsents/saveConsent from this facade (consent.mjs, receipts.mjs,
 // server.mjs) without ever implementing them, so server.mjs could not
-// even be imported. Semantics are exactly what the callers already
-// assume: loadConsents() returns the { payableId: record } map ({} when
-// none exist) and saveConsent(record) upserts by record.payableId.
+// even be imported. Second-seller fix-back (§4.3): the key is composite
+// (seller:payableId), superseding the main-defect fix's bare-payableId
+// keying. Semantics are exactly what the callers already assume:
+// loadConsents() returns the { 'seller:payableId': record } map ({} when
+// none exist) and saveConsent(record) upserts by (record.seller,
+// record.payableId).
 export async function loadConsents() {
   await initStore();
   return impl().loadConsents();

@@ -91,6 +91,12 @@ function Sidebar() {
   )
 }
 
+function sellerShort(seller: string, sellers?: Array<{ seller: string; label: string }>): string {
+  const found = sellers?.find((s) => s.seller === seller)
+  if (found) return found.label.split(' — ')[0]
+  return `Seller ${seller.slice(0, 8)}…`
+}
+
 export function DashboardPage() {
   const stats = useStats()
   const invoices = useInvoices()
@@ -200,6 +206,47 @@ export function DashboardPage() {
           })}
         </div>
 
+        {/* Sellers — the marketplace has two distinct sellers plus the demo
+            buyer. Live from /api/config: agent token + badge link for each
+            seller. Seller 2's payables (id 1, 0.5 CCD; id 2, 10 EUDemo)
+            are paid; their receipts re-verify 10/10 and 12/12. */}
+        {config.data?.sellers ? (
+          <Reveal>
+            <section aria-labelledby="dash-sellers-title" className="card-glass mt-8 p-6">
+              <h2 id="dash-sellers-title" className="text-[22px] font-medium tracking-[-0.01em] text-ink">
+                Sellers
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                Two distinct sellers on the test registry — each with its own agent token and verified badge. The demo
+                buyer pays both.
+              </p>
+              <ul className="mt-5 space-y-4">
+                {config.data.sellers.map((s) => (
+                  <li
+                    key={s.seller}
+                    className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-4 last:border-b-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="text-[15px] font-medium text-ink">{s.label}</p>
+                      <p className="mt-1 font-mono text-xs text-muted">{s.seller}</p>
+                    </div>
+                    <p className="text-sm text-body">
+                      Agent token {s.agent_token} ·{' '}
+                      <a href={s.badge_url} target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline">
+                        Badge check — live
+                      </a>{' '}
+                      ·{' '}
+                      <a href={s.agent_card_url} target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline">
+                        Agent card
+                      </a>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </Reveal>
+        ) : null}
+
         {/* Live overview — the paid-once gauge, the payment rails and the
             next dues, all from the same live list as the cards above (one
             source: heroOverview over items + stats). Same loading/error
@@ -274,7 +321,7 @@ export function DashboardPage() {
                 <ul className="mt-5 space-y-3">
                   {overview.nextDues.map((d) => (
                     <li key={d.payable_id} className="flex items-baseline justify-between gap-3 text-[15px]">
-                      <Link to={`/receipt/${d.payable_id}`} className="font-medium text-brand-700 hover:underline">
+                      <Link to={`/receipt/${d.payable_id}?seller=${d.seller}`} className="font-medium text-brand-700 hover:underline">
                         Payable {d.payable_id}
                       </Link>
                       <span className="text-body tabular-nums">{d.amount_display}</span>
@@ -326,6 +373,7 @@ export function DashboardPage() {
                     <thead>
                       <tr className="border-b border-line text-xs tracking-[0.06em] text-muted uppercase">
                         <th scope="col" className="px-6 py-3 font-semibold">Invoice</th>
+                        <th scope="col" className="px-4 py-3 font-semibold">Seller</th>
                         <th scope="col" className="px-4 py-3 font-semibold">Amount</th>
                         <th scope="col" className="px-4 py-3 font-semibold">Status</th>
                         <th scope="col" className="px-4 py-3 font-semibold">Due</th>
@@ -336,8 +384,9 @@ export function DashboardPage() {
                     </thead>
                     <tbody className="divide-y divide-line">
                       {shown.map((inv) => (
-                        <tr key={inv.payable_id} className="transition-colors hover:bg-paper">
+                        <tr key={`${inv.seller}:${inv.payable_id}`} className="transition-colors hover:bg-paper">
                           <td className="px-6 py-4 font-medium text-ink">Payable {inv.payable_id}</td>
+                          <td className="px-4 py-4 text-body">{sellerShort(inv.seller, config.data?.sellers)}</td>
                           <td className="px-4 py-4 text-body tabular-nums">{inv.amount_display}</td>
                           <td className="px-4 py-4">
                             <InvoiceStatusPill status={derivedStatus(inv)} />
@@ -345,7 +394,7 @@ export function DashboardPage() {
                           <td className="px-4 py-4 text-muted">{formatUtcDateTime(inv.due)}</td>
                           <td className="px-4 py-4 text-right">
                             <Link
-                              to={`/receipt/${inv.payable_id}`}
+                              to={`/receipt/${inv.payable_id}?seller=${inv.seller}`}
                               className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
                             >
                               View <ArrowRight className="h-4 w-4" aria-hidden="true" />

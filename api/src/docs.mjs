@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { BACKEND_DIR } from './backend.mjs';
+import { SELLER2_ADDRESS } from './config.mjs';
 import { storeDocumentRecord, storedDocumentRecord } from './store.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
@@ -59,7 +60,23 @@ const V2_INVOICE_FILES = {
   11: 'test/invoices/invoice-011-v2-eudemo.txt',
 };
 
+// Second seller's invoice files (live 2026-11-25): payable 1, 0.5 CCD;
+// payable 2, 10 EUDemo.
+const SELLER2_INVOICE_FILES = {
+  1: 'test/invoices/invoice-seller2-001-ccd.txt',
+  2: 'test/invoices/invoice-seller2-002-eudemo.txt',
+};
+
 /** Document bytes for a payable id, or null when no lab document exists. */
+export async function docForPayableForSeller(seller, id) {
+  if (seller === SELLER2_ADDRESS && SELLER2_INVOICE_FILES[id]) {
+    const p = join(BACKEND_DIR, SELLER2_INVOICE_FILES[id]);
+    if (existsSync(p)) return readFileSync(p);
+    return null;
+  }
+  return docForPayable(id);
+}
+
 export async function docForPayable(id) {
   const stored = await storedDocument(id);
   if (stored) return stored;
@@ -94,6 +111,8 @@ let evidence = null;
 export function evidenceIndex() {
   if (evidence) return evidence;
   const v2 = loadJsonIfExists(join(BACKEND_DIR, 'test/v2-live-e2e-2026-11-24.json'));
+  const s2 = loadJsonIfExists(join(BACKEND_DIR, 'test/second-seller-e2e-2026-11-25.json'));
+  const s2eudemo = loadJsonIfExists(join(BACKEND_DIR, 'test/second-seller-e2e-2026-11-25-eudemo.json'));
   const v1 = loadJsonIfExists(join(BACKEND_DIR, 'test/live-e2e-2026-11-24.json'));
   const x402 = loadJsonIfExists(join(BACKEND_DIR, 'test/x402-e2e-2026-11-24.json'));
   const mcp = loadJsonIfExists(join(BACKEND_DIR, 'test/mcp-live-pay-2026-11-24.json'));
@@ -134,13 +153,36 @@ export function evidenceIndex() {
   if (x402) scanForRejects(x402, 'x402-e2e');
   if (mcp) scanForRejects(mcp, 'mcp-live-pay');
 
-  evidence = { v2, v1, x402, mcp, matrix, paymentTx, refused };
+  // Second seller's recorded payments (live 2026-11-25): payable 1, CCD;
+  // payable 2, EUDemo. Payable 2 keeps ALL its legs (reserve / transfer /
+  // confirm), not just the transfer: the receipt builder mirrors the
+  // seller-1 EUDemo branch, which needs the reserve + confirm legs for
+  // its fail-closed verifier rows (fix-back §4.1 — the old shape stored
+  // only { payTx: transferTx }, which mislabelled the transfer as
+  // 'Payment' and dropped the other legs, so the verifier never ran).
+  const paymentTxSeller2 = {};
+  if (s2?.payTx) paymentTxSeller2[1] = { payTx: s2.payTx, registerTx: s2.registerTx ?? null };
+  if (s2eudemo?.transferTx) {
+    paymentTxSeller2[2] = {
+      transferTx: s2eudemo.transferTx,
+      reserveTx: s2eudemo.reserveTx ?? null,
+      confirmTx: s2eudemo.confirmTx ?? null,
+      registerTx: s2eudemo.registerTx ?? null,
+    };
+  }
+  evidence = { v2, v1, x402, mcp, matrix, paymentTx, refused, s2, s2eudemo, paymentTxSeller2 };
   return evidence;
 }
 
 /** Recorded payment transactions for a payable (evidence index only). */
 export function recordedPaymentTx(id) {
   return evidenceIndex().paymentTx[id] ?? null;
+}
+
+/** Recorded payment transactions for one seller's payable. */
+export function recordedPaymentTxForSeller(seller, id) {
+  if (seller !== SELLER2_ADDRESS) return null;
+  return evidenceIndex().paymentTxSeller2[id] ?? null;
 }
 
 /** Distinct on-chain refusals recorded in the evidence files. */
@@ -150,11 +192,33 @@ export function recordedRefusals() {
 
 /** A recorded run (for GET /api/recorded/:id): the v2 happy path for
  *  10/11, the v1 run for 1/2/4/6/7, matrix cases otherwise. Steps carry
- *  the real tx hashes from the evidence files. */
-export function recordedRunFor(id) {
+ *  the real tx hashes from the evidence files. Seller-aware (fix-back
+ *  §4.3): seller 2's runs come from its own evidence files (s2 /
+ *  s2eudemo) — a ?seller=<S2> request must never be answered with
+ *  seller 1's v1 run for the same id. */
+export function recordedRunFor(id, seller = null) {
   const ev = evidenceIndex();
   const steps = [];
   const push = (step, detail, txHash = null, layer = 'chain') => steps.push({ step, detail, txHash, layer });
+  if (seller === SELLER2_ADDRESS) {
+    if (id === 1 && ev.s2) {
+      const r = ev.s2;
+      push('register', 'Payable 1 registered (seller 2, CCD 0.5, payee = seller 2, due 26 Nov 2026)', r.registerTx);
+      push('pay', 'Buyer B paid via pay_ccd (0.5 CCD attached)', r.payTx);
+      push('verify', 'Verifier re-run: 10/10 checks pass (CCD branch)', null, 'app');
+      return { payable_id: 1, seller: SELLER2_ADDRESS, date: '2026-11-25', steps };
+    }
+    if (id === 2 && ev.s2eudemo) {
+      const r = ev.s2eudemo;
+      push('register', 'Payable 2 registered (seller 2, EUDemo 10, payee = seller 2, due 26 Nov 2026)', r.registerTx);
+      push('reserve', 'Buyer B reserved the payable (co-signer gate: SIGN)', r.reserveTx);
+      push('transfer', 'EUDemo transfer 10 to seller 2, memo payable:3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr:2', r.transferTx);
+      push('confirm', 'Buyer B confirmed the transfer hash on chain', r.confirmTx);
+      push('verify', 'Verifier re-run: 12/12 checks pass (EUDemo branch) — as recorded 2026-11-25; the branch now runs 14 checks', null, 'app');
+      return { payable_id: 2, seller: SELLER2_ADDRESS, date: '2026-11-25', steps };
+    }
+    return null;
+  }
   if (id === 10 && ev.v2?.railA) {
     const r = ev.v2.railA;
     push('register', 'Payable 10 registered (CCD 0.5, payee1, due 26 Dec 2026)', r.registerTx);

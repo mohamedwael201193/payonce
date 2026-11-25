@@ -55,6 +55,18 @@ const configSchema = z.object({
   sponsor_label: z.string(),
   explorer: z.object({ tx: z.string(), instance: z.string() }),
   vendor_list: z.array(z.object({ seller: z.string(), label: z.string() })),
+  sellers: z
+    .array(
+      z.object({
+        seller: z.string(),
+        label: z.string(),
+        agent_token: z.number(),
+        badge: z.string(),
+        badge_url: z.string(),
+        agent_card_url: z.string(),
+      }),
+    )
+    .optional(),
   build: z.object({
     vendor_list_enforced_by_co_signer: z.boolean(),
     named_payer_on_invoice: z.boolean(),
@@ -94,6 +106,7 @@ const statsSchema = z.object({
 
 const invoiceItemSchema = z.object({
   payable_id: z.number(),
+  seller: z.string(),
   asset: z.enum(['ccd', 'eudemo']),
   amount_display: z.string(),
   due: z.string(),
@@ -180,6 +193,10 @@ const jobSchema = z.object({
 
 const receiptSchema = z.object({
   payable_id: z.number(),
+  // The seller that built this receipt (fix-back §4.6: ReceiptPage
+  // renders THIS, never the URL). Optional: receipts stored by the pay
+  // job path predate the field.
+  seller: z.string().optional(),
   amount_display: z.string(),
   payee: z.string(),
   payer_label: z.string(),
@@ -210,6 +227,7 @@ const attackSchema = z.object({
 
 const recordedSchema = z.object({
   payable_id: z.number(),
+  seller: z.string().optional(),
   date: z.string(),
   steps: z.array(
     z.object({
@@ -465,11 +483,12 @@ export const api = {
     request<{ items: InvoiceItem[] }>('/api/invoices', z.object({ items: z.array(invoiceItemSchema) })).then(
       (r) => r.items,
     ),
-  getPayable: (id: number) => request<PayableFacts>(`/api/payables/${id}`, payableSchema),
-  getDocument: async (id: number): Promise<string> => {
+  getPayable: (id: number, seller?: string) =>
+    request<PayableFacts>(`/api/payables/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, payableSchema),
+  getDocument: async (id: number, seller?: string): Promise<string> => {
     let res: Response
     try {
-      res = await timedFetch(`${API_BASE}/api/payables/${id}/document`)
+      res = await timedFetch(`${API_BASE}/api/payables/${id}/document${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`)
     } catch (e) {
       if (timedOut(e)) throw unreachable('The testnet did not answer in time.')
       throw unreachable('The testnet is not answering.')
@@ -533,8 +552,10 @@ export const api = {
       attackSchema,
       { method: 'POST', body: JSON.stringify({ payable_id, ...(mode ? { mode } : {}) }) },
     ),
-  getReceipt: (id: number) => request<Receipt>(`/api/receipts/${id}`, receiptSchema),
-  getRecorded: (id: number) => request<RecordedRun>(`/api/recorded/${id}`, recordedSchema),
+  getReceipt: (id: number, seller?: string) =>
+    request<Receipt>(`/api/receipts/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, receiptSchema),
+  getRecorded: (id: number, seller?: string) =>
+    request<RecordedRun>(`/api/recorded/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, recordedSchema),
   getJudgeFiles: () =>
     request<{ files: JudgeFile[] }>('/api/judges/files', judgeFilesSchema).then((r) => r.files),
 }

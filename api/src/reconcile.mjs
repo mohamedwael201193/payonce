@@ -18,7 +18,7 @@
 import { createHash } from 'node:crypto';
 import { grpc, getPayableOrNull, SELLER } from './chain-v2.mjs';
 import { FRESH_ID_START, txUrl } from './config.mjs';
-import { loadCounters, saveCounters, loadReceipts, saveReceipt } from './store.mjs';
+import { loadCounters, saveCounters, loadReceipts, saveReceipt, receiptKey } from './store.mjs';
 import { buildReceiptFor } from './receipts.mjs';
 import { recoverCcdPaymentTx } from './recover.mjs';
 import { docForPayable, generateLabDocument, storeDocument } from './docs.mjs';
@@ -57,7 +57,7 @@ export async function reconcile() {
     // 2. Rebuild missing receipts for Paid payables.
     const receipts = await loadReceipts();
     for (const id of [...known].sort((a, b) => a - b)) {
-      if (receipts[id]) continue;
+      if (receipts[receiptKey(SELLER, id)]) continue;
       try {
         const view = await getPayableOrNull(c, SELLER, id);
         if (!view || view.status !== 'Paid') continue;
@@ -81,6 +81,10 @@ export async function reconcile() {
           if (!txHash) { failed.push({ id, reason: 'payment_tx not recoverable from chain' }); continue; }
           await saveReceipt({
             payable_id: id,
+            // Reconcile only ever rebuilds seller-1 receipts (it scans
+            // seller 1's known ids); stored under the (seller 1, id)
+            // key (fix-back §4.2).
+            seller: view.seller,
             amount_display: '',
             payee: view.payee,
             payer_label: 'Demo payer account (lab)',

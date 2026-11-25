@@ -42,6 +42,7 @@ export interface RailSummary {
 
 export interface NextDue {
   payable_id: number
+  seller: string
   amount_display: string
   due: string
   day: string
@@ -115,7 +116,7 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
   const toNextDue = (i: InvoiceItem): NextDue => {
     const { day, mon } = dayMonth(i.due)
     const dueMs = new Date(i.due).getTime()
-    return { payable_id: i.payable_id, amount_display: i.amount_display, due: i.due, day, mon, overdue: !Number.isNaN(dueMs) && dueMs <= nowMs }
+    return { payable_id: i.payable_id, seller: i.seller, amount_display: i.amount_display, due: i.due, day, mon, overdue: !Number.isNaN(dueMs) && dueMs <= nowMs }
   }
   const nextDues = [...unpaid].sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3).map(toNextDue)
   const soonestDue = nextDues[0] ?? null

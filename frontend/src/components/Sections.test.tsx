@@ -15,7 +15,7 @@ import { VerifierSection } from './Sections'
 const INVOICES = {
   items: [
     {
-      payable_id: 10,
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10,
       asset: 'ccd',
       amount_display: '0.500000 CCD',
       due: '2026-12-26T12:00:00.000Z',
@@ -33,7 +33,7 @@ const STATS = {
 // Live after-pay shape: the paid-status check is 'status_paid' with a real
 // detail — there is NO 'status' check here.
 const VERIFY_AFTER_PAY = {
-  payable_id: 10,
+  seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10,
   mode: 'after_pay',
   verdict: 'paid',
   passed: 10,
@@ -127,7 +127,7 @@ const INVOICES_TWO_PAID = {
     // List order is NOT id order: 10 first, 1006 second. The old paid[0]
     // rule verified 10; the one rule verifies 1006.
     {
-      payable_id: 10,
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 10,
       asset: 'ccd',
       amount_display: '0.500000 CCD',
       due: '2026-12-26T12:00:00.000Z',
@@ -135,7 +135,7 @@ const INVOICES_TWO_PAID = {
       label: 'Lab invoice 10',
     },
     {
-      payable_id: 1006,
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1006,
       asset: 'ccd',
       amount_display: '0.500000 CCD',
       due: '2026-11-25T15:07:59.465Z',

@@ -60,13 +60,13 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
-    { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
+    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
   ],
 }
 const VERIFY_AFTER_PAY = {
-  payable_id: 1,
+  seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1,
   mode: 'after_pay',
   verdict: 'paid',
   passed: 10,

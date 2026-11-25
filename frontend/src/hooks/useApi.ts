@@ -29,19 +29,19 @@ export function useInvoices() {
   return useQuery({ queryKey: ['invoices'], queryFn: api.getInvoices, refetchInterval: POLL_MS, retry: 1 })
 }
 
-export function usePayable(id: number | null) {
+export function usePayable(id: number | null, seller?: string) {
   return useQuery({
-    queryKey: ['payable', id],
-    queryFn: () => api.getPayable(id as number),
+    queryKey: ['payable', id, seller ?? null],
+    queryFn: () => api.getPayable(id as number, seller),
     enabled: id !== null,
     retry: 1,
   })
 }
 
-export function useReceipt(id: number | null) {
+export function useReceipt(id: number | null, seller?: string) {
   return useQuery({
-    queryKey: ['receipt', id],
-    queryFn: () => api.getReceipt(id as number),
+    queryKey: ['receipt', id, seller ?? null],
+    queryFn: () => api.getReceipt(id as number, seller),
     enabled: id !== null,
     retry: 1,
   })
