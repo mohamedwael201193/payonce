@@ -1,11 +1,15 @@
 // Home page — DISPLAY-ONLY landing (fix-back-12). The interactive pay flow
 // used to live here (pick / check / pay / receipt / try + build status +
 // sticky pay bar); it moved entirely into /dashboard as manual tabs
-// (components/PayFlowTabs.tsx). What stays: the hero + small demo glimpse
+// (components/PayFlowTabs.tsx). What stays: the hero + tall demo dashboard
 // (Hero/HeroDemo, props-only static, zero network calls) + explanation
 // (hairline figures + explainer sections). No invoice picker, no check
 // step, no pay button, no receipt checker, no try panel, no build-status
 // section, no '#invoice' anchor target.
+// The demo is TALL (user ruling 2026-11-26 00:37: match the Altura
+// reference video frame by frame — the video is the spec): a wide panel
+// with a left sidebar plus Payables overview chart, paid-once gauge,
+// payment rails, insights and due-soon panels, extending below the fold.
 // Accepts ?payable=<id> only to redirect old shared links to the dashboard
 // pay tabs (/?payable=N → /dashboard?tab=pick&payable=N#pay).
 import { Navigate, useSearchParams } from 'react-router-dom'
@@ -17,7 +21,7 @@ import { useInvoices, useStats } from '../hooks/useApi'
 
 export function HomePage() {
   const [params] = useSearchParams()
-  // Live inputs for the small demo card only (HeroDemo's chips + table).
+  // Live inputs for the tall demo dashboard only (HeroDemo's panels + chart).
   // No other live-dashboard surface is rendered on the landing.
   const demoInvoices = useInvoices()
   const demoStats = useStats()
@@ -40,12 +44,12 @@ export function HomePage() {
     <div id="top" className="page-enter min-h-screen bg-paper">
       <main id="main">
         <Hero />
-        {/* Small demo card — the ONLY dashboard in the hero (user order
-            2026-11-25 03:40: the real dashboard lives only in /dashboard;
-            the landing shows a demo, small and clearly Demo-labeled). The
-            static demo glimpse, reshaped small (~60% width), pulled up
-            over the hero's cloud band. */}
-        <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[820px] px-4 sm:px-6">
+        {/* Tall demo dashboard — the ONLY dashboard in the hero (user
+            orders 2026-11-25 03:40 + 2026-11-26 00:37: the real dashboard
+            lives only in /dashboard; the landing shows a demo, clearly
+            Demo-labeled, in the Altura video's tall shape). The static
+            demo dashboard, pulled up over the hero's cloud band. */}
+        <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[1120px] px-4 sm:px-6">
           <div className="relative -mt-[100px] overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]">
             <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} error={demoInvoices.isError || demoStats.isError} lastUpdated={demoLastUpdated} />
           </div>
@@ -53,8 +57,8 @@ export function HomePage() {
         {/* The live console and the live stats band used to sit here; per
             the user order 2026-11-25 03:40 they live ONLY in /dashboard now
             — the landing embeds no real dashboard. Live numbers appear on
-            the landing only inside the Demo-labeled hero card (chips +
-            table, disclosed in its footer). */}
+            the landing only inside the Demo-labeled hero dashboard (panels
+            + chart, disclosed in its footer). */}
         <Features />
         <HowItWorks />
         <HairlineFigures />
