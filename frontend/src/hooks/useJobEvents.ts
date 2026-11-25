@@ -2,6 +2,7 @@
 // event. The server never re-sends a payment: a retry returns the existing job.
 import { useEffect, useRef, useState } from 'react'
 import type { JobSnapshot, JobStep } from '../lib/types'
+import { timedFetch } from '../lib/api'
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 
@@ -25,9 +26,17 @@ export function useJobEvents(jobId: string | null) {
           | { type: 'done'; outcome: 'paid' | 'refused' | 'failed'; receipt_url: string }
           | JobSnapshot
         if ((data as { type?: string }).type === 'done') {
-          // Final state comes from a fresh snapshot poll.
-          void fetch(`${API_BASE}/api/jobs/${jobId}`)
-            .then((r) => r.json())
+          // Final state comes from a fresh snapshot poll. It goes through
+          // timedFetch (15 s, like every other fetch in the app): the old
+          // bare fetch() had no timeout, so a hung/erroring API at the
+          // `done` moment left the job stuck on `running` forever with no
+          // error and no receipt. A poll failure surfaces as `error`, which
+          // the page turns into a failed pay state (PAY_FAILED).
+          void timedFetch(`${API_BASE}/api/jobs/${jobId}`)
+            .then((r) => {
+              if (!r.ok) throw new Error(`Snapshot poll failed: ${r.status}`)
+              return r.json()
+            })
             .then((snap) => setJob(snap as JobSnapshot))
             .catch(() => setError('The test node stayed busy, so we cannot confirm the status yet.'))
           es.close()

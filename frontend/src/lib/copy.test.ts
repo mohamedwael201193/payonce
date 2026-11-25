@@ -4,7 +4,7 @@
 // NAMES the banned words to explain them — that page is documentation, not
 // copy, so it is out of scope of this test.
 import { describe, expect, it } from 'vitest'
-import { BANNED_WORDS, COPY, GLOSSARY } from './copy'
+import { BANNED_WORDS, COPY, GLOSSARY, coSignerRunsAsSentence, refusedCaption } from './copy'
 
 function allCopyStrings(): string[] {
   const out: string[] = []
@@ -64,5 +64,13 @@ describe('BANNED_WORDS (P3 §2 rule 3)', () => {
   })
   it('receipt footer disclaims legal status', () => {
     expect(COPY.receiptFooter).toContain('not a legal invoice')
+  })
+  it('co-signer sentence is a plain sentence, not a raw config fragment', () => {
+    expect(coSignerRunsAsSentence()).toBe('Decision gate inside the API service — no separate co-signer service runs.')
+    expect(coSignerRunsAsSentence()).not.toContain('(no service)')
+  })
+  it('refusedCaption states the live chain total and its basis', () => {
+    expect(refusedCaption(21)).toBe('Recorded run, 24 Nov 2026 · 21 refused on chain since deploy')
+    expect(refusedCaption(undefined)).toBe('Recorded run, 24 Nov 2026')
   })
 })

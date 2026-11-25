@@ -21,6 +21,7 @@ import { ageProofApi } from '../lib/api'
 import { ApiError } from '../lib/types'
 import { AppHeader } from '../components/AppHeader'
 import { Footer } from '../components/Sections'
+import { useSlowLoad } from '../components/polish'
 
 const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
 const EU27 = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK']
@@ -85,6 +86,7 @@ export function AgeProofPage() {
     queryFn: ageProofApi.health,
     retry: 1,
   })
+  const healthSlow = useSlowLoad(health.isLoading)
   // M3 fix-back: the page takes the payable to unlock (+ the payer) and
   // passes both through to the API. Without them the API verifies but
   // files nothing, so the pay-flow gate can never open — that was the
@@ -189,7 +191,9 @@ export function AgeProofPage() {
         {/* Prover status — honest about provisioning. */}
         <section aria-label="Prover status" className="mt-8 rounded-[20px] border border-line bg-card p-6">
           {health.isLoading ? (
-            <p className="text-body">Checking the age-proof prover…</p>
+            <p className="text-body">
+              Checking the age-proof prover…{healthSlow ? ' Still checking — the test API is slow right now.' : ''}
+            </p>
           ) : proverDown ? (
             <div>
               <h2 className="text-lg font-semibold text-ink">Prover not provisioned yet</h2>

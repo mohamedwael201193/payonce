@@ -55,7 +55,7 @@
       "version": "1.0"
     },
     {
-      "endpoint": "https://payonce-api.onrender.com",
+      "endpoint": "https://payonce-api-n98a.onrender.com",
       "name": "PayOnce API",
       "version": "1.0"
     }

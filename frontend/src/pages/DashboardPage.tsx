@@ -5,26 +5,36 @@
 // no invented timestamps), and a paid/unpaid donut from the live list.
 // No invented percentages, no mock users, no fake activity.
 import { useMemo, useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import { ArrowRight, Download, Home, LayoutDashboard, Receipt, Scale, Search, Wallet } from 'lucide-react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { ArrowRight, Download, Home, LayoutDashboard, Receipt, Search, Wallet } from 'lucide-react'
 import { useConfig, useInvoices, useStats } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
 import { Logo } from '../components/Logo'
 import { activityFeed, dashboardStats, derivedStatus, donutSegments, filterInvoices, invoicesToCsv } from '../lib/dashboard'
-import { formatUtcDateTime } from '../lib/format'
-import { CountUp, Donut, InvoiceStatusPill, Reveal, Sparkline } from '../components/polish'
+import { heroOverview } from '../lib/heroOverview'
+import { formatUtcDateTime, formatUtcTime } from '../lib/format'
+import { CountUp, Donut, Gauge, InvoiceStatusPill, Reveal, Skeleton, Sparkline, useSlowLoad } from '../components/polish'
 
 const NAV = [
-  { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/#invoice', label: 'Pay an invoice', icon: Wallet, end: false },
-  { to: '/#console', label: 'Live console', icon: Scale, end: false },
-  { to: '/judges', label: 'For judges', icon: Receipt, end: false },
+  { to: '/', label: 'Home', icon: Home, kind: 'route' as const, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, kind: 'route' as const, end: true },
+  { to: '/#invoice', hash: '#invoice', label: 'Pay an invoice', icon: Wallet, kind: 'hash' as const },
+  { to: '/judges', label: 'For judges', icon: Receipt, kind: 'route' as const, end: false },
 ]
 
 function Sidebar() {
+  // TAB BUG (2026-11-25): the two hash items were NavLinks with end={false}.
+  // A NavLink to "/#invoice" matches every pathname ("/" is a prefix of all
+  // of them), so "Pay an invoice" and "Live console" showed the active pill
+  // on EVERY page, next to the truly active tab. Hash items are plain Links
+  // now, active only when the landing page is showing that anchor.
+  const { pathname, hash } = useLocation()
+  const itemClass = (active: boolean) =>
+    `flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition-colors ${
+      active ? 'bg-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]' : 'text-white/85 hover:bg-white/10 hover:text-white'
+    }`
   return (
-    <aside className="shrink-0 bg-gradient-to-b from-sky-0 via-sky-1 to-sky-2 text-white lg:min-h-screen lg:w-[260px]">
+    <aside className="shrink-0 bg-gradient-to-b from-sky-0 via-sky-1 to-sky-2 text-white lg:flex lg:min-h-screen lg:w-[260px] lg:flex-col">
       <div className="flex items-center gap-3 px-5 pt-5 pb-6 lg:px-6 lg:pt-8">
         <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home">
           <Logo dark size={32} />
@@ -34,27 +44,49 @@ function Sidebar() {
         </span>
       </div>
       <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto px-4 pb-4 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-4 lg:pb-0">
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.end}
-            className={({ isActive }) =>
-              `flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition-colors ${
-                isActive ? 'bg-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]' : 'text-white/85 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <n.icon className="h-5 w-5" aria-hidden="true" />
-            {n.label}
-          </NavLink>
-        ))}
+        {NAV.map((n) =>
+          n.kind === 'hash' ? (
+            <Link
+              key={n.to}
+              to={n.to}
+              aria-current={pathname === '/' && hash === n.hash ? 'page' : undefined}
+              className={itemClass(pathname === '/' && hash === n.hash)}
+            >
+              <n.icon className="h-5 w-5" aria-hidden="true" />
+              {n.label}
+            </Link>
+          ) : (
+            <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => itemClass(isActive)}>
+              <n.icon className="h-5 w-5" aria-hidden="true" />
+              {n.label}
+            </NavLink>
+          ),
+        )}
       </nav>
-      <p className="hidden px-6 pt-8 pb-6 text-xs leading-relaxed text-white/70 lg:block">
-        Testnet · Concordium
-        <br />
-        Every number on this page is live from the test registry.
-      </p>
+      {/* Sidebar art — the bottom of the sidebar was a long empty brown
+          gradient (user's mobile/desktop screenshot). A hairline sunset
+          scene in cream strokes, drawn for this sidebar: the sun over the
+          hills, and a receipt slip rising from the middle hill. Decorative
+          only (aria-hidden), pinned to the bottom with mt-auto, desktop
+          only — on phones the sidebar is a horizontal strip and the art
+          stays out of it. */}
+      <div className="mt-auto hidden lg:block" aria-hidden="true">
+        <svg viewBox="0 0 260 150" className="w-full text-white/50" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+          <circle cx="130" cy="46" r="17" />
+          <path d="M 130 22 v -7 M 130 77 v -7 M 106 46 h -7 M 161 46 h -7" opacity="0.7" />
+          <path d="M 0 96 C 50 78, 90 108, 130 92 S 215 74, 260 96" opacity="0.8" />
+          <path d="M 0 114 C 55 96, 100 124, 150 110 S 220 98, 260 116" opacity="0.55" />
+          <path d="M 0 132 C 60 116, 110 140, 165 126 S 230 118, 260 132" opacity="0.35" />
+          <rect x="118" y="58" width="24" height="30" rx="2" />
+          <path d="M 123 66 h 14 M 123 72 h 14 M 123 78 h 9" opacity="0.8" />
+          <path d="M 124 84 l 3 3 l 5 -6" />
+        </svg>
+        <p className="px-6 pt-2 pb-6 text-xs leading-relaxed text-white/70">
+          Testnet · Concordium
+          <br />
+          Every number on this page is live from the test registry.
+        </p>
+      </div>
     </aside>
   )
 }
@@ -66,12 +98,22 @@ export function DashboardPage() {
   const [query, setQuery] = useState('')
   const items = invoices.data ?? []
   const cards = useMemo(() => dashboardStats(stats.data, items), [stats.data, items])
+  const overview = useMemo(() => heroOverview(items, stats.data), [items, stats.data])
   const shown = useMemo(() => filterInvoices(items, query), [items, query])
   const feed = useMemo(() => activityFeed(items, 6), [items])
   const donut = useMemo(() => donutSegments(items), [items])
-  const lastUpdated = stats.data?.last_verifier_run_at
-    ? formatUtcDateTime(stats.data.last_verifier_run_at)
-    : null
+  // One source, one gate (bugs 2 + 4): no count renders until BOTH queries
+  // have data — never a 0, never a -1, never a half-loaded card. If either
+  // errors, every card shows the error, not a zero.
+  const loading = !stats.data || !invoices.data
+  const failed = stats.isError || invoices.isError
+  const tableSlow = useSlowLoad(invoices.isLoading)
+  // "Last updated" is the last SUCCESSFUL poll (bug 7): the old line read
+  // the server's last verifier run, which does not move when the page
+  // polls — so it sat at 01:45 while the watch ran to 01:46. This one
+  // advances on every 30 s poll.
+  const updatedAt = Math.max(stats.dataUpdatedAt ?? 0, invoices.dataUpdatedAt ?? 0)
+  const lastUpdated = updatedAt > 0 ? `${formatUtcTime(new Date(updatedAt).toISOString())} UTC` : null
 
   const exportCsv = () => {
     const blob = new Blob([invoicesToCsv(shown)], { type: 'text/csv' })
@@ -100,7 +142,7 @@ export function DashboardPage() {
               <h1 className="text-[40px] leading-[1.05] font-medium tracking-[-0.03em] text-ink sm:text-[52px]">Dashboard</h1>
               <p className="mt-3 text-[15px] leading-relaxed text-muted">
                 Overview of your payments and invoices ·{' '}
-                {lastUpdated ? `Last updated: ${lastUpdated}` : 'Last updated: loading live numbers…'}
+                {lastUpdated ? `Last updated: ${lastUpdated} · refreshing every 30 s` : 'Last updated: loading live numbers…'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -122,22 +164,130 @@ export function DashboardPage() {
           </div>
         </Reveal>
 
-        {/* Stat cards — 4 big glass cards with sparklines. */}
+        {/* Stat cards — 4 big glass cards with sparklines. While the live
+            numbers load, skeletons — never "0" (the old cards showed four
+            0s for 5–8 s). On error, the error — never a zero. */}
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {statCards.map((c, i) => (
-            <Reveal key={c.label} delay={i * 0.07}>
-              <div data-testid={c.testId} className="card-glass p-6 transition-transform duration-200 hover:-translate-y-1">
-                <p className="text-[15px] font-medium text-body">{c.label}</p>
-                <p className="mt-3 text-[44px] leading-none font-medium tracking-[-0.02em] text-ink">
-                  <CountUp value={c.value} />
-                </p>
-                <p className="mt-3 text-sm text-muted">{c.sub}</p>
-                <div className="mt-4">
-                  <Sparkline values={c.spark} width={180} height={40} />
+          {statCards.map((c, i) => {
+            return (
+              <Reveal key={c.label} delay={i * 0.07}>
+                <div data-testid={c.testId} className="card-glass p-6 transition-transform duration-200 hover:-translate-y-1">
+                  <p className="text-[15px] font-medium text-body">{c.label}</p>
+                  <p className="mt-3 text-[44px] leading-none font-medium tracking-[-0.02em] text-ink">
+                    {failed ? (
+                      <span aria-label="Live numbers unavailable">—</span>
+                    ) : loading ? (
+                      <Skeleton className="h-[44px] w-[96px]" />
+                    ) : (
+                      <CountUp value={c.value} />
+                    )}
+                  </p>
+                  <p className="mt-3 text-sm text-muted">
+                    {failed ? COPY.statsNoData : loading ? 'Loading live numbers…' : c.sub}
+                  </p>
+                  <div className="mt-4">
+                    {failed ? (
+                      <p className="text-sm text-muted">Refresh the page to retry.</p>
+                    ) : loading ? (
+                      <Skeleton className="h-[40px] w-full" />
+                    ) : (
+                      <Sparkline values={c.spark} width={180} height={40} />
+                    )}
+                  </div>
                 </div>
+              </Reveal>
+            )
+          })}
+        </div>
+
+        {/* Live overview — the paid-once gauge, the payment rails and the
+            next dues, all from the same live list as the cards above (one
+            source: heroOverview over items + stats). Same loading/error
+            gate: skeletons while loading, the error on failure, never a 0. */}
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <Reveal>
+            <section aria-labelledby="dash-gauge-title" className="card-glass p-6">
+              <h2 id="dash-gauge-title" className="text-[22px] font-medium tracking-[-0.01em] text-ink">
+                Paid once
+              </h2>
+              <p className="mt-2 text-sm text-muted">Share of the listed payables paid once, live.</p>
+              <div className="mt-5">
+                {failed ? (
+                  <p className="text-sm text-muted">{COPY.statsNoData}</p>
+                ) : loading ? (
+                  <Skeleton className="h-[104px] w-[180px]" />
+                ) : (
+                  <Gauge pct={overview.paidPct} label={`${overview.paidCount} of ${overview.listed} payables paid once`} />
+                )}
               </div>
-            </Reveal>
-          ))}
+            </section>
+          </Reveal>
+          <Reveal delay={0.07}>
+            <section aria-labelledby="dash-rails-title" className="card-glass p-6">
+              <h2 id="dash-rails-title" className="text-[22px] font-medium tracking-[-0.01em] text-ink">
+                Payment rails
+              </h2>
+              <p className="mt-2 text-sm text-muted">CCD and EUDemo are different test assets — never mixed on one axis.</p>
+              {failed ? (
+                <p className="mt-5 text-sm text-muted">{COPY.statsNoData}</p>
+              ) : loading ? (
+                <div className="mt-5 space-y-3">
+                  <Skeleton className="h-[44px] w-full" />
+                  <Skeleton className="h-[44px] w-full" />
+                </div>
+              ) : (
+                <ul className="mt-5 space-y-4">
+                  {overview.rails.map((r) => (
+                    <li key={r.rail} className="flex items-baseline justify-between gap-3 border-b border-line pb-3 last:border-b-0 last:pb-0">
+                      <div>
+                        <p className="text-[15px] font-medium text-ink">{r.label}</p>
+                        <p className="mt-1 text-sm text-muted">
+                          {r.count} payables · {r.paidCount} paid
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-[15px] font-medium text-ink tabular-nums">
+                        {r.total.toFixed(2)} {r.asset}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Reveal>
+          <Reveal delay={0.14}>
+            <section aria-labelledby="dash-dues-title" className="card-glass p-6">
+              <h2 id="dash-dues-title" className="text-[22px] font-medium tracking-[-0.01em] text-ink">
+                Next dues
+              </h2>
+              <p className="mt-2 text-sm text-muted">The soonest-due unpaid payables, from the live list.</p>
+              {failed ? (
+                <p className="mt-5 text-sm text-muted">{COPY.statsNoData}</p>
+              ) : loading ? (
+                <div className="mt-5 space-y-3">
+                  <Skeleton className="h-[36px] w-full" />
+                  <Skeleton className="h-[36px] w-full" />
+                  <Skeleton className="h-[36px] w-full" />
+                </div>
+              ) : overview.nextDues.length === 0 ? (
+                <p className="mt-5 text-sm text-muted">Nothing open right now — every listed payable is paid once.</p>
+              ) : (
+                <ul className="mt-5 space-y-3">
+                  {overview.nextDues.map((d) => (
+                    <li key={d.payable_id} className="flex items-baseline justify-between gap-3 text-[15px]">
+                      <Link to={`/receipt/${d.payable_id}`} className="font-medium text-brand-700 hover:underline">
+                        Payable {d.payable_id}
+                      </Link>
+                      <span className="text-body tabular-nums">{d.amount_display}</span>
+                      <span className={d.overdue ? 'shrink-0 text-refused-fg' : 'shrink-0 text-muted'}>
+                        {d.day} {d.mon}
+                        {d.overdue ? ' — past due' : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Reveal>
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[2fr_1fr]">
@@ -160,7 +310,10 @@ export function DashboardPage() {
                 ) : null}
               </div>
               {invoices.isLoading ? (
-                <p className="px-6 py-8 text-sm text-muted">Loading invoices from the test registry…</p>
+                <p className="px-6 py-8 text-sm text-muted">
+                  Loading invoices from the test registry…
+                  {tableSlow ? ' Still loading — the test API is slow right now.' : null}
+                </p>
               ) : invoices.isError ? (
                 <p className="px-6 py-8 text-sm text-muted">{COPY.statsNoData}</p>
               ) : shown.length === 0 ? (
@@ -218,9 +371,28 @@ export function DashboardPage() {
                   <h2 id="dash-activity-title" className="text-[22px] font-medium tracking-[-0.01em] text-ink">
                     Live Activity Feed
                   </h2>
-                  <span className="inline-flex items-center gap-2 text-sm font-medium text-verified-fg">
-                    <span className="animate-live-dot h-2 w-2 rounded-full bg-verified" aria-hidden="true" /> Live
-                  </span>
+                  {/* One badge, and it explains itself (bug 7): the old page
+                      flipped between "LIVE" and "LAST VERIFIED · refresh
+                      paused" with no reason given. Live means the 30 s poll
+                      is answering; Paused means it is not, and the page
+                      keeps retrying. */}
+                  {failed ? (
+                    <span
+                      className="inline-flex items-center gap-2 text-sm font-medium text-refused-fg"
+                      title="Paused — the test API did not answer; the page retries every 30 s."
+                    >
+                      <span className="h-2 w-2 rounded-full bg-refused-solid" aria-hidden="true" /> Paused
+                    </span>
+                  ) : loading ? (
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-muted">Loading…</span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-2 text-sm font-medium text-verified-fg"
+                      title="Live — refreshing every 30 s from the test registry."
+                    >
+                      <span className="animate-live-dot h-2 w-2 rounded-full bg-verified" aria-hidden="true" /> Live
+                    </span>
+                  )}
                 </div>
                 {feed.length === 0 ? (
                   <p className="mt-5 text-sm text-muted">No activity yet — pay an invoice and it appears here.</p>

@@ -9,19 +9,26 @@
 // sits OVER the sunset sky on the home page (rendered by Hero) and over the
 // deep-ember band on the judges/receipt pages. Nav is NOT sticky: the
 // header scrolls away.
-// "Connect wallet" is a landing affordance: in the app it opens the verify
-// flow — it never asks a judge to sign anything. The CTAs point at
-// "/#invoice" so they work from every page, not just home.
+// "Verify — no wallet needed" is the honest label: in the app it opens the
+// verify flow — it never asks a judge to sign anything. The CTAs are router
+// Links to "/#invoice" (not plain <a href>, which would full-reload from
+// every other page and lose app state) so they work from every page.
 import { Link, NavLink } from 'react-router-dom'
 import { useHealth } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
 import { Logo } from './Logo'
 
 export function StatusPill() {
+  // One badge, and it explains itself (bug 7, browser test pass 1): the old
+  // page flipped between LIVE and "LAST VERIFIED · refresh paused" with no
+  // reason given. Each state carries its meaning in a title.
   const { data, isLoading, isError } = useHealth()
   if (isLoading) {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white">
+      <span
+        className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white"
+        title="Connecting to the test API…"
+      >
         <span className="h-2 w-2 rounded-full bg-white/60" aria-hidden="true" />
         CONNECTING
       </span>
@@ -29,7 +36,10 @@ export function StatusPill() {
   }
   if (isError || !data) {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white">
+      <span
+        className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white"
+        title="The test API did not answer; the page keeps retrying every 30 s."
+      >
         <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
         NO LIVE DATA
       </span>
@@ -37,14 +47,20 @@ export function StatusPill() {
   }
   if (!data.chain.reachable) {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white">
+      <span
+        className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white"
+        title="The chain could not be reached — the numbers shown are the last verified ones. The page keeps trying every 30 s."
+      >
         <span className="h-2 w-2 rounded-full bg-amber" aria-hidden="true" />
         LAST VERIFIED · refresh paused
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white">
+    <span
+      className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-medium text-white"
+      title="Live — the chain answers, refreshing every 30 s."
+    >
       <span className="h-2 w-2 rounded-full bg-verified-bg" aria-hidden="true" />
       LIVE
     </span>
@@ -100,16 +116,16 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
           <MainNavLinks />
         </nav>
         <div className="flex items-center gap-3">
-          <a
-            href="/#invoice"
+          <Link
+            to="/#invoice"
             title="No wallet needed — judges verify without signing anything."
             className="hidden rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-[14px] font-medium text-white hover:bg-white/25 sm:inline-flex"
           >
-            Connect wallet
-          </a>
-          <a href="/#invoice" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
+            Verify — no wallet needed
+          </Link>
+          <Link to="/#invoice" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
             Verify an invoice
-          </a>
+          </Link>
           <span className="ml-2 hidden lg:block">
             <StatusPill />
           </span>

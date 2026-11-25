@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest'
 import {
   activityFeed,
   cumulativeSeries,
+  dashboardStats,
   derivedStatus,
   donutSegments,
   filterInvoices,
   invoicesToCsv,
 } from './dashboard'
-import type { InvoiceItem } from './types'
+import type { InvoiceItem, Stats } from './types'
 
 const ITEMS: InvoiceItem[] = [
   { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 1' },
@@ -68,5 +69,50 @@ describe('invoicesToCsv', () => {
     expect(lines[0]).toBe('payable_id,asset,amount_display,due,status,label')
     expect(lines.length).toBe(5)
     expect(lines[1]).toContain('"1","ccd","10.000000 CCD"')
+  })
+})
+
+describe('dashboardStats (honesty: one total, one source)', () => {
+  const STATS: Stats = {
+    payables_total: 4,
+    paid_total: 2,
+    refused_on_chain_since_deploy: 21,
+    last_verifier_run_at: '2026-11-24T17:08:24.616Z',
+    voided_total: 1,
+    reserved_total: 0,
+  }
+  it('labels the total as the live list and names the excluded rows', () => {
+    const cards = dashboardStats(STATS, ITEMS)
+    expect(cards.total.label).toBe('Payables in the live list')
+    expect(cards.total.value).toBe(4)
+    expect(cards.total.sub).toBe('1 voided on chain, not listed')
+    expect(cards.refused.label).toBe('Refused on chain (since deploy)')
+    expect(cards.refused.value).toBe(21)
+    // N1: one refused number + an always-visible caption — the sub IS
+    // refusedCaption(): the recorded run named as the basis, with the live
+    // chain total restated (the SAME number as the card value, 21, never a
+    // second one). No numeral from the recorded run itself appears.
+    expect(cards.refused.sub).toBe(
+      'Recorded run, 24 Nov 2026 · 21 refused on chain since deploy — a wrong amount, a second payment or a changed payee stops before any money moves.',
+    )
+  })
+  it('counts the paid sub from the list, not from stats alone', () => {
+    const cards = dashboardStats(STATS, ITEMS)
+    expect(cards.paid.sub).toBe('2 of 4 payables paid')
+  })
+  it('never lets stats disagree with the list: the list is the source', () => {
+    // The live bug: stats said 57 payables / 31 paid while the list showed
+    // 51 (25, then 51) — two sources in one render. Cards now derive from
+    // the list itself, so a stale or larger stats snapshot cannot move them.
+    const stale = { ...STATS, payables_total: 10, paid_total: 9 }
+    const cards = dashboardStats(stale, ITEMS)
+    expect(cards.total.value).toBe(4)
+    expect(cards.paid.value).toBe(2)
+    expect(cards.paid.sub).toBe('2 of 4 payables paid')
+    expect(cards.unpaid.value).toBe(2)
+  })
+  it('names nothing excluded when nothing is excluded', () => {
+    const cards = dashboardStats({ ...STATS, voided_total: 0 }, ITEMS)
+    expect(cards.total.sub).toBe('Live from the test registry')
   })
 })

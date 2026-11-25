@@ -2,6 +2,7 @@
 // list. Nothing here invents a number: every value is derived from
 // /api/invoices + /api/stats, or from the labelled recorded run.
 import { RECORDED_REFUSALS } from './recorded'
+import { refusedCaption } from './copy'
 import type { InvoiceItem, Stats } from './types'
 
 export type DerivedStatus = 'paid' | 'unpaid' | 'overdue'
@@ -92,22 +93,47 @@ export function invoicesToCsv(items: InvoiceItem[]): string {
   return ['payable_id,asset,amount_display,due,status,label', ...rows].join('\n')
 }
 
-/** The four dashboard stat cards, from live stats + the live list.
-    `refusedSpark` is the recorded-run refusal sequence (7 entries, labelled
-    on the card) — the live refused total (18) has no per-item series. */
+/** The four dashboard stat cards, from the live list + live stats.
+    ONE source of truth (bug 2 + bug 5, browser test pass 1): every card
+    value that the list can answer is counted FROM THE LIST ITSELF — the
+    total, the paid count, the unpaid count. The list is what the page
+    renders, so the cards, their subtexts, the table footer, the donut and
+    the feed can never disagree within one render, even when the two
+    queries resolve at different moments. Only the refused total comes from
+    /api/stats (it has no per-item series), and the voided/reserved counts
+    come from stats only as the named exclusion — never as a competing
+    total. The API side is reconciled the same way (api/src/listable.mjs):
+    /api/stats counts the same listable rows the list shows.
+    N1 (one refused number + always-visible caption): the refused card
+    shows ONE number — the on-chain refusals since deploy — and its sub is
+    refusedCaption(): the recorded run named as the basis, with the live
+    chain total restated (the SAME number as the card value, never a second
+    one). The spark is that run's sequence, and the sub names it as a spark,
+    without a numeral of its own. */
 export function dashboardStats(stats: Stats | undefined, items: InvoiceItem[]) {
   const paid = items.filter((i) => i.status === 'paid').length
   const unpaid = items.filter((i) => i.status !== 'paid')
   const nextDue = [...unpaid].sort((a, b) => a.due.localeCompare(b.due))[0] ?? null
+  const voided = stats?.voided_total ?? 0
+  const reserved = stats?.reserved_total ?? 0
+  const excludedNote =
+    voided + reserved > 0
+      ? [
+          voided > 0 ? `${voided} voided on chain, not listed` : null,
+          reserved > 0 ? `${reserved} reserved, not listed` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : 'Live from the test registry'
   return {
     total: {
-      value: stats?.payables_total ?? items.length,
-      label: 'Payables on the registry',
-      sub: 'Live from /api/stats',
+      value: items.length,
+      label: 'Payables in the live list',
+      sub: excludedNote,
       spark: cumulativeSeries(items, () => true),
     },
     paid: {
-      value: stats?.paid_total ?? paid,
+      value: paid,
       label: 'Paid once',
       sub: `${paid} of ${items.length} payables paid`,
       spark: cumulativeSeries(items, (i) => i.status === 'paid'),
@@ -122,8 +148,8 @@ export function dashboardStats(stats: Stats | undefined, items: InvoiceItem[]) {
     },
     refused: {
       value: stats?.refused_on_chain_since_deploy ?? 0,
-      label: 'Refused on chain',
-      sub: `${RECORDED_REFUSALS.length} in the recorded run, 24 Nov 2026`,
+      label: 'Refused on chain (since deploy)',
+      sub: `${refusedCaption(stats?.refused_on_chain_since_deploy)} — a wrong amount, a second payment or a changed payee stops before any money moves.`,
       spark: RECORDED_REFUSALS.map((_, i) => i + 1),
     },
   }

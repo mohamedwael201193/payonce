@@ -30,6 +30,7 @@ import {
   hitWindow, leftInWindow,
 } from './store.mjs';
 import { initStore } from './db.mjs';
+import { listableRows, statsBody } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import {
@@ -274,12 +275,9 @@ async function handleStats(req, res) {
   const rows = await scanPayables(c);
   const counters = await loadCounters();
   const refusedHashes = new Set([...recordedRefusals().keys(), ...counters.liveRefusals.map((r) => r.txHash)]);
-  const body = {
-    payables_total: rows.length,
-    paid_total: rows.filter((r) => r.status === 'Paid').length,
-    refused_on_chain_since_deploy: refusedHashes.size,
-    last_verifier_run_at: counters.lastVerifierRunAt,
-  };
+  // Reconciled at source: the total counts the same listable rows the
+  // /api/invoices list shows (never the raw scanned rows).
+  const body = statsBody({ rows, refusedCount: refusedHashes.size, lastVerifierRunAt: counters.lastVerifierRunAt });
   statsCache = { at: now, body };
   sendJson(res, 200, body);
 }
@@ -287,8 +285,7 @@ async function handleStats(req, res) {
 async function handleInvoices(req, res) {
   const c = await grpc();
   const rows = await scanPayables(c);
-  const items = rows
-    .filter((r) => r.status === 'Unpaid' || r.status === 'Paid')
+  const items = listableRows(rows)
     .sort((a, b) => a.id - b.id)
     .map((r) => ({
       payable_id: r.id,

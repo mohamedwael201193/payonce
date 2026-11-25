@@ -11,7 +11,8 @@ import { Link } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
 import { Footer } from '../components/Sections'
 import { HashLink } from '../components/ui'
-import { BANNED_WORDS, GLOSSARY } from '../lib/copy'
+import { useSlowLoad } from '../components/polish'
+import { BANNED_WORDS, GLOSSARY, coSignerRunsAsSentence } from '../lib/copy'
 
 const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
 const INST_BASE = 'https://ccdexplorer.io/testnet/instance/'
@@ -48,6 +49,7 @@ const KNOWN_LIMITS = [
 export function JudgesPage() {
   const config = useConfig()
   const files = useQuery({ queryKey: ['judge-files'], queryFn: api.getJudgeFiles, retry: 1 })
+  const filesSlow = useSlowLoad(files.isLoading)
   const build = config.data?.build
 
   return (
@@ -170,7 +172,7 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
               </ul>
             ) : (
               <p className="mt-2 text-muted" role="status">
-                Loading the file list…
+                Loading the file list…{filesSlow ? ' Still loading — the test API is slow right now.' : ''}
               </p>
             )}
           </div>
@@ -236,7 +238,7 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
             </div>
             <div className="flex gap-3 py-1.5">
               <dt className="w-32 shrink-0 text-muted sm:w-72">Co-signer runs as</dt>
-              <dd className="text-ink">{build?.co_signer_runs_as ?? '—'}</dd>
+              <dd className="text-ink">{coSignerRunsAsSentence()}</dd>
             </div>
           </dl>
         </section>

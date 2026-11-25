@@ -13,5 +13,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // The full suite runs 19+ files in parallel on 1.5 shared CPUs; the
+    // two heaviest routing tests take 5.1–5.7 s EVEN UNLOADED, at/above
+    // the 5 s vitest default — 3 red of 4 full runs across the landing
+    // judges, all pure timeouts, no assertion ever failed. 15 s is
+    // headroom for the loaded VM, not for a slow app.
+    testTimeout: 15_000,
   },
 })

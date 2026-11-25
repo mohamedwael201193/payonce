@@ -76,6 +76,10 @@ export interface Stats {
   paid_total: number
   refused_on_chain_since_deploy: number
   last_verifier_run_at: string | null
+  // Excluded rows are reported, not hidden: Voided / Reserved payables are
+  // scanned on chain but never listed, so the total can never exceed the list.
+  voided_total?: number
+  reserved_total?: number
 }
 
 export interface InvoiceItem {

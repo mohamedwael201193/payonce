@@ -5,24 +5,24 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Activity, Bug, CheckCircle2, FileText, LayoutDashboard, Receipt as ReceiptIcon, Scale, ShieldCheck, Wallet } from 'lucide-react'
+import { Bug, CheckCircle2, FileText, LayoutDashboard, Receipt as ReceiptIcon, Scale, ShieldCheck, Wallet } from 'lucide-react'
 import { BudgetNote } from '../components/BudgetNote'
-import { DashboardPreview } from '../components/DashboardPreview'
 import { Hero } from '../components/Hero'
-import { HeroOverview } from '../components/HeroOverview'
+import { HeroDemo } from '../components/HeroDemo'
 import { Logo } from '../components/Logo'
 import { InvoiceStep } from '../components/InvoiceStep'
 import { CheckStep } from '../components/CheckStep'
 import { PayStep } from '../components/PayStep'
 import { ReceiptStep } from '../components/ReceiptStep'
 import { TryPanel } from '../components/TryPanel'
-import { CtaBand, Features, Footer, HowItWorks, InvoiceShowcase, LiveStatsBand, VerifierSection } from '../components/Sections'
+import { CtaBand, Features, Footer, HairlineFigures, HowItWorks, InvoiceShowcase, JudgesSection, PlannerSection, VerifierSection } from '../components/Sections'
 import { AlertInline, StepCard } from '../components/ui'
 import { api } from '../lib/api'
+import { coSignerRunsAsSentence } from '../lib/copy'
 import { ApiError, type Receipt } from '../lib/types'
 import { flowReducer, initialFlowState, isCheckFresh, payDisabledReason } from '../lib/flow'
 import { stickyActionFor, type StickyAction } from '../lib/sticky'
-import { useConfig, useHealth } from '../hooks/useApi'
+import { useConfig, useHealth, useInvoices, useStats } from '../hooks/useApi'
 import { useJobEvents } from '../hooks/useJobEvents'
 
 export function HomePage() {
@@ -31,6 +31,10 @@ export function HomePage() {
   const queryClient = useQueryClient()
   const health = useHealth()
   const config = useConfig()
+  // Live inputs for the small demo card only (HeroDemo's chips + table).
+  // No other live-dashboard surface is rendered on the landing.
+  const demoInvoices = useInvoices()
+  const demoStats = useStats()
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
@@ -42,7 +46,16 @@ export function HomePage() {
 
   const explorerBase = config.data?.explorer.tx ?? 'https://ccdexplorer.io/testnet/transaction/'
   const runningJobId = state.pay.kind === 'running' ? state.pay.job.job_id : null
-  const { job: liveJob } = useJobEvents(runningJobId)
+  const { job: liveJob, error: jobError } = useJobEvents(runningJobId)
+
+  // The snapshot poll after the SSE `done` event can fail or time out
+  // (15 s, timedFetch): the job would otherwise sit on `running` forever
+  // with no error and no receipt. A poll failure fails the pay step
+  // outright — PayStep renders the message with a Try again button.
+  useEffect(() => {
+    if (!jobError) return
+    dispatch({ type: 'PAY_FAILED', message: jobError })
+  }, [jobError])
 
   // Job outcome: update the flow state, and load the receipt on success.
   useEffect(() => {
@@ -240,15 +253,24 @@ export function HomePage() {
     <div id="top" className="page-enter min-h-screen bg-paper pb-24 md:pb-0">
       <main id="main">
         <Hero />
-        {/* Floating dashboard card — the live flow, over the clouds (video
-            mockup): the video card's Cash-overview window on top (live
-            data), the real invoice flow below it, a slim anchor sidebar
-            on the left. The card pulls up over the hero's cloud band and
-            into the cream section. */}
-        <div className="relative z-10 mx-auto max-w-[1101px] px-4 sm:px-6">
+        {/* Small demo card — the ONLY dashboard in the hero (user order
+            2026-11-25 03:40: the real dashboard lives only in /dashboard;
+            the landing shows a demo, small and clearly Demo-labeled). The
+            looping Demo walkthrough, reshaped small (~60% width), pulled up
+            over the hero's cloud band. */}
+        <section aria-label="Demo dashboard" className="relative z-10 mx-auto max-w-[820px] px-4 sm:px-6">
+          <div className="relative -mt-[100px] overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]">
+            <HeroDemo items={demoInvoices.data ?? []} stats={demoStats.data} compact />
+          </div>
+        </section>
+        {/* The real payment flow — pick, check, pay, receipt — with a slim
+            anchor sidebar on the left. This is the judge flow, not a
+            dashboard: no Cash overview, no console, no stats band here;
+            those live only in /dashboard. */}
+        <div className="relative z-10 mx-auto mt-14 max-w-[1101px] px-4 sm:px-6">
           <div
             id="invoice"
-            className="relative -mt-[140px] scroll-mt-4 overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]"
+            className="relative scroll-mt-4 overflow-hidden rounded-[24px] border border-line bg-card shadow-[0_30px_80px_rgba(23,19,16,0.25)]"
           >
             <div className="flex">
               <nav
@@ -267,7 +289,6 @@ export function HomePage() {
                   { id: 'pay', href: '#pay', label: 'Pay', icon: Wallet },
                   { id: 'receipt', href: '#receipt', label: 'Receipt', icon: ReceiptIcon },
                   { id: 'try', href: '#try', label: 'Try to break it', icon: Bug },
-                  { id: 'console', href: '#console', label: 'Live console', icon: Activity },
                 ].map((item) => (
                   <a
                     key={item.id}
@@ -306,7 +327,6 @@ export function HomePage() {
                 <p className="mt-auto px-3 pt-6 text-xs text-muted">Testnet · Concordium</p>
               </nav>
               <div className="min-w-0 flex-1">
-                <HeroOverview />
                 <div className="p-5 sm:p-8">
                 <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-6" aria-live="polite">
@@ -406,7 +426,7 @@ export function HomePage() {
                   </li>
                   <li>
                     Co-signer runs as:{' '}
-                    <span className="text-ink">{build?.co_signer_runs_as ?? '—'}</span>
+                    <span className="text-ink">{coSignerRunsAsSentence()}</span>
                   </li>
                 </ul>
                 <p className="mt-3 text-sm">
@@ -425,32 +445,18 @@ export function HomePage() {
     </div>
   </div>
   </div>
-        {/* Live console — the payables console, below the flow (design F10f:
-            the compact hero cannot hold it and steps 1–3 must fit at 1440×900). */}
-        <section id="console" aria-labelledby="console-title" className="mx-auto max-w-[1101px] scroll-mt-4 px-4 pt-16 sm:px-6">
-          <p className="text-sm font-medium tracking-[0.02em] text-ink">
-            <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
-            Live console
-          </p>
-          <h2
-            id="console-title"
-            className="mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink"
-          >
-            The registry, live.
-          </h2>
-          <p className="mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
-            Every number below is live from the test registry — except the fees chart and the refused tab, which are
-            the recorded run of 24 Nov 2026 and are labelled as such.
-          </p>
-          <div className="mt-8">
-            <DashboardPreview />
-          </div>
-        </section>
-        <LiveStatsBand />
+        {/* The live console and the live stats band used to sit here; per
+            the user order 2026-11-25 03:40 they live ONLY in /dashboard now
+            — the landing embeds no real dashboard. Live numbers appear on
+            the landing only inside the Demo-labeled hero card (chips +
+            table, disclosed in its footer). */}
         <Features />
         <HowItWorks />
+        <HairlineFigures />
         <InvoiceShowcase />
         <VerifierSection />
+        <PlannerSection />
+        <JudgesSection />
         <CtaBand />
       </main>
       <Footer />

@@ -88,6 +88,8 @@ const statsSchema = z.object({
   paid_total: z.number(),
   refused_on_chain_since_deploy: z.number(),
   last_verifier_run_at: z.string().nullable(),
+  voided_total: z.number().optional(),
+  reserved_total: z.number().optional(),
 })
 
 const invoiceItemSchema = z.object({
@@ -275,17 +277,12 @@ const ageProofVerifyPresentationSchema = z.object({
 async function rawJson(path: string, init?: RequestInit): Promise<{ status: number; body: unknown }> {
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await timedFetch(`${API_BASE}${path}`, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     })
   } catch {
-    throw new ApiError(0, {
-      code: 'chain_unreachable',
-      layer: 'server',
-      message: 'The testnet is not answering. Showing the last verified data.',
-      retryable: true,
-    })
+    throw unreachable('The testnet is not answering. Showing the last verified data.')
   }
   return { status: res.status, body: await res.json().catch(() => null) }
 }
@@ -366,6 +363,35 @@ export const ageProofApi = {
 const RETRYABLE_CODES = new Set(['node_busy', 'chain_unreachable'])
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
+/** Every fetch carries a timeout: a hung request used to leave every loader
+    spinning forever (bug 6, browser test pass 1 — "Loading payables…",
+    "Checking the age-proof prover…", "Loading the file list…" never
+    resolved). 15 s sits above the live API's slow first load (5–8 s) and
+    below any user's patience. A timeout is NOT retried: a hung server will
+    not answer a retry either, and three more 15 s waits would only delay
+    the error state by a minute. */
+export const FETCH_TIMEOUT_MS = 15_000
+
+export function timedFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+}
+
+/** A timeout abort (TimeoutError from AbortSignal.timeout, AbortError from
+    a caller-aborted signal) fails fast with the chain_unreachable error the
+    UI already renders — it never retries. */
+function timedOut(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')
+}
+
+function unreachable(message: string): ApiError {
+  return new ApiError(0, {
+    code: 'chain_unreachable',
+    layer: 'server',
+    message,
+    retryable: true,
+  })
+}
+
 async function request<T>(
   path: string,
   schema: z.ZodType<T>,
@@ -375,23 +401,21 @@ async function request<T>(
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     let res: Response
     try {
-      res = await fetch(`${API_BASE}${path}`, {
+      res = await timedFetch(`${API_BASE}${path}`, {
         ...init,
         headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
       })
     } catch (e) {
+      // A timeout fails fast (see FETCH_TIMEOUT_MS): no retry, straight to
+      // the error state the UI already renders.
+      if (timedOut(e)) throw unreachable('The testnet did not answer in time. Showing the last verified data.')
       // Network failure: retry like a busy node, then surface as chain_unreachable.
       lastErr = e instanceof Error ? e : new Error('Network error')
       if (attempt < RETRY_DELAYS_MS.length) {
         await sleep(RETRY_DELAYS_MS[attempt])
         continue
       }
-      throw new ApiError(0, {
-        code: 'chain_unreachable',
-        layer: 'server',
-        message: 'The testnet is not answering. Showing the last verified data.',
-        retryable: true,
-      })
+      throw unreachable('The testnet is not answering. Showing the last verified data.')
     }
     if (res.ok) {
       const json: unknown = await res.json()
@@ -443,7 +467,13 @@ export const api = {
     ),
   getPayable: (id: number) => request<PayableFacts>(`/api/payables/${id}`, payableSchema),
   getDocument: async (id: number): Promise<string> => {
-    const res = await fetch(`${API_BASE}/api/payables/${id}/document`)
+    let res: Response
+    try {
+      res = await timedFetch(`${API_BASE}/api/payables/${id}/document`)
+    } catch (e) {
+      if (timedOut(e)) throw unreachable('The testnet did not answer in time.')
+      throw unreachable('The testnet is not answering.')
+    }
     if (!res.ok) {
       const bodyJson: unknown = await res.json().catch(() => null)
       const parsed = errorBodySchema.safeParse((bodyJson as { error?: unknown } | null)?.error ?? bodyJson)

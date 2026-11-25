@@ -30,23 +30,25 @@ export function LogoMark({ size = 32, className }: { size?: number; className?: 
       <rect x="1.5" y="1.5" width="45" height="45" rx="13" fill={`url(#${gid})`} />
       <rect x="1.5" y="1.5" width="45" height="45" rx="13" fill="none" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
       {/* Once-loop: a ring open at the top right (dash gap sits at -48°..0°,
-          i.e. upper right). Circumference 2π·12.5 ≈ 78.5. */}
+          i.e. upper right). Circumference 2π·13 ≈ 81.7. Thicker than round 2
+          (r 12.5, 3.6) — at 32px the ring was invisible; the loop is the
+          "once" in the mark, so it must read at display size. */}
       <circle
         cx="24"
         cy="24"
-        r="12.5"
+        r="13"
         fill="none"
         stroke="#FFFFFF"
-        strokeWidth="3.6"
+        strokeWidth="4.6"
         strokeLinecap="round"
-        strokeDasharray="68 10.5"
+        strokeDasharray="71.2 10.5"
       />
       {/* The check: stem rises through the ring and out of its gap. */}
       <path
-        d="M 16.5 24.5 L 22 30 L 32.5 18.5"
+        d="M 17.5 24.5 L 22 29 L 31.5 19.5"
         fill="none"
         stroke="#FFFFFF"
-        strokeWidth="4.4"
+        strokeWidth="4.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

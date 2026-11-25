@@ -343,6 +343,41 @@ body {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
+/* Loading skeleton — pulsing block where a live number will land. */
+.skeleton {
+  display: inline-block;
+  border-radius: 4px;
+  background: rgba(23, 19, 16, 0.14);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Hero demo — click ripple around the virtual cursor. The cursor and the
+   ripple are not rendered at all under prefers-reduced-motion (the demo
+   shows its static frame instead), so this animation never runs there. */
+@keyframes demo-ripple {
+  from {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.7;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 0;
+  }
+}
+.demo-ripple {
+  animation: demo-ripple 0.65s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

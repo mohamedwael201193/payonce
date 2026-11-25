@@ -71,22 +71,56 @@ describe('DashboardPage', () => {
 
   it('shows the 4 live stat cards (5 payables, 3 paid, 2 unpaid, 7 refused)', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByText('Payables on the registry')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
     // CountUp animates 0 → value over ~1.1 s once in view.
     await waitFor(() => expect(screen.getByTestId('stat-total')).toHaveTextContent('5'), { timeout: 3000 })
     await waitFor(() => expect(screen.getByTestId('stat-paid')).toHaveTextContent('3'), { timeout: 3000 })
     await waitFor(() => expect(screen.getByTestId('stat-unpaid')).toHaveTextContent('2'), { timeout: 3000 })
     await waitFor(() => expect(screen.getByTestId('stat-refused')).toHaveTextContent('7'), { timeout: 3000 })
-    expect(screen.getByText(/Last updated: 2026-11-24 at 10:42 UTC/)).toBeInTheDocument()
+    expect(screen.getByText(/Last updated: \d{2}:\d{2}:\d{2} UTC · refreshing every 30 s/)).toBeInTheDocument()
+  })
+
+  it('shows the live overview cards (paid-once gauge, rails, next dues)', async () => {
+    renderPage()
+    // Wait for LIVE data (not the static card labels): '1.00 CCD' only
+    // renders once the rails card has the live list.
+    await waitFor(() => expect(screen.getByText('1.00 CCD')).toBeInTheDocument())
+    // Gauge: 3 of 5 paid once → 60%. (The stat card is also called
+    // "Paid once" — scope by the heading role.)
+    const gauge = screen.getByRole('heading', { name: 'Paid once' }).closest('section') as HTMLElement
+    expect(within(gauge).getByText('3 of 5 payables paid once')).toBeInTheDocument()
+    expect(within(gauge).getByText('60%')).toBeInTheDocument()
+    // Rails: Rail A · CCD, 2 payables / 2 paid / 1.00 CCD; Rail B ·
+    // EUDemo, 3 / 1 / 0.03 EUDemo.
+    const rails = screen.getByText('Payment rails').closest('section') as HTMLElement
+    expect(within(rails).getByText('Rail A · CCD')).toBeInTheDocument()
+    expect(within(rails).getByText('1.00 CCD')).toBeInTheDocument()
+    expect(within(rails).getByText('Rail B · EUDemo')).toBeInTheDocument()
+    expect(within(rails).getByText('0.03 EUDemo')).toBeInTheDocument()
+    // Next dues: the two unpaid payables, soonest due first (3 due
+    // 04:49:45, 5 due 04:49:53).
+    const dues = screen.getByText('Next dues').closest('section') as HTMLElement
+    const dueLinks = within(dues).getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(dueLinks).toEqual(['/receipt/3', '/receipt/5'])
+  })
+
+  it('never renders a zero count while the live numbers load', async () => {
+    renderPage()
+    // Before the mocked fetch resolves, every card shows a skeleton and
+    // the sub-line says the numbers are loading — not "0 of 0".
+    expect(screen.getAllByText('Loading live numbers…').length).toBe(4)
+    expect(screen.queryByText('0 of 0 payables paid')).not.toBeInTheDocument()
   })
 
   it('lists the live invoices with status pills and receipt links', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
-    expect(screen.getByText('Payable 5')).toBeInTheDocument()
+    // "Payable 5" also appears in the Next dues card — scope to the table.
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Payable 5')).toBeInTheDocument()
     expect(screen.getAllByText('Paid').length).toBeGreaterThanOrEqual(3)
     expect(screen.getAllByText('Unpaid').length).toBeGreaterThanOrEqual(2)
-    const row = screen.getByText('Payable 1').closest('tr') as HTMLElement
+    const row = within(table).getByText('Payable 1').closest('tr') as HTMLElement
     expect(within(row).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1')
     expect(screen.getByText('Showing 5 of 5 invoices · Live from the test registry')).toBeInTheDocument()
   })
@@ -124,7 +158,7 @@ describe('DashboardPage', () => {
 
   it('sidebar links to the real routes, and Export CSV is present', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByText('Payables on the registry')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
     const nav = screen.getByLabelText('Dashboard')
     expect(within(nav).getByText('Pay an invoice').closest('a')?.getAttribute('href')).toBe('/#invoice')
     expect(within(nav).getByText('For judges').closest('a')?.getAttribute('href')).toBe('/judges')

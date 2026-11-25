@@ -139,3 +139,33 @@ node ../clicktest/clicktest.mjs   # drives the real app in Chromium
   private keys.
 - Testnet only. No mainnet transactions, ever.
 - This repo contains only material that helps a judge verify the project.
+
+## UI/UX fix-back (code complete 2026-11-25 ~00:30 EET — screenshots pending)
+
+Patch set on top of Batch C (main `6ac73e3`): every gap in the independent
+UI/UX verdict on `14d47ee` (7.5/10) is fixed in code — N1 one refused number
+with an always-visible basis caption, N2 `status_paid` detail + single
+`Verdict:` prefix, N4 bottom-pinned rails, vivid-orange sky regrade
+(`hero-sky.webp` 169 KB → 43 KB, top pixel (122,35,1) → (196,82,15)),
+ember orbs removed, logo once-loop thickened for 32 px, stats reconciled at
+the API source (`api/src/listable.mjs`: listable rows only; voided/reserved
+reported, not hidden), loading skeletons (no more `0` cards), honest copy
+(`Verify — no wallet needed`; co-signer sentence), Features flat hairline
+grid with corner squares, hero demo merged in with phase-aware button
+labels (`Checked ✓` / `Paid ✓ — demo`) and phase-follow scrolling.
+N3 ruling: LiveStatsBand 2×2 @768 is BY-DESIGN (`lg:grid-cols-4`,
+Batch D compliance judge entry 0400 + coordinator note) — grid unchanged.
+Verified by my own runs: frontend vitest 147/147 (21 files), `tsc -b`
+clean, `vite build` clean (554.06 kB JS), API stats-reconcile test 2/2,
+secret scan clean on the diff (the one repo-wide hit is a false positive:
+English prose in pre-existing `backend/src/planner/llm-planner.mjs`).
+NOT yet verified: live screenshots — the VM lost every working browser in
+the 01:45 EET reboot (Chromium 1255 dead, stock Firefox lacks Playwright's
+Juggler protocol, Playwright's Firefox CDN returns 400 via the egress
+proxy, intermittent EPERM write-block on downloads). The verification
+script is ready (`../batch-uiux-fixback/verify.mjs` + `api-shim.mjs`,
+preview :4174, shim :17411); run it from a browser-capable session before
+claiming the visual fixes. Live numbers move while other agents test —
+verify against live stats, never a hardcoded total. (Refused is an event
+count since deploy, not a payable count, so it never sums with
+payables/paid.)

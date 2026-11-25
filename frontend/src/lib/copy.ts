@@ -27,7 +27,7 @@ export const COPY = {
   heroSub:
     'Pay in CCD and the contract is the payment. On the EUDemo test token, a co-signed transfer makes the payment, and only after the chain has reserved the invoice.',
   testnetBadge: 'TESTNET',
-  statsNoData: 'Connect to the testnet to see live numbers.',
+  statsNoData: 'The testnet did not answer — live numbers are unavailable right now.',
   labPickerLabel: 'Lab invoices (testnet, not real)',
   step1Helper: 'Load a lab invoice, drop a file, or paste its text. Nothing is uploaded.',
   step2Helper: 'Read from the testnet registry and the seller’s agent. This step pays nothing.',
@@ -63,6 +63,22 @@ export const COPY = {
   labInvoiceLabel: 'Lab invoice (testnet, not a real invoice)',
   recordedRunLabel: 'Recorded run, 24 Nov 2026',
 } as const
+
+// One refused number, one basis, everywhere: the chain total since deploy
+// (live, /api/stats) vs the labelled recorded run (7 refusals, 24 Nov 2026).
+export function refusedCaption(refusedOnChain: number | undefined): string {
+  return refusedOnChain === undefined
+    ? 'Recorded run, 24 Nov 2026'
+    : `Recorded run, 24 Nov 2026 · ${refusedOnChain} refused on chain since deploy`
+}
+
+// The build-status card used to print the raw config fragment ("Co-signer
+// runs as: decision gate inside the API service (no service)") — a sentence
+// no reader can parse. The co-signer runs in-process as a decision gate;
+// no separate co-signer service exists.
+export function coSignerRunsAsSentence(): string {
+  return 'Decision gate inside the API service — no separate co-signer service runs.'
+}
 
 // Glossary (P3 §2 rule 15 + §16.13 item 8) — plain words first, technical
 // term in brackets at first use on the page. Definitions use "reserved",

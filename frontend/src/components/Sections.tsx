@@ -9,37 +9,49 @@
 // 5 stages from a real after-pay verify call, 0.9 s apart, replay button.
 import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Bug, CheckCircle2, Receipt, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Receipt, RotateCcw, ShieldAlert, ShieldCheck, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useConfig, useInvoices, useReceipt, useStats } from '../hooks/useApi'
+import { useConfig, useInvoices, useReceipt } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { COPY } from '../lib/copy'
 import { derivedStatus } from '../lib/dashboard'
 import { formatUtcDateTime } from '../lib/format'
 import { EXPLORER_HOME } from '../lib/tokens'
-import { CountUp, InvoiceStatusPill, Reveal } from './polish'
+import { InvoiceStatusPill, Reveal, useSlowLoad } from './polish'
+import { HairlineFigure } from './HairlineFigure'
 import { Logo } from './Logo'
-import type { VerifyResponse } from '../lib/types'
+import type { InvoiceItem, VerifyResponse } from '../lib/types'
+
+/** The ONE "latest payment" rule, shared by the step-04 card and the
+    receipt checker: the highest-id paid payable. The list carries no
+    paid_at, so the most recently created paid payable (highest id) is the
+    latest: ids are sequential and the paid set was paid in id order
+    (1006 paid 15:08 UTC, after 1005 13:20 UTC). The checker used to take
+    paid[0] — the first paid row in API list order — which could be an
+    older payment than the card's "latest". */
+export function latestPaidInvoice(items: InvoiceItem[]): InvoiceItem | undefined {
+  return [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)[0]
+}
 
 const FEATURES = [
   {
     icon: Wallet,
-    title: 'Pay once',
-    body: 'The contract refuses a second payment, a wrong amount, or a changed payee.',
+    title: 'Pay exactly once',
+    body: 'The contract refuses a second payment for the same payable. One payable, one payment, one receipt.',
   },
   {
     icon: ShieldCheck,
-    title: 'Verify before you pay',
-    body: 'Check the document hash, the seller’s agent token and the unpaid status before Pay is enabled.',
+    title: 'Seller-bound payments',
+    body: 'The payee is read from the chain, never from the document. A payment can only go to the account the seller put there.',
   },
   {
-    icon: Bug,
-    title: 'Try to break it',
-    body: 'Send a wrong amount, a tampered file or a second payment, and watch each one stop.',
+    icon: ShieldAlert,
+    title: 'Refusals on chain',
+    body: 'A wrong amount or a second payment stops before any money moves — and the refusal itself is on chain, with its code.',
   },
   {
     icon: Receipt,
-    title: 'Receipts you can re-verify',
+    title: 'Receipts that re-verify',
     body: 'Every payment gets a receipt with the transaction hash, block and payee — check it again on chain any time.',
   },
 ]
@@ -59,6 +71,11 @@ const STEPS = [
     n: '03',
     title: 'Pay once',
     body: 'One transaction on Rail A, or reserve, co-sign and confirm on Rail B. The receipt is yours to re-verify.',
+  },
+  {
+    n: '04',
+    title: 'Receipt',
+    body: 'The receipt carries the transaction hash, the block and the payee — re-read it on chain any time. A receipt that does not re-verify is not a receipt.',
   },
 ]
 
@@ -86,22 +103,21 @@ export function Features() {
           Built for clarity
         </p>
         <h2 id="features-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-          Four checks before a single cent moves.
+          Four things the chain enforces.
         </h2>
         <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
           The payee is read from the chain, never from the document. The document is evidence, not the instruction.
         </p>
       </Reveal>
-      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Flat hairline grid with corner squares, like the video's feature
+          grid (and the How-it-works grid below) — shared 1px borders, no
+          gutters, no glass cards. */}
+      <div className="handles hairline-grid mt-14 grid grid-cols-1 border border-line bg-card md:grid-cols-2 lg:grid-cols-4">
+        <i aria-hidden="true" />
         {FEATURES.map((f, i) => (
-          <Reveal key={f.title} delay={i * 0.08}>
-            <div className="card-glass flex min-h-[248px] flex-col justify-between p-8 transition-transform duration-200 hover:-translate-y-1.5">
-              <span
-                className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_16px_rgba(154,52,18,0.4)]"
-                style={{ background: 'linear-gradient(180deg, #C2410C 0%, #9A3412 100%)' }}
-              >
-                <f.icon className="h-5 w-5" aria-hidden="true" />
-              </span>
+          <Reveal key={f.title} delay={i * 0.08} className="border border-line bg-card p-8 transition-transform duration-200 hover:-translate-y-1">
+            <div className="flex min-h-[248px] flex-col justify-between">
+              <f.icon className="h-5 w-5 text-ink" aria-hidden="true" />
               <div className="mt-8">
                 <h3 className="text-[20px] leading-tight font-medium tracking-[-0.01em] text-ink">{f.title}</h3>
                 <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.6] text-muted">{f.body}</p>
@@ -114,48 +130,12 @@ export function Features() {
   )
 }
 
-/** Live stats band — big count-up numbers, all from /api/stats + the live
-    list. Sits between the console and the features, like the polished
-    landing sketch's stat strip. */
-export function LiveStatsBand() {
-  const stats = useStats()
-  const invoices = useInvoices()
-  const items = invoices.data ?? []
-  const s = stats.data
-  const unpaid = items.filter((i) => i.status !== 'paid').length
-  const cells = [
-    { label: 'Payables on the registry', value: s?.payables_total ?? null },
-    { label: 'Paid once', value: s?.paid_total ?? null },
-    { label: 'Unpaid open', value: items.length ? unpaid : null },
-    { label: 'Refused on chain', value: s?.refused_on_chain_since_deploy ?? null },
-  ]
-  return (
-    <section aria-label="Live registry stats band" className="mx-auto max-w-[1101px] px-4 pt-4 pb-8 sm:px-6">
-      <Reveal>
-        <div className="card-glass grid grid-cols-2 gap-2 p-6 sm:p-8 lg:grid-cols-4">
-          {cells.map((c) => (
-            <div key={c.label} className="flex flex-col items-center gap-2 px-2 py-3 text-center">
-              <span className="text-[44px] leading-none font-medium tracking-[-0.02em] text-brand-700 tabular-nums sm:text-[52px]">
-                {c.value === null ? '—' : <CountUp value={c.value} />}
-              </span>
-              <span className="text-[14px] font-medium text-body">{c.label}</span>
-            </div>
-          ))}
-        </div>
-        <p className="mt-4 text-center text-sm text-muted">
-          Live from the test registry ·{' '}
-          {s?.last_verifier_run_at ? `last verifier run ${formatUtcDateTime(s.last_verifier_run_at)}` : 'loading…'}
-        </p>
-      </Reveal>
-    </section>
-  )
-}
-
 /** Invoice showcase — the latest live invoices as glossy glass cards
     (polished sketch: "Beautiful, transparent invoicing"). Paid first by
     highest id, then the soonest-due unpaid ones. */
 export function InvoiceShowcase() {
   const invoices = useInvoices()
+  const slow = useSlowLoad(invoices.isLoading)
   const items = invoices.data ?? []
   const paid = [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)
   const unpaid = [...items].filter((i) => i.status !== 'paid').sort((a, b) => a.due.localeCompare(b.due))
@@ -178,7 +158,11 @@ export function InvoiceShowcase() {
       <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
         {shown.length === 0 ? (
           <p className="text-[15px] text-muted md:col-span-3">
-            {invoices.isError ? COPY.statsNoData : 'Loading payables…'}
+            {invoices.isError
+              ? COPY.statsNoData
+              : invoices.isLoading
+                ? `Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`
+                : 'No invoices on the test registry right now.'}
           </p>
         ) : (
           shown.map((inv, i) => (
@@ -219,6 +203,7 @@ export function InvoiceShowcase() {
 function StepVisual01({ tall = false }: { tall?: boolean }) {
   void tall
   const invoices = useInvoices()
+  const slow = useSlowLoad(invoices.isLoading)
   const reduceMotion = useReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { amount: 0.4 })
@@ -249,7 +234,13 @@ function StepVisual01({ tall = false }: { tall?: boolean }) {
           </li>
         ))}
         {items.length === 0 ? (
-          <li className="px-3 py-2 text-[13px] text-muted">Loading payables…</li>
+          <li className="px-3 py-2 text-[13px] text-muted">
+            {invoices.isError
+              ? COPY.statsNoData
+              : invoices.isLoading
+                ? `Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`
+                : 'No invoices on the test registry right now.'}
+          </li>
         ) : null}
       </ul>
     </div>
@@ -320,24 +311,46 @@ function StepVisual03({ tall = false }: { tall?: boolean }) {
     >
       <Terrain src="/assets/step-sunset-grass.webp" position="center 80%" />
       <div className="absolute inset-0 bg-white/55" aria-hidden="true" />
-      <div className="relative grid h-full grid-cols-2 gap-2 p-2">
-        <div className="rounded-[4px] bg-white/90 p-2.5">
+      {/* Tall mode fills the panel: the rail boxes stretch to the full
+          height (flex, not a content-height grid row) and pin their live
+          counts + receipt link to the bottom, so no empty grass sits below
+          them (N4). */}
+      <div className="relative flex h-full gap-2 p-2">
+        <div className="flex flex-1 flex-col rounded-[4px] bg-white/90 p-2.5 pb-2">
           <p className="text-[11px] font-semibold tracking-[0.06em] text-brand-700 uppercase">Rail A · CCD</p>
           <p className="mt-1 text-[13px] leading-snug text-body">One transaction. The contract is the payment.</p>
-          {ccd ? (
-            <Link to={`/receipt/${ccd.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-brand-700">
-              Payable {ccd.payable_id} · {ccd.amount_display} →
-            </Link>
-          ) : null}
+          <div className="mt-auto pt-3">
+            {items.length > 0 ? (
+              <p className="text-xs text-muted">
+                {items.filter((i) => i.asset === 'ccd').length} payable
+                {items.filter((i) => i.asset === 'ccd').length === 1 ? '' : 's'} ·{' '}
+                {items.filter((i) => i.asset === 'ccd' && i.status === 'paid').length} paid once
+              </p>
+            ) : null}
+            {ccd ? (
+              <Link to={`/receipt/${ccd.payable_id}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
+                Payable {ccd.payable_id} · {ccd.amount_display}&nbsp;→
+              </Link>
+            ) : null}
+          </div>
         </div>
-        <div className="rounded-[4px] bg-white/90 p-2.5">
+        <div className="flex flex-1 flex-col rounded-[4px] bg-white/90 p-2.5 pb-2">
           <p className="text-[11px] font-semibold tracking-[0.06em] text-brand-700 uppercase">Rail B · EUDemo</p>
           <p className="mt-1 text-[13px] leading-snug text-body">Reserve, co-sign, confirm. Testnet demo token.</p>
-          {eudemo ? (
-            <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1.5 inline-block text-xs font-medium text-brand-700">
-              Payable {eudemo.payable_id} · {eudemo.amount_display} →
-            </Link>
-          ) : null}
+          <div className="mt-auto pt-3">
+            {items.length > 0 ? (
+              <p className="text-xs text-muted">
+                {items.filter((i) => i.asset === 'eudemo').length} payable
+                {items.filter((i) => i.asset === 'eudemo').length === 1 ? '' : 's'} ·{' '}
+                {items.filter((i) => i.asset === 'eudemo' && i.status === 'paid').length} paid once
+              </p>
+            ) : null}
+            {eudemo ? (
+              <Link to={`/receipt/${eudemo.payable_id}`} className="mt-1 inline-block text-xs font-medium text-brand-700">
+                Payable {eudemo.payable_id} · {eudemo.amount_display}&nbsp;→
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -348,8 +361,7 @@ function StepVisual03({ tall = false }: { tall?: boolean }) {
 function ReceiptChecker() {
   const invoices = useInvoices()
   const reduceMotion = useReducedMotion()
-  const paid = (invoices.data ?? []).filter((i) => i.status === 'paid')
-  const target = paid[0]
+  const target = latestPaidInvoice(invoices.data ?? [])
   const [result, setResult] = useState<VerifyResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shown, setShown] = useState(0)
@@ -390,8 +402,13 @@ function ReceiptChecker() {
 
   const check = (id: string) => result?.checks.find((c) => c.id === id)
   const doc = check('doc')
-  const status = check('status')
-  const stages: Array<{ label: string; detail: string }> = result
+  // The after-pay verifier names the paid-status check 'status_paid' on the
+  // live API (before-pay calls it 'status'). Either shape must render its
+  // detail — looking up 'status' alone showed a bare "—" (N2).
+  const status = check('status') ?? check('status_paid')
+  // A result only exists for a target (the effect returns early without
+  // one), so `result && target` narrows target for the stages below.
+  const stages: Array<{ label: string; detail: string }> = result && target
     ? [
         { label: 'Fetch payable', detail: check('registered')?.detail ?? '—' },
         {
@@ -406,11 +423,17 @@ function ReceiptChecker() {
         { label: 'Seller agent active on the official registry', detail: check('agent')?.detail ?? '—' },
         {
           label: result.verdict === 'paid' ? 'Paid once: yes' : (status?.label ?? 'Status'),
-          detail: status?.detail ?? '—',
+          // Paid verdicts always carry a detail: the check's own, or the
+          // verdict restated — never a bare "—" after the label (N2).
+          detail:
+            status?.detail ??
+            (result.verdict === 'paid' ? `Payable ${target.payable_id} is Paid on chain.` : '—'),
         },
         {
           label: 'Verdict',
-          detail: `Verdict: ${result.verdict}${result.blocked_reason ? ` — ${result.blocked_reason}` : ''} (${result.passed}/${result.total} checks passed).`,
+          // No "Verdict:" prefix here — the label already says Verdict, so
+          // the old text read "Verdict: Verdict: paid …" (N2).
+          detail: `${result.verdict}${result.blocked_reason ? ` — ${result.blocked_reason}` : ''} (${result.passed}/${result.total} checks passed).`,
         },
       ]
     : []
@@ -420,7 +443,11 @@ function ReceiptChecker() {
       <p className="text-[13px] tracking-[0.02em] text-muted">Receipt checker</p>
       {!target ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">
-          {invoices.isError ? COPY.statsNoData : 'Waiting for a paid invoice to check.'}
+          {invoices.isError
+            ? COPY.statsNoData
+            : invoices.isLoading
+              ? 'Loading payables…'
+              : 'No paid invoice yet — pay one in the flow above and the checker runs here.'}
         </p>
       ) : error ? (
         <p className="mt-8 text-[15px] leading-[1.5] text-muted">{error}</p>
@@ -470,15 +497,10 @@ function ReceiptChecker() {
 export function HowItWorks() {
   const reduceMotion = useReducedMotion()
   const invoices = useInvoices()
-  const stats = useStats()
   const config = useConfig()
+  const slow = useSlowLoad(invoices.isLoading)
   const items = invoices.data ?? []
-  const paid = items.filter((i) => i.status === 'paid')
-  const dueSoon = items.filter((i) => i.status !== 'paid')
-  // The invoices list carries no paid_at, so the most recently created paid
-  // payable (highest id) is the latest payment: ids are sequential and the
-  // paid set was paid in id order (1006 paid 15:08 UTC, after 1005 13:20 UTC).
-  const latestPaid = [...paid].sort((a, b) => b.payable_id - a.payable_id)[0]
+  const latestPaid = latestPaidInvoice(items)
   const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null)
   const visuals = [StepVisual01, StepVisual02, StepVisual03]
 
@@ -491,7 +513,7 @@ export function HowItWorks() {
             How it works
           </p>
           <h2 id="how-title" className="mt-6 max-w-[480px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-            From invoice to verified receipt in three steps.
+            From invoice to verified receipt in four steps.
           </h2>
         </div>
         <p className="max-w-[320px] text-[15px] leading-[1.5] text-muted">
@@ -501,12 +523,12 @@ export function HowItWorks() {
 
       <div className="handles hairline-grid mt-12 grid grid-cols-1 border border-line bg-card md:grid-cols-3">
         <i aria-hidden="true" />
-        {STEPS.map((s, i) => {
+        {STEPS.slice(0, 3).map((s, i) => {
           const Visual = visuals[i]
           return (
             <motion.div
               key={s.n}
-              className={`border border-line bg-card p-6 ${i === 2 ? 'flex flex-col md:row-span-2' : ''}`}
+              className="border border-line bg-card p-6"
               initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
@@ -515,15 +537,17 @@ export function HowItWorks() {
               <p className="text-[13px] tracking-[0.02em] text-muted">{s.n}</p>
               <h3 className="mt-4 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">{s.title}</h3>
               <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{s.body}</p>
-              <div className={i === 2 ? 'mt-5 flex-1' : 'mt-5'}>
-                <Visual tall={i === 2} />
+              <div className="mt-5">
+                <Visual />
               </div>
             </motion.div>
           )
         })}
-        {/* Card 04 — wide bento: live verified payments over the dawn terrain. */}
+        {/* Step 04 — wide bento: the receipt, over the dawn terrain, with
+            the latest real payment floating on it. The receipt is the
+            fourth step of the flow, not a stats card. */}
         <motion.div
-          className="relative overflow-hidden border border-line bg-card p-6 md:col-span-2"
+          className="relative overflow-hidden border border-line bg-card p-6 md:col-span-3"
           initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
@@ -534,18 +558,13 @@ export function HowItWorks() {
             <div className="absolute inset-0 bg-white/60" />
           </div>
           <div className="relative">
-            <p className="text-[13px] tracking-[0.02em] text-muted">04</p>
+            <p className="text-[13px] tracking-[0.02em] text-muted">{STEPS[3].n}</p>
             <h3 className="mt-8 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">
-              Live verified payments
+              {STEPS[3].title}
             </h3>
-            <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-muted">
-              {stats.data
-                ? `${stats.data.paid_total} payable${stats.data.paid_total === 1 ? '' : 's'} paid once, ${dueSoon.length} unpaid open right now.`
-                : 'Live numbers load from the testnet.'}{' '}
-              Insight lines are computed from state, not from a language model.
-            </p>
+            <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-muted">{STEPS[3].body}</p>
             <div className="mt-6 flex flex-wrap gap-4">
-              <Link to="#invoice" className="btn-ember !min-h-[44px]">
+              <Link to="/#invoice" className="btn-ember !min-h-[44px]">
                 Open the payment list
               </Link>
               <Link to="/judges" className="btn-glass !min-h-[44px]">
@@ -577,6 +596,10 @@ export function HowItWorks() {
                     ) : null}
                   </div>
                 </div>
+              ) : invoices.isLoading ? (
+                <p className="text-sm text-muted">
+                  {`Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`}
+                </p>
               ) : (
                 <p className="text-sm text-muted">
                   {invoices.isError ? COPY.statsNoData : 'No paid invoice yet. Pay one above and it appears here.'}
@@ -622,6 +645,160 @@ export function VerifierSection() {
   )
 }
 
+/** The AI planner — the REAL NEAR AI planner, not a demo conversation.
+    A real language-model loop on NEAR AI Cloud (model z-ai/glm-5.3-flash)
+    that acts ONLY through four tools. It never invents a payee, an amount
+    or a transaction hash: the chain decides those, and a tool refusal stops
+    the run. The live injection test passed with 0 dispatches (a document
+    that told it to pay a different account was ignored). The reliability
+    gate is in independent judgment — this page claims nothing about it. */
+const PLANNER_TOOLS = [
+  {
+    name: 'verify_invoice',
+    body: 'Verify a payment against a payable on the test registry — runs the verifier live from chain state and returns the full check list.',
+  },
+  {
+    name: 'pay_payable',
+    body: 'Pay a payable for real. Validates everything first and refuses without sending on any failure. Takes no payee and no amount — both come from the on-chain payable view.',
+  },
+  {
+    name: 'receipt',
+    body: 'Receipt facts re-read live from the chain: the payable row, the transaction hashes, the block times, and a fresh verifier re-run.',
+  },
+  {
+    name: 'list_payables',
+    body: 'Payable rows read live from the test registry: id, status, amount, asset, payee, due. Unregistered ids are reported as absent.',
+  },
+]
+
+export function PlannerSection() {
+  return (
+    <section aria-labelledby="planner-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal className="text-center">
+        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ The planner</p>
+        <h2 id="planner-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          An agent that plans the payment — and nothing else.
+        </h2>
+        <p className="mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] text-muted">
+          A real language-model loop on NEAR AI Cloud (model z-ai/glm-5.3-flash) that acts only through four tools.
+          The model talks; the chain decides.
+        </p>
+      </Reveal>
+      <div className="handles hairline-grid mt-14 grid grid-cols-1 border border-line bg-card md:grid-cols-2 lg:grid-cols-4">
+        <i aria-hidden="true" />
+        {PLANNER_TOOLS.map((t, i) => (
+          <Reveal key={t.name} delay={i * 0.08} className="border border-line bg-card p-8 transition-transform duration-200 hover:-translate-y-1">
+            <div className="flex min-h-[200px] flex-col justify-between">
+              <p className="font-mono text-[13px] font-semibold text-brand-700">{t.name}</p>
+              <p className="mt-8 text-[15px] leading-[1.6] text-muted">{t.body}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      <Reveal delay={0.1}>
+        <p className="mx-auto mt-8 max-w-[640px] text-center text-[15px] leading-[1.6] text-muted">
+          The planner never invents a payee, an amount or a transaction hash. If a tool refuses, it stops — it does not
+          retry with different arguments. A document that told it to pay a different account was ignored in the live
+          injection test: 0 dispatches. The reliability gate is in independent judgment; this page claims nothing about it.
+        </p>
+      </Reveal>
+    </section>
+  )
+}
+
+/** For judges — the three live checks a judge can open in about a minute:
+    the verification spec, the real dashboard, and the age proof. No wallet,
+    no sign-in, no real money: testnet only. */
+const JUDGE_LINKS = [
+  {
+    to: '/judges',
+    title: 'Verification spec',
+    body: 'The contract, the checks, the sample transactions and the limits — what was proven, and what was not.',
+  },
+  {
+    to: '/dashboard',
+    title: 'Live dashboard',
+    body: 'The real numbers, live from the test registry: payables, paid once, refused on chain.',
+  },
+  {
+    to: '/verify-age',
+    title: 'Prove 18+',
+    body: 'Age proof with a zero-knowledge presentation — the birthday never leaves the holder.',
+  },
+]
+
+export function JudgesSection() {
+  return (
+    <section aria-labelledby="judges-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal className="text-center">
+        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ For judges</p>
+        <h2 id="judges-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Verify everything yourself, in about a minute.
+        </h2>
+        <p className="mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] text-muted">
+          No wallet, no sign-in, no real money. Testnet only — every link below is a live check, not a screenshot.
+        </p>
+      </Reveal>
+      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+        {JUDGE_LINKS.map((c, i) => (
+          <Reveal key={c.to} delay={i * 0.08}>
+            <Link
+              to={c.to}
+              className="card-glass flex min-h-[220px] flex-col p-8 transition-transform duration-200 hover:-translate-y-1.5"
+            >
+              <h3 className="text-[22px] leading-tight font-medium tracking-[-0.01em] text-ink">{c.title}</h3>
+              <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.6] text-muted">{c.body}</p>
+              <span className="mt-auto pt-6 text-sm font-medium text-brand-700">Open →</span>
+            </Link>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** Hairline figures — three figures in the hairline style, one isometric
+    line drawing each, answering the pointer. Press play on any of them, or
+    just move your pointer over the drawing. */
+const FIGURES = [
+  {
+    name: 'payable',
+    caption: 'A payable on its tray. Move the pointer over a sheet to lift it; press it to pay — the receipt slip rises behind it.',
+  },
+  {
+    name: 'seal',
+    caption: 'The paid-once seal. Press it and it stamps down — one payable, one stamp, one payment.',
+  },
+  {
+    name: 'receipt',
+    caption: 'A receipt printing from its slot. Move the pointer along it to print more; every line is a line of the proof.',
+  },
+]
+
+export function HairlineFigures() {
+  return (
+    <section aria-labelledby="figures-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal className="text-center">
+        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ Drawn in hairline</p>
+        <h2 id="figures-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Pay once, drawn in one line.
+        </h2>
+        <p className="mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] text-muted">
+          Three figures in the hairline style — one isometric line drawing each, answering the pointer. Press play on any
+          of them, or just move your pointer over the drawing.
+        </p>
+      </Reveal>
+      <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">
+        {FIGURES.map((f, i) => (
+          <Reveal key={f.name} delay={i * 0.08}>
+            <HairlineFigure name={f.name} caption={f.caption} />
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function CtaBand() {
   return (
     <section aria-labelledby="cta-title" className="relative overflow-hidden bg-sky-0">
@@ -635,7 +812,7 @@ export function CtaBand() {
           Verify your first invoice in about a minute.
         </h2>
         <div className="flex flex-wrap gap-4">
-          <Link to="#invoice" className="btn-glass">
+          <Link to="/#invoice" className="btn-glass">
             Verify an invoice
           </Link>
           <Link to="/dashboard" className="btn-ghost-light">
@@ -668,9 +845,6 @@ export function Footer() {
             </li>
             <li>
               <Link to="/dashboard" className="hover:text-ink">Dashboard</Link>
-            </li>
-            <li>
-              <Link to="/#console" className="hover:text-ink">Live console</Link>
             </li>
             <li>
               <Link to="/judges" className="hover:text-ink">For judges</Link>

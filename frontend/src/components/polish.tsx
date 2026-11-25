@@ -6,37 +6,62 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { DerivedStatus } from '../lib/dashboard'
 
-/** Animated number: counts 0 → value once it scrolls into view. */
+/** Loading skeleton: a pulsing block where a live number will land. The
+    hero chip and the dashboard cards render these while stats load, so the
+    page never shows a bare "0" or an absent chip for 5–8 s. */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`skeleton ${className}`} />
+}
+
+/** Animated number: counts to the value once it scrolls into view, then
+    glides from the PREVIOUS value on every real change — never from 0 after
+    mount, and never at all when the value is unchanged (bug 3 / numbers
+    re-rendering: the old count-up restarted 0 → value on every poll that
+    returned a new object, so the numbers visibly re-animated on their own). */
 export function CountUp({ value, format }: { value: number; format?: (n: number) => string }) {
   const ref = useRef<HTMLSpanElement>(null)
   const reduceMotion = useReducedMotion()
   const [shown, setShown] = useState(reduceMotion ? value : 0)
+  const shownRef = useRef(reduceMotion ? value : 0)
+  const targetRef = useRef(value)
   const fmt = format ?? ((n: number) => String(Math.round(n)))
 
   useEffect(() => {
+    if (value === targetRef.current && shownRef.current === value) return
+    targetRef.current = value
     if (reduceMotion) {
       setShown(value)
+      shownRef.current = value
       return
     }
     // No IntersectionObserver (jsdom / old browsers): show the final value.
     if (typeof IntersectionObserver === 'undefined') {
       setShown(value)
+      shownRef.current = value
       return
     }
     const el = ref.current
-    if (!el) return
+    if (!el) {
+      setShown(value)
+      shownRef.current = value
+      return
+    }
     let raf = 0
     let started = false
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting || started) return
         started = true
+        const from = shownRef.current
+        const to = value
         const t0 = performance.now()
-        const dur = 1100
+        const dur = 600
         const tick = (t: number) => {
           const p = Math.min(1, (t - t0) / dur)
           const eased = 1 - (1 - p) ** 3
-          setShown(value * eased)
+          const v = from + (to - from) * eased
+          shownRef.current = v
+          setShown(v)
           if (p < 1) raf = requestAnimationFrame(tick)
         }
         raf = requestAnimationFrame(tick)
@@ -55,6 +80,22 @@ export function CountUp({ value, format }: { value: number; format?: (n: number)
       {fmt(shown)}
     </span>
   )
+}
+
+/** True once `active` has held for `ms` without a break — a loader that is
+    still loading after 15 s says so ("Still loading — the test API is slow
+    right now.") instead of spinning silently (bug 6). */
+export function useSlowLoad(active: boolean, ms = 15_000): boolean {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!active) {
+      setSlow(false)
+      return
+    }
+    const t = window.setTimeout(() => setSlow(true), ms)
+    return () => window.clearTimeout(t)
+  }, [active, ms])
+  return slow
 }
 
 /** Scroll-reveal wrapper (framer-motion, already in the stack). */
@@ -154,6 +195,7 @@ export function Donut({
                 strokeDasharray={`${Math.max(0, frac * c - (frac > 0 && frac < 1 ? 2 : 0))} ${c}`}
                 strokeDashoffset={-offset * c}
                 transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{ transition: 'stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease' }}
               />
             )
             offset += frac
@@ -178,6 +220,36 @@ export function Donut({
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/** Paid-once gauge: a semicircular arc, 0–100%. The arc glides (CSS
+    transition on stroke-dashoffset) when the value changes instead of
+    jumping — the same glide rule as the donut. */
+export function Gauge({ pct, label }: { pct: number; label: string }) {
+  const p = Math.min(100, Math.max(0, Math.round(pct)))
+  const r = 70
+  const half = Math.PI * r
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="180" height="104" viewBox="0 0 180 104" role="img" aria-label={`${label}: ${p}%`}>
+        <path d={`M 20 96 A ${r} ${r} 0 0 1 160 96`} fill="none" stroke="#E7DDCB" strokeWidth="14" strokeLinecap="round" />
+        <path
+          d={`M 20 96 A ${r} ${r} 0 0 1 160 96`}
+          fill="none"
+          stroke="#B4430F"
+          strokeWidth="14"
+          strokeLinecap="round"
+          strokeDasharray={`${half} ${half}`}
+          strokeDashoffset={half * (1 - p / 100)}
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+        <text x="90" y="82" textAnchor="middle" fontSize="30" fontWeight="600" fill="#171310">
+          {p}%
+        </text>
+      </svg>
+      <p className="mt-1 text-sm text-muted">{label}</p>
     </div>
   )
 }
