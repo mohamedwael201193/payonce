@@ -27,14 +27,22 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 // `waitFinalized` poll — 120 s with NO `data:` event during the wait
 // (`backend/src/send.mjs:69-84`, via `api/src/chain-v2.mjs:166`) — inside a
 // step span that emits only a single `running` event first (CCD
-// `wait_finality`, EUDemo `wait_finality`/`reserve`/`confirm`). The EUDemo
-// `reserve`/`confirm` spans can additionally spend up to ~24 s in the
-// bounded duplicate-nonce send retry (6 attempts, 4 s apart — 20 s of
-// sleeps plus per-attempt `nextNonce`/send time, `api/src/chain-v2.mjs:183-195`)
-// before the 120 s wait even starts, the poll itself can overshoot ~2 s,
-// and the post-wait `getPayable` adds more — so the realistic worst legit
-// silence is ~150–165 s; 180 s covers it with ~15–30 s of real margin
-// (150 s would be too tight). The server's 5 s heartbeat is an SSE
+// `wait_finality`, EUDemo `wait_finality`/`reserve`/`confirm`). Per span:
+// the CCD `wait_finality` span is the bare 120 s wait plus ~2 s of poll
+// overshoot (~122 s) — nothing else runs inside it. The bounded
+// duplicate-nonce send retry (6 attempts, 4 s apart — 20 s of sleeps plus
+// per-attempt `nextNonce`/send time, `api/src/chain-v2.mjs:182-195`) sits
+// in the SUBMIT span (CCD `submit`, EUDemo `submit_transfer`, and the
+// `reserve`/`confirm` sends), before the 120 s wait even starts — it never
+// extends a wait span. The post-wait `getPayable` is likewise span-bound:
+// the CCD one runs in the `read_back` span (`api/src/jobs.mjs:244`), AFTER
+// the `wait_finality`-ok event, so it cannot extend the CCD wait silence;
+// the EUDemo ones run INSIDE the `reserve` (`api/src/jobs.mjs:332`) and
+// `confirm` (`api/src/jobs.mjs:424`) spans, after their 120 s waits. So the
+// realistic worst legit silence is an EUDemo `reserve`/`confirm` span at
+// ~150–165 s (~24 s retry + 120 s wait + ~2 s overshoot + `getPayable`);
+// 180 s covers it with ~15–30 s of real margin (150 s would be too tight).
+// The server's 5 s heartbeat is an SSE
 // `: ping` COMMENT (`api/src/server.mjs:570`) — comments never fire
 // `onmessage`, so it does NOT re-arm this watchdog; only `data:` step
 // events do. The 90 s `awaitStableNonce` leg does NOT apply to pay jobs:

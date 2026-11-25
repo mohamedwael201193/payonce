@@ -45,11 +45,24 @@ const HEALTH = {
   budget: { new_invoices_left_this_hour: 3, attack_sends_left_this_hour: 5 },
 }
 const STATS = { payables_total: 5, paid_total: 3, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+const DAY_MS = 24 * 60 * 60 * 1000
+// Mock dues are relative to Date.now() — NOT fixed calendar dates
+// (fix-back-5 O4a, same dueInDays pattern as MF-H1/MF-H4). These items
+// feed the REAL App: HomePage's HeroDemo (real-now pick) and
+// InvoiceShowcase + DashboardPage (real-now derivedStatus pills). Fixed
+// dues would flip the pick 2 → 1004 after Dec 1 and, after Dec 26, leave
+// NO future unpaid CCD payable — the demo would render "Demo unavailable"
+// and the 'Live Invoices' wait in the viewport test below would time out.
+// Relative dues preserve the pick (2, soonest-due unpaid CCD), the order
+// 2 < 1004, and both Unpaid pills at any run date. (The 'Due
+// 2026-12-01…' string in VERIFY_AFTER_PAY below is a canned verify-response
+// detail, not derived from these dues — it stays fixed.)
+const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
 const INVOICES = {
   items: [
-    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: '2026-12-01T08:03:26.555Z', status: 'paid', label: 'Lab invoice 1' },
-    { payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice 2' },
-    { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'unpaid', label: 'Lab invoice' },
+    { payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+    { payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
+    { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
   ],
 }
 const VERIFY_AFTER_PAY = {

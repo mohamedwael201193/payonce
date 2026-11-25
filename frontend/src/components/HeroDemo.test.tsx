@@ -21,9 +21,20 @@ import {
 import type { InvoiceItem, Stats } from '../lib/types'
 
 // Same live shape as HeroOverview.test.tsx: 13 payables, 8 paid, 5
-// unpaid, 18 refused. Payable 5 is past due (2026-11-24 08:05 UTC);
-// payable 1004 is the soonest-due unpaid CCD payable that is not past due.
-const INVOICES: InvoiceItem[] = [
+// unpaid, 18 refused.
+//
+// TWO fixtures, deliberately split (fix-back-5 MF-H4 — the trap that
+// killed the naive fix): the lib tests pin NOW to 2026-11-24T12:00Z and
+// call demoInvoice(items, NOW) with an explicit now, so their fixture
+// MUST stay fixed — relativizing it would make payable 5 future vs the
+// pinned NOW once real time passes 2026-11-25T12:00Z and the lib pick
+// would flip 1004 → 5. The rendered-component tests run on REAL now
+// (HeroDemo.tsx calls demoInvoice(items) / derivedStatus(inv) with no
+// now arg), so their fixture MUST be relative to Date.now() — the old
+// fixed 1004 due 2026-11-25T10:58:25.269Z detonated the pick-identity
+// assertions the morning it passed. LIB_INVOICES is used ONLY with the
+// pinned NOW; COMPONENT_INVOICES is used ONLY by the rendered tests.
+const LIB_INVOICES: InvoiceItem[] = [
   { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
   { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
   { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: '2026-12-01T08:03:26.555Z', status: 'unpaid', label: 'Lab invoice' },
@@ -37,6 +48,31 @@ const INVOICES: InvoiceItem[] = [
   { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T10:58:25.269Z', status: 'unpaid', label: 'Lab invoice' },
   { payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T13:11:46.300Z', status: 'paid', label: 'Lab invoice' },
   { payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T15:07:59.465Z', status: 'paid', label: 'Lab invoice' },
+]
+
+const DAY_MS = 24 * 60 * 60 * 1000
+// Relative dues (same dueInDays pattern as MF-H1): payable 5 is past due
+// (−1 d, skipped by the pick, Overdue pill, first in the table), payable
+// 1004 is the soonest-due unpaid CCD payable that is not past due (+1 d,
+// the pick), 1/2/3 sit at +7 d (table order 5/1004/1 preserved, Unpaid
+// pills preserved). Paid items sit in the past — status is 'paid'
+// regardless of due. Computed from Date.now() at import, so this fixture
+// can never expire: at any run date the pick is still 1004.
+const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
+const COMPONENT_INVOICES: InvoiceItem[] = [
+  { payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { payable_id: 2, asset: 'ccd', amount_display: '5.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { payable_id: 3, asset: 'eudemo', amount_display: '1.00 EUDemo', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+  { payable_id: 5, asset: 'ccd', amount_display: '1.000000 CCD', due: dueInDays(-1), status: 'unpaid', label: 'Lab invoice' },
+  { payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 11, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1000, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1001, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1002, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1003, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(1), status: 'unpaid', label: 'Lab invoice' },
+  { payable_id: 1005, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
+  { payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-2), status: 'paid', label: 'Lab invoice' },
 ]
 const STATS: Stats = {
   payables_total: 14,
@@ -58,7 +94,7 @@ function renderDemo() {
   return render(
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <section>
-        <HeroDemo items={INVOICES} stats={STATS} />
+        <HeroDemo items={COMPONENT_INVOICES} stats={STATS} />
       </section>
     </MemoryRouter>,
   )
@@ -66,20 +102,20 @@ function renderDemo() {
 
 describe('heroDemo lib', () => {
   it('picks the soonest-due unpaid CCD payable that is not past due (1004, not 5)', () => {
-    const inv = demoInvoice(INVOICES, NOW)
+    const inv = demoInvoice(LIB_INVOICES, NOW)
     expect(inv?.payable_id).toBe(1004)
     expect(inv?.amount_display).toBe('0.500000 CCD')
   })
 
   it('returns null when no unpaid CCD payable is due in the future', () => {
-    const allPast = INVOICES.map((i) => ({ ...i, due: '2026-11-01T00:00:00.000Z' }))
+    const allPast = LIB_INVOICES.map((i) => ({ ...i, due: '2026-11-01T00:00:00.000Z' }))
     expect(demoInvoice(allPast, NOW)).toBeNull()
-    const allPaid = INVOICES.map((i) => ({ ...i, status: 'paid' as const }))
+    const allPaid = LIB_INVOICES.map((i) => ({ ...i, status: 'paid' as const }))
     expect(demoInvoice(allPaid, NOW)).toBeNull()
   })
 
   it('shows the 9 real before-pay checks with the real verdict rule', () => {
-    const rows = demoCheckRows(INVOICES.find((i) => i.payable_id === 1004)!)
+    const rows = demoCheckRows(LIB_INVOICES.find((i) => i.payable_id === 1004)!)
     expect(rows).toHaveLength(DEMO_CHECK_COUNT)
     expect(rows.map((r) => r.label)).toEqual([
       'Payable is registered on the test registry',
@@ -251,7 +287,7 @@ describe('HeroDemo component', () => {
     render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <section>
-          <HeroDemo items={INVOICES} stats={undefined} />
+          <HeroDemo items={COMPONENT_INVOICES} stats={undefined} />
         </section>
       </MemoryRouter>,
     )
@@ -322,7 +358,7 @@ describe('HeroDemo component', () => {
     return render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <section>
-          <HeroDemo items={INVOICES} stats={stats} compact />
+          <HeroDemo items={COMPONENT_INVOICES} stats={stats} compact />
         </section>
       </MemoryRouter>,
     )
