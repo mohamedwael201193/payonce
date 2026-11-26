@@ -88,6 +88,24 @@ export function PayFlowTabs() {
   const health = useHealth()
   const config = useConfig()
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  // B-5-R7 (round-7 fix-back): the pay captured at initiation — the
+  // (job, payable, seller) the user actually paid. The reducer resets
+  // `pay` to idle on every new facts load (FACTS_LOADED), and the SSE
+  // snapshot the job lands with carries no seller at all, so neither
+  // state.pay.job nor the landed snapshot can name the paid seller by
+  // the time the receipt is fetched. This state survives both: the
+  // job-outcome receipt fetch uses ITS seller, never the currently
+  // loaded facts' seller — otherwise a same-id seller-2 pick made
+  // while the job runs launders the fetch into seller 2's receipt for
+  // the same id, and the stale gate below passes by construction.
+  // Cleared when a new pay starts; set again when its POST returns.
+  const [payJob, setPayJob] = useState<{ job_id: string; payable_id: number; seller: string } | null>(null)
+  // B-5-R7: the receipt is fetched once per landed job. Without this
+  // the effect re-runs (and re-fetches) on every facts change while the
+  // job sits succeeded — a pick after the landing would re-set a
+  // receipt loadFacts just cleared. Set only on a successful fetch, so
+  // a failed fetch still retries on the next effect run.
+  const receiptFetchedForJob = useRef<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   // N2 (round-4 fix-back): the preload effect suppresses a refetch when
   // the server answered a (payable, seller) pair with a DIFFERENT seller
@@ -163,14 +181,22 @@ export function PayFlowTabs() {
   useEffect(() => {
     if (!liveJob) return
     dispatch({ type: 'PAY_UPDATED', job: liveJob })
-    if (liveJob.state === 'succeeded') {
-      // N-3 (round-3 fix-back): thread the loaded facts' seller — a
-      // just-succeeded job is always seller 1 in practice, but the
-      // receipt fetch must name the seller it belongs to (same pattern
-      // as TryPanel's getRecorded(id, facts?.seller)).
+    if (liveJob.state === 'succeeded' && receiptFetchedForJob.current !== liveJob.job_id) {
+      // B-5-R7: fetch with the seller captured when the pay was
+      // initiated (payJob), NOT the currently loaded facts' seller.
+      // The old code used state.facts?.seller here (round-3 N-3): if
+      // the user picked another seller's same-id payable while the job
+      // ran, the fetch named the NEW seller and returned that seller's
+      // same-id receipt — which the stale gate then passed by
+      // construction (same id, same seller as the loaded facts). The
+      // fallback to the facts' seller runs only when no pay was
+      // captured in this session (defensive; onPay always sets payJob
+      // before the job can land).
+      const paySeller = payJob?.seller ?? state.facts?.seller
       void api
-        .getReceipt(liveJob.payable_id, state.facts?.seller)
+        .getReceipt(liveJob.payable_id, paySeller)
         .then((r) => {
+          receiptFetchedForJob.current = liveJob.job_id
           setReceipt(r)
         })
         .catch(() => setPageError('The payment succeeded, but the receipt could not be loaded. Use the transaction links above.'))
@@ -178,7 +204,7 @@ export function PayFlowTabs() {
     if (liveJob.state === 'succeeded' || liveJob.state === 'refused' || liveJob.state === 'failed') {
       void queryClient.invalidateQueries({ queryKey: ['live-snapshot'] })
     }
-  }, [liveJob, queryClient, state.facts])
+  }, [liveJob, queryClient, state.facts, payJob])
 
   // ?payable=<id> preload. The ref records the id of the most recent load
   // (every load path sets it — see loadFacts), so the effect below can
@@ -502,6 +528,11 @@ export function PayFlowTabs() {
       if (state.check.kind !== 'ready' || state.check.result.payable_id !== facts.payable_id) return
       // The button is disabled at once in the UI; this is the second guard.
       dispatch({ type: 'RESET_PAY' })
+      // B-5-R7: a new pay supersedes any earlier captured job — clear
+      // the capture (and the fetched guard) before the POST, and
+      // re-capture below when the job exists.
+      setPayJob(null)
+      receiptFetchedForJob.current = null
       try {
         const docSha256 =
           state.invoice.kind === 'loaded' && state.invoice.docSha256 ? state.invoice.docSha256 : undefined
@@ -510,6 +541,11 @@ export function PayFlowTabs() {
         // seller-2 payable can never be paid as seller 1's same-id
         // payable even if the client gate was blind when Pay was pressed.
         const job = await api.pay(facts.payable_id, rail, docSha256, facts.seller)
+        // B-5-R7: capture the paid (payable, seller) at initiation —
+        // the job-outcome receipt fetch and the stale gate below read
+        // this, never the facts the user may have picked by the time
+        // the job lands.
+        setPayJob({ job_id: job.job_id, payable_id: facts.payable_id, seller: facts.seller })
         dispatch({
           type: 'PAY_STARTED',
           job: {
@@ -757,13 +793,24 @@ export function PayFlowTabs() {
         <div className={state.facts ? 'mt-6' : ''}>
           {/* B-5 (round-6): the loaded payable's id/seller gate the
               receipt — a receipt for any other payable renders as stale
-              with no copy button, never as the current receipt. */}
+              with no copy button, never as the current receipt. B-5-R7
+              (round-7): the gate also compares against the pay captured
+              at initiation (jobPayableId/jobSeller) — the fetch already
+              uses the job's seller, so a receipt that mismatches the
+              job pair is never the payment just made, even if it
+              happens to match the loaded facts. N-R7-1: a loaded
+              payable that is already Paid with no receipt in this tab
+              links to its receipt page instead of claiming nothing is
+              paid. */}
           <ReceiptStep
             receipt={receipt}
             explorerBase={explorerBase}
             asset={state.facts?.asset.kind}
             forPayableId={state.facts?.payable_id}
             forSeller={state.facts?.seller}
+            forPaid={state.facts?.status.kind === 'paid'}
+            jobPayableId={payJob?.payable_id}
+            jobSeller={payJob?.seller}
           />
         </div>
       </div>

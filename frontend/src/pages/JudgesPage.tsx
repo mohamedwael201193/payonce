@@ -40,7 +40,7 @@ const KNOWN_LIMITS = [
   'Seller identity: the seller holds an Active agent token (1476) on the official registry <12802,0>, cross-checked by the contract at registration and at payment. No LEI and no company proof — the seller is the owner’s own identity, not a company. The company-identity check runs in the verifier, not in the contract (contracts cannot verify V&A proofs).',
   'One testnet seed holds the keys (in-process, testnet only; a new seed is required before any publish). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
   'Each party pays its own testnet fees (no sponsored transactions in this demo run).',
-  'Refused transactions still cost a fee. The fee for a successful CCD payment (19.6 testnet CCD in the v2 run) is larger than the 0.5 CCD invoice. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
+  'Refused transactions still cost a fee. The fee for a successful CCD payment (19.6 testnet CCD in the v2 run, 24 Nov 2026, pay-10 tx 7c204f0b…, fee 19.554257 CCD) is larger than the 0.5 CCD invoice. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
   'Not in this flow: age proof for alcohol and similar. The consent anchor IS in this flow now: an above-threshold payment (1 CCD / 1.00 EUDemo or more) refuses until the owner approves a hash-bound question, anchored on chain as a VRA/VAA registerData pair (see “Consent anchor” below). Age proof stays out — it comes from an earlier lab phase.',
@@ -183,7 +183,19 @@ export function JudgesPage() {
               verify clean: the receipt verifier reads 12/15 (live, 26 Nov 2026) and the after-pay verify
               endpoint (v2 verifier) returns blocked, 11/14, blocked_reason reservation_precedes_transfer — the
               live receipt lists only the Transfer leg above, with no Reservation or Confirm leg, so the two
-              fail-closed rows fail and the copied v1 command for 2001 would fail PLT-13 without a --reserve-tx.
+              fail-closed rows fail. The copied v1 command for 2001 does NOT fail PLT-13 — it never reaches the
+              checks at all: run from the repo root (
+              <code className="font-mono text-ink">
+                node backend/src/verifier/verify-payable.mjs 2001 759f3a5e… --rail plt
+              </code>
+              ) it throws an uncaught &apos;payable view is None (byte 0 = 0)&apos; (
+              <code className="font-mono text-ink">backend/src/registry.mjs:47</code>) and exits 1 with zero
+              check lines. With no --reserve-tx/--confirm-tx the verifier reads the v1 registry &lt;13149,0&gt;,
+              where 2001 does not exist, so the fail-closed PLT-13 guard the command&apos;s comments describe
+              never fires. The same shape on payable 11 runs against the wrong (v1) payable-11 view and fails 4
+              of 13 (PLT-07, PLT-08, PLT-13, PLT-11 — three of them wrong-registry artifacts); with --reserve-tx
+              and --confirm-tx the same command passes 14/14. The Receipt tab therefore offers no copy button
+              for a Transfer-only receipt. All three runs were executed on 26 Nov 2026.
             </p>
             <h3 className="mt-5 font-medium text-ink">Doris’s five checks, mapped to the receipt verifier</h3>
             <p className="mt-2 text-muted">
@@ -213,7 +225,7 @@ export function JudgesPage() {
             <p className="text-muted">
               Concordium’s fee peg is €0.01 per transaction. Every transaction in a payment is counted below, at the
               peg. Testnet CCD energy costs are a separate number and are larger — a successful CCD payment cost 19.6
-              testnet CCD in the v2 run — and are not mainnet estimates.
+              testnet CCD in the v2 run (24 Nov 2026, pay-10 tx 7c204f0b…, fee 19.554257 CCD) — and are not mainnet estimates.
             </p>
             <table className="mt-4 w-full text-left text-sm">
               <thead>
@@ -370,7 +382,7 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
             <code className="font-mono text-ink">contracts/payable_registry_v2</code>). Co-signer decision cases: 35
             (pure function, no transaction). Backend suite: 175 tests. API server suite: 47 unit tests (consent,
             MCP client, balance watch, buyer agent, CIS-8, Art. 12 receipts, G7 fix-back-3–9 verifier checks) + live route proofs on a scratch server.
-            Frontend suite: 155 tests.
+            Frontend suite: 359 tests.
           </p>
         </section>
 

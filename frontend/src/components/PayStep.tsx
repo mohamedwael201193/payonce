@@ -205,7 +205,8 @@ export function PayStep({
             </p>
             <p className="mt-2 text-sm text-muted">{COPY.step3RailANote}</p>
             <p className="mt-2 text-xs text-muted">
-              This sends a real testnet transaction. Fee in our recorded run: 16.2 testnet CCD.
+              This sends a real testnet transaction. Fee in our recorded v1 run (24 Nov 2026, pay tx 00e0ac1d…,
+              16.205 CCD): 16.2 testnet CCD.
             </p>
             <div className="mt-4">{ccdButton}</div>
           </div>

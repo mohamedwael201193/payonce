@@ -852,7 +852,7 @@ export function SpecMatrix() {
     },
     {
       name: 'Successful CCD payment fee',
-      value: '16.2 testnet CCD in the recorded run — more than the 0.5 CCD invoice. Fees vary per transaction.',
+      value: '16.2 testnet CCD in the recorded run (v1 pay, 24 Nov 2026, fee 16.205257 CCD) — more than the 0.5 CCD invoice. Fees vary per transaction.',
       tag: 'RECORDED',
       tagNote: `Recorded run, ${RECORDED_DATE}`,
       label: `Recorded · ${RECORDED_DATE}`,
@@ -1071,7 +1071,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What does a payment cost?',
-    a: 'Concordium pegs the fee at €0.01 per transaction. In the recorded run a successful CCD payment cost 16.2 testnet CCD — more than the 0.5 CCD invoice — and fees vary per transaction. These are testnet fees, not mainnet estimates.',
+    a: 'Concordium pegs the fee at €0.01 per transaction. In the recorded v1 run (24 Nov 2026) a successful CCD payment cost 16.2 testnet CCD — more than the 0.5 CCD invoice — and fees vary per transaction. These are testnet fees, not mainnet estimates.',
   },
   {
     q: 'How do I know the seller is who they claim to be?',

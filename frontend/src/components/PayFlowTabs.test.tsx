@@ -10,6 +10,21 @@ import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'r
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PayFlowTabs } from './PayFlowTabs'
 import tabsSrc from './PayFlowTabs.tsx?raw'
+import type { JobSnapshot, Receipt } from '../lib/types'
+
+// Round-7 B-5-R7: the job-events hook is mocked so the test drives the
+// job landing deterministically — the real hook opens an EventSource the
+// test cannot land on demand. The control starts at {job: null, error:
+// null} (the real hook's idle value); a test sets it and re-renders to
+// land the job. The mock applies to the whole file, and every other
+// test leaves the control at its idle value, so they see the real
+// hook's idle behaviour.
+const jobEventsControl = vi.hoisted(() => ({ job: null as JobSnapshot | null, error: null as string | null }))
+vi.mock('../hooks/useJobEvents', () => ({
+  useJobEvents: () => ({ job: jobEventsControl.job, error: jobEventsControl.error }),
+  STREAM_QUIET_ERROR:
+    'The payment stream went quiet before the payment finished — we cannot confirm the status yet.',
+}))
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
@@ -159,7 +174,11 @@ function LocationProbe() {
 function renderTabsWithNav(initialEntry = '/dashboard/pay?tab=pick') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   let navigate!: NavigateFunction
-  render(
+  // A fresh element per render (round-7 B-5-R7): rerendering the SAME
+  // element object lets React bail out (identical props, no pending
+  // state), so a mocked job landed between renders would never reach
+  // the component — rerender() must build a new tree each time.
+  const makeTree = () => (
     <QueryClientProvider client={client}>
       <MemoryRouter
         initialEntries={[initialEntry]}
@@ -169,9 +188,13 @@ function renderTabsWithNav(initialEntry = '/dashboard/pay?tab=pick') {
         <LocationProbe />
         <PayFlowTabs />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
-  return { go: (to: string) => navigate(to) }
+  const { rerender } = render(makeTree())
+  // rerender re-renders a fresh tree (round-7 B-5-R7: after the test
+  // lands the mocked job, a re-render is what delivers the new liveJob
+  // to the job-outcome effect).
+  return { go: (to: string) => navigate(to), rerender: () => rerender(makeTree()) }
 }
 
 describe('PayFlowTabs (manual tabs)', () => {
@@ -1105,5 +1128,232 @@ describe('PayFlowTabs seller threading (F-2/F-3)', () => {
     // The suppression holds (no refetch loop): exactly one facts fetch.
     await new Promise((r) => setTimeout(r, 200))
     expect(factsCalls(fetchMock, 3).length).toBe(1)
+  })
+})
+
+// Round-7: the job-seller receipt (B-5-R7), the receipt clear on a new
+// pick (N-1), and the paid-payable receipt link (N-R7-1). The fixtures
+// are the live twin pair: seller 1's payable 1 is 10 CCD, UNPAID;
+// seller 2's payable 1 is 0.5 CCD, PAID, with its own receipt
+// (verified live 26 Nov 2026: /api/receipts/1?seller=<seller 2> →
+// 0.500000 CCD, verifier 10/10, txs ['Payment']).
+describe('PayFlowTabs round-7: job-seller receipt (B-5-R7) + receipt clear (N-1) + paid link (N-R7-1)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+    jobEventsControl.job = null
+    jobEventsControl.error = null
+  })
+
+  const S1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
+  const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+  const INVOICES_B5 = {
+    items: [
+      { seller: S1, payable_id: 1, asset: 'ccd', amount_display: '10.000000 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 1' },
+      { seller: S2, payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+      { seller: S1, payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 5' },
+    ],
+  }
+  const STATS_B5 = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+  const CONFIG_B5 = {
+    ...CONFIG,
+    sellers: [
+      { seller: S1, label: 'Seller 1 — PayOnce Seller', agent_token: 1476, badge: 'JyP9XawpXHMjTN5ocrA5a', badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a', agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card.json' },
+      { seller: S2, label: 'Seller 2 — PayOnce Seller 2', agent_token: 1506, badge: 'JyP9Y9nGU4KaM7DBDXRgm', badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y9nGU4KaM7DBDXRgm', agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card-seller2.json' },
+    ],
+  }
+  const FACTS_1_S1 = {
+    payable_id: 1,
+    asset: { kind: 'ccd', token: 'CCD' },
+    amount: '10',
+    amount_display: '10.000000 CCD',
+    payee: 'PAYEE-PLACEHOLDER',
+    seller: S1,
+    due: dueInDays(2),
+    is_past_due: false,
+    status: { kind: 'unpaid' },
+    agent: { registry: { index: 13144, subindex: 0 }, token: 'AGENTTOKEN' },
+    doc_sha256: '0'.repeat(64),
+    label: 'Lab invoice 1',
+  }
+  const FACTS_1_S2 = {
+    ...FACTS_1_S1,
+    amount: '0.5',
+    amount_display: '0.500000 CCD',
+    seller: S2,
+    status: { kind: 'paid', payer: 'PAYER-PLACEHOLDER', paid_at: '2026-11-26T03:25:58.020Z', payment_tx: '5'.repeat(64), payment_tx_source: 'server_store' as const },
+  }
+  const FACTS_5_B5 = { ...FACTS_5, seller: S1 }
+  const VERIFY_1 = verifyFor(1)
+  const RECEIPT_S1: Receipt = {
+    payable_id: 1,
+    seller: S1,
+    amount_display: '10.000000 CCD',
+    payee: 'PAYEE-PLACEHOLDER',
+    payer_label: 'Demo payer account (lab)',
+    txs: [{ label: 'Payment', tx_hash: '6'.repeat(64), explorer_url: 'https://example.invalid/tx' }],
+    verifier: { passed: 10, total: 10, checked_at: '2026-11-26T03:25:58.020Z' },
+    payment_tx_source: 'server_store',
+  }
+  const RECEIPT_S2: Receipt = {
+    payable_id: 1,
+    seller: S2,
+    amount_display: '0.500000 CCD',
+    payee: S2,
+    payer_label: 'Demo payer account (lab)',
+    txs: [{ label: 'Payment', tx_hash: '51dbf9547fedc5e515d1205404b772c1e96d61c7f1ef4c72d635bf2cf3e8b96f', explorer_url: 'https://example.invalid/tx' }],
+    verifier: { passed: 10, total: 10, checked_at: '2026-11-26T03:25:58.020Z' },
+    payment_tx_source: 'server_store',
+  }
+  const JOB_SUCCEEDED: JobSnapshot = {
+    job_id: 'job-1',
+    payable_id: 1,
+    rail: 'ccd',
+    state: 'succeeded',
+    steps: [
+      { step: 'submit', status: 'ok', detail: '' },
+      { step: 'wait_finality', status: 'ok', detail: '' },
+      { step: 'read_back', status: 'ok', detail: '' },
+    ],
+    outcome: 'paid',
+    started_at: '2026-11-26T03:00:00.000Z',
+    finished_at: '2026-11-26T03:01:00.000Z',
+  }
+
+  function mockApiB5() {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/payables/1/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 1\nAmount 10 CCD', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/5/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 5\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/1/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_1 }
+      }
+      if (url.includes('/api/payables/1/pay')) {
+        return { ok: true, status: 200, json: async () => ({ job_id: 'job-1', payable_id: 1, rail: 'ccd', steps: ['submit', 'wait_finality', 'read_back'] }) }
+      }
+      if (url.includes('/api/receipts/1')) {
+        const body = url.includes(`seller=${S2}`) ? RECEIPT_S2 : RECEIPT_S1
+        return { ok: true, status: 200, json: async () => body }
+      }
+      const body = url.includes('/api/invoices')
+        ? INVOICES_B5
+        : url.includes('/api/stats')
+          ? STATS_B5
+          : url.includes('/api/config')
+            ? CONFIG_B5
+            : url.includes('/api/payables/1')
+              ? url.includes(`seller=${S2}`)
+                ? FACTS_1_S2
+                : FACTS_1_S1
+              : url.includes('/api/payables/5')
+                ? FACTS_5_B5
+                : url.includes('/api/health')
+                  ? HEALTH
+                  : null
+      if (!body) return { ok: false, status: 404, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => body }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function receiptCalls(fetchMock: ReturnType<typeof vi.fn>) {
+    return fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/receipts/'))
+  }
+
+  async function runCheck(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('tab', { name: /Check/ }))
+    await user.click(screen.getByRole('button', { name: 'Check invoice' }))
+    await waitFor(() => expect(screen.getByText(/All gating checks passed/)).toBeInTheDocument())
+  }
+
+  async function paySeller1Payable1(user: ReturnType<typeof userEvent.setup>, fetchMock: ReturnType<typeof vi.fn>) {
+    await runCheck(user)
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    await user.click(screen.getByRole('button', { name: /Pay 10.000000 CCD on chain/ }))
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/payables/1/pay')).length).toBe(1),
+    )
+  }
+
+  // B-5-R7, the adversarial repro verbatim: pay seller-1 payable 1
+  // (10 CCD, UNPAID) → while the job runs, pick seller-2 payable 1
+  // from the lab picker (tabs never lock during a job) → job succeeds.
+  // The old code fetched the receipt with the CURRENT facts' seller
+  // (seller 2), so the Receipt tab rendered seller 2's 0.5 CCD receipt
+  // ("Paid once", copy button included) as if it were the payment just
+  // made. Fixed: the fetch uses the seller captured at pay time, and
+  // the stale gate names both sellers.
+  it('B-5-R7: job lands after a same-id seller-2 pick → the receipt fetch uses seller 1 and the Receipt tab never shows seller 2’s receipt as the payment just made', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockApiB5()
+    const { rerender } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=1')
+    await waitFor(() => expect(screen.getByText('Payable 1 — 10.000000 CCD')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('option', { name: /0.500000 CCD/ })).toBeInTheDocument())
+    await paySeller1Payable1(user, fetchMock)
+    // While the job runs, pick seller 2's same-id payable.
+    await user.click(screen.getByRole('tab', { name: /Pick an invoice/ }))
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: `${S2}:1` } })
+    await waitFor(() => expect(screen.getByText('Payable 1 — 0.500000 CCD')).toBeInTheDocument())
+    // The job lands now — the receipt fetch must name seller 1 (the
+    // pay's seller), never the currently loaded seller 2.
+    jobEventsControl.job = JOB_SUCCEEDED
+    rerender()
+    await waitFor(() => expect(receiptCalls(fetchMock).length).toBe(1))
+    expect(receiptCalls(fetchMock)[0]).toContain(`seller=${S1}`)
+    expect(receiptCalls(fetchMock).filter((u) => u.includes(`seller=${S2}`)).length).toBe(0)
+    // The Receipt tab: seller 2's 0.5 CCD receipt is never shown as the
+    // payment just made — the seller-1 receipt is stale under the
+    // seller-2 facts, and the notice names both sellers.
+    await user.click(screen.getByRole('tab', { name: /Receipt/ }))
+    const panel = screen.getByRole('tabpanel')
+    expect(within(panel).getByText(/This receipt is for seller 42jaZZgd…’s payable 1/)).toBeInTheDocument()
+    expect(within(panel).getByText(/belongs to a different seller \(seller 3ARQvcVD…\)/)).toBeInTheDocument()
+    expect(within(panel).queryByText('Paid once.')).toBeNull()
+    expect(within(panel).queryByRole('button', { name: 'Copy verifier command' })).toBeNull()
+  })
+
+  // N-1: no integration test pinned loadFacts clearing the receipt on a
+  // new pick — coverage was unit-level (ReceiptStep) plus code trace.
+  // Pay seller-1 payable 1, land the job (receipt shows), pick payable
+  // 5: the Receipt tab must stop showing the receipt, and no re-fetch
+  // may resurrect it (the job's receipt was already fetched once).
+  it('N-1: a new pick clears the receipt — pay, land, pick payable 5, and the Receipt tab no longer shows the receipt', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockApiB5()
+    const { rerender } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=1')
+    await waitFor(() => expect(screen.getByText('Payable 1 — 10.000000 CCD')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('option', { name: /0.500000 CCD/ })).toBeInTheDocument())
+    await paySeller1Payable1(user, fetchMock)
+    jobEventsControl.job = JOB_SUCCEEDED
+    rerender()
+    await waitFor(() => expect(receiptCalls(fetchMock).length).toBe(1))
+    await user.click(screen.getByRole('tab', { name: /Receipt/ }))
+    expect(within(screen.getByRole('tabpanel')).getByText('Paid once.')).toBeInTheDocument()
+    expect(within(screen.getByRole('tabpanel')).getByText('10.000000 CCD')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /Pick an invoice/ }))
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: `${S1}:5` } })
+    await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
+    await user.click(screen.getByRole('tab', { name: /Receipt/ }))
+    expect(within(screen.getByRole('tabpanel')).queryByText('Paid once.')).toBeNull()
+    expect(within(screen.getByRole('tabpanel')).getByText(/Your receipt appears here after a payment/)).toBeInTheDocument()
+    expect(receiptCalls(fetchMock).length).toBe(1)
+  })
+
+  // N-R7-1 (wiring): a paid payable reloaded from the URL shows the
+  // receipt-page link on the Receipt tab instead of claiming nothing
+  // is paid.
+  it('N-R7-1: a paid payable reloaded from the URL links to its receipt page instead of claiming nothing is paid', async () => {
+    mockApiB5()
+    renderTabsWithNav('/dashboard/pay?tab=receipt&payable=1&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Receipt/ })).toHaveAttribute('aria-selected', 'true'))
+    const panel = screen.getByRole('tabpanel')
+    await waitFor(() => expect(within(panel).getByText(/already paid/)).toBeInTheDocument())
+    const link = within(panel).getByRole('link', { name: /Receipt for payable 1/ })
+    expect(link).toHaveAttribute('href', `/receipt/1?seller=${S2}`)
+    expect(within(panel).queryByText(/Nothing is paid until you press a pay button/)).toBeNull()
   })
 })
