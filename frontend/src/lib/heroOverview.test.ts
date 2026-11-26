@@ -119,10 +119,12 @@ describe('overviewBars', () => {
     expect(months).toBe(2)
     expect(bars).toHaveLength(2)
     // Nov 2026: 6 CCD payables, 3.50 CCD (2.00 paid, 1.50 unpaid).
-    expect(bars[0]).toMatchObject({ month: 'Nov 2026', label: 'Nov 26', total: 3.5, paidTotal: 2, unpaidTotal: 1.5, count: 6, paidPct: 57 })
+    // Heights scale to the AXIS TOP TICK (20), not the tallest month:
+    // Nov renders at 18% (3.50/20), Dec at 78% (15.50/20) — a reader
+    // measuring the bar against the axis reads the true total.
+    expect(bars[0]).toMatchObject({ month: 'Nov 2026', label: 'Nov 26', total: 3.5, paidTotal: 2, unpaidTotal: 1.5, count: 6, paidPct: 57, heightPct: 18 })
     // Dec 2026: 3 CCD payables, 15.50 CCD (0.50 paid, 15.00 unpaid) — the tallest month.
-    expect(bars[1]).toMatchObject({ month: 'Dec 2026', label: 'Dec 26', total: 15.5, paidTotal: 0.5, unpaidTotal: 15, count: 3, paidPct: 3, heightPct: 100 })
-    expect(bars[0].heightPct).toBe(23)
+    expect(bars[1]).toMatchObject({ month: 'Dec 2026', label: 'Dec 26', total: 15.5, paidTotal: 0.5, unpaidTotal: 15, count: 3, paidPct: 3, heightPct: 78 })
     // Paid + unpaid always sums back to the month total.
     for (const b of bars) expect(b.paidTotal + b.unpaidTotal).toBeCloseTo(b.total)
   })
@@ -155,6 +157,18 @@ describe('overviewBars', () => {
     for (const b of bars) expect(b.paidTotal + b.unpaidTotal).toBeCloseTo(b.total)
   })
 
+  it('scales bar heights to the axis top tick (adversarial B1): a bar measured against the axis reads its true total', () => {
+    const { bars } = overviewBars(ITEMS, 'overview')
+    const { ticks } = chartAxisTicks(ITEMS)
+    const topTick = ticks[ticks.length - 1]
+    expect(topTick).toBe(20)
+    for (const b of bars) {
+      expect(b.heightPct).toBe(Math.round((b.total / topTick) * 100))
+    }
+    // The tallest bar sits BELOW the top tick — it never touches the "20" line.
+    expect(Math.max(...bars.map((b) => b.heightPct))).toBeLessThan(100)
+  })
+
   it('caps at the latest 12 months and reports the uncapped month count', () => {
     const many: InvoiceItem[] = []
     for (let m = 0; m < 14; m++) {
@@ -168,10 +182,45 @@ describe('overviewBars', () => {
     expect(bars[0].month).toBe('Mar 2026')
     expect(bars[11].month).toBe('Feb 2027')
   })
+
+  it('scales the axis to the tallest DISPLAYED month (adversarial B2): a dropped 100-CCD month must not flatten the chart', () => {
+    const many: InvoiceItem[] = []
+    for (let m = 0; m < 14; m++) {
+      const year = 2026 + Math.floor(m / 12)
+      const month = String((m % 12) + 1).padStart(2, '0')
+      // Oldest month (Jan 2026, dropped by the 12-month cap) holds 100 CCD; the rest hold 1 CCD.
+      many.push(item(3100 + m, 'ccd', m === 0 ? '100.000000 CCD' : '1.000000 CCD', `${year}-${month}-10T08:00:00.000Z`, 'unpaid'))
+    }
+    expect(chartAxisTicks(many)).toEqual({ max: 1, ticks: [0, 0.25, 0.5, 0.75, 1] })
+    const { bars } = overviewBars(many, 'overview')
+    expect(bars).toHaveLength(12)
+    expect(bars.every((b) => b.heightPct === 100)).toBe(true)
+  })
+
+  it('never throws on unparseable or empty dues (adversarial B3) and discloses chart-excluded payables', () => {
+    const bad = item(9000, 'ccd', '7.000000 CCD', '', 'unpaid')
+    const o = heroOverview([...ITEMS, bad], STATS, NOW)
+    // The big total still counts it (26.00 CCD); the chart leaves it out and says so.
+    expect(o.ccdTotal).toBeCloseTo(26)
+    expect(o.excludedFromChart).toEqual({ count: 1, total: 7 })
+    expect(o.nextDues.map((d) => d.payable_id)).toEqual([1004, 1, 2])
+    // The soonest-due insight is written from a payable WITH a due date — never the '' one.
+    expect(o.insights[0].title).toBe('6 invoices still unpaid')
+    expect(o.insights[0].detail).toContain('payable 5')
+    // Nothing unpaid with a parseable due: honest wording, no throw, no false "nothing unpaid".
+    const onlyBad = heroOverview([bad], STATS, NOW)
+    expect(onlyBad.soonestDue).toBeNull()
+    expect(onlyBad.insights[0]).toEqual({
+      title: '1 invoice still unpaid',
+      detail: 'No due date is listed for these payables.',
+    })
+    expect(onlyBad.excludedFromChart).toEqual({ count: 1, total: 7 })
+    expect(onlyBad.nextDues).toEqual([])
+  })
 })
 
 describe('chartAxisTicks', () => {
-  it('returns 5 nice ticks from 0 for the CCD chart scale (tallest MONTHLY total)', () => {
+  it('returns 5 nice ticks from 0 for the CCD chart scale (tallest DISPLAYED monthly total)', () => {
     // Monthly totals are Nov 3.50 / Dec 15.50 — the axis scales to 15.50,
     // not to the tallest single payable (10).
     expect(chartAxisTicks(ITEMS)).toEqual({ max: 15.5, ticks: [0, 5, 10, 15, 20] })

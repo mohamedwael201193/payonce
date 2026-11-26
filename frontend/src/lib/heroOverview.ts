@@ -73,8 +73,12 @@ export interface HeroOverviewData {
       strip's date pill; null when no payable has a parseable due. */
   dueRangeLabel: string | null
   insights: InsightLine[]
-  /** The soonest-due unpaid payable, if any. */
+  /** The soonest-due unpaid payable with a parseable due date, if any. */
   soonestDue: NextDue | null
+  /** CCD payables with no parseable due date: counted in the big total
+      but left out of the due-month chart (a month chart has no month for
+      them) — the chart discloses them so its sum stays reconcilable. */
+  excludedFromChart: { count: number; total: number }
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -129,7 +133,13 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
   // in Insights via soonestDue, so an overdue payable is never hidden.
   const NEXT_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000
   const unpaidSorted = [...unpaid].sort((a, b) => a.due.localeCompare(b.due))
-  const soonestDue = unpaidSorted[0] ? toNextDue(unpaidSorted[0]) : null
+  // The soonest-due unpaid with a PARSEABLE due date: picking by raw
+  // string sort alone lets an unparseable due ('' sorts first) reach the
+  // insight below, where toISOString() would throw and kill the whole
+  // hero (adversarial B3). An unparseable due has no date to show, so it
+  // is never the soonest due.
+  const unpaidWithDue = unpaidSorted.filter((i) => !Number.isNaN(new Date(i.due).getTime()))
+  const soonestDue = unpaidWithDue[0] ? toNextDue(unpaidWithDue[0]) : null
   const nextDues = unpaidSorted
     .filter((i) => {
       const dueMs = new Date(i.due).getTime()
@@ -147,6 +157,14 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     insights.push({
       title: `${unpaidCount} invoice${unpaidCount === 1 ? '' : 's'} still unpaid`,
       detail: `The soonest, payable ${soonestDue.payable_id} (${soonestDue.amount_display}), was due ${new Date(soonestDue.due).toISOString().slice(0, 10)}${soonestDue.overdue ? ' — past due' : ''}.`,
+    })
+  } else if (unpaidCount > 0) {
+    // Unpaid payables exist but none has a parseable due date — the
+    // soonest-due line cannot be written, and "nothing unpaid" would be
+    // false. Say only what is known.
+    insights.push({
+      title: `${unpaidCount} invoice${unpaidCount === 1 ? '' : 's'} still unpaid`,
+      detail: 'No due date is listed for these payables.',
     })
   } else if (listed > 0) {
     insights.push({
@@ -171,6 +189,16 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     })
   }
 
+  // CCD payables with no parseable due date: they count in the big total
+  // but the due-month chart has no month for them — disclosed, not hidden.
+  const ccdNoDue = items.filter(
+    (i) => parseAmount(i.amount_display).asset === 'CCD' && Number.isNaN(new Date(i.due).getTime()),
+  )
+  const excludedFromChart = {
+    count: ccdNoDue.length,
+    total: ccdNoDue.reduce((acc, i) => acc + parseAmount(i.amount_display).value, 0),
+  }
+
   return {
     listed,
     paidCount,
@@ -186,6 +214,7 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     dueRangeLabel,
     insights,
     soonestDue,
+    excludedFromChart,
   }
 }
 
@@ -202,7 +231,8 @@ export interface ChartBar {
   paidTotal: number
   /** Of the total, the unpaid share (hatched segment on top). */
   unpaidTotal: number
-  /** Height as % of the tallest monthly total (linear, one asset, one axis). */
+  /** Height as % of the AXIS TOP TICK (linear, one asset, one axis) —
+      so a bar measured against the axis reads its true total. */
   heightPct: number
   /** Paid share of this month's total, 0–100 (the solid segment). */
   paidPct: number
@@ -258,6 +288,29 @@ function ccdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
   return [...byMonth.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
+/** The latest 12 due months (oldest first) — the ONE month set the chart
+    and its axis share. The axis used to scale over ALL months while the
+    chart showed only the latest 12, so a dropped 100-CCD month could make
+    every displayed 1-CCD bar fill the full height against a 100 axis
+    (adversarial B2). */
+function latestCcdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
+  return ccdMonthly(items, tab).slice(-12)
+}
+
+/** Nice y-axis ticks for a monthly max: 5 ticks from 0, steps of 1 / 2 /
+    2.5 / 5 / 10 × 10^n. The top tick may sit above the tallest bar — and
+    it really does now, because bar heights are scaled to the top tick
+    (adversarial B1: the tallest bar used to fill the full height whatever
+    the top tick said). */
+function ticksForMax(max: number): { max: number; ticks: number[] } {
+  if (max === 0) return { max: 0, ticks: [0] }
+  const raw = max / 4
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const residual = raw / mag
+  const step = residual <= 1 ? mag : residual <= 2 ? 2 * mag : residual <= 2.5 ? 2.5 * mag : residual <= 5 ? 5 * mag : 10 * mag
+  return { max, ticks: [0, step, 2 * step, 3 * step, 4 * step] }
+}
+
 /** Bars for the Cash-overview chart: CCD payables only (one asset, one
     axis), bucketed by due month, filtered by tab. One bar per payable is
     unreadable at the live scale (53 payables ≈ 10 px per slot, labels
@@ -265,11 +318,16 @@ function ccdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
     does — 12 wide monthly bars with month labels, paid solid at the
     bottom and unpaid hatched on top, so the paid/unpaid encoding survives
     the bucketing. EUDemo payables are excluded here by design and the
-    panel says so — they are in Payment rails. */
+    panel says so — they are in Payment rails.
+    Heights are scaled to the AXIS TOP TICK, not to the tallest month:
+    a tallest month of 15.5 CCD against a top tick of 20 renders at 78%
+    of the chart height, so a reader measuring the bar against the axis
+    reads 15.5 — not 20. */
 export function overviewBars(items: InvoiceItem[], tab: OverviewTab): OverviewBars {
   const buckets = ccdMonthly(items, tab)
   const latest = buckets.slice(-12)
-  const max = Math.max(0, ...latest.map((b) => b.total))
+  const { ticks } = ticksForMax(Math.max(0, ...latest.map((b) => b.total)))
+  const topTick = ticks[ticks.length - 1]
   return {
     bars: latest.map((b) => ({
       month: b.month,
@@ -277,7 +335,7 @@ export function overviewBars(items: InvoiceItem[], tab: OverviewTab): OverviewBa
       total: b.total,
       paidTotal: b.paidTotal,
       unpaidTotal: b.unpaidTotal,
-      heightPct: max === 0 ? 0 : Math.round((b.total / max) * 100),
+      heightPct: topTick === 0 ? 0 : Math.round((b.total / topTick) * 100),
       paidPct: b.total === 0 ? 0 : Math.round((b.paidTotal / b.total) * 100),
       count: b.count,
     })),
@@ -301,17 +359,13 @@ function formatDueRange(minMs: number, maxMs: number): string {
 
 /** Nice y-axis ticks for the CCD chart: 5 ticks from 0, steps of 1 / 2 /
     2.5 / 5 / 10 × 10^n, so bar heights are readable against a real scale.
-    The scale is the tallest MONTHLY total (the chart buckets by due
-    month), not the tallest single payable. The top tick may sit above the
-    tallest bar (a standard axis). */
+    The scale is the tallest DISPLAYED monthly total — the same latest-12
+    months the bars show (adversarial B2: the axis used to scale over all
+    months, including dropped ones). The top tick may sit above the
+    tallest bar (a standard axis), and the bars are scaled to it. */
 export function chartAxisTicks(items: InvoiceItem[]): { max: number; ticks: number[] } {
-  const max = Math.max(0, ...ccdMonthly(items, 'overview').map((b) => b.total))
-  if (max === 0) return { max: 0, ticks: [0] }
-  const raw = max / 4
-  const mag = 10 ** Math.floor(Math.log10(raw))
-  const residual = raw / mag
-  const step = residual <= 1 ? mag : residual <= 2 ? 2 * mag : residual <= 2.5 ? 2.5 * mag : residual <= 5 ? 5 * mag : 10 * mag
-  return { max, ticks: [0, step, 2 * step, 3 * step, 4 * step] }
+  const buckets = latestCcdMonthly(items, 'overview')
+  return ticksForMax(Math.max(0, ...buckets.map((b) => b.total)))
 }
 
 /** Format an axis tick without trailing zeros ("2.50" → "2.5", "10" → "10"). */

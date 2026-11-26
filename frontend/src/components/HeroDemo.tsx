@@ -110,6 +110,9 @@ export function HeroDemo({
   const overview = useMemo(() => heroOverview(items, stats), [items, stats])
   const { bars, months } = useMemo(() => overviewBars(items, 'overview'), [items])
   const axis = useMemo(() => chartAxisTicks(items), [items])
+  // The axis top tick is what the bars are scaled to (adversarial B1) —
+  // the aria name and the label positions both use it, never axis.max.
+  const topTick = axis.ticks[axis.ticks.length - 1]
   // The refused caption derives its date from stats.last_verifier_run_at
   // and is empty while the stats have not loaded (finding #6) — the
   // component renders no caption at all in that case.
@@ -390,21 +393,39 @@ export function HeroDemo({
                   CCD payables chart
                 </h4>
                 {bars.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted">No CCD payables on the test registry yet.</p>
+                  overview.ccdCount > 0 ? (
+                    <p className="mt-4 text-sm text-muted">
+                      CCD payables exist, but none has a due date to chart.
+                    </p>
+                  ) : (
+                    <p className="mt-4 text-sm text-muted">No CCD payables on the test registry yet.</p>
+                  )
                 ) : (
                   <div className="mt-3">
                     <div className="flex items-start gap-2">
                       {/* Y-axis — real CCD ticks (finding #3): without a
-                          scale the bar heights were uninterpretable. The
-                          axis column and the gridlines share the same 5
-                          ticks over the same height. The scale is the
-                          tallest MONTHLY total, matching the bars. */}
-                      <div data-testid="demo-chart-axis" className="flex h-[180px] w-[36px] shrink-0 flex-col justify-between self-start text-right" aria-hidden="true">
-                        {[...axis.ticks].reverse().map((t) => (
-                          <span key={t} className="text-[10px] leading-none text-muted tabular-nums">
-                            {formatTick(t)}
-                          </span>
-                        ))}
+                          scale the bar heights were uninterpretable. Each
+                          label is centred on its gridline (M3): the top
+                          label sits on the top line, the bottom label
+                          under the bottom line, the middle ones straddling
+                          theirs. The scale is the tallest DISPLAYED
+                          monthly total, and the bars are scaled to the
+                          top tick — a bar measured against the axis reads
+                          its true total (adversarial B1/B2). */}
+                      <div data-testid="demo-chart-axis" className="relative h-[180px] w-[36px] shrink-0" aria-hidden="true">
+                        {[...axis.ticks].reverse().map((t, i, arr) => {
+                          const pct = topTick === 0 ? 100 : (1 - t / topTick) * 100
+                          const transform = i === 0 ? undefined : i === arr.length - 1 ? 'translateY(-100%)' : 'translateY(-50%)'
+                          return (
+                            <span
+                              key={t}
+                              className="absolute right-0 text-[10px] leading-none text-muted tabular-nums"
+                              style={{ top: `${pct}%`, transform }}
+                            >
+                              {formatTick(t)}
+                            </span>
+                          )
+                        })}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="relative">
@@ -416,7 +437,7 @@ export function HeroDemo({
                           <div
                             className="relative flex h-[180px] items-end gap-2"
                             role="img"
-                            aria-label={`CCD payables by due month, paid solid, unpaid hatched, up to ${formatTick(axis.max)} CCD`}
+                            aria-label={`CCD payables by due month, paid solid, unpaid hatched, up to ${formatTick(topTick)} CCD`}
                           >
                             {bars.map((b) => (
                               <div
@@ -427,7 +448,10 @@ export function HeroDemo({
                               >
                                 <div
                                   className="flex w-full max-w-[64px] flex-col-reverse overflow-hidden rounded-t-[2px]"
-                                  style={{ height: `${Math.max(3, Math.round((b.heightPct / 100) * 180))}px` }}
+                                  // Pixel height straight from total/topTick — not via the
+                                  // rounded heightPct, which would double-round (±1 px).
+                                  // topTick is 0 only when every month totals 0.
+                                  style={{ height: `${Math.max(b.total > 0 ? 3 : 0, topTick === 0 ? 0 : Math.round((b.total / topTick) * 180))}px` }}
                                 >
                                   <div className="w-full bg-brand-600" style={{ height: `${b.paidPct}%` }} />
                                   <div className="w-full flex-1 border border-line bar-hatch" />
@@ -454,6 +478,17 @@ export function HeroDemo({
                       </span>
                       <span>EUDemo payables are not on this axis — they are in Payment rails.</span>
                       {months > 12 ? <span>Showing the latest 12 months of {months}.</span> : null}
+                      {/* CCD payables with no due date are counted in the
+                          totals above but have no month to chart (B3) —
+                          disclosed here so the chart sum stays
+                          reconcilable with the big total. */}
+                      {overview.excludedFromChart.count > 0 ? (
+                        <span>
+                          {overview.excludedFromChart.count} CCD payable{overview.excludedFromChart.count === 1 ? '' : 's'} (
+                          {overview.excludedFromChart.total.toFixed(2)} CCD) {overview.excludedFromChart.count === 1 ? 'has' : 'have'} no due
+                          date and {overview.excludedFromChart.count === 1 ? 'is' : 'are'} not in this chart — counted in the totals above.
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -574,7 +609,7 @@ export function HeroDemo({
         <div aria-hidden="true" data-demo-cursor="true" className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
           <div
             ref={cursorRef}
-            className="absolute top-0 left-0 will-change-transform"
+            className="demo-cursor absolute top-0 left-0 will-change-transform"
             style={{ transform: 'translate(0px, 0px)' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" style={{ margin: '-2px 0 0 -2px', filter: 'drop-shadow(0 1px 2px rgba(23,19,16,0.4))' }}>

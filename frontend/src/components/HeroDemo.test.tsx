@@ -248,6 +248,77 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(screen.getByText('Jan 27')).toBeInTheDocument()
     // The axis still renders its 5 ticks against the monthly scale.
     expect(within(screen.getByTestId('demo-chart-axis')).getAllByText(/^\d+(\.\d+)?$/)).toHaveLength(5)
+    // The accessible name agrees with the visible top tick (M2).
+    expect(screen.getByRole('img', { name: /CCD payables by due month, paid solid, unpaid hatched, up to 80 CCD/ })).toBeInTheDocument()
+    // T1 cross-check: each rendered bar's pixel height equals
+    // total/topTick × 180 — a bar measured against the axis reads its
+    // true total (adversarial B1: the tallest bar used to fill the full
+    // height whatever the top tick said).
+    const axisEl = screen.getByTestId('demo-chart-axis')
+    const topTick = Math.max(...within(axisEl).getAllByText(/^\d+(\.\d+)?$/).map((el) => Number(el.textContent)))
+    expect(topTick).toBe(80)
+    for (const bar of bars) {
+      const total = Number((bar.getAttribute('title') ?? '').match(/· ([\d.]+) CCD/)?.[1])
+      const col = bar.firstElementChild as HTMLElement
+      const px = Number((col.style.height ?? '').replace('px', ''))
+      expect(px).toBe(Math.max(3, Math.round((total / topTick) * 180)))
+    }
+    // The tallest bar sits BELOW the top tick — it never touches the "80" line.
+    expect(Math.max(...bars.map((bar) => Number(((bar.firstElementChild as HTMLElement).style.height ?? '').replace('px', ''))))).toBeLessThan(180)
+    // T5 (jsdom half): the phone render keeps its shape with 53 items —
+    // mobile nav strip present, bar count bounded. True horizontal
+    // overflow needs a real browser (layout), so the browser pass owns it.
+    expect(screen.getByTestId('demo-mobile-nav')).toBeInTheDocument()
+  })
+
+  it('shows the "latest 12 of N" note when payables span more than 12 months (T2)', () => {
+    const many: InvoiceItem[] = []
+    for (let m = 0; m < 14; m++) {
+      const year = 2026 + Math.floor(m / 12)
+      const month = String((m % 12) + 1).padStart(2, '0')
+      many.push({
+        seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+        payable_id: 3000 + m,
+        asset: 'ccd',
+        amount_display: '1.000000 CCD',
+        due: `${year}-${month}-10T08:00:00.000Z`,
+        status: 'unpaid',
+        label: 'Lab invoice',
+      })
+    }
+    renderDemo(many, STATS)
+    expect(screen.getAllByTestId('demo-chart-bar')).toHaveLength(12)
+    expect(screen.getByText('Showing the latest 12 months of 14.')).toBeInTheDocument()
+  })
+
+  it('never crashes on an unparseable due and discloses the chart-excluded payable (B3)', () => {
+    const bad: InvoiceItem = {
+      seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+      payable_id: 9000,
+      asset: 'ccd',
+      amount_display: '7.000000 CCD',
+      due: '',
+      status: 'unpaid',
+      label: 'Lab invoice',
+    }
+    renderDemo([...COMPONENT_INVOICES, bad], STATS)
+    // The big total still counts it (19.00 + 7.00 CCD)…
+    expect(within(screen.getByTestId('demo-big-total')).getByText('26.00 CCD')).toBeInTheDocument()
+    // …and the chart says plainly that it left the payable out.
+    expect(screen.getByText(/1 CCD payable \(7\.00 CCD\) has no due date and is not in this chart/)).toBeInTheDocument()
+    // …and the soonest-due insight is still written from a payable with a due date.
+    expect(screen.getByText('6 invoices still unpaid')).toBeInTheDocument()
+  })
+
+  it('says plainly when CCD payables exist but none has a due date to chart (M5)', () => {
+    const noDue: InvoiceItem[] = [
+      { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 9001, asset: 'ccd', amount_display: '2.000000 CCD', due: '', status: 'unpaid', label: 'Lab invoice' },
+      { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 9002, asset: 'ccd', amount_display: '3.000000 CCD', due: 'not-a-date', status: 'paid', label: 'Lab invoice' },
+    ]
+    renderDemo(noDue, STATS)
+    expect(screen.getByText('CCD payables exist, but none has a due date to chart.')).toBeInTheDocument()
+    expect(screen.queryByText('No CCD payables on the test registry yet.')).toBeNull()
+    expect(within(screen.getByTestId('demo-big-total')).getByText('5.00 CCD')).toBeInTheDocument()
   })
 
   it('shows the mobile nav strip with the real nav (finding #9)', () => {
