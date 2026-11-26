@@ -83,7 +83,7 @@ export function ReceiptPage() {
           </AlertInline>
         ) : receipt ? (
           <div className="mt-6 rounded-none border border-line bg-card p-6">
-            <ReceiptCard receipt={receipt} explorerBase={explorerBase} />
+            <ReceiptCard receipt={receipt} explorerBase={explorerBase} asset={payable.data?.asset.kind} />
             <p className="mt-4 text-sm text-muted">
               Anyone can check this without us: download the verifier and run it with the transaction hash (For
               judges).

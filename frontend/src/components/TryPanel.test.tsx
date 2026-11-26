@@ -76,6 +76,7 @@ function renderPanel(props: {
   facts: ReturnType<typeof factsFor>
   isSecondSeller?: boolean
   configUnavailable?: boolean
+  configPending?: boolean
   hasPaidInSession?: boolean
 }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -89,6 +90,7 @@ function renderPanel(props: {
         hasPaidInSession={props.hasPaidInSession ?? false}
         isSecondSeller={props.isSecondSeller ?? false}
         configUnavailable={props.configUnavailable ?? false}
+        configPending={props.configPending ?? false}
       />
     </QueryClientProvider>,
   )
@@ -156,6 +158,18 @@ describe('TryPanel seller gate (B2)', () => {
     renderPanel({ facts: factsFor(S1, 'unpaid'), configUnavailable: true })
     await waitFor(() => expect(screen.getByText(/Budget this hour:/)).toBeInTheDocument())
     expect(screen.getAllByText(CONFIG_MESSAGE).length).toBeGreaterThanOrEqual(1)
+    for (const name of [/Pay it twice/, /Wrong amount/, /Pay a fraudster’s invoice/]) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
+    }
+  })
+
+  it('N-10: config still loading → the gate says “still loading”, not “could not be loaded”', async () => {
+    renderPanel({ facts: factsFor(S1, 'unpaid'), configUnavailable: true, configPending: true })
+    await waitFor(() => expect(screen.getByText(/Budget this hour:/)).toBeInTheDocument())
+    expect(
+      screen.getAllByText('The seller list is still loading, so the live attacks are paused until it loads.').length,
+    ).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(CONFIG_MESSAGE)).toBeNull()
     for (const name of [/Pay it twice/, /Wrong amount/, /Pay a fraudster’s invoice/]) {
       expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
     }

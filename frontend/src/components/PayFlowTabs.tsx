@@ -745,7 +745,7 @@ export function PayFlowTabs() {
       <div role="tabpanel" id="panel-receipt" aria-labelledby="tab-receipt" hidden={activeTab !== 'receipt'} className="pt-6">
         {state.facts ? <FactsLine facts={state.facts} /> : null}
         <div className={state.facts ? 'mt-6' : ''}>
-          <ReceiptStep receipt={receipt} explorerBase={explorerBase} />
+          <ReceiptStep receipt={receipt} explorerBase={explorerBase} asset={state.facts?.asset.kind} />
         </div>
       </div>
 
@@ -760,6 +760,7 @@ export function PayFlowTabs() {
             hasPaidInSession={state.pay.kind === 'succeeded'}
             isSecondSeller={isSecondSellerPayable}
             configUnavailable={configUnavailable}
+            configPending={config.isPending}
           />
         </div>
       </div>

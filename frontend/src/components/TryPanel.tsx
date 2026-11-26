@@ -84,6 +84,7 @@ export function TryPanel({
   hasPaidInSession,
   isSecondSeller = false,
   configUnavailable = false,
+  configPending = false,
 }: {
   facts: PayableFacts | null
   docText: string | null
@@ -94,6 +95,10 @@ export function TryPanel({
   isSecondSeller?: boolean
   /** /api/config is pending or failed, so the seller gate cannot run (B1 pattern). */
   configUnavailable?: boolean
+  /** The config is still loading (N-10): pending says "still loading",
+   *  failed says "could not be loaded" — the two must not share one
+   *  message, or a merely-slow load reads as a failure. */
+  configPending?: boolean
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -112,7 +117,9 @@ export function TryPanel({
   const attackGateReason = isSecondSeller
     ? 'These live attacks run against seller 1’s payables only — this payable belongs to the second seller, so they are disabled here.'
     : configUnavailable
-      ? 'The seller list could not be loaded, so the live attacks are paused until it loads.'
+      ? configPending
+        ? 'The seller list is still loading, so the live attacks are paused until it loads.'
+        : 'The seller list could not be loaded, so the live attacks are paused until it loads.'
       : null
 
   const runAttack = async (kind: 'pay_twice' | 'wrong_amount' | 'unlisted_seller', payableId: number) => {

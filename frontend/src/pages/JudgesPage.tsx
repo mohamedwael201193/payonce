@@ -319,8 +319,10 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
             <p className="mt-3 text-muted">
               Expected output: <code className="font-mono text-ink">ALL CHECKS PASS (10/10)</code> for payable 10,{' '}
               <code className="font-mono text-ink">ALL CHECKS PASS (12/12)</code> for payable 11. Both were re-run on 24
-              Nov 2026. Without <code className="font-mono text-ink">--doc</code> the document check is reported as
-              NOT RUN, not as a failure.
+              Nov 2026. These two commands check seller 1’s payables only — the script reads seller 1, so putting in
+              another seller’s payable number would still check seller 1’s payable with that number. Without{' '}
+              <code className="font-mono text-ink">--doc</code> the document check is reported as NOT RUN, not as a
+              failure.
             </p>
             <p className="mt-3 text-muted">
               Note: the invoice documents are read by the verifier for the document check. A missing file shows as a

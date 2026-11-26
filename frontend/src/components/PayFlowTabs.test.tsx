@@ -966,6 +966,13 @@ describe('PayFlowTabs seller threading (F-2/F-3)', () => {
           .length,
       ).toBeGreaterThanOrEqual(1),
     )
+    // N-7 (round-5 fix-back): actually click Pay — the repro as
+    // specified. The button is aria-disabled (PrimaryButton strips
+    // onClick while disabled, and onPay guards anyway), so the click
+    // must issue no pay POST — asserting only the disabled state never
+    // exercised the click path, unlike the B2 test which clicks the
+    // disabled attack buttons.
+    await user.click(eudButton)
     // And no pay POST was issued at any point — the repro's POST
     // /api/payables/3/pay must not exist.
     expect(fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/payables/3/pay')).length).toBe(0)
