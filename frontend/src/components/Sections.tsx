@@ -476,7 +476,7 @@ function ReceiptChecker() {
               : (
                 <>
                   No paid invoice yet —{' '}
-                  <Link to="/dashboard?tab=pick#pay" className="font-medium text-brand-700 underline-offset-2 hover:underline">
+                  <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700 underline-offset-2 hover:underline">
                     pay one on the dashboard
                   </Link>{' '}
                   and the checker runs here.
@@ -612,7 +612,7 @@ export function HowItWorks() {
             </h3>
             <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-muted">{STEPS[3].body}</p>
             <div className="mt-6 flex flex-wrap gap-4">
-              <Link to="/dashboard?tab=pick#pay" className="btn-ember !min-h-[44px]">
+              <Link to="/dashboard/pay?tab=pick" className="btn-ember !min-h-[44px]">
                 Open the payment list
               </Link>
               <Link to="/judges" className="btn-glass !min-h-[44px]">
@@ -655,7 +655,7 @@ export function HowItWorks() {
                   ) : (
                     <>
                       No paid invoice yet.{' '}
-                      <Link to="/dashboard?tab=pick#pay" className="font-medium text-brand-700 underline-offset-2 hover:underline">
+                      <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700 underline-offset-2 hover:underline">
                         Pay one on the dashboard
                       </Link>{' '}
                       and it appears here.
@@ -870,7 +870,7 @@ export function CtaBand() {
           Verify your first invoice in about a minute.
         </h2>
         <div className="flex flex-wrap gap-4">
-          <Link to="/dashboard?tab=pick#pay" className="btn-glass">
+          <Link to="/dashboard/pay?tab=pick" className="btn-glass">
             Verify an invoice
           </Link>
           <Link to="/dashboard" className="btn-ghost-light">
@@ -899,7 +899,7 @@ export function Footer() {
           <p className="text-sm font-semibold text-ink">Product</p>
           <ul className="mt-4 space-y-3 text-sm text-muted">
             <li>
-              <Link to="/dashboard?tab=pick#pay" className="hover:text-ink">Pay an invoice</Link>
+              <Link to="/dashboard/pay?tab=pick" className="hover:text-ink">Pay an invoice</Link>
             </li>
             <li>
               <Link to="/dashboard" className="hover:text-ink">Dashboard</Link>

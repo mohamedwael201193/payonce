@@ -59,7 +59,7 @@ export function Hero() {
             {COPY.heroSub}
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-            <Link to="/dashboard?tab=pick#pay" className="btn-ember">
+            <Link to="/dashboard/pay?tab=pick" className="btn-ember">
               Pay an invoice
             </Link>
             <a href="#how" className="btn-glass">

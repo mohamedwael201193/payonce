@@ -8,9 +8,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
+import { DashboardPayPage } from './DashboardPayPage'
 import { COPY } from '../lib/copy'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -122,7 +123,10 @@ function renderPage(initialEntry = '/dashboard') {
         initialEntries={[initialEntry]}
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
-        <DashboardPage />
+        <Routes>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard/pay" element={<DashboardPayPage />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -334,9 +338,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Paused')).toBeInTheDocument()
   })
 
-  it('sidebar shows exactly one active pill: Pay on the pay tabs, Dashboard on the overview', async () => {
-    const { unmount } = renderPage('/dashboard?tab=pick')
-    await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
+  it('sidebar shows exactly one active pill: Pay on the pay page, Dashboard on the overview', async () => {
+    const { unmount } = renderPage('/dashboard/pay?tab=pick')
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
     const nav = screen.getByLabelText('Dashboard')
     expect(within(nav).getByText('Pay an invoice').closest('a')).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByText('Dashboard').closest('a')).not.toHaveAttribute('aria-current', 'page')
@@ -353,20 +357,20 @@ describe('DashboardPage', () => {
     await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
     const table = screen.getByRole('table')
     const row3 = within(table).getByText('Payable 3').closest('tr') as HTMLElement
-    expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe('/dashboard?tab=pay&payable=3#pay')
+    expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe('/dashboard/pay?tab=pay&payable=3')
     const row1 = within(table).getByText('Payable 1').closest('tr') as HTMLElement
     expect(within(row1).queryByText('Pay')).not.toBeInTheDocument()
     expect(within(row1).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB')
   })
 
-  it('clicking a row Pay stays on /dashboard and preloads the invoice in the pay tab', async () => {
+  it('clicking a row Pay opens the pay route and preloads the invoice in the pay tab', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
     const table = screen.getByRole('table')
     const row3 = within(table).getByText('Payable 3').closest('tr') as HTMLElement
     await user.click(within(row3).getByText('Pay'))
-    // Same pathname, pay tab selected, facts preloaded — no navigation away.
+    // New pathname /dashboard/pay, pay tab selected, facts preloaded.
     await waitFor(() => expect(screen.getByRole('tab', { name: /Pay once/ })).toHaveAttribute('aria-selected', 'true'))
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
   })
@@ -375,7 +379,7 @@ describe('DashboardPage', () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Payables in the live list')).toBeInTheDocument())
     const nav = screen.getByLabelText('Dashboard')
-    expect(within(nav).getByText('Pay an invoice').closest('a')?.getAttribute('href')).toBe('/dashboard?tab=pick#pay')
+    expect(within(nav).getByText('Pay an invoice').closest('a')?.getAttribute('href')).toBe('/dashboard/pay?tab=pick')
     expect(within(nav).getByText('For judges').closest('a')?.getAttribute('href')).toBe('/judges')
     expect(screen.getByText('Export CSV')).toBeInTheDocument()
   })

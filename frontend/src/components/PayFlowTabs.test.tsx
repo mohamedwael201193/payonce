@@ -126,7 +126,7 @@ function mockApi() {
   )
 }
 
-function renderTabs(initialEntry = '/dashboard?tab=pick') {
+function renderTabs(initialEntry = '/dashboard/pay?tab=pick') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -142,7 +142,7 @@ function renderTabs(initialEntry = '/dashboard?tab=pick') {
 
 // Fix-back-13 MF-1/M-4: a render that also exposes in-test navigation (what
 // a dashboard row Pay link does — a react-router Link to
-// /dashboard?tab=pay&payable=<id>#pay) and the live URL search string.
+// /dashboard/pay?tab=pay&payable=<id>) and the live URL search string.
 function NavCapture({ onReady }: { onReady: (nav: NavigateFunction) => void }) {
   const navigate = useNavigate()
   useEffect(() => {
@@ -156,7 +156,7 @@ function LocationProbe() {
   return <p data-testid="location">{search}</p>
 }
 
-function renderTabsWithNav(initialEntry = '/dashboard?tab=pick') {
+function renderTabsWithNav(initialEntry = '/dashboard/pay?tab=pick') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   let navigate!: NavigateFunction
   render(
@@ -236,13 +236,13 @@ describe('PayFlowTabs (manual tabs)', () => {
   })
 
   it('?tab= deep-links to that tab, and an unknown tab falls back to pick', async () => {
-    renderTabs('/dashboard?tab=receipt')
+    renderTabs('/dashboard/pay?tab=receipt')
     await waitFor(() => expect(screen.getByRole('tab', { name: /Receipt/ })).toHaveAttribute('aria-selected', 'true'))
     expect(screen.getByRole('tabpanel')).toHaveAttribute('id', 'panel-receipt')
   })
 
   it('an unknown ?tab= falls back to pick', async () => {
-    renderTabs('/dashboard?tab=bogus')
+    renderTabs('/dashboard/pay?tab=bogus')
     await waitFor(() => expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true'))
     expect(screen.getByRole('tabpanel')).toHaveAttribute('id', 'panel-pick')
   })
@@ -291,7 +291,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
   // had been preloaded), so the pay panel kept showing Payable 5 while
   // the URL said 3 — a user clicking Pay on row 3 would have paid 5.
   it('a row Pay link to a previously preloaded id reloads it (preload 3 -> hand-pick 5 -> Pay link to 3 shows 3, not 5)', async () => {
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
     // Hand-pick 5 in the Pick tab — facts show Payable 5, and the URL
@@ -306,7 +306,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
     // the URL, not the stale hand-picked facts. (The pay panel shows the
     // FactsLine "Payable 3 — 0.01 EUDemo · Unpaid", so the assertions use
     // a substring match, not the facts-card h2's exact text.)
-    go('/dashboard?tab=pay&payable=3#pay')
+    go('/dashboard/pay?tab=pay&payable=3')
     const payPanel = await waitFor(() => {
       const panel = screen.getByRole('tabpanel')
       expect(panel).toHaveAttribute('id', 'panel-pay')
@@ -317,13 +317,13 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
   })
 
   it('the reverse sequence keeps the hand-picked id (preload 3 -> hand-pick 5 -> Pay link to 5 shows 5)', async () => {
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByRole('option', { name: /Payable 5/ })).toBeInTheDocument())
     fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), { target: { value: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:5' } })
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
-    go('/dashboard?tab=pay&payable=5#pay')
+    go('/dashboard/pay?tab=pay&payable=5')
     const payPanel = await waitFor(() => {
       const panel = screen.getByRole('tabpanel')
       expect(panel).toHaveAttribute('id', 'panel-pay')
@@ -334,7 +334,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
   })
 
   it('?tab=pay with no payable shows the prerequisite note (nothing to pay yet)', async () => {
-    renderTabsWithNav('/dashboard?tab=pay')
+    renderTabsWithNav('/dashboard/pay?tab=pay')
     // Scoped to the visible (pay) panel: the hidden pick panel holds a
     // "Pick an invoice first." disabled-reason and the hidden check panel
     // holds a second copy of the note, so a global query would match 3.
@@ -350,7 +350,7 @@ describe('PayFlowTabs ?payable= staleness (fix-back-13 MF-1) + preservation (M-4
 
   it('?payable= survives a tab click (goTab preserves previous params)', async () => {
     const user = userEvent.setup()
-    renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await user.click(screen.getByRole('tab', { name: /Check/ }))
     expect(screen.getByTestId('location')).toHaveTextContent('tab=check')
@@ -454,14 +454,14 @@ describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-
   it('T1: while a reload for 3 is in flight, the pay panel shows no stale payable 5 with an enabled Pay (then shows 3, Pay disabled)', async () => {
     const user = userEvent.setup()
     const controls = mockApiDeferred([3])
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=5')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=5')
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     await runCheck(user)
     await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
     expectPayEnabled()
     // A dashboard row Pay link to payable=3 — the reload is held in
     // flight by the deferred mock.
-    go('/dashboard?tab=pay&payable=3#pay')
+    go('/dashboard/pay?tab=pay&payable=3')
     await waitFor(() =>
       expect(
         within(activePanel()).getByText(
@@ -493,7 +493,7 @@ describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-
   it('T2: a late stale load of 3 never overwrites the checked payable 5 (URL says 5, Pay stays enabled for 5)', async () => {
     const user = userEvent.setup()
     const controls = mockApiDeferred([3])
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     // The preload of 3 is in flight (held by the mock).
     await waitFor(() =>
       expect(controls.fetchMock).toHaveBeenCalledWith(
@@ -544,12 +544,12 @@ describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-
   it('S1: check 5 ready, then a row Pay link to 3 leaves Pay DISABLED until 3 is checked', async () => {
     const user = userEvent.setup()
     mockApi()
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=5')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=5')
     await waitFor(() => expect(screen.getByText('Payable 5 — 0.01 EUDemo')).toBeInTheDocument())
     await runCheck(user)
     await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
     expectPayEnabled()
-    go('/dashboard?tab=pay&payable=3#pay')
+    go('/dashboard/pay?tab=pay&payable=3')
     await waitFor(() =>
       expect(within(activePanel()).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
     )
@@ -571,7 +571,7 @@ describe('PayFlowTabs fix-back-14: transient + settled pay-correctness (MF-1/MF-
   it('S2: check 3 ready, then a number-field pick of 5 leaves Pay DISABLED until 5 is checked', async () => {
     const user = userEvent.setup()
     mockApi()
-    renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await runCheck(user)
     await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
@@ -703,12 +703,12 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   it('X1: 3 -> 5 (held) -> row link to 3 mid-load -> release 5 must settle on 3, not strand on 5', async () => {
     const user = userEvent.setup()
     const ctl = mockApiAttack({ holdFacts: [5] })
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await numberPick(user, '5')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
     // 5 is in flight (held). Row Pay link back to 3, mid-load.
-    go('/dashboard?tab=pay&payable=3#pay')
+    go('/dashboard/pay?tab=pay&payable=3')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=3'))
     ctl.releaseFacts(5)
     await waitFor(() => expect(within(activePanel()).getByText(/Payable 5 — 0.01 EUDemo/)).toBeInTheDocument())
@@ -728,11 +728,11 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   it('X1b: the healed X1 panel stays on 3 across tab switches; Pay stays disabled until 3 is checked', async () => {
     const user = userEvent.setup()
     const ctl = mockApiAttack({ holdFacts: [5] })
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
     await numberPick(user, '5')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=5'))
-    go('/dashboard?tab=pay&payable=3#pay')
+    go('/dashboard/pay?tab=pay&payable=3')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('payable=3'))
     ctl.releaseFacts(5)
     await waitFor(() => expect(within(activePanel()).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument())
@@ -766,13 +766,13 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   // failed load is not "loaded", so the re-select fires.
   it('X2: 3 fails, 5 fails, explicit re-select of 3 must re-fetch 3', async () => {
     const ctl = mockApiAttack({ holdFacts: [3, 5] })
-    const { go } = renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    const { go } = renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(ctl.factsCalls(3)).toBe(1))
-    go('/dashboard?tab=pick&payable=5')
+    go('/dashboard/pay?tab=pick&payable=5')
     await sleep(50)
     ctl.rejectFacts(3, timeoutErr())
     await waitFor(() => expect(ctl.factsCalls(5)).toBe(1))
-    go('/dashboard?tab=pick&payable=3')
+    go('/dashboard/pay?tab=pick&payable=3')
     await sleep(50)
     ctl.rejectFacts(5, timeoutErr())
     await sleep(200)
@@ -787,7 +787,7 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   it('X3: after a failed load of 3, a successful load of 5 must clear the error banner', async () => {
     const user = userEvent.setup()
     const ctl = mockApiAttack({ holdFacts: [3] })
-    renderTabsWithNav('/dashboard?tab=pick&payable=3')
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3')
     await waitFor(() => expect(ctl.factsCalls(3)).toBe(1))
     ctl.rejectFacts(3, timeoutErr())
     await waitFor(() =>
@@ -807,7 +807,7 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   it('X6: a 404d id is fetched exactly once across tab switches (no loop)', async () => {
     const user = userEvent.setup()
     const ctl = mockApiAttack()
-    renderTabsWithNav('/dashboard?tab=pick&payable=999')
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=999')
     await waitFor(() =>
       expect(screen.getAllByText('No payable with this number is on the test registry.').length).toBeGreaterThanOrEqual(1),
     )

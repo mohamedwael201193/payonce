@@ -1,13 +1,14 @@
-// Pay flow as MANUAL tabs (fix-back-12) — the whole flow lives ONLY inside
-// /dashboard. One tab per step (01 Pick an invoice, 02 Check, 03 Pay once,
+// Pay flow as MANUAL tabs (fix-back-12) — the whole flow lives ONLY on
+// /dashboard/pay. One tab per step (01 Pick an invoice, 02 Check, 03 Pay once,
 // 04 Receipt) plus a tab for Try to break it. Tabs are clicked by the user,
 // NEVER auto-rotating and never auto-advancing: there is no timer anywhere
 // in this file (no timer of any kind). Completing a
 // step SUGGESTS the next tab via an enabled Continue button but never
-// switches tabs on its own. Tab state is the URL query ?tab= on /dashboard
-// (pick|check|pay|receipt|try; anything else falls back to pick), so a tab
-// is deep-linkable and survives reloads; tab clicks use replace so they
-// stay out of the back-button history, and ?payable= is preserved.
+// switches tabs on its own. Tab state is the URL query ?tab= on
+// /dashboard/pay (pick|check|pay|receipt|try; anything else falls back to
+// pick), so a tab is deep-linkable and survives reloads; tab clicks use
+// replace so they stay out of the back-button history, and ?payable= is
+// preserved.
 //
 // The step components and the flow logic are moved VERBATIM from the old
 // HomePage (which is display-only now) — not duplicated, not rewritten —
@@ -409,7 +410,7 @@ export function PayFlowTabs() {
   const checkReady = state.check.kind === 'ready'
 
   return (
-    <section id="pay" aria-labelledby="pay-title" className="card-glass mt-8 scroll-mt-4 p-6 sm:p-8">
+    <section aria-labelledby="pay-title" className="card-glass p-6 sm:p-8">
       <h2 id="pay-title" className="text-[22px] leading-[1.15] font-medium tracking-[-0.01em] text-ink">
         Pay an invoice
       </h2>

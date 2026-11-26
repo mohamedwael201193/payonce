@@ -124,17 +124,17 @@ describe('HomePage (display-only landing)', () => {
     const payLinks = screen.getAllByRole('link', { name: 'Pay an invoice' })
     expect(payLinks.length).toBeGreaterThan(0)
     for (const link of payLinks) {
-      expect(link).toHaveAttribute('href', '/dashboard?tab=pick#pay')
+      expect(link).toHaveAttribute('href', '/dashboard/pay?tab=pick')
     }
     const verifyLinks = screen.getAllByRole('link', { name: 'Verify an invoice' })
     expect(verifyLinks.length).toBeGreaterThan(0)
     for (const link of verifyLinks) {
-      expect(link).toHaveAttribute('href', '/dashboard?tab=pick#pay')
+      expect(link).toHaveAttribute('href', '/dashboard/pay?tab=pick')
     }
   })
 
   it('an old /?payable= link redirects to the dashboard pay tabs', async () => {
     renderHome('/?payable=2')
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/dashboard?tab=pick&payable=2#pay'))
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/dashboard/pay?tab=pick&payable=2'))
   })
 })

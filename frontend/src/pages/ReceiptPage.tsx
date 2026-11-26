@@ -69,7 +69,7 @@ export function ReceiptPage() {
           <div className="mt-4 rounded-none border border-line bg-card p-6">
             <p className="text-[15px] text-ink">Not paid yet. This invoice can be paid once, on the dashboard.</p>
             <p className="mt-3">
-              <Link to={`/dashboard?tab=pay&payable=${id}${seller ? `&seller=${encodeURIComponent(seller)}` : ''}#pay`} className="font-medium text-brand-700">
+              <Link to={`/dashboard/pay?tab=pay&payable=${id}${seller ? `&seller=${encodeURIComponent(seller)}` : ''}`} className="font-medium text-brand-700">
                 Go to the invoice →
               </Link>
             </p>

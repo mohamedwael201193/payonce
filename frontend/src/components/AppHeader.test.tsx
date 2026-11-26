@@ -54,7 +54,7 @@ describe('AppHeader navigation', () => {
     const ctas = screen.getAllByRole('link', { name: /Verify/ })
     expect(ctas.length).toBeGreaterThan(0)
     for (const cta of ctas) {
-      expect(cta.getAttribute('href')).toBe('/dashboard?tab=pick#pay')
+      expect(cta.getAttribute('href')).toBe('/dashboard/pay?tab=pick')
     }
   })
 

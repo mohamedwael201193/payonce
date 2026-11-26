@@ -119,13 +119,13 @@ export function AppHeader({ dark = true, skipTarget = '#main' }: { dark?: boolea
         </nav>
         <div className="flex items-center gap-3">
           <Link
-            to="/dashboard?tab=pick#pay"
+            to="/dashboard/pay?tab=pick"
             title="No wallet needed — judges verify without signing anything."
             className="hidden rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-[14px] font-medium text-white hover:bg-white/25 sm:inline-flex"
           >
             Verify — no wallet needed
           </Link>
-          <Link to="/dashboard?tab=pick#pay" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
+          <Link to="/dashboard/pay?tab=pick" className="btn-ember !min-h-[40px] !px-4 !py-1.5 !text-[14px]">
             Verify an invoice
           </Link>
           <span className="ml-2 hidden lg:block">

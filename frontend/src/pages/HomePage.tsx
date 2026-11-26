@@ -1,6 +1,6 @@
 // Home page — DISPLAY-ONLY landing (fix-back-12). The interactive pay flow
 // used to live here (pick / check / pay / receipt / try + build status +
-// sticky pay bar); it moved entirely into /dashboard as manual tabs
+// sticky pay bar); it moved entirely into /dashboard/pay as manual tabs
 // (components/PayFlowTabs.tsx). What stays: the hero + tall demo dashboard
 // (Hero/HeroDemo, props-only static, zero network calls) + explanation
 // (hairline figures + explainer sections). No invoice picker, no check
@@ -11,7 +11,7 @@
 // with a left sidebar plus Payables overview chart, paid-once gauge,
 // payment rails, insights and due-soon panels, extending below the fold.
 // Accepts ?payable=<id> only to redirect old shared links to the dashboard
-// pay tabs (/?payable=N → /dashboard?tab=pick&payable=N#pay).
+// pay tabs (/?payable=N → /dashboard/pay?tab=pick&payable=N).
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { HeroDemo } from '../components/HeroDemo'
@@ -37,7 +37,7 @@ export function HomePage() {
   const payable = params.get('payable')
   const payableId = Number.parseInt(payable ?? '', 10)
   if (Number.isFinite(payableId) && payableId > 0) {
-    return <Navigate to={`/dashboard?tab=pick&payable=${payableId}#pay`} replace />
+    return <Navigate to={`/dashboard/pay?tab=pick&payable=${payableId}`} replace />
   }
 
   return (

@@ -5,114 +5,15 @@
 // no invented timestamps), and a paid/unpaid donut from the live list.
 // No invented percentages, no mock users, no fake activity.
 import { useMemo, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ArrowRight, Download, Home, LayoutDashboard, Receipt, Search, Wallet } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, Download, Search } from 'lucide-react'
 import { useConfig, useInvoices, useStats } from '../hooks/useApi'
 import { COPY } from '../lib/copy'
-import { Logo } from '../components/Logo'
-import { PayFlowTabs } from '../components/PayFlowTabs'
+import { DashboardShell } from '../components/DashboardShell'
 import { activityFeed, dashboardStats, derivedStatus, donutSegments, filterInvoices, invoicesToCsv } from '../lib/dashboard'
 import { heroOverview } from '../lib/heroOverview'
 import { formatUtcDateTime, formatUtcTime } from '../lib/format'
 import { CountUp, Donut, Gauge, InvoiceStatusPill, Reveal, Skeleton, Sparkline, useSlowLoad } from '../components/polish'
-
-const NAV = [
-  { to: '/', label: 'Home', icon: Home, kind: 'route' as const, end: true },
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, kind: 'route' as const, end: true },
-  // Fix-back-12: "Pay an invoice" stays inside /dashboard — it opens the
-  // manual pay tabs below (?tab=pick, #pay anchor). The old '/#invoice'
-  // target left /dashboard for the landing page, whose flow is gone.
-  { to: '/dashboard?tab=pick#pay', label: 'Pay an invoice', icon: Wallet, kind: 'pay' as const },
-  { to: '/judges', label: 'For judges', icon: Receipt, kind: 'route' as const, end: false },
-]
-
-function Sidebar() {
-  // ACTIVE PILL (fix-back-12): "Dashboard" and "Pay an invoice" share the
-  // same pathname (/dashboard), so NavLink prefix-matching cannot tell them
-  // apart — both pills would show active at once. Both are plain Links now,
-  // with exactly one active at a time: "Pay an invoice" when the dashboard
-  // is showing the pay tabs (?tab= present, or the #pay anchor), "Dashboard"
-  // otherwise. Home / For judges keep NavLink (distinct pathnames).
-  const { pathname, hash, search } = useLocation()
-  const payView = pathname === '/dashboard' && (new URLSearchParams(search).has('tab') || hash === '#pay')
-  const overviewView = pathname === '/dashboard' && !payView
-  const itemClass = (active: boolean) =>
-    `flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition-colors ${
-      active ? 'bg-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]' : 'text-white/85 hover:bg-white/10 hover:text-white'
-    }`
-  return (
-    <aside className="shrink-0 bg-gradient-to-b from-sky-0 via-sky-1 to-sky-2 text-white lg:flex lg:min-h-screen lg:w-[260px] lg:flex-col">
-      <div className="flex items-center gap-3 px-5 pt-5 pb-6 lg:px-6 lg:pt-8">
-        <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home">
-          <Logo dark size={32} />
-        </Link>
-        <span className="rounded-full border border-white/40 bg-white/15 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em]">
-          {COPY.testnetBadge}
-        </span>
-      </div>
-      <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto px-4 pb-4 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-4 lg:pb-0">
-        {NAV.map((n) => {
-          if (n.kind === 'pay') {
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                aria-current={payView ? 'page' : undefined}
-                className={itemClass(payView)}
-              >
-                <n.icon className="h-5 w-5" aria-hidden="true" />
-                {n.label}
-              </Link>
-            )
-          }
-          if (n.to === '/dashboard') {
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                aria-current={overviewView ? 'page' : undefined}
-                className={itemClass(overviewView)}
-              >
-                <n.icon className="h-5 w-5" aria-hidden="true" />
-                {n.label}
-              </Link>
-            )
-          }
-          return (
-            <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => itemClass(isActive)}>
-              <n.icon className="h-5 w-5" aria-hidden="true" />
-              {n.label}
-            </NavLink>
-          )
-        })}
-      </nav>
-      {/* Sidebar art — the bottom of the sidebar was a long empty brown
-          gradient (user's mobile/desktop screenshot). A hairline sunset
-          scene in cream strokes, drawn for this sidebar: the sun over the
-          hills, and a receipt slip rising from the middle hill. Decorative
-          only (aria-hidden), pinned to the bottom with mt-auto, desktop
-          only — on phones the sidebar is a horizontal strip and the art
-          stays out of it. */}
-      <div className="mt-auto hidden lg:block" aria-hidden="true">
-        <svg viewBox="0 0 260 150" className="w-full text-white/50" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-          <circle cx="130" cy="46" r="17" />
-          <path d="M 130 22 v -7 M 130 77 v -7 M 106 46 h -7 M 161 46 h -7" opacity="0.7" />
-          <path d="M 0 96 C 50 78, 90 108, 130 92 S 215 74, 260 96" opacity="0.8" />
-          <path d="M 0 114 C 55 96, 100 124, 150 110 S 220 98, 260 116" opacity="0.55" />
-          <path d="M 0 132 C 60 116, 110 140, 165 126 S 230 118, 260 132" opacity="0.35" />
-          <rect x="118" y="58" width="24" height="30" rx="2" />
-          <path d="M 123 66 h 14 M 123 72 h 14 M 123 78 h 9" opacity="0.8" />
-          <path d="M 124 84 l 3 3 l 5 -6" />
-        </svg>
-        <p className="px-6 pt-2 pb-6 text-xs leading-relaxed text-white/70">
-          Testnet · Concordium
-          <br />
-          Every number on this page is live from the test registry.
-        </p>
-      </div>
-    </aside>
-  )
-}
 
 function sellerShort(seller: string, sellers?: Array<{ seller: string; label: string }>): string {
   const found = sellers?.find((s) => s.seller === seller)
@@ -169,9 +70,7 @@ export function DashboardPage() {
   ]
 
   return (
-    <div className="page-enter min-h-screen bg-paper lg:flex">
-      <Sidebar />
-      <main id="main" className="min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10">
+    <DashboardShell>
         <Reveal>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -437,7 +336,7 @@ export function DashboardPage() {
                           <td className="px-4 py-4 text-right">
                             {derivedStatus(inv) !== 'paid' ? (
                               <Link
-                                to={`/dashboard?tab=pay&payable=${inv.payable_id}#pay`}
+                                to={`/dashboard/pay?tab=pay&payable=${inv.payable_id}`}
                                 className="mr-3 inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
                               >
                                 Pay <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -563,15 +462,12 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <PayFlowTabs />
-
         <p className="mt-8 text-sm text-muted">
-          <a href="#pay" className="font-medium text-brand-700">
+          <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700">
             ↑ Pay an invoice
-          </a>{' '}
+          </Link>{' '}
           · <Link to="/judges" className="font-medium text-brand-700">For judges →</Link>
         </p>
-      </main>
-    </div>
+    </DashboardShell>
   )
 }
