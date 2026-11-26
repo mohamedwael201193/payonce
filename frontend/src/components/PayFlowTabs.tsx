@@ -213,6 +213,16 @@ export function PayFlowTabs() {
     // N2: a new load supersedes any earlier mismatch warning — the
     // effect re-raises it if the new answer mismatches too.
     setSellerMismatch(null)
+    // B-5 (round-6 fix-back): a new pick clears the receipt. The receipt
+    // is component state set only on pay success, and it used to survive
+    // a new pick — pay EUDemo 11, pick CCD 10, open the Receipt tab, and
+    // the stale receipt rendered under the new payable's facts with a
+    // copy button for the wrong rail. FACTS_LOADING already clears the
+    // facts/check/pay in the reducer; the receipt lives outside it, so
+    // it is cleared here, on every load path (preload, hand-pick,
+    // fresh) — the step below also refuses a mismatched receipt, and the
+    // rail is derived from the receipt itself, as the last layer.
+    setReceipt(null)
     dispatch({ type: 'FACTS_LOADING' })
     try {
       const facts = await api.getPayable(id, seller)
@@ -745,7 +755,16 @@ export function PayFlowTabs() {
       <div role="tabpanel" id="panel-receipt" aria-labelledby="tab-receipt" hidden={activeTab !== 'receipt'} className="pt-6">
         {state.facts ? <FactsLine facts={state.facts} /> : null}
         <div className={state.facts ? 'mt-6' : ''}>
-          <ReceiptStep receipt={receipt} explorerBase={explorerBase} asset={state.facts?.asset.kind} />
+          {/* B-5 (round-6): the loaded payable's id/seller gate the
+              receipt — a receipt for any other payable renders as stale
+              with no copy button, never as the current receipt. */}
+          <ReceiptStep
+            receipt={receipt}
+            explorerBase={explorerBase}
+            asset={state.facts?.asset.kind}
+            forPayableId={state.facts?.payable_id}
+            forSeller={state.facts?.seller}
+          />
         </div>
       </div>
 

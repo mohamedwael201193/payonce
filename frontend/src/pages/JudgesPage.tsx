@@ -179,7 +179,11 @@ export function JudgesPage() {
               <HashLink hash="759f3a5e5035167a016bb8f974121dce297b35d9a35ef6d7a1b2e324e05de89f" explorerBase={TX_BASE} />
               ), and the receipt carries the Art. 12 record with nonce, record hash and a registerData anchor (
               <HashLink hash="0650d654328d423c3ae53d26afcb9258fc21ac8f23d83aaac5bbc64313324294" explorerBase={TX_BASE} />
-              , verified on read-back) — receipt verifier 14/14. The consent was one-time use and is marked used.
+              , verified on read-back). The consent was one-time use and is marked used. The receipt does NOT
+              verify clean: the receipt verifier reads 12/15 (live, 26 Nov 2026) and the after-pay verify
+              endpoint (v2 verifier) returns blocked, 11/14, blocked_reason reservation_precedes_transfer — the
+              live receipt lists only the Transfer leg above, with no Reservation or Confirm leg, so the two
+              fail-closed rows fail and the copied v1 command for 2001 would fail PLT-13 without a --reserve-tx.
             </p>
             <h3 className="mt-5 font-medium text-ink">Doris’s five checks, mapped to the receipt verifier</h3>
             <p className="mt-2 text-muted">
@@ -307,7 +311,7 @@ export function JudgesPage() {
             <p className="text-muted">
               Requirements: Node.js, and npm install in <code className="font-mono text-ink">api/</code> and in{' '}
               <code className="font-mono text-ink">backend/</code> (the script imports the backend modules from there).
-              The script is read-only: no keys, no .env, no sends. It was run from the repo on 24 Nov 2026.
+              The script is read-only: no keys, no .env, no sends. It was run from the repo on 26 Nov 2026.
             </p>
             <pre className="mt-3 overflow-x-auto rounded-md bg-ink p-4 font-mono text-[13px] leading-relaxed text-paper">
               {`cd api && npm install
@@ -318,11 +322,18 @@ node src/verify-payable-v2.mjs 11 690c5e2beebd25554b81e18d014aa81c7adde3f35bff50
             </pre>
             <p className="mt-3 text-muted">
               Expected output: <code className="font-mono text-ink">ALL CHECKS PASS (10/10)</code> for payable 10,{' '}
-              <code className="font-mono text-ink">ALL CHECKS PASS (12/12)</code> for payable 11. Both were re-run on 24
-              Nov 2026. These two commands check seller 1’s payables only — the script reads seller 1, so putting in
-              another seller’s payable number would still check seller 1’s payable with that number. Without{' '}
-              <code className="font-mono text-ink">--doc</code> the document check is reported as NOT RUN, not as a
-              failure.
+              <code className="font-mono text-ink">CHECKS FAILED (12/14 pass)</code> for payable 11, exit 1. Both were
+              re-run on 26 Nov 2026. Payable 11 is 14 checks now, not 12: the reservation and paid_at rows landed
+              with MF-3 (merged 25 Nov 2026), and both fail here because this v2 CLI takes no --reserve-tx or
+              --confirm-tx flags and passes no reserve or confirm evidence — the rows fail closed on the missing
+              evidence (<code className="font-mono text-ink">reservation_precedes_transfer</code>,{' '}
+              <code className="font-mono text-ink">paid_at_is_confirm_time</code>). Adding those flags is a backend
+              follow-up, not a page fix; the old 12/12 was true on 24 Nov, before MF-3. These two commands check
+              seller 1’s payables only — the script reads seller 1 and takes no --seller flag, so putting in
+              another seller’s payable number would still check seller 1’s payable with that number: seller-2
+              payable 1 (0.5 CCD, paid) would check seller-1’s UNPAID 10 CCD payable 1 instead, and fail.
+              Without <code className="font-mono text-ink">--doc</code> the document check is reported as NOT RUN,
+              not as a failure.
             </p>
             <p className="mt-3 text-muted">
               Note: the invoice documents are read by the verifier for the document check. A missing file shows as a

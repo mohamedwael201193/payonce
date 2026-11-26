@@ -45,8 +45,12 @@ export const COPY = {
   sellerIdentity: 'Not verified. No company (LEI) or identity proof is attached to this seller.',
   badgeOfficial: 'Official Concordium badge',
   receiptFooter: 'Testnet receipt. It is not a legal invoice, a tax document or proof of delivery.',
+  // N-6 (round-6 fix-back): name the verifier — this line is the
+  // receipt (v1 after-pay) verifier, not the v2 CLI the Judges page
+  // runs, so the two counts for the same payable are never confused
+  // (payable 11 reads 15/15 here, 12/14 from the v2 CLI).
   verifierLine: (passed: number, total: number, time: string) =>
-    `${passed} of ${total} checks passed when we re-read the chain at ${time} UTC.`,
+    `Receipt verifier: ${passed} of ${total} checks passed when we re-read the chain at ${time} UTC.`,
   buildStatusLine:
     'Build status loads live from /api/config — never a stale claim.',
   footer:

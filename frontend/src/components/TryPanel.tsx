@@ -119,7 +119,7 @@ export function TryPanel({
     : configUnavailable
       ? configPending
         ? 'The seller list is still loading, so the live attacks are paused until it loads.'
-        : 'The seller list could not be loaded, so the live attacks are paused until it loads.'
+        : 'The seller list could not be loaded, so the live attacks are paused — reload the page to try again.'
       : null
 
   const runAttack = async (kind: 'pay_twice' | 'wrong_amount' | 'unlisted_seller', payableId: number) => {

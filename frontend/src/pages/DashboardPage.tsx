@@ -150,7 +150,10 @@ export function DashboardPage() {
         {/* Sellers — the marketplace has two distinct sellers plus the demo
             buyer. Live from /api/config: agent token + badge link for each
             seller. Seller 2's payables (id 1, 0.5 CCD; id 2, 10 EUDemo)
-            are paid; their receipts re-verify 10/10 and 12/12. */}
+            are paid; their receipts re-verify 10/10 (payable 1, CCD) and
+            15/15 (payable 2, EUDemo) — live 26 Nov 2026, /api/receipts/1
+            and /2 with ?seller=<seller 2>. (Round-6 N-5: the old
+            "10/10 and 12/12" was stale — the S2-2 receipt is 15/15.) */}
         {config.data?.sellers ? (
           <Reveal>
             <section aria-labelledby="dash-sellers-title" className="card-glass mt-8 p-6">

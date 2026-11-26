@@ -98,7 +98,7 @@ function renderPanel(props: {
 
 const GATE_MESSAGE =
   'These live attacks run against seller 1’s payables only — this payable belongs to the second seller, so they are disabled here.'
-const CONFIG_MESSAGE = 'The seller list could not be loaded, so the live attacks are paused until it loads.'
+const CONFIG_MESSAGE = 'The seller list could not be loaded, so the live attacks are paused — reload the page to try again.'
 
 describe('TryPanel seller gate (B2)', () => {
   // NOTE: wrap in an arrow — beforeEach treats a hook's RETURNED function
