@@ -1,0 +1,111 @@
+# PayOnce CI (gate G13). No secrets are used or needed: everything here is offline or reads the
+# public Concordium testnet node. The live end-to-end test (qa/e2e-live.mjs) and the hosted x402
+# settle (qa/x402-settle-live.mjs) need the wallet keys and are run by hand; their evidence is
+# committed and re-checked by tests below.
+name: payonce-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: secret scan (tree + history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix backend # the BIP-39 wordlist the seed-phrase check uses
+      - name: Tree scan (seed phrases, private keys, tokens, .env assignments)
+        run: node qa/ci/secrets-scan.mjs .
+      - name: History scan (every commit)
+        run: node qa/ci/secrets-scan.mjs . --history
+
+  api:
+    name: api tests
+    runs-on: ubuntu-latest
+    env:
+      PAYONCE_DATA_DIR: ${{ runner.temp }}/payonce-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix api
+      - name: Unit + handler + seller-key + stats + fresh-id tests (offline, stubbed chain)
+        working-directory: api
+        run: >
+          node --test test/unit.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
+          test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
+          test/stats-honesty.test.mjs test/fresh-id.test.mjs
+
+  backend:
+    name: backend tests
+    runs-on: ubuntu-latest
+    env:
+      PAYONCE_DATA_DIR: ${{ runner.temp }}/payonce-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix backend
+      # easypost.test.mjs and facilitator.test.mjs need the wallet / EasyPost keys at import time and are
+      # run locally with keys; everything else runs here. Some tests read the public testnet node, so one
+      # retry covers a rate-limited (429) read.
+      - name: Backend tests (no keys)
+        working-directory: backend
+        run: |
+          files=$(ls test/*.test.mjs | grep -v -E 'easypost\.test|/facilitator\.test')
+          node --test $files || { echo "retrying once (public node rate limit)"; node --test $files; }
+      - name: Co-signer decision table
+        run: node --test contracts/cosigner/test/decide.test.mjs
+
+  frontend:
+    name: frontend tests + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  contracts:
+    name: contracts (cargo-concordium tests)
+    runs-on: ubuntu-latest
+    # cargo-concordium is installed from crates.io; if that install is unavailable the job reports it
+    # instead of blocking the other gates. The contract test logs (80 v2 / 83 v2.1) are committed in contracts/.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85.0"
+          targets: wasm32-unknown-unknown
+      - name: Install cargo-concordium 5.0.0
+        run: cargo install cargo-concordium --version 5.0.0 --locked
+      - name: v2 registry tests
+        run: cargo concordium test --out out/payable_registry_v2.wasm.v1
+        working-directory: contracts/payable_registry_v2
+      - name: v2.1 registry tests
+        run: cargo concordium test --out out/payable_registry_v2_1.wasm.v1
+        working-directory: contracts/payable_registry_v2_1

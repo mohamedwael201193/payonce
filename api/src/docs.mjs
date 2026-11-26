@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { BACKEND_DIR } from './backend.mjs';
-import { SELLER2_ADDRESS, SELLER2_FRESH_ID_START } from './config.mjs';
+import { SELLER2_ADDRESS, SELLER2_FRESH_ID_START, FRESH_ID_START } from './config.mjs';
 import { storeDocumentRecord, storedDocumentRecord } from './store.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
@@ -70,6 +70,29 @@ const SELLER2_INVOICE_FILES = {
 
 /** Document bytes for a payable id, or null when no lab document exists. */
 export async function docForPayableForSeller(seller, id) {
+  const found = await docForPayableForSellerStored(seller, id);
+  if (found) return found;
+  return regenerateLabDocument(seller, id);
+}
+
+// A lab invoice is deterministic given its on-chain fields, so a payable
+// whose stored copy is missing (registered outside this server, or the disk
+// was lost) gets its document regenerated and is served ONLY when the sha256
+// equals the on-chain doc hash. Never guessed: a mismatch returns null.
+async function regenerateLabDocument(seller, id) {
+  const start = seller === SELLER2_ADDRESS ? SELLER2_FRESH_ID_START : FRESH_ID_START;
+  if (id < start) return null;
+  try {
+    const { grpc, getPayableOrNull } = await import('./chain-v2.mjs');
+    const view = await getPayableOrNull(await grpc(), seller, id);
+    if (!view) return null;
+    const text = generateLabDocument({ id, asset: view.asset, amount: view.amount, payee: view.payee, seller, due: view.dueMs });
+    const bytes = Buffer.from(text, 'utf8');
+    return sha256Hex(bytes) === view.docHash.toLowerCase() ? bytes : null;
+  } catch { return null; }
+}
+
+async function docForPayableForSellerStored(seller, id) {
   if (seller === SELLER2_ADDRESS && SELLER2_INVOICE_FILES[id]) {
     const p = join(BACKEND_DIR, SELLER2_INVOICE_FILES[id]);
     if (existsSync(p)) return readFileSync(p);

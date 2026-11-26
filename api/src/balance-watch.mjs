@@ -15,7 +15,7 @@
 // only reports. Top-up is an explicit operator call, recorded with its tx
 // hash. No auto-top-up runs on the server (deliberate: an automatic
 // drain of the owner account is worse than a manual top-up).
-import { AccountAddress, Transaction, TransactionExpiry, CcdAmount, SequenceNumber } from '@concordium/web-sdk';
+import { AccountAddress, Transaction, Payload, TransactionExpiry, CcdAmount, SequenceNumber } from '@concordium/web-sdk';
 import { OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_EUDEMO, txUrl } from './config.mjs';
 import { getAccount, microCcdOf, grpc, nextNonce } from './chain-v2.mjs';
 
@@ -82,10 +82,10 @@ export async function topUpPayer({ grpcClient, signers, amountMicroCcd }) {
   // Same dual-copy boundary as buyer-agent: nonce via the string-address
   // helper, never client.getAccountInfo with this file's AccountAddress.
   const nonce = await nextNonce(client, owner.address);
-  const tx = Transaction.transfer({
-    to: AccountAddress.fromBase58(PAYER_ADDRESS),
+  const tx = Transaction.transfer(Payload.transfer({
+    toAddress: AccountAddress.fromBase58(PAYER_ADDRESS),
     amount: CcdAmount.fromMicroCcd(amount),
-  }).addMetadata({
+  })).addMetadata({
     sender: AccountAddress.fromBase58(owner.address),
     nonce: SequenceNumber.create(nonce),
     expiry: TransactionExpiry.fromDate(new Date(Date.now() + 10 * 60 * 1000)),

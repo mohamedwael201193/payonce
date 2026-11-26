@@ -43,6 +43,49 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'out', 'target', 'dist', '.ne
 // gate-g0.md prose do not trip the scan.
 const PUBLIC_VALUES = ['0100000000000000'];
 
+// Seed-phrase detection: 12+ CONSECUTIVE BIP-39 words. Plain prose of 12 lowercase words is not a seed phrase,
+// and flagging it buried real findings. The wordlist comes from the installed bip39 package
+// (npm ci --prefix backend); without it the scan falls back to the strict 12-lowercase-words shape.
+let BIP39 = null;
+function loadWordlist() {
+  if (BIP39 !== null) return BIP39;
+  const roots = [path.resolve(target), process.cwd()];
+  for (const root of roots) {
+    const found = [];
+    const walk = (d, depth) => {
+      if (depth > 6 || found.length) return;
+      let ents = [];
+      try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory() && (e.name === 'node_modules' || depth < 6) && e.name !== '.git') {
+          if (e.name === 'wordlists' && /bip39/.test(p)) { const f = path.join(p, 'english.js'); if (fs.existsSync(f)) found.push(f); }
+          walk(p, depth + 1);
+        }
+      }
+    };
+    walk(path.join(root, 'backend', 'node_modules'), 0);
+    if (found.length) {
+      const m = fs.readFileSync(found[0], 'utf8').match(/`([^`]+)`/s);
+      const words = m ? m[1].split(/\s+/).filter(Boolean) : [];
+      if (words.length === 2048) { BIP39 = new Set(words); return BIP39; }
+    }
+  }
+  BIP39 = false;
+  return BIP39;
+}
+function hasSeedRun(text) {
+  const list = loadWordlist();
+  if (!list) return /\b(?:[a-z]{3,8}[ ]+){11,23}[a-z]{3,8}\b/.test(text);
+  for (const line of text.split('\n')) {
+    const words = line.toLowerCase().match(/[a-z]+/g);
+    if (!words || words.length < 12) continue;
+    let run = 0;
+    for (const w of words) { run = list.has(w) ? run + 1 : 0; if (run >= 12) return true; }
+  }
+  return false;
+}
+
 function findingsInText(text, where) {
   const hits = [];
   // Strip tx hashes first so evidence files do not trip the scan.
@@ -50,7 +93,8 @@ function findingsInText(text, where) {
   for (const v of PUBLIC_VALUES) stripped = stripped.split(v).join('0');
   for (const p of PATTERNS) {
     if (p.name.startsWith('Vercel token')) continue; // too broad; covered by labelled-token pattern
-    if (p.re.test(stripped)) hits.push({ pattern: p.name, where });
+    const matched = p.name.startsWith('mnemonic') ? hasSeedRun(stripped) : p.re.test(stripped);
+    if (matched) hits.push({ pattern: p.name, where });
   }
   return hits;
 }
