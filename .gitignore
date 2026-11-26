@@ -15,3 +15,5 @@ secrets/
 **/node_modules
 concordium-out/
 **/concordium-out
+.vercel
+.env*
