@@ -275,10 +275,6 @@ async function scanSnapshot(c) {
     scanInFlight = null;
   }
 }
-async function refusedHashSet() {
-  const counters = await loadCounters();
-  return new Set([...recordedRefusals().keys(), ...counters.liveRefusals.map((r) => r.txHash)]);
-}
 
 function amountDisplay(view) {
   return view.asset === 'CCD'
@@ -286,8 +282,10 @@ function amountDisplay(view) {
     : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`;
 }
 
-function labelFor(view) {
-  const base = view.id >= 1000 || view.id === 10 || view.id === 11
+export function labelFor(view) {
+  // Seller-key rule: ids 1-5 are seller 1's contract-matrix payables.
+  // Seller 2's payable 1 / 2 are lab invoices, not matrix payables.
+  const base = view.seller === SELLER2 || view.id >= 1000 || view.id === 10 || view.id === 11
     ? 'Lab invoice (testnet, not a real invoice)'
     : 'Contract-matrix test payable (testnet)';
   // The facts type carries its own voided kind (payableFacts, fix-back-8
@@ -442,29 +440,82 @@ async function handleHealth(req, res) {
   });
 }
 
+// Refusal provenance: distinct rejected-transaction hashes, split by where
+// the server learned of them. Used by the stats body AND /api/stats/refusals
+// so the count is always the length of the list.
+async function refusalLedger() {
+  const counters = await loadCounters();
+  const recorded = recordedRefusals();
+  const items = [];
+  const seen = new Set();
+  for (const [txHash, r] of recorded) {
+    seen.add(txHash);
+    items.push({ tx_hash: txHash, reject_code: r.code ?? null, origin: 'recorded_evidence', source: r.source ?? null });
+  }
+  for (const r of counters.liveRefusals ?? []) {
+    if (seen.has(r.txHash)) continue;
+    seen.add(r.txHash);
+    items.push({ tx_hash: r.txHash, reject_code: r.code ?? null, origin: 'live_this_server', source: null, at: r.at ?? null });
+  }
+  return items;
+}
+
+function sellerCounts(rows) {
+  const out = {};
+  for (const [name, addr] of [['seller_1', SELLER], ['seller_2', SELLER2]]) {
+    const mine = listableRows(rows).filter((r) => r.seller === addr);
+    out[name] = { seller: addr, payables_total: mine.length, paid_total: mine.filter((r) => r.status === 'Paid').length };
+  }
+  return out;
+}
+
 async function handleStats(req, res) {
   const c = await grpc();
   const scan = await scanSnapshot(c);
   const counters = await loadCounters();
   // Reconciled at source: the total counts the same listable rows the
   // /api/invoices list shows (never the raw scanned rows).
+  const refusals = await refusalLedger();
+  const common = {
+    refusedCount: refusals.length,
+    lastVerifierRunAt: counters.lastVerifierRunAt,
+    generatedAt: new Date().toISOString(),
+    recordedRefusals: refusals.filter((r) => r.origin === 'recorded_evidence').length,
+    liveRefusals: refusals.filter((r) => r.origin === 'live_this_server').length,
+  };
   if (!scan.complete) {
     // Fail closed (fix-back-6 B1): a partial scan is never served as
-    // totals. The last complete scan's stats stay the answer; with no
-    // complete scan yet, 503 node_busy (retryable) — the frontend keeps
-    // its last good snapshot instead of rendering shrunken numbers.
+    // totals. The last complete scan's stats stay the answer (labelled
+    // stale, with the time it was read); with no complete scan yet, 503
+    // node_busy (retryable) — the frontend keeps its last good snapshot
+    // instead of rendering shrunken numbers.
     if (lastCompleteScan) {
       const body = statsBody({
         rows: lastCompleteScan.rows,
-        refusedCount: (await refusedHashSet()).size,
-        lastVerifierRunAt: counters.lastVerifierRunAt,
+        scannedAt: new Date(lastCompleteScan.at).toISOString(),
+        stale: true,
+        sellers: sellerCounts(lastCompleteScan.rows),
+        ...common,
       });
       return sendJson(res, 200, body);
     }
     return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. Nothing was counted from a partial scan — retry.', { retryable: true });
   }
-  const body = statsBody({ rows: scan.rows, refusedCount: (await refusedHashSet()).size, lastVerifierRunAt: counters.lastVerifierRunAt });
+  const body = statsBody({ rows: scan.rows, scannedAt: new Date(lastCompleteScan?.at ?? Date.now()).toISOString(), stale: false, sellers: sellerCounts(scan.rows), ...common });
   sendJson(res, 200, body);
+}
+
+// GET /api/stats/refusals — the list behind refused_on_chain_since_deploy.
+// Every entry is a transaction the chain rejected; the count in /api/stats
+// is exactly this list's length.
+async function handleStatsRefusals(req, res) {
+  const items = (await refusalLedger()).map((r) => ({ ...r, explorer_url: txUrl(r.tx_hash) }));
+  sendJson(res, 200, {
+    generated_at: new Date().toISOString(),
+    count: items.length,
+    basis: 'distinct transaction hashes the chain rejected: recorded evidence files plus refusals this server logged live. Re-check any hash with GET /api/tx/<hash>/status.',
+    items,
+  });
 }
 
 async function handleInvoices(req, res) {
@@ -552,7 +603,8 @@ async function handleDocument(req, res, id) {
   const seller = resolveSellerStrict(req, res);
   if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, seller, id);
+  const { view, ok } = await readPayableWithRetry(c, id, seller);
+  if (!ok) return chainUnreachable(res, new Error(`the testnet node did not answer for payable ${id}`));
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const doc = await docForPayableForSeller(seller, id);
   if (!doc) return notFound(res, `No lab document is stored for payable ${id}. Only lab documents are served here.`);
@@ -1264,7 +1316,7 @@ const routes = [
   ['GET', /^\/$/, async (req, res) => sendJson(res, 200, {
     service: 'payonce-api', network: NETWORK,
     registry: `<${REGISTRY.index},${REGISTRY.subindex}> (${REGISTRY.name})`,
-    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files', 'POST /api/consent/request', 'GET /api/consent/:id', 'POST /api/consent/:id/approve', 'POST /api/consent/:id/verify-presentation', 'GET /api/mcp/tools', 'GET /api/mcp/badge/:id', 'GET /api/buyer-agent', 'POST /api/buyer-agent/register', 'POST /api/fulfilment/check', 'GET /api/balance-watch', 'POST /api/balance-watch/top-up', 'GET /api/cis8/status', 'POST /api/cis8/request', 'GET /api/age-proof/health', 'POST /api/age-proof/policy-check', 'POST /api/age-proof/verify', 'POST /api/age-proof/verify-presentation'],
+    endpoints: ['GET /api/config', 'GET /api/health', 'GET /api/stats', 'GET /api/stats/refusals', 'GET /api/invoices', 'GET /api/payables/:id', 'GET /api/payables/:id/document', 'POST /api/payables/:id/verify', 'POST /api/payables', 'POST /api/payables/:id/pay', 'GET /api/jobs/:id', 'GET /api/jobs/:id/events', 'GET /api/tx/:hash/status', 'POST /api/cosigner/dry-run', 'POST /api/attacks/:kind', 'GET /api/receipts/:id', 'GET /api/recorded/:id', 'GET /api/judges/files', 'POST /api/consent/request', 'GET /api/consent/:id', 'POST /api/consent/:id/approve', 'POST /api/consent/:id/verify-presentation', 'GET /api/mcp/tools', 'GET /api/mcp/badge/:id', 'GET /api/buyer-agent', 'POST /api/buyer-agent/register', 'POST /api/fulfilment/check', 'GET /api/balance-watch', 'POST /api/balance-watch/top-up', 'GET /api/cis8/status', 'POST /api/cis8/request', 'GET /api/age-proof/health', 'POST /api/age-proof/policy-check', 'POST /api/age-proof/verify', 'POST /api/age-proof/verify-presentation'],
   })],
   ['GET', /^\/api\/config$/, handleConfig],
   ['GET', /^\/api\/health$/, handleHealth],
@@ -1339,4 +1391,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { server, handleStats, handleInvoices, handleGetPayable, payableFacts };
+export { server, handleStats, handleStatsRefusals, handleInvoices, handleGetPayable, handleDocument, payableFacts, rejectNonSeller1Write };

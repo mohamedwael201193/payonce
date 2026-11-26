@@ -14,6 +14,7 @@
 // The evidence index is built from the backend's recorded run files
 // (test/*.json + the contract matrix result): real tx hashes, real
 // refusals, real receipts — labelled "Recorded run, 24 Nov 2026".
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -74,6 +75,10 @@ export async function docForPayableForSeller(seller, id) {
     if (existsSync(p)) return readFileSync(p);
     return null;
   }
+  // Seller-key rule: the id-only document lookup below (stored lab docs,
+  // matrix payables 1-5, v2 invoice files) belongs to SELLER 1. A seller-2
+  // id with no seller-2 file never falls through to seller 1's document.
+  if (seller === SELLER2_ADDRESS) return null;
   return docForPayable(id);
 }
 
@@ -252,7 +257,7 @@ export function recordedRunFor(id, seller = null) {
 // ---- judge files (only files that exist, SHA-256 computed at startup) ----
 
 const JUDGE_FILE_DEFS = [
-  { name: 'verify-payable-v2.mjs', path: () => join(new URL('../src/', import.meta.url).pathname, 'verify-payable-v2.mjs') },
+  { name: 'verify-payable-v2.mjs', path: () => join(fileURLToPath(new URL('../src/', import.meta.url)), 'verify-payable-v2.mjs') },
   { name: 'verify-payable.mjs', path: () => join(BACKEND_DIR, 'src/verifier/verify-payable.mjs') },
   { name: 'v2-live-e2e-2026-11-24.json', path: () => join(BACKEND_DIR, 'test/v2-live-e2e-2026-11-24.json') },
   { name: 'live-e2e-2026-11-24.json', path: () => join(BACKEND_DIR, 'test/live-e2e-2026-11-24.json') },

@@ -229,6 +229,10 @@ export async function paymentTxsFor(payableId, view) {
       }
       if (rec2.payTx) return { txs: [['Payment', rec2.payTx]], source: 'server_store' };
     }
+    // Seller-key rule: seller 1's evidence index (recordedPaymentTx) is
+    // keyed by bare id. A seller-2 payable with no seller-2 evidence must
+    // never be answered with seller 1's transactions for the same id.
+    return { txs: [], source: view.asset === 'CCD' ? 'server_store' : 'chain' };
   }
   const rec = recordedPaymentTx(payableId);
   // PLT fallback: confirm_plt records the transfer hash on chain, so a

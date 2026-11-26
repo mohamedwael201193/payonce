@@ -17,6 +17,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { handleStats, handleInvoices, __setChainReaderForTests } from '../src/server.mjs'
+import { OWNER_ADDRESS } from '../src/config.mjs'
 
 function view(id, status, asset = 'CCD', amount = '500000') {
   return { id, status, asset, amount, due: '2026-12-01T08:03:26.555Z' }
@@ -36,7 +37,12 @@ const state = {
   ]),
   failIds: new Set(),
 }
-__setChainReaderForTests(async (id) => {
+// The reader is keyed by (seller, id): the stubbed registry holds seller 1's
+// rows only, so seller 2's known ids (1, 2) read back as absent -- exactly a
+// registry where seller 2 has no payables. (A seller-blind stub used to
+// answer seller 2's ids with seller 1's rows and double-counted them.)
+__setChainReaderForTests(async (id, seller) => {
+  if (seller !== OWNER_ADDRESS) return null
   if (state.failIds.has(id)) throw new Error(`node busy reading payable ${id}`)
   return state.views.get(id) ?? null
 })

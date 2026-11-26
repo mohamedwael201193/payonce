@@ -19,14 +19,60 @@ export function scanIsComplete(skippedIds) {
   return skippedIds.length === 0
 }
 
-export function statsBody({ rows, refusedCount, lastVerifierRunAt }) {
+// Every number in the body is derived from a named source, and the body
+// says which (v9 stats honesty). `sources[field]` carries:
+//   kind  'live'      read from the chain by this request's scan
+//         'recorded'  a count of recorded evidence + this server's own log,
+//                     NOT a chain counter (the chain has none)
+//         'server'    a timestamp this API keeps itself (not chain state)
+//   basis one sentence a reader can check
+// `generated_at` is when this body was built; `scanned_at` is when the
+// chain was read (older than generated_at, and `stale: true`, when the
+// last complete scan is served because the current one was incomplete).
+// The frontend labels LIVE / RECORDED from `sources[field].kind`.
+// The legacy fields keep their names and meaning, so older clients work.
+export function statsBody({
+  rows, refusedCount, lastVerifierRunAt,
+  generatedAt = null, scannedAt = null, stale = false,
+  recordedRefusals = null, liveRefusals = null, sellers = null,
+}) {
   const listable = listableRows(rows)
-  return {
+  const body = {
     payables_total: listable.length,
     paid_total: listable.filter((r) => r.status === 'Paid').length,
     voided_total: rows.filter((r) => r.status === 'Voided').length,
     reserved_total: rows.filter((r) => r.status === 'Reserved').length,
     refused_on_chain_since_deploy: refusedCount,
     last_verifier_run_at: lastVerifierRunAt,
+  }
+  if (generatedAt === null) return body
+  const scanBasis = `payable rows read from the registry contract by the scan at scanned_at (${rows.length} rows read; ids known to this server, both sellers)`
+  const chainRow = (extra = '') => ({ kind: 'live', basis: scanBasis + extra, as_of: scannedAt })
+  return {
+    ...body,
+    generated_at: generatedAt,
+    scanned_at: scannedAt,
+    stale,
+    rows_scanned: rows.length,
+    by_seller: sellers ?? null,
+    sources: {
+      payables_total: chainRow('; counts rows whose status is Unpaid or Paid (the rows /api/invoices lists)'),
+      paid_total: chainRow('; counts rows whose status is Paid'),
+      voided_total: chainRow('; counts rows whose status is Voided'),
+      reserved_total: chainRow('; counts rows whose status is Reserved'),
+      refused_on_chain_since_deploy: {
+        kind: 'recorded',
+        basis: `distinct transaction hashes the chain rejected: ${recordedRefusals ?? 'n/a'} from recorded evidence files + ${liveRefusals ?? 'n/a'} logged live by this server. Not a chain counter (the chain has none); every hash is listed at /api/stats/refusals and re-checkable on chain.`,
+        recorded_count: recordedRefusals,
+        live_count: liveRefusals,
+        list_url: '/api/stats/refusals',
+        as_of: generatedAt,
+      },
+      last_verifier_run_at: {
+        kind: 'server',
+        basis: 'time of the last verifier run this API performed (before_pay or after_pay); a server timestamp, not chain state',
+        as_of: lastVerifierRunAt,
+      },
+    },
   }
 }
