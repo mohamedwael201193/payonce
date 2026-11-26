@@ -82,17 +82,38 @@ export function TryPanel({
   docSha256,
   explorerBase,
   hasPaidInSession,
+  isSecondSeller = false,
+  configUnavailable = false,
 }: {
   facts: PayableFacts | null
   docText: string | null
   docSha256: string | null
   explorerBase: string
   hasPaidInSession: boolean
+  /** The loaded payable belongs to the second seller (F-3 gate, from the parent). */
+  isSecondSeller?: boolean
+  /** /api/config is pending or failed, so the seller gate cannot run (B1 pattern). */
+  configUnavailable?: boolean
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<ScenarioOutcome | null>(null)
   const [precheckOnly, setPrecheckOnly] = useState(false)
+
+  // B2 (round-4 fix-back): the three live attacks POST to
+  // /api/attacks/:kind with no seller, and the server runs them against
+  // seller 1's same-id payable — for seller-2 facts that sends a REAL
+  // transaction against the wrong payable and reports it "Real" under
+  // the loaded payable's amount. Gate them exactly like the F-3 pay
+  // gate: disabled for seller-2 facts, and disabled while the config is
+  // unavailable (the gate cannot tell seller 1 from seller 2 then).
+  // Tamper and injection are client-side and stay live; the recorded
+  // run is already seller-aware (getRecorded(id, facts?.seller)).
+  const attackGateReason = isSecondSeller
+    ? 'These live attacks run against seller 1’s payables only — this payable belongs to the second seller, so they are disabled here.'
+    : configUnavailable
+      ? 'The seller list could not be loaded, so the live attacks are paused until it loads.'
+      : null
 
   const runAttack = async (kind: 'pay_twice' | 'wrong_amount' | 'unlisted_seller', payableId: number) => {
     setBusy(kind)
@@ -124,7 +145,7 @@ export function TryPanel({
         explorerUrl: res.explorer_url ?? null,
         knownLimit:
           kind === 'unlisted_seller'
-            ? 'The co-signer refuses a payable whose seller is not on the buyer’s on-chain vendor list — the live dry run above refuses it (no-approval). On the EUDemo rail the chain refuses it too (−19: reserve_plt always needs an approval row). On the CCD rail the chain refuses only in strict mode (−19), and strict mode is off in this demo run, so the CCD rail is not stopped on chain. No fraud payable exists on this registry to try live — no second seller holds an Active agent token.'
+            ? 'The co-signer refuses a payable whose seller is not on the buyer’s on-chain vendor list — the live dry run above refuses it (no-approval). On the EUDemo rail the chain refuses it too (−19: reserve_plt always needs an approval row). On the CCD rail the chain refuses only in strict mode (−19), and strict mode is off in this demo run, so the CCD rail is not stopped on chain. A second seller does hold an Active agent token (token 1506), so a live fraud payable exists on this registry — the dry run above stands in until a live try is wired.'
             : undefined,
       })
     } catch (e) {
@@ -220,6 +241,11 @@ export function TryPanel({
       </p>
 
       <div className="mt-4 space-y-2">
+        {attackGateReason ? (
+          <p className="rounded-md border border-line bg-paper-2 p-3 text-sm text-muted" role="note">
+            {attackGateReason}
+          </p>
+        ) : null}
         <PrimaryButton
           id="attack-tamper"
           onClick={() => void tamper()}
@@ -235,8 +261,10 @@ export function TryPanel({
             const id = paidId ?? facts?.payable_id
             if (id) void runAttack('pay_twice', id)
           }}
-          disabled={(!paidId && !hasPaidInSession) || busy !== null}
-          disabledReason={!paidId && !hasPaidInSession ? 'Pay an invoice first, or use Watch the recorded run.' : null}
+          disabled={attackGateReason !== null || (!paidId && !hasPaidInSession) || busy !== null}
+          disabledReason={
+            attackGateReason ?? (!paidId && !hasPaidInSession ? 'Pay an invoice first, or use Watch the recorded run.' : null)
+          }
           className="w-full justify-start"
         >
           {busy === 'pay_twice' ? 'Sending a second payment…' : 'Pay it twice'}
@@ -253,8 +281,8 @@ export function TryPanel({
         <PrimaryButton
           id="attack-wrong-amount"
           onClick={() => facts && void runAttack('wrong_amount', facts.payable_id)}
-          disabled={!unpaidLoaded || busy !== null}
-          disabledReason={!unpaidLoaded ? 'Load an unpaid invoice first.' : null}
+          disabled={attackGateReason !== null || !unpaidLoaded || busy !== null}
+          disabledReason={attackGateReason ?? (!unpaidLoaded ? 'Load an unpaid invoice first.' : null)}
           className="w-full justify-start"
         >
           {busy === 'wrong_amount' ? 'Sending the wrong amount…' : 'Wrong amount'}
@@ -262,7 +290,8 @@ export function TryPanel({
         <PrimaryButton
           id="attack-unlisted"
           onClick={() => facts && void runAttack('unlisted_seller', facts.payable_id)}
-          disabled={busy !== null}
+          disabled={attackGateReason !== null || busy !== null}
+          disabledReason={attackGateReason}
           className="w-full justify-start"
         >
           {busy === 'unlisted_seller' ? 'Checking the seller…' : 'Pay a fraudster’s invoice'}

@@ -32,7 +32,7 @@ export function InvoiceStep({
   onFresh,
   budgetLeft,
 }: {
-  onLoaded: (docText: string, docSha256: string, payableId: number | null) => void
+  onLoaded: (docText: string, docSha256: string, payableId: number | null, seller?: string) => void
   // F-3 sweep: the lab picker names the seller of the picked row — pass
   // it through, or picking seller 2's invoice loads seller 1's same-id
   // facts. The number field has no seller and calls onNumber(id) alone.
@@ -51,7 +51,7 @@ export function InvoiceStep({
   const fileRef = useRef<HTMLInputElement>(null)
 
   const loadText = useCallback(
-    async (text: string) => {
+    async (text: string, seller?: string) => {
       setBusy(true)
       setError(null)
       try {
@@ -59,7 +59,11 @@ export function InvoiceStep({
         const id = extractPayableId(text)
         setFingerprint(hash)
         setFoundId(id)
-        onLoaded(text, hash, id)
+        // N1 (round-4 fix-back): the seller rides with the document
+        // load — the lab picker names it, so the facts load onLoaded
+        // fires is already threaded and never paints seller-1 facts
+        // briefly for a seller-2 pick. File/paste have no seller.
+        onLoaded(text, hash, id, seller)
       } catch {
         setError('This file could not be read as text. Lab invoices are plain text.')
       } finally {
@@ -93,7 +97,7 @@ export function InvoiceStep({
         // loadFacts). The number/paste path has no seller and keeps the
         // seller-1 default — the pay flow is seller-1-only.
         const text = await api.getDocument(id, seller)
-        await loadText(text)
+        await loadText(text, seller)
         onNumber(id, seller)
       } catch (e) {
         setError(

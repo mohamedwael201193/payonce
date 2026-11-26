@@ -172,6 +172,22 @@ describe('api seller threading (second-seller fix-back §4.3/§4.5)', () => {
     await expect(api.verify(1006, 'after_pay')).resolves.toMatchObject({ payable_id: 1006, verdict: 'paid' })
     expect(fn.mock.calls[0][0]).not.toContain('?seller=')
   })
+
+  // B1 (round-4 fix-back): pay sends the seller in the POST body when
+  // one is given. The server 400s a non-seller-1 write
+  // (rejectNonSeller1Write), so the threaded seller is the backstop even
+  // when the client gate is blind — a seller-2 pay can never silently
+  // land as seller 1's same-id payable.
+  it('pay sends the seller in the body when given, and omits it otherwise', async () => {
+    const job = { job_id: 'job-1', payable_id: 3, rail: 'eudemo', steps: ['check_wallet'] }
+    const fn = mockFetchOnce({ ok: true, status: 200, json: job })
+    await expect(api.pay(3, 'eudemo', undefined, S2)).resolves.toEqual(job)
+    expect(fn.mock.calls[0][0]).toContain('/api/payables/3/pay')
+    expect(JSON.parse(String(fn.mock.calls[0][1]?.body))).toEqual({ rail: 'eudemo', seller: S2 })
+    fn.mockClear()
+    await expect(api.pay(3, 'eudemo')).resolves.toEqual(job)
+    expect(JSON.parse(String(fn.mock.calls[0][1]?.body))).toEqual({ rail: 'eudemo' })
+  })
 })
 
 describe('api.getPayable', () => {

@@ -89,6 +89,13 @@ export function PayFlowTabs() {
   const config = useConfig()
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
+  // N2 (round-4 fix-back): the preload effect suppresses a refetch when
+  // the server answered a (payable, seller) pair with a DIFFERENT seller
+  // than requested — the panel would otherwise show seller-1 facts under
+  // a seller-2 URL with no word of it. The warning names the mismatch
+  // instead of silently suppressing; set in the effect, cleared by a new
+  // load or by a matching pair.
+  const [sellerMismatch, setSellerMismatch] = useState<string | null>(null)
   const [docText, setDocText] = useState<string | null>(null)
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -124,12 +131,22 @@ export function PayFlowTabs() {
   // F-3: seller 1's address — the first entry of the config sellers list
   // (api/src/server.mjs builds it [seller 1, seller 2]). The server signs
   // payments for seller 1 only, so any loaded payable whose seller is not
-  // this address is a second-seller payable: readable, never payable from
-  // this UI. Undefined until the config loads — no gate fires before it
-  // is known, and the server still refuses a seller-2 write with a 400.
+  // this address is a second-seller payable. The true claim (round-4
+  // fix-back, correcting round 3's "can never be paid from this UI"):
+  // the UI hides the pay action for a second-seller payable AND the pay
+  // step is disabled while the config is unavailable, AND the server
+  // 400s any non-seller-1 write (rejectNonSeller1Write) — the threaded
+  // seller in the pay body is the backstop when the client gate is
+  // blind. Undefined until the config loads — while it is undefined the
+  // pay step is disabled, never open.
   const seller1 = config.data?.sellers?.[0]?.seller
   const isSecondSellerPayable =
     seller1 !== undefined && state.facts !== null && state.facts.seller !== seller1
+  // B1 (round-4 fix-back): while the config is pending or failed, the
+  // seller-1 address is unknown and the F-3 gate cannot tell seller 1
+  // from seller 2 — the pay step (and the live attacks) stay disabled
+  // until the config answers. useConfig retries once, then isError.
+  const configUnavailable = config.isPending || config.isError
   const runningJobId = state.pay.kind === 'running' ? state.pay.job.job_id : null
   const { job: liveJob, error: jobError } = useJobEvents(runningJobId)
 
@@ -193,6 +210,9 @@ export function PayFlowTabs() {
     preloadedId.current = id
     preloadedSeller.current = seller ?? null
     const gen = ++loadGen.current
+    // N2: a new load supersedes any earlier mismatch warning — the
+    // effect re-raises it if the new answer mismatches too.
+    setSellerMismatch(null)
     dispatch({ type: 'FACTS_LOADING' })
     try {
       const facts = await api.getPayable(id, seller)
@@ -320,7 +340,13 @@ export function PayFlowTabs() {
     // effect re-runs then.)
     const paramSeller = params.get('seller')
     const effectiveSeller = paramSeller ?? seller1 ?? null
-    if (state.facts?.payable_id === id && (effectiveSeller === null || state.facts.seller === effectiveSeller)) return
+    if (state.facts?.payable_id === id && (effectiveSeller === null || state.facts.seller === effectiveSeller)) {
+      // N2: the loaded pair matches the URL — any earlier mismatch
+      // warning is stale. (Unconditional set: React bails out when the
+      // value is already null, so this cannot loop the effect.)
+      setSellerMismatch(null)
+      return
+    }
     // A load is in flight — do not fire a second one. The effect
     // re-runs when the load settles and retries the param then; a
     // param change that arrived mid-load is not lost.
@@ -332,12 +358,22 @@ export function PayFlowTabs() {
     // 404; only an inconsistent answer can land here, and looping on it
     // would spin the poll forever.) This suppresses ONLY the pair the
     // effect has already loaded — a URL naming any other pair reloads.
+    // N2 (round-4 fix-back): the suppression is NOT silent any more.
+    // Reaching here means the loaded facts' seller disagrees with the
+    // URL's seller (the matching branch above returned otherwise) —
+    // say so on screen instead of showing seller-1 facts under a
+    // seller-2 URL with no word of it. (Unconditional set with a
+    // deterministic string: React bails out when it is unchanged.)
     if (
       state.facts?.payable_id === id &&
       preloadedId.current === id &&
       preloadedSeller.current === paramSeller
-    )
+    ) {
+      setSellerMismatch(
+        `The server answered payable ${id} with a different seller than the URL names (loaded ${state.facts.seller.slice(0, 8)}…, URL names ${(effectiveSeller ?? '').slice(0, 8)}…). The panel is showing the loaded payable — check it before paying anything.`,
+      )
       return
+    }
     if (state.factsState === 'not-found' && preloadedId.current === id && preloadedSeller.current === paramSeller) return
     // A sync to a different (id, seller) is still outstanding: the
     // visible param is the stale pre-sync value (T2 beat) — do not act
@@ -351,12 +387,18 @@ export function PayFlowTabs() {
     void loadFacts(id, paramSeller ?? undefined)
   }, [params, loadFacts, state.facts, state.factsState, seller1])
 
-  const onLoaded = useCallback((text: string, hash: string, payableId: number | null) => {
+  const onLoaded = useCallback((text: string, hash: string, payableId: number | null, seller?: string) => {
     setDocText(text)
     dispatch({ type: 'INVOICE_LOADED', docText: text, docSha256: hash, payableId })
     if (payableId !== null) {
-      syncPayableParam(payableId)
-      void loadFacts(payableId)
+      // N1 (round-4 fix-back): the seller rides with the document load —
+      // the lab picker names it (InvoiceStep passes it from the picked
+      // row). A seller-less load here used to paint seller-1 facts
+      // briefly and sync ?payable= without ?seller= (a reload in that
+      // beat loaded seller 1); now the first load is already threaded,
+      // and the onNumber load below only re-asserts the same pair.
+      syncPayableParam(payableId, seller)
+      void loadFacts(payableId, seller)
     }
   }, [loadFacts, syncPayableParam])
 
@@ -425,10 +467,23 @@ export function PayFlowTabs() {
     async (rail: 'ccd' | 'eudemo') => {
       const facts = state.facts
       if (!facts) return
-      // F-3: second guard — a second-seller payable can never be paid
-      // from this UI (the server signs seller 1 only). The pay panel
-      // does not render the pay action for it; this closes the handler
-      // path too, so a stale enabled button could never start a pay.
+      // B1 (round-4 fix-back): while the config is pending or failed the
+      // F-3 gate cannot tell seller 1 from seller 2 — never start a pay
+      // with the gate blind. The button is disabled in that state too
+      // (payDisabled); this closes the handler path, so a stale enabled
+      // button could never start a pay. The seller threaded into the
+      // api.pay body below is the last backstop: the server 400s a
+      // non-seller-1 write even if this guard is ever bypassed.
+      if (config.isPending || config.isError) return
+      // F-3: second guard — a second-seller payable is not paid from
+      // this UI (the server signs seller 1 only). The pay panel does not
+      // render the pay action for it; this closes the handler path too,
+      // so a stale enabled button could never start a pay. (Round-3's
+      // headline "can never be paid from this UI" overstated this: with
+      // the config down the gate was blind and the pay body carried no
+      // seller, so a seller-2 pay COULD be issued as seller 1's same-id
+      // payable. The true claim now: the UI gates while config is
+      // unavailable AND the server 400s a non-seller-1 write.)
       if (seller1 !== undefined && facts.seller !== seller1) return
       // Fix-back-14 MF-3: second guard — never start a pay for a payable
       // the ready check was not run for. The button is disabled in that
@@ -440,7 +495,11 @@ export function PayFlowTabs() {
       try {
         const docSha256 =
           state.invoice.kind === 'loaded' && state.invoice.docSha256 ? state.invoice.docSha256 : undefined
-        const job = await api.pay(facts.payable_id, rail, docSha256)
+        // B1: thread the loaded facts' seller into the pay body — the
+        // server 400s a non-seller-1 write (rejectNonSeller1Write), so a
+        // seller-2 payable can never be paid as seller 1's same-id
+        // payable even if the client gate was blind when Pay was pressed.
+        const job = await api.pay(facts.payable_id, rail, docSha256, facts.seller)
         dispatch({
           type: 'PAY_STARTED',
           job: {
@@ -465,11 +524,19 @@ export function PayFlowTabs() {
         })
       }
     },
-    [state.facts, state.invoice, state.check, seller1],
+    [state.facts, state.invoice, state.check, seller1, config.isPending, config.isError],
   )
 
   const payDisabled = useCallback(
     (rail: 'ccd' | 'eudemo') => {
+      // B1 (round-4 fix-back): the pay step is disabled while the config
+      // is pending or failed — the F-3 seller gate cannot run without
+      // seller 1's address, and one transient /api/config failure at
+      // mount used to leave the gate off for the whole session (retry:
+      // 1, 5-min staleTime, no refetch). The plain message says why;
+      // the check and the rest of the flow keep working.
+      if (config.isPending) return 'The seller list is still loading. Pay is paused until it loads.'
+      if (config.isError) return 'The seller list could not be loaded. Pay is paused — reload the page to try again.'
       if (state.check.kind !== 'ready') return 'Run the check first.'
       if (!isCheckFresh(state)) return 'The check is more than 10 minutes old. Check again.'
       return payDisabledReason(
@@ -479,7 +546,7 @@ export function PayFlowTabs() {
         health.data?.wallet_eudemo.status ?? 'ok',
       )
     },
-    [state, health.data],
+    [state, health.data, config.isPending, config.isError],
   )
 
   const budgetLeft = health.data?.budget.new_invoices_left_this_hour ?? null
@@ -497,6 +564,11 @@ export function PayFlowTabs() {
       {pageError ? (
         <div className="mt-4">
           <AlertInline>{pageError}</AlertInline>
+        </div>
+      ) : null}
+      {sellerMismatch ? (
+        <div className="mt-4">
+          <AlertInline>{sellerMismatch}</AlertInline>
         </div>
       ) : null}
       <div role="tablist" aria-label="Pay flow steps" className="mt-6 flex gap-1 overflow-x-auto rounded-full border border-line bg-paper-2 p-1">
@@ -623,11 +695,13 @@ export function PayFlowTabs() {
           <div className="space-y-6">
             <FactsLine facts={state.facts} />
             {isSecondSellerPayable ? (
-              // F-3: a second-seller payable can never be paid from this
-              // UI — server writes are seller-1-only by design (the
-              // server signs for seller 1 only). Show that plainly and
-              // offer no pay action at all — never silently load seller
-              // 1's same-id payable instead.
+              // F-3: a second-seller payable is not paid from this UI —
+              // server writes are seller-1-only by design (the server
+              // signs for seller 1 only), and the pay body carries the
+              // seller so the server 400s a non-seller-1 write as the
+              // backstop. Show that plainly and offer no pay action at
+              // all — never silently load seller 1's same-id payable
+              // instead.
               <>
                 <div role="alert" className="rounded-md border border-line bg-paper-2 p-4">
                   <p className="text-[15px] font-medium text-ink">
@@ -684,6 +758,8 @@ export function PayFlowTabs() {
             docSha256={state.invoice.kind === 'loaded' ? state.invoice.docSha256 : null}
             explorerBase={explorerBase}
             hasPaidInSession={state.pay.kind === 'succeeded'}
+            isSecondSeller={isSecondSellerPayable}
+            configUnavailable={configUnavailable}
           />
         </div>
       </div>

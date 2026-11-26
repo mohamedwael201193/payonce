@@ -572,11 +572,17 @@ export const api = {
       }),
       { method: 'POST', body: JSON.stringify({ asset }) },
     ),
-  pay: (id: number, rail: 'ccd' | 'eudemo', doc_sha256?: string) =>
+  // B1 (round-4 fix-back): pay takes an optional seller and sends it in
+  // the body. The server's rejectNonSeller1Write 400s any write naming a
+  // non-seller-1 seller, so the threaded seller is the server-side
+  // backstop even when the client gate is blind (e.g. /api/config down
+  // at mount): a seller-2 pay can never silently land as seller 1's
+  // same-id payable. Callers pass the seller whenever one is in scope.
+  pay: (id: number, rail: 'ccd' | 'eudemo', doc_sha256?: string, seller?: string) =>
     request<PayJob>(
       `/api/payables/${id}/pay`,
       z.object({ job_id: z.string(), payable_id: z.number(), rail: z.enum(['ccd', 'eudemo']), steps: z.array(z.string()) }),
-      { method: 'POST', body: JSON.stringify({ rail, ...(doc_sha256 ? { doc_sha256 } : {}) }) },
+      { method: 'POST', body: JSON.stringify({ rail, ...(doc_sha256 ? { doc_sha256 } : {}), ...(seller ? { seller } : {}) }) },
     ),
   getJob: (jobId: string) => request<JobSnapshot>(`/api/jobs/${jobId}`, jobSchema),
   getTxStatus: (hash: string) =>

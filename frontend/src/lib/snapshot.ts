@@ -100,6 +100,9 @@
 //      'unpaid'/'paid' and fail the FIRST page. A persistent partial
 //      scan NEVER heals this way — it fails verification on every poll —
 //      which a "same pair twice, then accept" rule would NOT guarantee.
+//      Seller-1 copies only: the read-back is seller-less — see the
+//      verifyDroppedIds note for the seller-2 false-ok blind spot
+//      (fail-open, stale-numbers-only).
 //   6. FIX-BACK-11 MF-1: the verification budget is PER TICK as well as
 //      PER PAGE. Fix-back-10's per-page deadline alone did NOT bound one
 //      poll tick: verification failing LATE (the ordinary partial-scan
@@ -340,7 +343,18 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     /api/payables/:id and must come back 'reserved' or 'voided'. Anything
     else — 'unpaid'/'paid' (a row the scans lost), a 404, a throw, a
     malformed body — fails CLOSED: the whole pair is rejected, never
-    accepted on a partial verification. Verification runs in pages of
+    accepted on a partial verification. CORRECTED (round-4 fix-back):
+    that "fail-closed" holds only for the seller-1 copy. The read-back
+    is seller-less, so it checks seller 1's copy of the id only: if a
+    dropped id's seller-1 copy is genuinely excluded while its seller-2
+    copy is still listable but lost by the scan, verification returns
+    ok: true and the shrunken pair is accepted — a false-ok, a
+    one-directional blind spot. The failure mode is therefore
+    fail-OPEN with bounded impact / stale-numbers-only: it can stale
+    the dashboard numbers, it self-heals on the next clean scan, and it
+    can never produce a wrong payment or verify verdict, since no
+    payment decision reads this path. Threading (seller, id) pairs
+    through PrevSnapshot is the follow-up that closes it. Verification runs in pages of
     MAX_DROPPED_VERIFY (MF-2), however many dropped ids there are, and
     EACH page races its own VERIFY_PAGE_TIMEOUT_MS deadline (fix-back-10
     MF-2 — the fix-back-9 whole-round deadline never healed a legit >10

@@ -902,6 +902,75 @@ describe('PayFlowTabs seller threading (F-2/F-3)', () => {
       .filter((u) => u.includes(`/api/payables/${id}`) && !u.includes('/verify') && !u.includes('/document'))
   }
 
+  // B1 (round-4 fix-back): mockApiS2 with /api/config answering 500 —
+  // the adversarial repro. The check still verifies seller 2 (it does
+  // not need the config), but the pay step must stay disabled with the
+  // config message, and NO pay POST may be issued for the seller-2
+  // payable. Before the fix the gate was blind (seller1 undefined) and
+  // a click issued POST /api/payables/3/pay with no seller — paid as
+  // seller 1's same-id payable.
+  function mockApiS2ConfigDown() {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/config')) {
+        return { ok: false, status: 500, json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/3/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 3\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/3/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_3 }
+      }
+      const body = url.includes('/api/invoices')
+        ? INVOICES_S2
+        : url.includes('/api/stats')
+          ? STATS_S2
+          : url.includes('/api/payables/3')
+            ? url.includes(`seller=${S2}`)
+              ? FACTS_3_S2
+              : FACTS_3_S1
+            : url.includes('/api/health')
+              ? HEALTH
+              : null
+      if (!body) return { ok: false, status: 404, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => body }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('B1: config 500 + seller-2 payable → the check still verifies seller 2, but Pay stays disabled and issues NO pay POST', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockApiS2ConfigDown()
+    renderTabsWithNav('/dashboard/pay?tab=pay&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() =>
+      expect(within(screen.getByRole('tabpanel')).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    // The check runs fine without the config (it verifies seller 2).
+    await user.click(screen.getByRole('tab', { name: /Check/ }))
+    await user.click(screen.getByRole('button', { name: 'Check invoice' }))
+    await waitFor(() => expect(screen.getByText(/All gating checks passed/)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Continue to Pay/ }))
+    const panel = screen.getByRole('tabpanel')
+    await waitFor(() =>
+      expect(within(panel).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    // The pay step is disabled with the plain config message (both rails).
+    // (The message settles from "still loading" to "could not be loaded"
+    // once the failed config query settles — PayStep mounting refetches
+    // an errored query — so wait for the settled text.)
+    const eudButton = within(panel).getByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })
+    expect(eudButton).toHaveAttribute('aria-disabled', 'true')
+    await waitFor(() =>
+      expect(
+        within(panel).getAllByText('The seller list could not be loaded. Pay is paused — reload the page to try again.')
+          .length,
+      ).toBeGreaterThanOrEqual(1),
+    )
+    // And no pay POST was issued at any point — the repro's POST
+    // /api/payables/3/pay must not exist.
+    expect(fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/payables/3/pay')).length).toBe(0)
+  })
+
   it('F-3.2: a ?payable=3&seller=S2 preload loads seller 2\u2019s facts, never seller 1\u2019s same-id decoy', async () => {
     const fetchMock = mockApiS2()
     renderTabsWithNav('/dashboard/pay?tab=pick&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
@@ -961,14 +1030,16 @@ describe('PayFlowTabs seller threading (F-2/F-3)', () => {
       target: { value: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr:3' },
     })
     await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
-    // The loaded facts are seller 2's (the seller-less onLoaded load is
-    // superseded by the seller-threaded onNumber load under the
-    // generation guard) …
+    // The loaded facts are seller 2's — N1 threads the seller through
+    // the onLoaded load too (before, only the onNumber load was
+    // threaded and the seller-less onLoaded load painted seller-1 facts
+    // briefly under the generation guard) …
     expect(screen.getByText(S2)).toBeInTheDocument()
     expect(screen.queryByText(S1)).toBeNull()
-    // … at least one facts fetch carried the seller …
+    // … every facts fetch carried the seller …
     const calls = factsCalls(fetchMock, 3)
-    expect(calls.some((u) => u.includes(`seller=${S2}`))).toBe(true)
+    expect(calls.length).toBeGreaterThan(0)
+    for (const u of calls) expect(u).toContain(`seller=${S2}`)
     // … and the URL kept it for a reload.
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`seller=${S2}`))
   })
@@ -985,5 +1056,47 @@ describe('PayFlowTabs seller threading (F-2/F-3)', () => {
     // not the check).
     expect(within(panel).queryByText(/belongs to the second seller/)).toBeNull()
     expect(within(panel).getByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })).toBeInTheDocument()
+  })
+
+  // N2 (round-4 fix-back): a lying server answers a seller-2 request
+  // with seller-1 facts. The preload effect suppresses the refetch (the
+  // pair was already loaded), but the suppression must NOT be silent:
+  // the panel shows a visible seller-mismatch warning instead of
+  // seller-1 facts under a seller-2 URL.
+  it('N2: a server answer with the wrong seller shows a visible mismatch warning (and does not loop)', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/payables/3/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 3\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/3/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_3 }
+      }
+      const body = url.includes('/api/invoices')
+        ? INVOICES_S2
+        : url.includes('/api/stats')
+          ? STATS_S2
+          : url.includes('/api/config')
+            ? CONFIG_S2
+            : url.includes('/api/payables/3')
+              // LYING server: a ?seller=S2 request gets seller 1's facts.
+              ? FACTS_3_S1
+              : url.includes('/api/health')
+                ? HEALTH
+                : null
+      if (!body) return { ok: false, status: 404, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => body }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+    // The loaded facts are seller 1's (the lie) while the URL names
+    // seller 2 — the warning names the mismatch.
+    expect(screen.getByText(S1)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText(/different seller than the URL names/)).toBeInTheDocument(),
+    )
+    // The suppression holds (no refetch loop): exactly one facts fetch.
+    await new Promise((r) => setTimeout(r, 200))
+    expect(factsCalls(fetchMock, 3).length).toBe(1)
   })
 })
