@@ -4,6 +4,7 @@
 // If the EasyPost API is unreachable or the key is invalid these tests FAIL
 // with the exact API error — nothing is faked.
 // The key is loaded in-process only and never printed or written anywhere.
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -17,7 +18,7 @@ import {
 } from '../src/easypost/capture.mjs';
 
 const execFileAsync = promisify(execFile);
-const BACKEND_DIR = new URL('..', import.meta.url).pathname;
+const BACKEND_DIR = fileURLToPath(new URL('..', import.meta.url));
 const CLI = join(BACKEND_DIR, 'src', 'easypost', 'cli.mjs');
 
 const apiKey = loadTestApiKeyFromEnvFile();

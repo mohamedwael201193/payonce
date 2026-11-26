@@ -1,5 +1,6 @@
 // PayOnce API server — unit tests (no chain, no sends).
 // Run: node --test test/unit.test.mjs
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -755,7 +756,7 @@ test('receipt + consent stores key by (seller, payable_id), never by bare id (fi
   try {
     const out = await new Promise((resolve, reject) => {
       execFile(process.execPath, ['--input-type=module', '-e', script], {
-        cwd: new URL('.', import.meta.url).pathname,
+        cwd: fileURLToPath(new URL('.', import.meta.url)),
         env: { ...process.env, PAYONCE_DATA_DIR: dir },
       }, (err, stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(stdout)));
     });

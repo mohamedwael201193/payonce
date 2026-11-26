@@ -2,6 +2,7 @@
 // Every value that names the chain is a config value: the registry
 // defaults to v2 <13150,0> and flips to the v2.1 instance by setting
 // PAYONCE_REGISTRY_INDEX / PAYONCE_REGISTRY_MODULE (no code change).
+import { fileURLToPath } from 'node:url';
 import { readFileSync, existsSync } from 'node:fs';
 import { parse as parseDotenv } from 'dotenv';
 
@@ -9,7 +10,7 @@ const env = { ...process.env };
 for (const p of [
   process.env.PAYONCE_ENV_PATH,
   '/home/hatch/workspace/concordium-trusted-agents/.env',
-  new URL('../.env', import.meta.url).pathname,
+  fileURLToPath(new URL('../.env', import.meta.url)),
 ].filter(Boolean)) {
   try {
     if (existsSync(p)) Object.assign(env, parseDotenv(readFileSync(p, 'utf8')));
@@ -75,7 +76,7 @@ export const LIMITS = {
 
 export const PORT = Number(env.PAYONCE_API_PORT ?? env.PORT ?? 7401);
 export const HOST = env.PAYONCE_API_HOST ?? '127.0.0.1';
-export const DATA_DIR = env.PAYONCE_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
+export const DATA_DIR = env.PAYONCE_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
 export const ENV_PATH = env.PAYONCE_ENV_PATH ?? '/home/hatch/workspace/concordium-trusted-agents/.env';
 
 export const EXPLORER_TX = 'https://ccdexplorer.io/testnet/transaction/';

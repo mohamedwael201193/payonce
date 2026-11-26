@@ -2,6 +2,7 @@
 // Uses an EPHEMERAL ed25519 key (generateSigner) — no real key anywhere.
 // The valid transfer case reuses the live v1 transfer values (payable 2,
 // agent C3, seller B as sponsor, 300 s window) with a test digest.
+import { fileURLToPath } from 'node:url';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -154,7 +155,7 @@ test('recheck: the signed transfer entry is transfer-only-verified against the l
   // never 'resolved'. 'resolved' requires both to PASS, which only a
   // future recheck that loads reserve/confirm evidence can emit.
   const { execFileSync } = await import('node:child_process');
-  const out = execFileSync('node', ['src/cosigner/recheck.mjs', '--ledger', ledgerPath], { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname });
+  const out = execFileSync('node', ['src/cosigner/recheck.mjs', '--ledger', ledgerPath], { encoding: 'utf8', cwd: fileURLToPath(new URL('..', import.meta.url)) });
   assert.match(out, /0 resolved, 1 transfer-only/);
   assert.match(out, /4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs:2: transfer-only-verified/);
   assert.doesNotMatch(out, /: resolved/);

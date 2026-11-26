@@ -19,6 +19,7 @@
 // The sponsor signer is in-memory only (safeguard #2); nothing secret is
 // logged or returned. The hosted API key is env-only and never logged.
 // Start: `node src/facilitator/server.mjs [port]`.
+import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { grpcClient } from '../chain.mjs';
@@ -28,7 +29,7 @@ import { verifyPayableHostedFirst, settlePayableHostedFirst, FALLBACK_ELIGIBLE_C
 import { OWNER_ADDRESS } from '../send.mjs';
 
 const PORT = Number(process.argv[2] ?? process.env.FACILITATOR_PORT ?? 8091);
-const LEDGER_PATH = new URL('../../test/facilitator-ledger.jsonl', import.meta.url).pathname;
+const LEDGER_PATH = fileURLToPath(new URL('../../test/facilitator-ledger.jsonl', import.meta.url));
 
 // Hosted mode: the key comes ONLY from the process env — this file never
 // reads any .env file or any other credential. Set FACILITATOR_MODE to
@@ -71,7 +72,7 @@ function ledgerSize() {
   return readFileSync(LEDGER_PATH, 'utf8').split('\n').filter(Boolean).length;
 }
 function appendLedger(entry) {
-  mkdirSync(new URL('../../test/', import.meta.url).pathname, { recursive: true });
+  mkdirSync(fileURLToPath(new URL('../../test/', import.meta.url)), { recursive: true });
   appendFileSync(LEDGER_PATH, JSON.stringify(entry) + '\n');
 }
 // Ledger append with one immediate retry. Returns { ok: true } or

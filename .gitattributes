@@ -1,0 +1,12 @@
+# Hashed fixtures and sources must be byte-identical on every OS (a CRLF
+# checkout changes sha256 of the lab invoice documents and breaks verification).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.wasm binary
+*.pdf binary

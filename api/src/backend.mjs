@@ -11,12 +11,13 @@
 // takes the registry from config (so the v2.1 switch is a config change,
 // not a backend change). Sends go through ./chain-v2.mjs too, using the
 // backend's sendUpdateV2/token-transfer shapes.
+import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const CANDIDATES = [
   process.env.PAYONCE_BACKEND_DIR,
-  new URL('../../backend/', import.meta.url).pathname, // repo layout: api/ + backend/ siblings
+  fileURLToPath(new URL('../../backend/', import.meta.url)), // repo layout: api/ + backend/ siblings
   '/home/hatch/workspace/payonce/backend/',
   '/home/hatch/workspace/payonce-build/backend/',
 ];

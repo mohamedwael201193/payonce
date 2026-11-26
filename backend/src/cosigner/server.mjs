@@ -8,6 +8,7 @@
 // The signing key is in-memory only (see signer.mjs). No secrets are logged.
 // Start:  node src/cosigner/server.mjs  (env: COSIGNER_SIGNING_KEY hex seed,
 // COSIGNER_LEDGER path, PORT default 8787). Without a key, /sign is disabled.
+import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { decide } from './decide.mjs';
 import { loadLedger, appendEntry, ledgerForDecide } from './ledger.mjs';
@@ -76,7 +77,7 @@ export function createCosignerServer({ signer = null, ledgerPath }) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const ledgerPath = process.env.COSIGNER_LEDGER ?? new URL('../../data/cosigner-ledger.jsonl', import.meta.url).pathname;
+  const ledgerPath = process.env.COSIGNER_LEDGER ?? fileURLToPath(new URL('../../data/cosigner-ledger.jsonl', import.meta.url));
   const seed = process.env.COSIGNER_SIGNING_KEY;
   const signer = seed ? signerFromSeedHex(seed) : null;
   if (!signer) console.error('WARNING: no COSIGNER_SIGNING_KEY set — /sign disabled, /decide still works.');

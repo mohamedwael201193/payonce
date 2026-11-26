@@ -16,6 +16,7 @@
 // Entries without a txHash are reported as 'no-tx-hash' (the facilitator
 // links the submitted tx hash to the entry after submission).
 // The ledger itself is never rewritten (append-only); the report is separate.
+import { fileURLToPath } from 'node:url';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { grpcClient, getTxStatus, getBlockTime } from '../chain.mjs';
 import { getPayable, getRegistryBalance } from '../registry.mjs';
@@ -29,7 +30,7 @@ const opt = (name, def = null) => {
   return i >= 0 ? args[i + 1] : def;
 };
 
-const ledgerPath = opt('--ledger') ?? new URL('../../data/cosigner-ledger.jsonl', import.meta.url).pathname;
+const ledgerPath = opt('--ledger') ?? fileURLToPath(new URL('../../data/cosigner-ledger.jsonl', import.meta.url));
 const outPath = opt('--out');
 const ledger = loadLedger(ledgerPath);
 const client = grpcClient();

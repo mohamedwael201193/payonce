@@ -29,6 +29,7 @@
 // v1/v2.1 tx checked against a v2 view fails CCD-03 on the registry
 // binding (G7 fix-back-2 F-B) — it can never certify against the wrong
 // registry's view.
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -41,12 +42,12 @@ import {
   listPayables,
 } from '../src/mcp/server.mjs';
 
-const DOC1001 = new URL('../../api/data/documents/1001.txt', import.meta.url).pathname;
-const DOC1003 = new URL('../../api/data/documents/1003.txt', import.meta.url).pathname;
-const DOC1005 = new URL('../../api/data/documents/1005.txt', import.meta.url).pathname;
-const DOC1006 = new URL('../../api/data/documents/1006.txt', import.meta.url).pathname;
-const DOC1007 = new URL('../../api/data/documents/1007.txt', import.meta.url).pathname;
-const SERVER_PATH = new URL('../src/mcp/server.mjs', import.meta.url).pathname;
+const DOC1001 = fileURLToPath(new URL('../../api/data/documents/1001.txt', import.meta.url));
+const DOC1003 = fileURLToPath(new URL('../../api/data/documents/1003.txt', import.meta.url));
+const DOC1005 = fileURLToPath(new URL('../../api/data/documents/1005.txt', import.meta.url));
+const DOC1006 = fileURLToPath(new URL('../../api/data/documents/1006.txt', import.meta.url));
+const DOC1007 = fileURLToPath(new URL('../../api/data/documents/1007.txt', import.meta.url));
+const SERVER_PATH = fileURLToPath(new URL('../src/mcp/server.mjs', import.meta.url));
 
 // Payable-1001 transfer tx (EUDemo, Paid on v2) and payable-1003's
 // transfer tx (same payer/payee/amount family — the cross-payable trap).
