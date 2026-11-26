@@ -108,11 +108,23 @@ export function HeroDemo({
   lastUpdated?: string | null
 }) {
   const overview = useMemo(() => heroOverview(items, stats), [items, stats])
-  const { bars, months } = useMemo(() => overviewBars(items, 'overview'), [items])
+  const { bars, months, droppedTotal } = useMemo(() => overviewBars(items), [items])
   const axis = useMemo(() => chartAxisTicks(items), [items])
   // The axis top tick is what the bars are scaled to (adversarial B1) —
   // the aria name and the label positions both use it, never axis.max.
   const topTick = axis.ticks[axis.ticks.length - 1]
+  // CCD payables with no due date are counted in the big total but have
+  // no month to chart — one disclosure, rendered in the legend when bars
+  // exist AND in the empty-chart branch when the whole chart is excluded
+  // (adversarial B-F1: the legend-only copy never rendered in that branch).
+  const excludedNote =
+    overview.excludedFromChart.count > 0 ? (
+      <span>
+        {overview.excludedFromChart.count} CCD payable{overview.excludedFromChart.count === 1 ? '' : 's'} (
+        {overview.excludedFromChart.total.toFixed(2)} CCD) {overview.excludedFromChart.count === 1 ? 'has' : 'have'} no due date and{' '}
+        {overview.excludedFromChart.count === 1 ? 'is' : 'are'} not in this chart — counted in the totals above.
+      </span>
+    ) : null
   // The refused caption derives its date from stats.last_verifier_run_at
   // and is empty while the stats have not loaded (finding #6) — the
   // component renders no caption at all in that case.
@@ -394,9 +406,12 @@ export function HeroDemo({
                 </h4>
                 {bars.length === 0 ? (
                   overview.ccdCount > 0 ? (
-                    <p className="mt-4 text-sm text-muted">
-                      CCD payables exist, but none has a due date to chart.
-                    </p>
+                    <>
+                      <p className="mt-4 text-sm text-muted">
+                        CCD payables exist, but none has a due date to chart.
+                      </p>
+                      {excludedNote ? <p className="mt-2 text-xs text-muted">{excludedNote}</p> : null}
+                    </>
                   ) : (
                     <p className="mt-4 text-sm text-muted">No CCD payables on the test registry yet.</p>
                   )
@@ -414,7 +429,7 @@ export function HeroDemo({
                           its true total (adversarial B1/B2). */}
                       <div data-testid="demo-chart-axis" className="relative h-[180px] w-[36px] shrink-0" aria-hidden="true">
                         {[...axis.ticks].reverse().map((t, i, arr) => {
-                          const pct = topTick === 0 ? 100 : (1 - t / topTick) * 100
+                          const pct = topTick === 0 ? 0 : (1 - t / topTick) * 100
                           const transform = i === 0 ? undefined : i === arr.length - 1 ? 'translateY(-100%)' : 'translateY(-50%)'
                           return (
                             <span
@@ -477,18 +492,16 @@ export function HeroDemo({
                         <span className="inline-block h-3 w-3 border border-line bar-hatch" aria-hidden="true" /> Unpaid
                       </span>
                       <span>EUDemo payables are not on this axis — they are in Payment rails.</span>
-                      {months > 12 ? <span>Showing the latest 12 months of {months}.</span> : null}
+                      {months > 12 ? (
+                        <span>
+                          Showing the latest 12 months of {months} ({droppedTotal.toFixed(2)} CCD in earlier months not shown).
+                        </span>
+                      ) : null}
                       {/* CCD payables with no due date are counted in the
                           totals above but have no month to chart (B3) —
                           disclosed here so the chart sum stays
                           reconcilable with the big total. */}
-                      {overview.excludedFromChart.count > 0 ? (
-                        <span>
-                          {overview.excludedFromChart.count} CCD payable{overview.excludedFromChart.count === 1 ? '' : 's'} (
-                          {overview.excludedFromChart.total.toFixed(2)} CCD) {overview.excludedFromChart.count === 1 ? 'has' : 'have'} no due
-                          date and {overview.excludedFromChart.count === 1 ? 'is' : 'are'} not in this chart — counted in the totals above.
-                        </span>
-                      ) : null}
+                      {excludedNote}
                     </div>
                   </div>
                 )}

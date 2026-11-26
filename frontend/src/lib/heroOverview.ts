@@ -21,8 +21,11 @@ export interface AmountParts {
   asset: 'CCD' | 'EUDemo' | null
 }
 
-/** "10.000000 CCD" → { value: 10, asset: 'CCD' }. Unparseable → value 0. */
+/** "10.000000 CCD" → { value: 10, asset: 'CCD' }. Unparseable → value 0.
+    A non-string amount (outside the typed contract — zod requires
+    strings at the API boundary) is unparseable, never a throw. */
 export function parseAmount(amountDisplay: string): AmountParts {
+  if (typeof amountDisplay !== 'string') return { value: 0, asset: null }
   const m = amountDisplay.match(/([\d.,]+)\s*(CCD|EUDemo)/)
   if (!m) return { value: 0, asset: null }
   const value = Number.parseFloat(m[1].replace(/,/g, ''))
@@ -83,7 +86,17 @@ export interface HeroOverviewData {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** Milliseconds for a due value, NaN when it is not a parseable date
+    string. A null due (outside the typed contract — zod requires strings
+    at the API boundary) must never throw and never parse as epoch 1970
+    (new Date(null) is valid); it is unparseable, like ''. Every Date use
+    in this file goes through here (adversarial G3). */
+function dueMs(due: unknown): number {
+  return typeof due === 'string' ? new Date(due).getTime() : NaN
+}
+
 export function dayMonth(iso: string): { day: string; mon: string } {
+  if (typeof iso !== 'string') return { day: '—', mon: '' }
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return { day: '—', mon: '' }
   return { day: String(d.getUTCDate()).padStart(2, '0'), mon: MONTHS[d.getUTCMonth()] }
@@ -123,33 +136,37 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
 
   const toNextDue = (i: InvoiceItem): NextDue => {
     const { day, mon } = dayMonth(i.due)
-    const dueMs = new Date(i.due).getTime()
-    return { payable_id: i.payable_id, seller: i.seller, amount_display: i.amount_display, due: i.due, day, mon, overdue: !Number.isNaN(dueMs) && dueMs <= nowMs }
+    const dueMsValue = dueMs(i.due)
+    return { payable_id: i.payable_id, seller: i.seller, amount_display: i.amount_display, due: i.due, day, mon, overdue: !Number.isNaN(dueMsValue) && dueMsValue <= nowMs }
   }
   // "Next 14 days" (the video's section): unpaid payables due within the
   // next 14 days from now, soonest first, at most 3. A payable due in 90
   // days is NOT here, and neither is an overdue one — overdue is past, not
   // next. The soonest-due unpaid overall (overdue included) still surfaces
   // in Insights via soonestDue, so an overdue payable is never hidden.
+  // Sorted by PARSED milliseconds, not by string (adversarial G4: a
+  // parseable "Nov 30, 2026 ..." due sorts after an ISO "2026-12-01 ..."
+  // due under string sort, although it is sooner).
   const NEXT_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000
-  const unpaidSorted = [...unpaid].sort((a, b) => a.due.localeCompare(b.due))
+  const unpaidWithDue = [...unpaid]
+    .filter((i) => !Number.isNaN(dueMs(i.due)))
+    .sort((a, b) => dueMs(a.due) - dueMs(b.due))
   // The soonest-due unpaid with a PARSEABLE due date: picking by raw
   // string sort alone lets an unparseable due ('' sorts first) reach the
   // insight below, where toISOString() would throw and kill the whole
   // hero (adversarial B3). An unparseable due has no date to show, so it
   // is never the soonest due.
-  const unpaidWithDue = unpaidSorted.filter((i) => !Number.isNaN(new Date(i.due).getTime()))
   const soonestDue = unpaidWithDue[0] ? toNextDue(unpaidWithDue[0]) : null
-  const nextDues = unpaidSorted
+  const nextDues = unpaidWithDue
     .filter((i) => {
-      const dueMs = new Date(i.due).getTime()
-      return !Number.isNaN(dueMs) && dueMs >= nowMs && dueMs <= nowMs + NEXT_14_DAYS_MS
+      const ms = dueMs(i.due)
+      return ms >= nowMs && ms <= nowMs + NEXT_14_DAYS_MS
     })
     .slice(0, 3)
     .map(toNextDue)
 
   // Due range of the listed payables, for the header strip's date pill.
-  const dueMsAll = items.map((i) => new Date(i.due).getTime()).filter((t) => !Number.isNaN(t))
+  const dueMsAll = items.map((i) => dueMs(i.due)).filter((t) => !Number.isNaN(t))
   const dueRangeLabel = dueMsAll.length === 0 ? null : formatDueRange(Math.min(...dueMsAll), Math.max(...dueMsAll))
 
   const insights: InsightLine[] = []
@@ -192,7 +209,7 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
   // CCD payables with no parseable due date: they count in the big total
   // but the due-month chart has no month for them — disclosed, not hidden.
   const ccdNoDue = items.filter(
-    (i) => parseAmount(i.amount_display).asset === 'CCD' && Number.isNaN(new Date(i.due).getTime()),
+    (i) => parseAmount(i.amount_display).asset === 'CCD' && Number.isNaN(dueMs(i.due)),
   )
   const excludedFromChart = {
     count: ccdNoDue.length,
@@ -217,8 +234,6 @@ export function heroOverview(items: InvoiceItem[], stats: Stats | undefined, now
     excludedFromChart,
   }
 }
-
-export type OverviewTab = 'overview' | 'paid' | 'unpaid' | 'refused'
 
 export interface ChartBar {
   /** "Nov 2026" — the due month (UTC). */
@@ -245,6 +260,10 @@ export interface OverviewBars {
   bars: ChartBar[]
   /** Distinct due months before the 12-month cap. */
   months: number
+  /** CCD total in months older than the latest 12 (dropped from the
+      chart) — disclosed in the UI so the chart sum stays reconcilable
+      with the big total (adversarial G2). */
+  droppedTotal: number
 }
 
 interface MonthBucket {
@@ -260,14 +279,13 @@ interface MonthBucket {
 /** Group CCD payables by due month (UTC), oldest month first. A payable
     with no parseable due date has no month and is left out of the chart
     (the chart is by due month; the big total above it still counts it). */
-function ccdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
+function ccdMonthly(items: InvoiceItem[]): MonthBucket[] {
   const ccd = items.filter((i) => parseAmount(i.amount_display).asset === 'CCD')
-  const filtered =
-    tab === 'paid' ? ccd.filter((i) => i.status === 'paid') : tab === 'unpaid' ? ccd.filter((i) => i.status !== 'paid') : ccd
   const byMonth = new Map<string, MonthBucket>()
-  for (const i of filtered) {
-    const d = new Date(i.due)
-    if (Number.isNaN(d.getTime())) continue
+  for (const i of ccd) {
+    const ms = dueMs(i.due)
+    if (Number.isNaN(ms)) continue
+    const d = new Date(ms)
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
     const amount = parseAmount(i.amount_display).value
     const bucket = byMonth.get(key) ?? {
@@ -293,8 +311,8 @@ function ccdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
     chart showed only the latest 12, so a dropped 100-CCD month could make
     every displayed 1-CCD bar fill the full height against a 100 axis
     (adversarial B2). */
-function latestCcdMonthly(items: InvoiceItem[], tab: OverviewTab): MonthBucket[] {
-  return ccdMonthly(items, tab).slice(-12)
+function latestCcdMonthly(items: InvoiceItem[]): MonthBucket[] {
+  return ccdMonthly(items).slice(-12)
 }
 
 /** Nice y-axis ticks for a monthly max: 5 ticks from 0, steps of 1 / 2 /
@@ -312,20 +330,27 @@ function ticksForMax(max: number): { max: number; ticks: number[] } {
 }
 
 /** Bars for the Cash-overview chart: CCD payables only (one asset, one
-    axis), bucketed by due month, filtered by tab. One bar per payable is
-    unreadable at the live scale (53 payables ≈ 10 px per slot, labels
-    truncated to one character), so the demo buckets like the video's chart
-    does — 12 wide monthly bars with month labels, paid solid at the
-    bottom and unpaid hatched on top, so the paid/unpaid encoding survives
-    the bucketing. EUDemo payables are excluded here by design and the
-    panel says so — they are in Payment rails.
+    axis), bucketed by due month. One bar per payable is unreadable at the
+    live scale (53 payables ≈ 10 px per slot, labels truncated to one
+    character), so the demo buckets like the video's chart does — 12 wide
+    monthly bars with month labels, paid solid at the bottom and unpaid
+    hatched on top, so the paid/unpaid encoding survives the bucketing.
+    EUDemo payables are excluded here by design and the panel says so —
+    they are in Payment rails.
     Heights are scaled to the AXIS TOP TICK, not to the tallest month:
     a tallest month of 15.5 CCD against a top tick of 20 renders at 78%
     of the chart height, so a reader measuring the bar against the axis
-    reads 15.5 — not 20. */
-export function overviewBars(items: InvoiceItem[], tab: OverviewTab): OverviewBars {
-  const buckets = ccdMonthly(items, tab)
-  const latest = buckets.slice(-12)
+    reads 15.5 — not 20.
+    There is deliberately NO tab parameter: the strip tabs are preview
+    spans, not controls, so no UI ever filters these bars — a tab
+    parameter would let a filtered bar set diverge from the overview
+    axis with no live path guarding it (adversarial G1). */
+export function overviewBars(items: InvoiceItem[]): OverviewBars {
+  const buckets = ccdMonthly(items)
+  // The displayed months come from the ONE helper — the slicing lives
+  // here and nowhere else (adversarial B2/B-F2). The full bucketing is
+  // kept only for the uncapped month count and the dropped total.
+  const latest = latestCcdMonthly(items)
   const { ticks } = ticksForMax(Math.max(0, ...latest.map((b) => b.total)))
   const topTick = ticks[ticks.length - 1]
   return {
@@ -340,6 +365,7 @@ export function overviewBars(items: InvoiceItem[], tab: OverviewTab): OverviewBa
       count: b.count,
     })),
     months: buckets.length,
+    droppedTotal: buckets.slice(0, Math.max(0, buckets.length - 12)).reduce((acc, b) => acc + b.total, 0),
   }
 }
 
@@ -364,7 +390,7 @@ function formatDueRange(minMs: number, maxMs: number): string {
     months, including dropped ones). The top tick may sit above the
     tallest bar (a standard axis), and the bars are scaled to it. */
 export function chartAxisTicks(items: InvoiceItem[]): { max: number; ticks: number[] } {
-  const buckets = latestCcdMonthly(items, 'overview')
+  const buckets = latestCcdMonthly(items)
   return ticksForMax(Math.max(0, ...buckets.map((b) => b.total)))
 }
 

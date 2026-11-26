@@ -115,8 +115,9 @@ describe('heroOverview', () => {
 
 describe('overviewBars', () => {
   it('buckets CCD payables by due month (video shape: 12 wide monthly bars), paid solid / unpaid hatched', () => {
-    const { bars, months } = overviewBars(ITEMS, 'overview')
+    const { bars, months, droppedTotal } = overviewBars(ITEMS)
     expect(months).toBe(2)
+    expect(droppedTotal).toBe(0)
     expect(bars).toHaveLength(2)
     // Nov 2026: 6 CCD payables, 3.50 CCD (2.00 paid, 1.50 unpaid).
     // Heights scale to the AXIS TOP TICK (20), not the tallest month:
@@ -129,14 +130,27 @@ describe('overviewBars', () => {
     for (const b of bars) expect(b.paidTotal + b.unpaidTotal).toBeCloseTo(b.total)
   })
 
-  it('filters by tab', () => {
-    const paid = overviewBars(ITEMS, 'paid')
-    expect(paid.bars.map((b) => b.month)).toEqual(['Nov 2026', 'Dec 2026'])
-    expect(paid.bars[0]).toMatchObject({ total: 2, paidTotal: 2, unpaidTotal: 0 })
-    expect(paid.bars[1]).toMatchObject({ total: 0.5, paidTotal: 0.5, unpaidTotal: 0 })
-    const unpaid = overviewBars(ITEMS, 'unpaid')
-    expect(unpaid.bars[0]).toMatchObject({ total: 1.5, paidTotal: 0, unpaidTotal: 1.5 })
-    expect(unpaid.bars[1]).toMatchObject({ total: 15, paidTotal: 0, unpaidTotal: 15 })
+  it('never throws on null or non-string dues and amounts (adversarial G3, defense-in-depth)', () => {
+    const nullDue = { ...item(9100, 'ccd', '2.000000 CCD', '2026-12-01T08:00:00.000Z', 'unpaid'), due: null } as unknown as InvoiceItem
+    const nullAmount = { ...item(9101, 'ccd', '2.000000 CCD', '2026-12-01T08:00:00.000Z', 'unpaid'), amount_display: null } as unknown as InvoiceItem
+    const o = heroOverview([nullDue, nullAmount, ...ITEMS], STATS, NOW)
+    // nullDue (2 CCD, no due) is excluded from the chart but counted in
+    // the total; nullAmount parses to no asset, so it is in neither.
+    expect(o.excludedFromChart).toEqual({ count: 1, total: 2 })
+    expect(o.ccdTotal).toBeCloseTo(21)
+    expect(o.soonestDue?.payable_id).toBe(5)
+    expect(parseAmount(null as unknown as string)).toEqual({ value: 0, asset: null })
+    expect(dayMonth(null as unknown as string)).toEqual({ day: '—', mon: '' })
+  })
+
+  it('sorts soonest-due by parsed time, not by string (adversarial G4)', () => {
+    const nonIso = item(9200, 'ccd', '1.000000 CCD', 'Nov 30, 2026 10:00:00 GMT', 'unpaid')
+    const iso = item(9201, 'ccd', '1.000000 CCD', '2026-12-01T09:00:00.000Z', 'unpaid')
+    const o = heroOverview([iso, nonIso], undefined, NOW)
+    // Under string sort "Nov 30…" (N) loses to "2026-12-01…" (2); by
+    // parsed time Nov 30 10:00 is sooner than Dec 1 09:00.
+    expect(o.soonestDue?.payable_id).toBe(9200)
+    expect(o.nextDues.map((d) => d.payable_id)).toEqual([9200, 9201])
   })
 
   it('stays readable at the live scale: 53 payables across 3 months → 3 wide bars with month labels', () => {
@@ -145,8 +159,9 @@ describe('overviewBars', () => {
       const month = ['2026-11-15', '2026-12-10', '2027-01-05'][i % 3]
       many.push(item(2000 + i, 'ccd', i % 5 === 0 ? '10.000000 CCD' : '0.500000 CCD', `${month}T08:00:00.000Z`, i % 2 === 0 ? 'paid' : 'unpaid'))
     }
-    const { bars, months } = overviewBars(many, 'overview')
+    const { bars, months, droppedTotal } = overviewBars(many)
     expect(months).toBe(3)
+    expect(droppedTotal).toBe(0)
     expect(bars).toHaveLength(3)
     expect(bars.map((b) => b.label)).toEqual(['Nov 26', 'Dec 26', 'Jan 27'])
     // Labels are distinct month names — never "#1006" truncated to one character.
@@ -158,7 +173,7 @@ describe('overviewBars', () => {
   })
 
   it('scales bar heights to the axis top tick (adversarial B1): a bar measured against the axis reads its true total', () => {
-    const { bars } = overviewBars(ITEMS, 'overview')
+    const { bars } = overviewBars(ITEMS)
     const { ticks } = chartAxisTicks(ITEMS)
     const topTick = ticks[ticks.length - 1]
     expect(topTick).toBe(20)
@@ -169,15 +184,16 @@ describe('overviewBars', () => {
     expect(Math.max(...bars.map((b) => b.heightPct))).toBeLessThan(100)
   })
 
-  it('caps at the latest 12 months and reports the uncapped month count', () => {
+  it('caps at the latest 12 months and reports the uncapped month count and the dropped total', () => {
     const many: InvoiceItem[] = []
     for (let m = 0; m < 14; m++) {
       const year = 2026 + Math.floor(m / 12)
       const month = String((m % 12) + 1).padStart(2, '0')
       many.push(item(3000 + m, 'ccd', '1.000000 CCD', `${year}-${month}-10T08:00:00.000Z`, 'unpaid'))
     }
-    const { bars, months } = overviewBars(many, 'overview')
+    const { bars, months, droppedTotal } = overviewBars(many)
     expect(months).toBe(14)
+    expect(droppedTotal).toBe(2)
     expect(bars).toHaveLength(12)
     expect(bars[0].month).toBe('Mar 2026')
     expect(bars[11].month).toBe('Feb 2027')
@@ -192,7 +208,9 @@ describe('overviewBars', () => {
       many.push(item(3100 + m, 'ccd', m === 0 ? '100.000000 CCD' : '1.000000 CCD', `${year}-${month}-10T08:00:00.000Z`, 'unpaid'))
     }
     expect(chartAxisTicks(many)).toEqual({ max: 1, ticks: [0, 0.25, 0.5, 0.75, 1] })
-    const { bars } = overviewBars(many, 'overview')
+    const { bars, droppedTotal } = overviewBars(many)
+    // Dropped: Jan 2026 (100) + Feb 2026 (1) = 101.
+    expect(droppedTotal).toBe(101)
     expect(bars).toHaveLength(12)
     expect(bars.every((b) => b.heightPct === 100)).toBe(true)
   })

@@ -288,7 +288,9 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     }
     renderDemo(many, STATS)
     expect(screen.getAllByTestId('demo-chart-bar')).toHaveLength(12)
-    expect(screen.getByText('Showing the latest 12 months of 14.')).toBeInTheDocument()
+    // The note names the dropped amount too, so the chart sum stays
+    // reconcilable with the big total (adversarial G2).
+    expect(screen.getByText('Showing the latest 12 months of 14 (2.00 CCD in earlier months not shown).')).toBeInTheDocument()
   })
 
   it('never crashes on an unparseable due and discloses the chart-excluded payable (B3)', () => {
@@ -310,7 +312,7 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(screen.getByText('6 invoices still unpaid')).toBeInTheDocument()
   })
 
-  it('says plainly when CCD payables exist but none has a due date to chart (M5)', () => {
+  it('says plainly when CCD payables exist but none has a due date to chart (M5) — including the excluded count and total (B-F1)', () => {
     const noDue: InvoiceItem[] = [
       { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 9001, asset: 'ccd', amount_display: '2.000000 CCD', due: '', status: 'unpaid', label: 'Lab invoice' },
       { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 9002, asset: 'ccd', amount_display: '3.000000 CCD', due: 'not-a-date', status: 'paid', label: 'Lab invoice' },
@@ -319,6 +321,21 @@ describe('HeroDemo component (tall, dense dashboard preview)', () => {
     expect(screen.getByText('CCD payables exist, but none has a due date to chart.')).toBeInTheDocument()
     expect(screen.queryByText('No CCD payables on the test registry yet.')).toBeNull()
     expect(within(screen.getByTestId('demo-big-total')).getByText('5.00 CCD')).toBeInTheDocument()
+    // The exclusion disclosure renders here too — not only when bars
+    // exist. With no bars at all this is the only place the 2 / 5.00
+    // appears.
+    expect(screen.getByText(/2 CCD payables \(5\.00 CCD\) have no due date and are not in this chart/)).toBeInTheDocument()
+  })
+
+  it('renders a zero-total chart without NaN heights (adversarial G5)', () => {
+    const zero: InvoiceItem[] = [
+      { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 9100, asset: 'ccd', amount_display: '0.000000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
+    ]
+    renderDemo(zero, STATS)
+    expect(screen.getAllByTestId('demo-chart-bar')).toHaveLength(1)
+    expect(screen.getByRole('img', { name: /up to 0 CCD/ })).toBeInTheDocument()
+    const col = screen.getByTestId('demo-chart-bar').firstElementChild as HTMLElement
+    expect(col.style.height).toBe('0px')
   })
 
   it('shows the mobile nav strip with the real nav (finding #9)', () => {
