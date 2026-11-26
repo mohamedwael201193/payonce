@@ -129,7 +129,7 @@ function SidebarArt() {
       <p className="px-6 pt-2 pb-6 text-xs leading-relaxed text-white/70">
         Testnet · Concordium
         <br />
-        Every number on this page is from the test registry.
+        Every number on this page is live or recorded from the test registry.
       </p>
     </div>
   )

@@ -11,7 +11,8 @@
 // with a left sidebar plus Payables overview chart, paid-once gauge,
 // payment rails, insights and due-soon panels, extending below the fold.
 // Accepts ?payable=<id> only to redirect old shared links to the dashboard
-// pay tabs (/?payable=N → /dashboard/pay?tab=pick&payable=N).
+// pay tabs (/?payable=N → /dashboard/pay?tab=pick&payable=N), forwarding
+// the full query string so ?seller= (and any other param) survives.
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { HeroDemo } from '../components/HeroDemo'
@@ -34,10 +35,21 @@ export function HomePage() {
   const demoLastUpdated = demoUpdatedAt > 0 ? `${formatUtcTime(new Date(demoUpdatedAt).toISOString())} UTC` : null
 
   // Old shared links (?payable=N) go to the dashboard pay tabs, not here.
+  // F-1b (round-2 fix-back): forward the FULL query string, like
+  // DashboardRoute does — dropping ?seller= would open the wrong
+  // seller's same-id payable (seller 2's ids collide with seller 1's).
   const payable = params.get('payable')
   const payableId = Number.parseInt(payable ?? '', 10)
   if (Number.isFinite(payableId) && payableId > 0) {
-    return <Navigate to={`/dashboard/pay?tab=pick&payable=${payableId}`} replace />
+    // tab + payable first (the old target's order), then every other
+    // incoming param (?seller= et al.) in its original order.
+    const next = new URLSearchParams()
+    next.set('tab', 'pick')
+    next.set('payable', String(payableId))
+    for (const [k, v] of params) {
+      if (k !== 'tab' && k !== 'payable') next.append(k, v)
+    }
+    return <Navigate to={`/dashboard/pay?${next.toString()}`} replace />
   }
 
   return (

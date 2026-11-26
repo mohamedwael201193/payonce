@@ -19,6 +19,7 @@ const INVOICES = {
     { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
   ],
 }
+const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
 const STATS = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
 const CONFIG = {
   network: 'testnet',
@@ -136,5 +137,14 @@ describe('HomePage (display-only landing)', () => {
   it('an old /?payable= link redirects to the dashboard pay tabs', async () => {
     renderHome('/?payable=2')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/dashboard/pay?tab=pick&payable=2'))
+  })
+
+  it('an old /?payable= link keeps ?seller= (and any other param) on the redirect (F-1b)', async () => {
+    renderHome(`/?payable=2&seller=${S2}`)
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/dashboard/pay'))
+    const loc = screen.getByTestId('location').textContent ?? ''
+    expect(loc).toContain('tab=pick')
+    expect(loc).toContain('payable=2')
+    expect(loc).toContain(`seller=${S2}`)
   })
 })

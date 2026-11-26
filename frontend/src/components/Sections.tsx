@@ -589,7 +589,10 @@ export function HowItWorks() {
   const slow = useSlowLoad(invoices.isLoading)
   const items = invoices.data ?? []
   const latestPaid = latestPaidInvoice(items)
-  const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null)
+  // F-1 (round-2 fix-back): thread the seller through — seller 2's
+  // payables share ids with seller 1's, so a seller-less receipt fetch
+  // would resolve to seller 1's same-id receipt (or "Not paid yet").
+  const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null, latestPaid?.seller)
   const visuals = [StepVisual01, StepVisual02, StepVisual03]
 
   // Pinned scroll story (SKILL.md §3 #3, Identity Brief §3): a 300vh
@@ -715,7 +718,7 @@ export function HowItWorks() {
                           Due {formatUtcDateTime(latestPaid.due)} · {COPY.labInvoiceLabel}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
-                          <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-brand-700">
+                          <Link to={`/receipt/${latestPaid.payable_id}?seller=${latestPaid.seller}`} className="inline-flex items-center gap-1 font-medium text-brand-700">
                             Confirm receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
                           </Link>
                           {latestReceipt.data?.txs[0] ? (

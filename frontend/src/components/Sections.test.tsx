@@ -175,6 +175,55 @@ function mockApiTwoPaid() {
   )
 }
 
+// F-1 (round-2 fix-back): the latest paid payable belongs to seller 2.
+// Seller 2's payables share ids with seller 1's, so the step-04 card must
+// fetch the receipt WITH ?seller=<seller 2> and link to it — a seller-less
+// fetch/link would resolve to seller 1's same-id receipt (or "Not paid
+// yet"). The mock answers a seller-less receipt fetch with seller 1's
+// receipt (distinct tx), so a regression shows the wrong tx, not just a
+// missing param.
+const S1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
+const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+const INVOICES_SELLER2_LATEST = {
+  items: [
+    { seller: S1, payable_id: 10, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-12-26T12:00:00.000Z', status: 'paid', label: 'Lab invoice 10' },
+    { seller: S2, payable_id: 1006, asset: 'ccd', amount_display: '0.500000 CCD', due: '2026-11-25T15:07:59.465Z', status: 'paid', label: 'Lab invoice 1006' },
+  ],
+}
+const RECEIPT_S2 = {
+  payable_id: 1006,
+  seller: S2,
+  amount_display: '0.500000 CCD',
+  payee: 'PAYEE-PLACEHOLDER',
+  payer_label: 'Demo payer account (lab)',
+  txs: [{ label: 'Payment', tx_hash: 'bbbbbbbb11111111bbbbbbbb22222222bbbbbbbb33333333bbbbbbbb44444444', explorer_url: 'https://ccdexplorer.io/testnet/transaction/bbbb' }],
+  verifier: null,
+  payment_tx_source: 'chain',
+}
+const RECEIPT_S1_DECOY = {
+  ...RECEIPT_S2,
+  seller: S1,
+  txs: [{ label: 'Payment', tx_hash: 'aaaaaaaa11111111aaaaaaaa22222222aaaaaaaa33333333aaaaaaaa44444444', explorer_url: 'https://ccdexplorer.io/testnet/transaction/aaaa' }],
+}
+
+function mockApiSeller2Latest() {
+  const fetchMock = vi.fn(async (url: string) => {
+    const body = url.includes('/api/receipts/1006')
+      ? url.includes(`seller=${S2}`)
+        ? RECEIPT_S2
+        : RECEIPT_S1_DECOY
+      : url.includes('/api/invoices')
+        ? INVOICES_SELLER2_LATEST
+        : url.includes('/api/stats')
+          ? STATS_TWO_PAID
+          : null
+    if (!body) return { ok: false, status: 404, json: async () => ({}) }
+    return { ok: true, status: 200, json: async () => body }
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 function renderHowItWorks() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -234,6 +283,28 @@ describe('HowItWorks latest-payment card (FIX-4) + one latest rule (FIX-7f)', ()
     })
     expect(screen.getByText(/Paid by 9Zzz… at 2026-11-25T15:08:00/)).toBeInTheDocument()
     expect(screen.queryByText(/Paid by 4MvdM…/)).toBeNull()
+  })
+
+  it('threads the latest paid payable\u2019s seller through the receipt fetch and the Confirm receipt link (F-1)', async () => {
+    const fetchMock = mockApiSeller2Latest()
+    renderHowItWorks()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    expect(screen.getByText(/Latest payment — Payable 1006/)).toBeInTheDocument()
+    // The receipt fetch went to seller 2, never seller-less: every
+    // /api/receipts/1006 call carries ?seller=<seller 2>.
+    const receiptCalls = fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/receipts/1006'))
+    expect(receiptCalls.length).toBeGreaterThan(0)
+    for (const u of receiptCalls) expect(u).toContain(`seller=${S2}`)
+    // … so the card shows seller 2's tx, not seller 1's same-id decoy …
+    expect(screen.getByText(/bbbbbbbb…444444/)).toBeInTheDocument()
+    expect(screen.queryByText(/aaaaaaaa…444444/)).toBeNull()
+    // … and the Confirm receipt link carries the seller.
+    expect(screen.getByRole('link', { name: /Confirm receipt/ })).toHaveAttribute('href', `/receipt/1006?seller=${S2}`)
   })
 })
 

@@ -368,6 +368,16 @@ describe('App routing (tab bug repro)', () => {
     expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('an old /?payable= link with ?seller= keeps the seller on the redirect (F-1b)', async () => {
+    renderApp('/?payable=2&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
+    expect(window.location.search).toContain('tab=pick')
+    expect(window.location.search).toContain('payable=2')
+    expect(window.location.search).toContain('seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    expect(window.location.hash).toBe('')
+    expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('no rendered link anywhere in the app points at #invoice or #pay', async () => {
     const { unmount } = renderApp('/')
     await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
