@@ -462,12 +462,6 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <p className="mt-8 text-sm text-muted">
-          <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700">
-            ↑ Pay an invoice
-          </Link>{' '}
-          · <Link to="/judges" className="font-medium text-brand-700">For judges →</Link>
-        </p>
     </DashboardShell>
   )
 }

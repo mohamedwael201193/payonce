@@ -383,6 +383,120 @@ body {
   opacity: 1;
 }
 
+/* ---- Whole-project design pass (2026-11-26) — `po-` landing classes ----
+   PayOnce's own prefix (never `xx-`): these styles coexist with the
+   existing Tailwind/app CSS. Only transform/opacity animate. Marquees
+   become a wrapped static grid under prefers-reduced-motion (below). */
+
+/* Pinned scroll story (HowItWorks): 300vh track, sticky pin. Below the
+   desktop breakpoint the track collapses to normal flow and the pin is
+   static; the active step is the only fully opaque one. */
+.po-story {
+  height: auto;
+}
+.po-story__pin {
+  position: static;
+  min-height: 0;
+}
+@media (min-width: 1024px) {
+  .po-story {
+    height: 300vh;
+  }
+  .po-story__pin {
+    position: sticky;
+    top: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+  }
+}
+.po-story__track {
+  position: relative;
+}
+.po-story__bar {
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--color-brand-600);
+  transform-origin: top;
+}
+.po-story__step {
+  opacity: 0.28;
+  transition: opacity 0.3s ease;
+}
+.po-story__step.is-on {
+  opacity: 1;
+}
+@media (max-width: 1023px) {
+  .po-story__step {
+    opacity: 1;
+  }
+}
+/* Preview panels stack in one grid cell; only the active one is visible.
+   Inactive panels stay mounted (their live loading/empty states keep
+   rendering) but are invisible and inert. */
+.po-story__panels {
+  display: grid;
+}
+.po-story__panels > * {
+  grid-area: 1 / 1;
+}
+.po-story__panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+.po-story__panel.is-on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Proof Wall dual marquee: two opposing pure-CSS infinite marquees of
+   clickable real records. Duplicate track children loop at -50%. */
+.po-marquee {
+  overflow: hidden;
+}
+.po-marquee__track {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: po-marq 42s linear infinite;
+}
+.po-marquee--rev .po-marquee__track {
+  animation-direction: reverse;
+}
+.po-marquee:hover .po-marquee__track {
+  animation-play-state: paused;
+}
+@keyframes po-marq {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* FAQ accordion buttons: full-width, >= 44px targets, plain text. */
+.po-faq__btn {
+  min-height: 44px;
+  width: 100%;
+  text-align: left;
+}
+.po-faq__btn:focus-visible {
+  outline: 3px solid #b4430f;
+  outline-offset: 2px;
+}
+
+/* Mobile bottom tab bar: respect the home-indicator safe area. */
+.po-tabbar {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -393,5 +507,28 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  /* Marquees become a wrapped static grid; the story shows every step. */
+  .po-marquee__track {
+    animation: none;
+    flex-wrap: wrap;
+    width: auto;
+  }
+  .po-story,
+  .po-story__pin {
+    height: auto;
+    min-height: 0;
+    position: static;
+  }
+  .po-story__step,
+  .po-story__panel {
+    opacity: 1;
+    visibility: visible;
+  }
+  .po-story__panels {
+    display: block;
+  }
+  .po-story__panel {
+    margin-bottom: 16px;
   }
 }

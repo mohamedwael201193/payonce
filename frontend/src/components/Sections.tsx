@@ -9,16 +9,16 @@
 // notification over terrain with the latest real payment. Receipt checker:
 // 5 stages from a real after-pay verify call, 0.9 s apart, replay button.
 import { useEffect, useRef, useState } from 'react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight, CheckCircle2, Receipt, RotateCcw, ShieldAlert, ShieldCheck, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useConfig, useInvoices, useReceipt } from '../hooks/useApi'
 import { api } from '../lib/api'
 import { COPY } from '../lib/copy'
-import { derivedStatus } from '../lib/dashboard'
 import { formatUtcDateTime, formatUtcTime } from '../lib/format'
-import { EXPLORER_HOME } from '../lib/tokens'
-import { InvoiceStatusPill, Reveal, useSlowLoad } from './polish'
+import { RECORDED_DATE, RECORDED_REFUSALS } from '../lib/recorded'
+import { EXPLORER_HOME, EXPLORER_TX } from '../lib/tokens'
+import { Reveal, useSlowLoad } from './polish'
 import { HairlineFigure } from './HairlineFigure'
 import { Logo } from './Logo'
 import { evidenceGap } from '../lib/receiptVerdict'
@@ -132,66 +132,97 @@ export function Features() {
   )
 }
 
-/** Invoice showcase — the latest live invoices as glossy glass cards
-    (polished sketch: "Beautiful, transparent invoicing"). Paid first by
-    highest id, then the soonest-due unpaid ones. */
-export function InvoiceShowcase() {
+/** Proof Wall — the showcase merged into a dual marquee of clickable
+    real records (Identity Brief §3 #6, SKILL.md §3 #6). Row 1: paid
+    payables, newest first, each linking to its receipt page. Row 2
+    (reversed): the 7 recorded refusals of the 24 Nov 2026 run, each
+    linking to its explorer transaction. Nothing here is a card grid and
+    nothing is invented: an empty registry renders an honest empty state,
+    not a placeholder row. The duplicated track halves are aria-hidden so
+    a screen reader hears each record once; under reduced motion the
+    marquees become a wrapped static grid (index.css). */
+export function ProofWall() {
   const invoices = useInvoices()
   const slow = useSlowLoad(invoices.isLoading)
   const items = invoices.data ?? []
-  const paid = [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)
-  const unpaid = [...items].filter((i) => i.status !== 'paid').sort((a, b) => a.due.localeCompare(b.due))
-  const shown = [...paid.slice(0, 2), ...unpaid.slice(0, 1)]
+  const paid = [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id).slice(0, 8)
+  const paidTrack = [...paid, ...paid]
+  const refusalTrack = [...RECORDED_REFUSALS, ...RECORDED_REFUSALS]
   return (
-    <section aria-labelledby="showcase-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+    <section id="proof" aria-labelledby="proof-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
       <Reveal className="text-center">
         <p className="text-sm font-medium tracking-[0.02em] text-ink">
           <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
           Live from the registry
         </p>
-        <h2 id="showcase-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-          Beautiful, transparent invoicing.
+        <h2 id="proof-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          Every payment leaves a record.
         </h2>
         <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
-          Clients pay faster with clean, clear invoices that build trust. These are the real payables on the test
-          registry right now.
+          Paid payables link to their receipts. Refusals link to the explorer transaction that refused them — with
+          the chain code, not a paraphrase.
         </p>
       </Reveal>
-      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
-        {shown.length === 0 ? (
-          <p className="text-[15px] text-muted md:col-span-3">
-            {invoices.isError
-              ? COPY.statsNoData
-              : invoices.isLoading
-                ? `Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`
-                : 'No invoices on the test registry right now.'}
+      {paid.length === 0 ? (
+        <p className="mt-14 text-center text-[15px] text-muted">
+          {invoices.isError
+            ? COPY.statsNoData
+            : invoices.isLoading
+              ? `Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`
+              : 'No paid invoices on the test registry right now.'}
+        </p>
+      ) : (
+        <div className="mt-14">
+          <div className="po-marquee border-y border-line py-3" data-testid="proof-wall-paid">
+            <div className="po-marquee__track">
+              {paidTrack.map((inv, i) => (
+                <Link
+                  key={`${inv.payable_id}-${i}`}
+                  to={`/receipt/${inv.payable_id}?seller=${inv.seller}`}
+                  aria-hidden={i >= paid.length}
+                  tabIndex={i >= paid.length ? -1 : undefined}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-[14px] whitespace-nowrap text-ink hover:border-brand-600"
+                >
+                  <span className="font-medium">Payable {inv.payable_id}</span>
+                  <span className="text-body tabular-nums">{inv.amount_display}</span>
+                  <span className="rounded-full bg-verified-bg px-2 py-0.5 text-[11px] font-semibold text-verified-fg">
+                    Paid once
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="po-marquee po-marquee--rev border-b border-line py-3" data-testid="proof-wall-refused">
+            <div className="po-marquee__track">
+              {refusalTrack.map((r, i) => (
+                <a
+                  key={`${r.code}-${i}`}
+                  href={`${EXPLORER_TX}${r.txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-hidden={i >= RECORDED_REFUSALS.length}
+                  tabIndex={i >= RECORDED_REFUSALS.length ? -1 : undefined}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-[14px] whitespace-nowrap text-ink hover:border-brand-600"
+                >
+                  <span className="font-medium">
+                    {r.code} {r.name}
+                  </span>
+                  <span className="font-mono text-xs text-muted">
+                    {r.txHash.slice(0, 8)}…{r.txHash.slice(-6)}
+                  </span>
+                  <span className="rounded-full bg-refused-bg px-2 py-0.5 text-[11px] font-semibold text-refused-fg">
+                    Refused
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+          <p className="mt-6 text-center text-[13px] text-muted">
+            Paid rows are live from the test registry. Refusal rows are the recorded run of{' '}
+            {RECORDED_DATE} — {RECORDED_REFUSALS.length} refusals, each with its chain code.
           </p>
-        ) : (
-          shown.map((inv, i) => (
-            <Reveal key={inv.payable_id} delay={i * 0.08}>
-              <article className="card-glass flex min-h-[260px] flex-col p-8 transition-transform duration-200 hover:-translate-y-1.5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
-                    Invoice #{inv.payable_id}
-                  </p>
-                  <InvoiceStatusPill status={derivedStatus(inv)} />
-                </div>
-                <p className="mt-5 text-[15px] text-body">{inv.label}</p>
-                <p className="mt-2 text-[34px] leading-none font-medium tracking-[-0.02em] text-ink tabular-nums">
-                  {inv.amount_display}
-                </p>
-                <p className="mt-3 text-sm text-muted">Due {formatUtcDateTime(inv.due)}</p>
-                <p className="mt-1 text-sm text-muted">Rail {inv.asset === 'ccd' ? 'A · CCD' : 'B · EUDemo'}</p>
-                <div className="mt-auto pt-8">
-                  <Link to={`/receipt/${inv.payable_id}?seller=${inv.seller}`} className="btn-glass w-full !min-h-[44px] !px-5 !py-2 !text-[14px]">
-                    View receipt →
-                  </Link>
-                </div>
-              </article>
-            </Reveal>
-          ))
-        )}
-      </div>
+        </div>
+      )}
       <Reveal className="mt-10 text-center">
         <Link to="/dashboard" className="btn-ember">
           Open the full dashboard →
@@ -552,125 +583,173 @@ export function HowItWorks() {
   const latestReceipt = useReceipt(latestPaid ? latestPaid.payable_id : null)
   const visuals = [StepVisual01, StepVisual02, StepVisual03]
 
-  return (
-    <section id="how" aria-labelledby="how-title" className="mx-auto max-w-[1101px] scroll-mt-4 px-4 pb-[114px] sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="text-sm font-medium tracking-[0.02em] text-ink">
-            <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
-            How it works
-          </p>
-          <h2 id="how-title" className="mt-6 max-w-[480px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-            From invoice to verified receipt in four steps.
-          </h2>
-        </div>
-        <p className="max-w-[320px] text-[15px] leading-[1.5] text-muted">
-          A judge can run the whole flow on the dashboard in about thirty seconds, with no wallet and no sign-in.
-        </p>
-      </div>
+  // Pinned scroll story (SKILL.md §3 #3, Identity Brief §3): a 300vh
+  // track with a sticky pin — the four steps advance on the left while
+  // the live preview for the active step holds on the right, with a
+  // scaleY progress bar on the track. Below the desktop breakpoint the
+  // track collapses to normal flow and the pin is static (index.css);
+  // every step is a button, so on a phone the preview switches by tap.
+  // All four preview panels stay mounted — the step-01 visual and the
+  // step-04 receipt card keep their loading states (FIX-4), and the
+  // checker rule still keys on the highest-id paid payable (FIX-7f).
+  const ref = useRef<HTMLElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] })
+  const [step, setStep] = useState(0)
+  useMotionValueEvent(scrollYProgress, 'change', (p) => {
+    // jsdom (and a zero-height layout) can report a non-finite progress;
+    // never let it clear the active step.
+    if (!Number.isFinite(p)) return
+    setStep(Math.min(3, Math.floor(p * 4.0001)))
+  })
+  const bar = useTransform(scrollYProgress, [0, 1], [0, 1])
+  const goToStep = (i: number) => {
+    setStep(i)
+    const el = ref.current
+    if (!el || reduceMotion) return
+    if (!window.matchMedia('(min-width: 1024px)').matches) return
+    const rect = el.getBoundingClientRect()
+    const top = rect.top + window.scrollY
+    const scrollable = Math.max(0, rect.height - window.innerHeight)
+    window.scrollTo({ top: top + ((i + 0.5) / 4) * scrollable, behavior: 'auto' })
+  }
 
-      <div className="handles hairline-grid mt-12 grid grid-cols-1 border border-line bg-card md:grid-cols-3">
-        <i aria-hidden="true" />
-        {STEPS.slice(0, 3).map((s, i) => {
-          const Visual = visuals[i]
-          return (
-            <motion.div
-              key={s.n}
-              className="border border-line bg-card p-6"
-              initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <p className="text-[13px] tracking-[0.02em] text-muted">{s.n}</p>
-              <h3 className="mt-4 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">{s.title}</h3>
-              <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{s.body}</p>
-              <div className="mt-5">
-                <Visual />
-              </div>
-            </motion.div>
-          )
-        })}
-        {/* Step 04 — wide bento: the receipt, over the dawn terrain, with
-            the latest real payment floating on it. The receipt is the
-            fourth step of the flow, not a stats card. */}
-        <motion.div
-          className="relative overflow-hidden border border-line bg-card p-6 md:col-span-3"
-          initial={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="absolute inset-0" aria-hidden="true">
-            <Terrain src="/assets/wide-wheat.webp" position="center 60%" />
-            <div className="absolute inset-0 bg-white/60" />
-          </div>
-          <div className="relative">
-            <p className="text-[13px] tracking-[0.02em] text-muted">{STEPS[3].n}</p>
-            <h3 className="mt-8 text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">
-              {STEPS[3].title}
-            </h3>
-            <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-muted">{STEPS[3].body}</p>
-            <div className="mt-6 flex flex-wrap gap-4">
-              <Link to="/dashboard/pay?tab=pick" className="btn-ember !min-h-[44px]">
-                Open the payment list
-              </Link>
-              <Link to="/judges" className="btn-glass !min-h-[44px]">
-                Verify a receipt
-              </Link>
+  return (
+    <section ref={ref} id="how" aria-labelledby="how-title" className="po-story mx-auto max-w-[1101px] scroll-mt-4 px-4 pb-[114px] sm:px-6">
+      <div className="po-story__pin">
+        <div className="grid w-full grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
+          <div>
+            <Reveal>
+              <p className="text-sm font-medium tracking-[0.02em] text-ink">
+                <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+                How it works
+              </p>
+              <h2 id="how-title" className="mt-6 max-w-[480px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+                From invoice to verified receipt in four steps.
+              </h2>
+              <p className="mt-6 max-w-[320px] text-[15px] leading-[1.5] text-muted">
+                A judge can run the whole flow on the dashboard in about a minute, with no wallet and no sign-in.
+              </p>
+            </Reveal>
+            <div className="po-story__track mt-10 border-l border-line pl-6">
+              <motion.div className="po-story__bar" style={{ scaleY: bar }} aria-hidden="true" />
+              {STEPS.map((s, i) => (
+                <div key={s.n} className={`po-story__step py-5 ${i === step ? 'is-on' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => goToStep(i)}
+                    aria-current={i === step ? 'step' : undefined}
+                    className="block w-full cursor-pointer rounded-[6px] text-left focus-visible:outline-2 focus-visible:outline-brand-600"
+                  >
+                    <span className="text-[13px] tracking-[0.02em] text-muted">{s.n}</span>
+                    <span role="heading" aria-level={3} className="mt-4 block text-[30px] leading-[1.13] font-normal tracking-[-0.02em] text-ink">
+                      {s.title}
+                    </span>
+                  </button>
+                  <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.5] text-muted">{s.body}</p>
+                </div>
+              ))}
             </div>
-            <div className="mt-5 max-w-[420px] rounded-md border border-line bg-card p-4 shadow-[0_8px_24px_rgba(11,31,36,0.08)]">
-              {latestPaid ? (
-                <div className="text-sm">
-                  <p className="font-medium text-ink">
-                    Latest payment — Payable {latestPaid.payable_id} · {latestPaid.amount_display}
-                  </p>
-                  <p className="mt-1 text-muted">
-                    Due {formatUtcDateTime(latestPaid.due)} · {COPY.labInvoiceLabel}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-brand-700">
-                      Confirm receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </div>
+
+          {/* Sticky preview: one panel per step, stacked in a single grid
+              cell; only the active panel is visible. Panels 1–3 are the
+              step visuals; panel 4 is the receipt — the latest real
+              payment over the dawn terrain, with its receipt link. */}
+          <div className="po-story__panels" aria-live="off">
+            {STEPS.slice(0, 3).map((s, i) => {
+              const Visual = visuals[i]
+              return (
+                <div key={s.n} className={`po-story__panel ${i === step ? 'is-on' : ''}`}>
+                  <div className="rounded-[6px] border border-line bg-card p-6">
+                    <p className="text-[13px] tracking-[0.02em] text-muted">
+                      Step {s.n} — {s.title}
+                    </p>
+                    <div className="mt-5">
+                      <Visual tall={i === 2} />
+                    </div>
+                    <p className="mt-5 text-[15px] leading-[1.5] text-muted">
+                      {i === 0
+                        ? 'Live payables from the test registry — one row highlights at a time.'
+                        : i === 1
+                          ? 'Three sources feed the 9 checks. Nothing is paid until they pass.'
+                          : 'Two rails, never mixed: CCD on Rail A, the EUDemo test token on Rail B.'}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+            <div className={`po-story__panel ${3 === step ? 'is-on' : ''}`}>
+              <div className="relative overflow-hidden rounded-[6px] border border-line bg-card p-6">
+                <div className="absolute inset-0" aria-hidden="true">
+                  <Terrain src="/assets/wide-wheat.webp" position="center 60%" />
+                  <div className="absolute inset-0 bg-white/60" />
+                </div>
+                <div className="relative">
+                  <p className="text-[13px] tracking-[0.02em] text-muted">Step 04 — Receipt</p>
+                  <p className="mt-5 max-w-[52ch] text-[15px] leading-[1.5] text-muted">{STEPS[3].body}</p>
+                  <div className="mt-6 flex flex-wrap gap-4">
+                    <Link to="/dashboard/pay?tab=pick" className="btn-ember !min-h-[44px]">
+                      Open the payment list
                     </Link>
-                    {latestReceipt.data?.txs[0] ? (
-                      <a
-                        href={latestReceipt.data.txs[0].explorer_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-mono text-xs text-brand-700"
-                      >
-                        {latestReceipt.data.txs[0].tx_hash.slice(0, 8)}…{latestReceipt.data.txs[0].tx_hash.slice(-6)} ↗
-                      </a>
+                    <Link to="/judges" className="btn-glass !min-h-[44px]">
+                      Verify a receipt
+                    </Link>
+                  </div>
+                  <div className="mt-5 max-w-[420px] rounded-md border border-line bg-card p-4 shadow-[0_8px_24px_rgba(11,31,36,0.08)]">
+                    {latestPaid ? (
+                      <div className="text-sm">
+                        <p className="font-medium text-ink">
+                          Latest payment — Payable {latestPaid.payable_id} · {latestPaid.amount_display}
+                        </p>
+                        <p className="mt-1 text-muted">
+                          Due {formatUtcDateTime(latestPaid.due)} · {COPY.labInvoiceLabel}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <Link to={`/receipt/${latestPaid.payable_id}`} className="inline-flex items-center gap-1 font-medium text-brand-700">
+                            Confirm receipt <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                          {latestReceipt.data?.txs[0] ? (
+                            <a
+                              href={latestReceipt.data.txs[0].explorer_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-xs text-brand-700"
+                            >
+                              {latestReceipt.data.txs[0].tx_hash.slice(0, 8)}…{latestReceipt.data.txs[0].tx_hash.slice(-6)} ↗
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : invoices.isLoading ? (
+                      <p className="text-sm text-muted">
+                        {`Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted">
+                        {invoices.isError ? (
+                          COPY.statsNoData
+                        ) : (
+                          <>
+                            No paid invoice yet.{' '}
+                            <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700 underline-offset-2 hover:underline">
+                              Pay one on the dashboard
+                            </Link>{' '}
+                            and it appears here.
+                          </>
+                        )}
+                      </p>
+                    )}
+                    {config.data ? (
+                      <p className="mt-3 font-mono text-xs text-muted">
+                        Registry &lt;{config.data.registry.index},{config.data.registry.subindex}&gt;
+                      </p>
                     ) : null}
                   </div>
                 </div>
-              ) : invoices.isLoading ? (
-                <p className="text-sm text-muted">
-                  {`Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`}
-                </p>
-              ) : (
-                <p className="text-sm text-muted">
-                  {invoices.isError ? (
-                    COPY.statsNoData
-                  ) : (
-                    <>
-                      No paid invoice yet.{' '}
-                      <Link to="/dashboard/pay?tab=pick" className="font-medium text-brand-700 underline-offset-2 hover:underline">
-                        Pay one on the dashboard
-                      </Link>{' '}
-                      and it appears here.
-                    </>
-                  )}
-                </p>
-              )}
-              {config.data ? (
-                <p className="mt-3 font-mono text-xs text-muted">
-                  Registry &lt;{config.data.registry.index},{config.data.registry.subindex}&gt;
-                </p>
-              ) : null}
+              </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )
@@ -687,7 +766,7 @@ export function VerifierSection() {
           Receipt verifier
         </p>
         <h2 id="verifier-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-          Upload a receipt. Verify in seconds.
+          Upload a receipt. Check it against the chain.
         </h2>
         <p className="mx-auto mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
           Every payment is re-read from the chain — document hash, seller agent, paid-once status — before the
@@ -697,6 +776,127 @@ export function VerifierSection() {
       <Reveal delay={0.1}>
         <div className="card-glass mx-auto mt-14 max-w-[720px] p-8 sm:p-10">
           <ReceiptChecker />
+        </div>
+      </Reveal>
+    </section>
+  )
+}
+
+/** Spec Matrix — the hard bounds in one hairline table (SKILL.md §3 #8).
+    Every row is tagged LIVE (read from /api/config on this visit) or
+    RECORDED (the 24 Nov 2026 run, labelled with its date). The one number
+    the brief asked for that is NOT here is a reject-code count: no
+    "27 reject codes" figure exists anywhere in the repo, so the table
+    states the 7 recorded refusals instead — never an unverified count. */
+export function SpecMatrix() {
+  const config = useConfig()
+  const c = config.data
+  const rows: Array<{ name: string; value: string; tag: 'LIVE' | 'RECORDED'; tagNote: string; label: string }> = [
+    {
+      name: 'Reservation',
+      value: c ? `${c.reservation_secs} s${c.reservation_secs % 60 === 0 ? ` (${c.reservation_secs / 60} minutes)` : ''} — the payable is reserved for one payer` : config.isError ? 'Could not load — the test API did not answer.' : 'Loading…',
+      tag: 'LIVE',
+      tagNote: 'From /api/config',
+      label: 'Live',
+    },
+    {
+      name: 'Co-signer margin',
+      value: c ? `${c.co_signer_margin_secs} s` : config.isError ? 'Could not load — the test API did not answer.' : 'Loading…',
+      tag: 'LIVE',
+      tagNote: 'From /api/config',
+      label: 'Live',
+    },
+    {
+      name: 'Fee peg',
+      value: '€0.01 per transaction on Concordium',
+      tag: 'RECORDED',
+      tagNote: 'Glossary entry “Fee peg”',
+      label: 'Recorded · glossary',
+    },
+    {
+      name: 'Checks before Pay',
+      value: '9 checks run against the chain — document hash, agent token and unpaid status — before Pay is enabled',
+      tag: 'RECORDED',
+      tagNote: 'The check step on the dashboard',
+      label: 'Recorded · check step',
+    },
+    {
+      name: 'Recorded refusals',
+      value: `${RECORDED_REFUSALS.length} refusals in the recorded run, each with its chain code`,
+      tag: 'RECORDED',
+      tagNote: `Recorded run, ${RECORDED_DATE}`,
+      label: `Recorded · ${RECORDED_DATE}`,
+    },
+    {
+      name: 'Successful CCD payment fee',
+      value: '16.2 testnet CCD in the recorded run — more than the 0.5 CCD invoice. Fees vary per transaction.',
+      tag: 'RECORDED',
+      tagNote: `Recorded run, ${RECORDED_DATE}`,
+      label: `Recorded · ${RECORDED_DATE}`,
+    },
+    {
+      name: 'Registry',
+      value: c ? `<${c.registry.index},${c.registry.subindex}>` : config.isError ? 'Could not load — the test API did not answer.' : 'Loading…',
+      tag: 'LIVE',
+      tagNote: 'From /api/config',
+      label: 'Live',
+    },
+    {
+      name: 'Sellers',
+      value: c?.sellers
+        ? `${c.sellers.length} sellers on the test registry — agent tokens ${c.sellers.map((s) => s.agent_token).join(', ')}`
+        : config.isError
+          ? 'Could not load — the test API did not answer.'
+          : 'Loading…',
+      tag: 'LIVE',
+      tagNote: 'From /api/config',
+      label: 'Live',
+    },
+  ]
+  return (
+    <section aria-labelledby="spec-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal>
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          The bounds
+        </p>
+        <h2 id="spec-title" className="mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          The numbers the chain holds us to.
+        </h2>
+        <p className="mt-6 max-w-[560px] text-[15px] leading-[1.5] text-muted">
+          No checkmark clutter, no ranges without a source. Live rows are read from the test registry on this visit;
+          recorded rows name their source in the table.
+        </p>
+      </Reveal>
+      <Reveal delay={0.08}>
+        <div className="mt-14 overflow-x-auto">
+          <table className="w-full min-w-[560px] border-collapse text-left">
+            <thead>
+              <tr className="border-b border-line text-[13px] text-muted">
+                <th scope="col" className="py-3 pr-4 font-medium">Bound</th>
+                <th scope="col" className="py-3 pr-4 font-medium">Value</th>
+                <th scope="col" className="py-3 font-medium">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.name} className="border-b border-line align-top">
+                  <th scope="row" className="py-4 pr-4 text-[15px] font-medium whitespace-nowrap text-ink">{r.name}</th>
+                  <td className="py-4 pr-4 text-[15px] leading-[1.6] text-body">{r.value}</td>
+                  <td className="py-4 whitespace-nowrap">
+                    <span
+                      title={r.tagNote}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        r.tag === 'LIVE' ? 'bg-verified-bg text-verified-fg' : 'bg-paper-2 text-body'
+                      }`}
+                    >
+                      {r.label}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Reveal>
     </section>
@@ -732,34 +932,41 @@ const PLANNER_TOOLS = [
 export function PlannerSection() {
   return (
     <section aria-labelledby="planner-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
-      <Reveal className="text-center">
-        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ The planner</p>
-        <h2 id="planner-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
-          An agent that plans the payment — and nothing else.
-        </h2>
-        <p className="mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] text-muted">
-          A real language-model loop on NEAR AI Cloud (model z-ai/glm-5.3-flash) that acts only through four tools.
-          The model talks; the chain decides.
-        </p>
-      </Reveal>
-      <div className="handles hairline-grid mt-14 grid grid-cols-1 border border-line bg-card md:grid-cols-2 lg:grid-cols-4">
-        <i aria-hidden="true" />
-        {PLANNER_TOOLS.map((t, i) => (
-          <Reveal key={t.name} delay={i * 0.08} className="border border-line bg-card p-8 transition-transform duration-200 hover:-translate-y-1">
-            <div className="flex min-h-[200px] flex-col justify-between">
-              <p className="font-mono text-[13px] font-semibold text-brand-700">{t.name}</p>
-              <p className="mt-8 text-[15px] leading-[1.6] text-muted">{t.body}</p>
-            </div>
-          </Reveal>
-        ))}
+      {/* Asymmetric two-column composition — deliberately NOT another
+          4-column hairline grid (Features already holds that anchor).
+          Left: the claim, sticky in place. Right: the four tools as
+          hairline-divided rows, one per line, mono names first. */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.2fr] lg:gap-14">
+        <Reveal>
+          <p className="text-sm font-medium tracking-[0.02em] text-ink">
+            <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+            The planner
+          </p>
+          <h2 id="planner-title" className="mt-6 max-w-[480px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+            An agent that plans the payment — and nothing else.
+          </h2>
+          <p className="mt-6 max-w-[480px] text-[17px] leading-[1.6] text-muted">
+            A real language-model loop on NEAR AI Cloud (model z-ai/glm-5.3-flash) that acts only through four tools.
+            The model talks; the chain decides.
+          </p>
+          <p className="mt-8 max-w-[480px] text-[15px] leading-[1.6] text-muted">
+            The planner never invents a payee, an amount or a transaction hash. If a tool refuses, it stops — it does
+            not retry with different arguments. A document that told it to pay a different account was ignored in the
+            live injection test: 0 dispatches. The reliability gate is in independent judgment; this page claims
+            nothing about it.
+          </p>
+        </Reveal>
+        <div>
+          {PLANNER_TOOLS.map((t, i) => (
+            <Reveal key={t.name} delay={i * 0.06}>
+              <div className="border-t border-line py-6 first:border-t-0 first:pt-0 lg:first:pt-6">
+                <p className="font-mono text-[14px] font-semibold text-brand-700">{t.name}</p>
+                <p className="mt-2 max-w-[52ch] text-[15px] leading-[1.6] text-muted">{t.body}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
       </div>
-      <Reveal delay={0.1}>
-        <p className="mx-auto mt-8 max-w-[640px] text-center text-[15px] leading-[1.6] text-muted">
-          The planner never invents a payee, an amount or a transaction hash. If a tool refuses, it stops — it does not
-          retry with different arguments. A document that told it to pay a different account was ignored in the live
-          injection test: 0 dispatches. The reliability gate is in independent judgment; this page claims nothing about it.
-        </p>
-      </Reveal>
     </section>
   )
 }
@@ -788,28 +995,124 @@ const JUDGE_LINKS = [
 export function JudgesSection() {
   return (
     <section aria-labelledby="judges-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
-      <Reveal className="text-center">
-        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ For judges</p>
-        <h2 id="judges-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+      {/* Hairline rows, not glass cards: the verifier section already
+          holds the landing's one glass surface, and a second 3-card glass
+          row would repeat that anchor. One row per check, whole row a link. */}
+      <Reveal>
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          For judges
+        </p>
+        <h2 id="judges-title" className="mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
           Verify everything yourself, in about a minute.
         </h2>
-        <p className="mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] text-muted">
+        <p className="mt-6 max-w-[640px] text-[17px] leading-[1.6] text-muted">
           No wallet, no sign-in, no real money. Testnet only — every link below is a live check, not a screenshot.
         </p>
       </Reveal>
-      <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="mt-14 border-t border-line">
         {JUDGE_LINKS.map((c, i) => (
-          <Reveal key={c.to} delay={i * 0.08}>
+          <Reveal key={c.to} delay={i * 0.06}>
             <Link
               to={c.to}
-              className="card-glass flex min-h-[220px] flex-col p-8 transition-transform duration-200 hover:-translate-y-1.5"
+              className="group flex min-h-[88px] items-center gap-6 border-b border-line py-6 transition-colors hover:bg-card"
             >
-              <h3 className="text-[22px] leading-tight font-medium tracking-[-0.01em] text-ink">{c.title}</h3>
-              <p className="mt-3 max-w-[42ch] text-[15px] leading-[1.6] text-muted">{c.body}</p>
-              <span className="mt-auto pt-6 text-sm font-medium text-brand-700">Open →</span>
+              <span className="w-10 shrink-0 text-[13px] text-muted tabular-nums">0{i + 1}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[22px] leading-tight font-medium tracking-[-0.01em] text-ink">{c.title}</span>
+                <span className="mt-1 block max-w-[64ch] text-[15px] leading-[1.6] text-muted">{c.body}</span>
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-[15px] font-medium text-brand-700 transition-transform duration-200 group-hover:translate-x-1">
+                Open →
+              </span>
             </Link>
           </Reveal>
         ))}
+      </div>
+    </section>
+  )
+}
+
+/** FAQ — the questions a sceptical reviewer asks before trusting a
+    payment (SKILL.md §3 #9). Single-column accordion; every answer is
+    grounded in the chain, the recorded run, or the live config — no new
+    claims, no invented guarantees. */
+const FAQ_ITEMS = [
+  {
+    q: 'What happens if I pay the same invoice twice?',
+    a: 'The contract refuses the second payment before any money moves, and the refusal itself is on chain with its code. The recorded run has 7 such refusals, each linked from the proof wall above.',
+  },
+  {
+    q: 'Where does the money actually go?',
+    a: 'The payee is read from the chain, never from the document. A payment can only go to the account the seller put on the registry — the document is evidence, not the instruction.',
+  },
+  {
+    q: 'What does a payment cost?',
+    a: 'Concordium pegs the fee at €0.01 per transaction. In the recorded run a successful CCD payment cost 16.2 testnet CCD — more than the 0.5 CCD invoice — and fees vary per transaction. These are testnet fees, not mainnet estimates.',
+  },
+  {
+    q: 'How do I know the seller is who they claim to be?',
+    a: 'Each seller has an agent token on the official CIS-8004 registry, and the badge check on the dashboard is live. What is not verified: no company (LEI) or identity proof is attached to either seller.',
+  },
+  {
+    q: 'Is this real money?',
+    a: 'No. Testnet only — CCD on the Concordium testnet and EUDemo, a testnet demo token. No real money moves here, and the receipt says so: it is not a legal invoice, a tax document or proof of delivery.',
+  },
+  {
+    q: 'What if the test API is down when I open the page?',
+    a: 'The dashboard keeps showing the last verified numbers and says so, with the time they were last refreshed. A receipt does not depend on the API at all — it re-verifies from the chain alone.',
+  },
+  {
+    q: 'What if a payment is refused?',
+    a: 'Nothing moves. A chain refusal carries its code and a plain-English reason; a co-signer refusal happens before signing, so no transaction is sent. The chain still charges a fee for a refused transaction — the recorded run lists those fees.',
+  },
+]
+
+export function FaqSection() {
+  const [open, setOpen] = useState<number | null>(0)
+  return (
+    <section aria-labelledby="faq-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
+      <Reveal>
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          Asked before you ask
+        </p>
+        <h2 id="faq-title" className="mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
+          The sceptical questions, answered plainly.
+        </h2>
+      </Reveal>
+      <div className="mx-auto mt-14 max-w-[720px] border-t border-line">
+        {FAQ_ITEMS.map((item, i) => {
+          const isOpen = open === i
+          return (
+            <div key={item.q} className="border-b border-line">
+              <h3>
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-panel-${i}`}
+                  id={`faq-button-${i}`}
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  className="po-faq__btn flex items-center justify-between gap-4 py-5 text-left text-[17px] font-medium text-ink"
+                >
+                  <span>{item.q}</span>
+                  <span aria-hidden="true" className="shrink-0 text-[20px] leading-none text-muted">
+                    {isOpen ? '−' : '+'}
+                  </span>
+                </button>
+              </h3>
+              <div
+                id={`faq-panel-${i}`}
+                role="region"
+                aria-labelledby={`faq-button-${i}`}
+                hidden={!isOpen}
+                className="pb-6"
+              >
+                <p className="max-w-[64ch] text-[15px] leading-[1.6] text-muted">{item.a}</p>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </section>
   )
@@ -837,7 +1140,10 @@ export function HairlineFigures() {
   return (
     <section aria-labelledby="figures-title" className="mx-auto max-w-[1101px] px-4 pb-28 sm:px-6">
       <Reveal className="text-center">
-        <p className="text-[13px] font-medium tracking-[0.06em] text-muted">■ Drawn in hairline</p>
+        <p className="text-sm font-medium tracking-[0.02em] text-ink">
+          <span className="mr-2 inline-block h-[6px] w-[6px] bg-ink align-middle" aria-hidden="true" />
+          Drawn in hairline
+        </p>
         <h2 id="figures-title" className="mx-auto mt-6 max-w-[640px] text-[44px] leading-[1.0] font-normal tracking-[-0.02em] text-ink">
           Pay once, drawn in one line.
         </h2>
@@ -859,12 +1165,7 @@ export function HairlineFigures() {
 
 export function CtaBand() {
   return (
-    <section aria-labelledby="cta-title" className="relative overflow-hidden bg-sky-0">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: 'radial-gradient(600px 200px at 80% 0%, rgba(253,186,116,0.35), transparent 70%)' }}
-      />
+    <section aria-labelledby="cta-title" className="relative overflow-hidden border-t border-white/20 bg-sky-0">
       <div className="relative mx-auto flex max-w-[1101px] flex-wrap items-center justify-between gap-8 px-4 py-20 sm:px-6">
         <h2 id="cta-title" className="max-w-[520px] text-[36px] leading-[1.1] font-medium tracking-[-0.02em] text-white">
           Verify your first invoice in about a minute.

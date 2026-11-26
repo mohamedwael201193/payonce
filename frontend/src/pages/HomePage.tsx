@@ -15,7 +15,7 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { HeroDemo } from '../components/HeroDemo'
-import { CtaBand, Features, Footer, HairlineFigures, HowItWorks, InvoiceShowcase, JudgesSection, PlannerSection, VerifierSection } from '../components/Sections'
+import { CtaBand, FaqSection, Features, Footer, HairlineFigures, HowItWorks, JudgesSection, PlannerSection, ProofWall, SpecMatrix, VerifierSection } from '../components/Sections'
 import { formatUtcTime } from '../lib/format'
 import { useInvoices, useStats } from '../hooks/useApi'
 
@@ -62,10 +62,12 @@ export function HomePage() {
         <Features />
         <HowItWorks />
         <HairlineFigures />
-        <InvoiceShowcase />
+        <ProofWall />
         <VerifierSection />
+        <SpecMatrix />
         <PlannerSection />
         <JudgesSection />
+        <FaqSection />
         <CtaBand />
       </main>
       <Footer />
