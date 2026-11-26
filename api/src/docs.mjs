@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { BACKEND_DIR } from './backend.mjs';
-import { SELLER2_ADDRESS } from './config.mjs';
+import { SELLER2_ADDRESS, SELLER2_FRESH_ID_START } from './config.mjs';
 import { storeDocumentRecord, storedDocumentRecord } from './store.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
@@ -78,7 +78,7 @@ export async function docForPayableForSeller(seller, id) {
   // Seller-key rule: the id-only document lookup below (stored lab docs,
   // matrix payables 1-5, v2 invoice files) belongs to SELLER 1. A seller-2
   // id with no seller-2 file never falls through to seller 1's document.
-  if (seller === SELLER2_ADDRESS) return null;
+  if (seller === SELLER2_ADDRESS) return id >= SELLER2_FRESH_ID_START ? storedDocument(id) : null;
   return docForPayable(id);
 }
 

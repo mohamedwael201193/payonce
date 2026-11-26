@@ -66,6 +66,10 @@ export const FRESH_CCD_MICRO = BigInt(env.PAYONCE_FRESH_CCD_MICRO ?? 500_000); /
 export const FRESH_EUDEMO_BASE = BigInt(env.PAYONCE_FRESH_EUDEMO_BASE ?? 10_000); // 0.01 EUDemo
 export const FRESH_DUE_HOURS = Number(env.PAYONCE_FRESH_DUE_HOURS ?? 24);
 export const FRESH_ID_START = Number(env.PAYONCE_FRESH_ID_START ?? 1000);
+// Seller 2's fresh payables live in their own id range: stored lab documents
+// and the counters are keyed by the bare id, so the two sellers' fresh ids
+// must never overlap (seller 2's matrix-era payables 1 and 2 stay as they are).
+export const SELLER2_FRESH_ID_START = Number(env.PAYONCE_SELLER2_FRESH_ID_START ?? 5000);
 
 // Limits (P3 §16.2; operator-set values, enforced per IP).
 export const LIMITS = {

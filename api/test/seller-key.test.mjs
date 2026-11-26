@@ -19,7 +19,7 @@ const { SELLER2_ADDRESS, OWNER_ADDRESS } = await import('../src/config.mjs')
 const { docForPayableForSeller, recordedRunFor, recordedPaymentTx, recordedPaymentTxForSeller } = await import('../src/docs.mjs')
 const { paymentTxsFor } = await import('../src/receipts.mjs')
 const server = await import('../src/server.mjs')
-const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, isNodeError, __setChainReaderForTests } = server
+const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, resolveWriteSeller, isNodeError, __setChainReaderForTests } = server
 
 const S1 = OWNER_ADDRESS
 const S2 = SELLER2_ADDRESS
@@ -150,38 +150,71 @@ test('invoices list: rows carry their seller; the same bare id appears once per 
   assert.ok(s2rows.every((i) => /Lab invoice/.test(i.label)))
 })
 
-test('writes: a seller-2 pay / create / attack is refused with a 400, never run as seller 1', async () => {
-  // pay, create and attack handlers all call rejectNonSeller1Write first.
+test('writes: attack and dry-run stay seller-1 only; a seller-2 attack is a loud 400', () => {
   for (const [url, body] of [
-    ['/api/payables/1/pay', { rail: 'ccd', seller: S2 }],
-    ['/api/payables', { asset: 'ccd', seller: S2 }],
     ['/api/attacks/pay_twice', { payable_id: 1, seller: S2, mode: 'precheck_only' }],
-    [`/api/payables/1/pay?seller=${S2}`, { rail: 'ccd' }],
+    ['/api/cosigner/dry-run', { payable_id: 1, seller: S2 }],
+    [`/api/attacks/wrong_amount?seller=${S2}`, { payable_id: 1 }],
   ]) {
     const res = fakeRes()
     assert.equal(rejectNonSeller1Write(reqFor(url), res, body), true, url)
     assert.equal(res.captured.status, 400)
-    assert.equal(res.captured.json.error.code, 'invalid')
     assert.match(res.captured.json.error.message, /not supported for writes/)
   }
-  // Seller 1 (explicit or implicit) passes the guard.
-  for (const [url, body] of [['/api/payables/1/pay', { rail: 'ccd' }], [`/api/payables/1/pay?seller=${S1}`, {}]]) {
+  for (const [url, body] of [['/api/attacks/pay_twice', { payable_id: 1 }], [`/api/attacks/pay_twice?seller=${S1}`, {}]]) {
     const res = fakeRes()
     assert.equal(rejectNonSeller1Write(reqFor(url), res, body), false)
-    assert.equal(res.captured.status, undefined)
   }
 })
 
-test('writes: every write handler in server.mjs calls the seller-1 guard first', async () => {
+test('writes: create and pay resolve the seller (default seller 1, seller 2 by body or query, anything else 400)', () => {
+  const ok = (url, body) => { const res = fakeRes(); const s = resolveWriteSeller(reqFor(url), res, body); assert.equal(res.captured.status, undefined); return s }
+  assert.equal(ok('/api/payables/1/pay', { rail: 'ccd' }), S1)
+  assert.equal(ok(`/api/payables/1/pay?seller=${S1}`, {}), S1)
+  assert.equal(ok('/api/payables/1/pay', { rail: 'ccd', seller: S2 }), S2)
+  assert.equal(ok(`/api/payables?seller=${S2}`, { asset: 'ccd' }), S2)
+  const res = fakeRes()
+  assert.equal(resolveWriteSeller(reqFor('/api/payables'), res, { asset: 'ccd', seller: '4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs' }), null)
+  assert.equal(res.captured.status, 400)
+  assert.match(res.captured.json.error.message, /unknown seller/)
+})
+
+test('writes: create and pay go through the seller resolver, attack through the seller-1 guard', async () => {
   const { readFileSync } = await import('node:fs')
   const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8')
-  for (const name of ['handleCreatePayable', 'handlePay', 'handleAttack']) {
-    const m = src.match(new RegExp(`async function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}\\n`))
-    assert.ok(m, `${name} found`)
-    assert.match(m[1], /rejectNonSeller1Write\(req, res, body\)/, `${name} guards seller`)
-  }
+  const END = '\n}\n'
+  const body = (name) => { const i = src.indexOf(`async function ${name}(`); return i < 0 ? '' : src.slice(i, src.indexOf(END, i)) }
+  for (const name of ['handleCreatePayable', 'handlePay']) assert.ok(body(name).includes('resolveWriteSeller(req, res, body)'), name)
+  for (const name of ['handleAttack', 'handleDryRun']) assert.ok(body(name).includes('rejectNonSeller1Write(req, res, body)'), name)
 })
 
+test('seller-keyed jobs: a running seller-1 job never blocks or returns the seller-2 job for the same bare id', async () => {
+  const { runningJobFor } = await import('../src/store.mjs')
+  const { newJob } = await import('../src/jobs.mjs')
+  const j1 = newJob(7, 'ccd', S1)
+  const j2 = newJob(7, 'ccd', S2)
+  assert.equal(j1.seller, S1)
+  assert.equal(j2.seller, S2)
+  const jobs = { [j1.job_id]: j1 }
+  assert.equal(runningJobFor(jobs, 7, 'ccd', S1)?.job_id, j1.job_id)
+  assert.equal(runningJobFor(jobs, 7, 'ccd', S2), null)
+  jobs[j2.job_id] = j2
+  assert.equal(runningJobFor(jobs, 7, 'ccd', S2)?.job_id, j2.job_id)
+  // a legacy job stored without a seller is a seller-1 job
+  const legacy = { ...j1, seller: undefined, job_id: 'legacy' }
+  assert.equal(runningJobFor({ legacy }, 7, 'ccd', S1)?.job_id, 'legacy')
+  assert.equal(runningJobFor({ legacy }, 7, 'ccd', S2), null)
+})
+
+test('seller 2 documents: only its own fresh range is served from the stored documents', async () => {
+  const { storeDocument } = await import('../src/docs.mjs')
+  const { SELLER2_FRESH_ID_START } = await import('../src/config.mjs')
+  await storeDocument(SELLER2_FRESH_ID_START + 3, 'seller 2 fresh invoice text')
+  await storeDocument(900, 'a seller-1 stored document under id 900')
+  assert.equal(Buffer.from(await docForPayableForSeller(S2, SELLER2_FRESH_ID_START + 3)).toString(), 'seller 2 fresh invoice text')
+  assert.equal(await docForPayableForSeller(S2, 900), null, 'seller 2 cannot read seller 1 stored documents')
+  assert.ok(await docForPayableForSeller(S1, 900))
+})
 test('cleanup: the chain stub is removed', () => {
   __setChainReaderForTests(null)
 })

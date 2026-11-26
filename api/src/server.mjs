@@ -53,7 +53,7 @@ import {
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
-  SELLER2_ADDRESS, SELLER2_TOKEN, SELLER2_BADGE, SELLER2_AGENT_CARD_URL,
+  SELLER2_ADDRESS, SELLER2_TOKEN, SELLER2_BADGE, SELLER2_AGENT_CARD_URL, SELLER2_FRESH_ID_START,
   FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS, FRESH_ID_START,
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
   txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash, ENV,
@@ -173,6 +173,10 @@ const KNOWN_IDS = [1, 2, 3, 4, 5, 10, 11];
 // Second seller's known payables (live 2026-11-25): id 1, 0.5 CCD, paid;
 // id 2, 10 EUDemo, paid.
 const SELLER2_KNOWN_IDS = [1, 2];
+async function knownIds2() {
+  const counters = await loadCounters();
+  return [...new Set([...SELLER2_KNOWN_IDS, ...(counters.freshIds2 ?? [])])].sort((a, b) => a - b);
+}
 async function knownIds() {
   const counters = await loadCounters();
   return [...new Set([...KNOWN_IDS, ...(counters.freshIds ?? [])])].sort((a, b) => a - b);
@@ -209,6 +213,23 @@ function rejectNonSeller1Write(req, res, body = null) {
   if (!named || named === SELLER) return false;
   badRequest(res, `seller ${named.slice(0, 16)}… is not supported for writes: this server only signs for seller 1 (${SELLER}). Seller-2 writes are a named follow-up, not yet implemented — seller-2 reads (?seller=) already work.`);
   return true;
+}
+
+// Write-endpoint resolver for create + pay: no seller named = seller 1 (old
+// clients keep working); seller 1 or seller 2 = that seller; anything else is
+// a loud 400. The pay flow signs with the DEMO PAYER for both sellers; only
+// registering a fresh payable needs the seller's own key. Returns null after
+// sending the 400.
+function resolveWriteSeller(req, res, body = null) {
+  let q = null;
+  try {
+    q = new URL(req.url, 'http://127.0.0.1').searchParams.get('seller');
+  } catch { q = null; }
+  const named = q ?? (typeof body?.seller === 'string' ? body.seller : null);
+  if (!named || named === SELLER) return SELLER;
+  if (named === SELLER2_ADDRESS) return SELLER2;
+  badRequest(res, `unknown seller "${String(named).slice(0, 32)}": expected seller 1 (${SELLER}) or seller 2 (${SELLER2_ADDRESS}).`);
+  return null;
 }
 
 // Fix-back-6 B1 — one scan, fail closed. The old scanPayables silently
@@ -284,13 +305,26 @@ async function scanSnapshot(c) {
     // served list, so they get the same retry + fail-closed treatment --
     // a failed seller-2 read fails the scan, it never silently drops
     // seller-2 rows the way main's scanPayables did.
-    for (const id of SELLER2_KNOWN_IDS) {
+    for (const id of await knownIds2()) {
       const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
       if (ok) {
         if (view) rows.push(view);
       } else {
         skipped.push(id);
       }
+    }
+    // Seller 2 frontier: same discovery as seller 1, from its own id range.
+    {
+      const ids2 = await knownIds2();
+      const top2 = Math.max(SELLER2_FRESH_ID_START - 1, ...ids2.filter((i) => i >= SELLER2_FRESH_ID_START));
+      const found2 = [];
+      let misses2 = 0;
+      for (let id = top2 + 1; misses2 < 3 && id <= top2 + 200; id += 1) {
+        const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
+        if (!ok) { skipped.push(id); break; }
+        if (view) { rows.push(view); found2.push(id); misses2 = 0; } else misses2 += 1;
+      }
+      if (found2.length) await foldDiscoveredIds(found2, 2);
     }
     const scan = { rows, skipped, complete: scanIsComplete(skipped) };
     if (scan.complete) lastCompleteScan = { at: Date.now(), rows };
@@ -397,6 +431,9 @@ async function handleConfig(req, res) {
       },
     ],
     build: {
+      // Which sellers' invoices this server can register and pay through the
+      // API (the demo payer signs the payments for both).
+      seller_writes: ['seller_1', 'seller_2'],
       vendor_list_enforced_by_co_signer: true,
       named_payer_on_invoice: true,
       confirm_by: 'payer (the reserving payer)',
@@ -807,7 +844,9 @@ async function handleVerify(req, res, id) {
 async function handleCreatePayable(req, res) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
-  if (rejectNonSeller1Write(req, res, body)) return;
+  const seller = resolveWriteSeller(req, res, body);
+  if (!seller) return;
+  const isS2 = seller === SELLER2;
   const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
   if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
@@ -819,8 +858,11 @@ async function handleCreatePayable(req, res) {
   const c = await grpc();
   const { v2enc } = await backend();
   const amount = asset === 'ccd' ? FRESH_CCD_MICRO : FRESH_EUDEMO_BASE;
-  const payee = asset === 'ccd' ? PAYEE_CCD : PAYEE_EUDEMO;
+  // Seller 1 pays the lab payees; seller 2's own payables pay seller 2 itself.
+  const payee = isS2 ? SELLER2_ADDRESS : asset === 'ccd' ? PAYEE_CCD : PAYEE_EUDEMO;
   const sig = await signers();
+  const sellerSigner = isS2 ? sig.seller2 : sig.owner;
+  if (!sellerSigner) return apiError(res, 503, 'seller_key_unavailable', 'server', 'This server holds no signing key for that seller, so it cannot register an invoice for it. Nothing was sent.', { retryable: false });
   let reg;
   try {
     // The id is allocated atomically and a chain Duplicate (-2) moves on to
@@ -829,20 +871,20 @@ async function handleCreatePayable(req, res) {
     // of the payable that already owns that id.
     reg = await registerWithFreshId(async (id) => {
       const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
-      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller: SELLER, due: dueMs });
+      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller, due: dueMs });
       const docHash = createHash('sha256').update(Buffer.from(docText, 'utf8')).digest('hex');
       const sent = await sendUpdate(c, {
-        from: sig.owner, receiveName: 'register_payable',
+        from: sellerSigner, receiveName: 'register_payable',
         parameterHex: v2enc.encodeV2RegisterPayable({
           id, payee, amount: amount.toString(), asset: asset === 'ccd' ? 'CCD' : 'EUDemo',
-          dueMs, docHashHex: docHash, token: OWNER_TOKEN, expected: PAYER_ADDRESS, legal: null,
+          dueMs, docHashHex: docHash, token: isS2 ? SELLER2_TOKEN : OWNER_TOKEN, expected: PAYER_ADDRESS, legal: null,
         }),
         maxEnergy: 6000n,
       });
       const status = await waitFinalized(c, sent.txHash);
       const rr = rejectOf(status);
       return { txHash: sent.txHash, status, docText, dueMs, rejected: rr ? rejectInfo(rr.rejectReason) : null };
-    });
+    }, { which: isS2 ? 2 : 1 });
   } catch (e) {
     return chainUnreachable(res, e);
   }
@@ -856,6 +898,7 @@ async function handleCreatePayable(req, res) {
   await storeDocument(reg.id, reg.docText);
   sendJson(res, 201, {
     payable_id: reg.id,
+    seller,
     tx_hash: reg.txHash,
     explorer_url: txUrl(reg.txHash),
     fee_testnet_ccd: feeOf(reg.status) ?? '0',
@@ -866,14 +909,15 @@ async function handleCreatePayable(req, res) {
 async function handlePay(req, res, id) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
-  if (rejectNonSeller1Write(req, res, body)) return;
+  const seller = resolveWriteSeller(req, res, body);
+  if (!seller) return;
   const rail = body.rail === 'eudemo' ? 'eudemo' : body.rail === 'ccd' ? 'ccd' : null;
   if (!rail) return badRequest(res, 'rail must be "ccd" or "eudemo".');
   const docSha256 = typeof body.doc_sha256 === 'string' ? body.doc_sha256 : null;
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, id);
+  const view = await getPayableOrNull(c, seller, id);
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const expectedAsset = rail === 'ccd' ? 'CCD' : 'EUDemo';
   if (view.asset !== expectedAsset) {
@@ -894,7 +938,7 @@ async function handlePay(req, res, id) {
   // Consent gate (W-01): an above-threshold payable needs an approved,
   // unexpired, unused owner consent before the pay job is created. Below
   // the threshold the gate passes (consent is optional there).
-  const consentRecord = await consentFor(id);
+  const consentRecord = await consentForSeller(seller, id);
   const consentGate = consentGateCheck(view, consentRecord);
   if (consentGate) {
     return apiError(res, consentGate.status, consentGate.code, consentGate.layer, consentGate.message, { consent_url: consentGate.consent_url, payable_id: consentGate.payable_id });
@@ -909,10 +953,10 @@ async function handlePay(req, res, id) {
       verify_url: gate.verify_url, payable_id: gate.payable_id,
     });
   }
-  const { job, created } = await createOrReturnJob(id, rail);
+  const { job, created } = await createOrReturnJob(id, rail, seller);
   if (created) void runJob(job);
   sendJson(res, 200, {
-    job_id: job.job_id, payable_id: job.payable_id, rail: job.rail,
+    job_id: job.job_id, payable_id: job.payable_id, seller: job.seller ?? seller, rail: job.rail,
     steps: job.steps.map((s) => s.step),
   });
 }
@@ -1422,4 +1466,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { server, handleStats, handleStatsRefusals, handleInvoices, handleGetPayable, handleDocument, payableFacts, rejectNonSeller1Write };
+export { server, resolveWriteSeller, handleStats, handleStatsRefusals, handleInvoices, handleGetPayable, handleDocument, payableFacts, rejectNonSeller1Write };

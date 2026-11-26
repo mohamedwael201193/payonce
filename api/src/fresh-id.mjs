@@ -14,40 +14,54 @@
 //   - a failed send releases the id again so no hole is left behind,
 //   - ids found on chain beyond the counter are folded back in (discovery).
 import { updateCounters } from './store.mjs';
+import { FRESH_ID_START, SELLER2_FRESH_ID_START } from './config.mjs';
 
-export async function allocateFreshId() {
+// which = 1: seller 1 (counters.nextFreshId / freshIds); which = 2: seller 2
+// (counters.nextFreshId2 / freshIds2, ids from SELLER2_FRESH_ID_START).
+function fields(which) {
+  return which === 2
+    ? { next: 'nextFreshId2', ids: 'freshIds2', start: SELLER2_FRESH_ID_START }
+    : { next: 'nextFreshId', ids: 'freshIds', start: FRESH_ID_START };
+}
+
+export async function allocateFreshId(which = 1) {
+  const f = fields(which);
   return updateCounters((c) => {
-    const id = c.nextFreshId;
-    c.nextFreshId = id + 1;
+    c[f.next] ??= f.start;
+    const id = c[f.next];
+    c[f.next] = id + 1;
     return id;
   });
 }
 
 /** Record an id that exists on chain (registered by us, or found there). */
-export async function confirmFreshId(id) {
+export async function confirmFreshId(id, which = 1) {
+  const f = fields(which);
   await updateCounters((c) => {
-    const ids = new Set(c.freshIds ?? []);
+    const ids = new Set(c[f.ids] ?? []);
     ids.add(id);
-    c.freshIds = [...ids].sort((a, b) => a - b);
-    c.nextFreshId = Math.max(c.nextFreshId, id + 1);
+    c[f.ids] = [...ids].sort((a, b) => a - b);
+    c[f.next] = Math.max(c[f.next] ?? f.start, id + 1);
   });
 }
 
 /** Give an allocated id back when nothing was registered under it. */
-export async function releaseFreshId(id) {
+export async function releaseFreshId(id, which = 1) {
+  const f = fields(which);
   await updateCounters((c) => {
-    if (c.nextFreshId === id + 1) c.nextFreshId = id;
+    if (c[f.next] === id + 1) c[f.next] = id;
   });
 }
 
 /** Fold ids discovered on chain into the counters (never lowers anything). */
-export async function foldDiscoveredIds(ids) {
+export async function foldDiscoveredIds(ids, which = 1) {
   if (!ids.length) return;
+  const f = fields(which);
   await updateCounters((c) => {
-    const set = new Set(c.freshIds ?? []);
+    const set = new Set(c[f.ids] ?? []);
     for (const id of ids) set.add(id);
-    c.freshIds = [...set].sort((a, b) => a - b);
-    c.nextFreshId = Math.max(c.nextFreshId, ...ids.map((i) => i + 1));
+    c[f.ids] = [...set].sort((a, b) => a - b);
+    c[f.next] = Math.max(c[f.next] ?? f.start, ...ids.map((i) => i + 1));
   });
 }
 
@@ -60,29 +74,29 @@ export async function foldDiscoveredIds(ids) {
  * { id, ok: false, ...out } for a non-duplicate refusal or `attempts`
  * duplicates in a row.
  */
-export async function registerWithFreshId(trySend, { attempts = 8 } = {}) {
+export async function registerWithFreshId(trySend, { attempts = 8, which = 1 } = {}) {
   let last = null;
   for (let i = 0; i < attempts; i += 1) {
-    const id = await allocateFreshId();
+    const id = await allocateFreshId(which);
     let out;
     try {
       out = await trySend(id);
     } catch (e) {
-      await releaseFreshId(id);
+      await releaseFreshId(id, which);
       throw e;
     }
     if (!out.rejected) {
-      await confirmFreshId(id);
+      await confirmFreshId(id, which);
       return { id, ok: true, ...out };
     }
     last = { id, ok: false, ...out };
     if (out.rejected.code === -2) {
       // Duplicate: a payable with this id already exists on chain. Count it
       // (the stats scan must see it) and move to the next id.
-      await confirmFreshId(id);
+      await confirmFreshId(id, which);
       continue;
     }
-    await releaseFreshId(id);
+    await releaseFreshId(id, which);
     return last;
   }
   return last;

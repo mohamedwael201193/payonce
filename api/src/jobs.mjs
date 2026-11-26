@@ -36,7 +36,7 @@ import {
 import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2 } from './verifier-v2.mjs';
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { appendEntry, ledgerForDecide, resolveTransfer } from './ledger.mjs';
-import { docForPayable, recordedPaymentTx } from './docs.mjs';
+import { docForPayableForSeller } from './docs.mjs';
 import { loadJobs, saveJob, saveReceipt, updateCounters, runningJobFor } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo, shortHash } from './config.mjs';
 
@@ -63,13 +63,14 @@ async function emitStep(job, step) {
 }
 
 // ---- job creation ----
-export function newJob(payableId, rail) {
+export function newJob(payableId, rail, seller = SELLER) {
   const steps = (rail === 'ccd' ? CCD_STEPS : EUDEMO_STEPS).map((step) => ({
     step, status: 'pending', detail: '', txHash: null, explorerUrl: null,
   }));
   return {
     job_id: `job_${payableId}_${rail}_${randomBytes(4).toString('hex')}`,
     payable_id: payableId,
+    seller,
     rail,
     state: 'running',
     steps,
@@ -79,11 +80,11 @@ export function newJob(payableId, rail) {
   };
 }
 
-export async function createOrReturnJob(payableId, rail) {
+export async function createOrReturnJob(payableId, rail, seller = SELLER) {
   const jobs = await loadJobs();
-  const running = runningJobFor(jobs, payableId, rail);
+  const running = runningJobFor(jobs, payableId, rail, seller);
   if (running) return { job: running, created: false };
-  const job = newJob(payableId, rail);
+  const job = newJob(payableId, rail, seller);
   await saveJob(job);
   return { job, created: true };
 }
@@ -108,10 +109,10 @@ async function finishJob(job, state, outcome) {
   if (state === 'succeeded' && outcome === 'paid') {
     try {
       const { markConsentUsed } = await import('./consent.mjs');
-      await markConsentUsed(job.payable_id);
+      await markConsentUsed(job.payable_id, job.seller ?? SELLER);
     } catch { /* consent marking never fails the job */ }
   }
-  emit(job.job_id, { type: 'done', outcome, receipt_url: `/api/receipts/${job.payable_id}` });
+  emit(job.job_id, { type: 'done', outcome, receipt_url: `/api/receipts/${job.payable_id}${job.seller && job.seller !== SELLER ? `?seller=${job.seller}` : ''}` });
 }
 
 export function feeOf(status) {
@@ -202,14 +203,15 @@ async function preflight(c, job, view, docBytes) {
 
 // ---- CCD rail ----
 async function runCcd(job) {
+  const seller = job.seller ?? SELLER;
   const c = await grpc();
   const { v2enc, decideMod } = await backend();
   const decide = decideMod.decide;
   const sig = await signers();
-  const docBytes = await docForPayable(job.payable_id);
+  const docBytes = await docForPayableForSeller(seller, job.payable_id);
   try {
     await setStep(job, 'check_status', 'running', 'Reading the payable from the test registry…');
-    let view = await getPayableOrNull(c, SELLER, job.payable_id);
+    let view = await getPayableOrNull(c, seller, job.payable_id);
     if (!view) {
       await setStep(job, 'check_status', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
       return await finishJob(job, 'refused', 'refused');
@@ -232,7 +234,7 @@ async function runCcd(job) {
     await setStep(job, 'submit', 'running', `Sending pay_ccd for ${fmtCcd(view.amount)} from the demo payer…`);
     const pay = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'pay_ccd',
-      parameterHex: v2enc.encodeV2PayableKey({ seller: SELLER, id: job.payable_id }),
+      parameterHex: v2enc.encodeV2PayableKey({ seller, id: job.payable_id }),
       amountMicroCcd: BigInt(view.amount), maxEnergy: 6000n,
     });
     stepOf(job, 'submit').txHash = pay.txHash;
@@ -254,7 +256,7 @@ async function runCcd(job) {
     await setStep(job, 'wait_finality', 'ok', `Finalized. Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain' });
 
     await setStep(job, 'read_back', 'running', 'Reading the payable back from the registry…');
-    view = await getPayable(c, SELLER, job.payable_id);
+    view = await getPayable(c, seller, job.payable_id);
     const balance = await getRegistryBalance(c);
     if (view.status !== 'Paid') {
       await setStep(job, 'read_back', 'failed', `Payable is ${view.status} after a finalized pay_ccd — not Paid.`, { layer: 'chain' });
@@ -286,15 +288,16 @@ async function runCcd(job) {
 
 // ---- EUDemo rail ----
 async function runEudemo(job) {
+  const seller = job.seller ?? SELLER;
   const c = await grpc();
   const { v2enc, v2ev, chain, decideMod } = await backend();
   const decide = decideMod.decide;
   const sig = await signers();
-  const docBytes = await docForPayable(job.payable_id);
-  const payableKey = `${SELLER}:${job.payable_id}`;
+  const docBytes = await docForPayableForSeller(seller, job.payable_id);
+  const payableKey = `${seller}:${job.payable_id}`;
   try {
     await setStep(job, 'check_wallet', 'running', 'Reading the payable, the payer wallet and the vendor approval…');
-    let view = await getPayableOrNull(c, SELLER, job.payable_id);
+    let view = await getPayableOrNull(c, seller, job.payable_id);
     if (!view) {
       await setStep(job, 'check_wallet', 'refused', `No payable ${job.payable_id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`, { layer: 'chain' });
       return await finishJob(job, 'refused', 'refused');
@@ -317,7 +320,7 @@ async function runEudemo(job) {
 
     // Gate 1: reserve.
     await setStep(job, 'reserve', 'running', 'Co-signer gate: deciding the reservation…');
-    let snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
+    let snapshot = await buildSnapshotV2(c, { seller, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
     let decision = decide(snapshot, { kind: 'reserve_plt', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, numSignatures: 1, nonce: snapshot.nextNonce }, await ledgerForDecide(payableKey));
     if (decision.decision !== 'SIGN') {
       await setStep(job, 'reserve', 'refused', `Co-signer refused the reservation (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
@@ -325,7 +328,7 @@ async function runEudemo(job) {
     }
     const reserve = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'reserve_plt',
-      parameterHex: v2enc.encodeV2PayableKey({ seller: SELLER, id: job.payable_id }), maxEnergy: 6000n,
+      parameterHex: v2enc.encodeV2PayableKey({ seller, id: job.payable_id }), maxEnergy: 6000n,
     });
     stepOf(job, 'reserve').txHash = reserve.txHash;
     stepOf(job, 'reserve').explorerUrl = txUrl(reserve.txHash);
@@ -342,7 +345,7 @@ async function runEudemo(job) {
       await setStep(job, 'reserve', 'failed', `reserve_plt finalized (${shortHash(reserve.txHash)}) but no Reserved event was logged — stopping before any transfer.`, { layer: 'chain' });
       return await finishJob(job, 'failed', 'failed');
     }
-    view = await getPayable(c, SELLER, job.payable_id);
+    view = await getPayable(c, seller, job.payable_id);
     if (view.status !== 'Reserved' || view.record?.payer !== PAYER_ADDRESS) {
       await setStep(job, 'reserve', 'failed', `Payable is ${view.status} after reserve ${shortHash(reserve.txHash)}, not Reserved by the demo payer — stopping before any transfer.`, { layer: 'chain' });
       return await finishJob(job, 'failed', 'failed');
@@ -352,9 +355,9 @@ async function runEudemo(job) {
 
     // Gate 2: transfer.
     const headerExpirySeconds = Math.floor((expiresMs - 60_000) / 1000);
-    const memo = canonicalMemoV2(SELLER, job.payable_id);
+    const memo = canonicalMemoV2(seller, job.payable_id);
     await setStep(job, 'co_sign_decide', 'running', 'Co-signer gate: deciding the transfer…');
-    snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
+    snapshot = await buildSnapshotV2(c, { seller, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
     decision = decide(snapshot, {
       kind: 'transfer', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce,
       recipient: view.payee, amount: view.amount, token: 'EUDemo',
@@ -404,7 +407,7 @@ async function runEudemo(job) {
     // sends it.) The gate's request sender is the agent account too.
     await setStep(job, 'confirm', 'running', 'Co-signer gate: deciding the confirm…');
     snapshot = await buildSnapshotV2(c, {
-      seller: SELLER, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null,
+      seller, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null,
       signatureThreshold: 1, transferTxHash: transfer.txHash, reserveTxHash: reserve.txHash,
     });
     decision = decide(snapshot, {
@@ -416,7 +419,7 @@ async function runEudemo(job) {
     }
     const confirm = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'confirm_plt',
-      parameterHex: v2enc.encodeV2Confirm({ seller: SELLER, id: job.payable_id, txHashHex: transfer.txHash }), maxEnergy: 6000n,
+      parameterHex: v2enc.encodeV2Confirm({ seller, id: job.payable_id, txHashHex: transfer.txHash }), maxEnergy: 6000n,
     });
     stepOf(job, 'confirm').txHash = confirm.txHash;
     stepOf(job, 'confirm').explorerUrl = txUrl(confirm.txHash);
@@ -434,7 +437,7 @@ async function runEudemo(job) {
       return await finishJob(job, 'failed', 'failed');
     }
     await resolveTransfer(payableKey, transfer.txHash);
-    view = await getPayable(c, SELLER, job.payable_id);
+    view = await getPayable(c, seller, job.payable_id);
     const balance = await getRegistryBalance(c);
     if (view.status !== 'Paid') {
       await setStep(job, 'confirm', 'failed', `Payable is ${view.status} after a finalized confirm — not Paid.`, { layer: 'chain' });

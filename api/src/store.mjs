@@ -15,6 +15,7 @@
 // rewrite would lose a concurrent job's update. Bulk saves are kept for
 // the rare whole-store writes.
 import { initStore, isPostgres } from './db.mjs';
+import { OWNER_ADDRESS } from './config.mjs';
 import * as json from './jsonstore.mjs';
 import * as pgstore from './pgstore.mjs';
 
@@ -27,9 +28,12 @@ export async function ready() {
   return initStore();
 }
 
-export function runningJobFor(jobs, payableId, rail) {
+export function runningJobFor(jobs, payableId, rail, seller = null) {
+  // Seller-keyed: seller 1's payable 1 and seller 2's payable 1 are different
+  // payables. A job without a stored seller is a seller-1 job.
   return Object.values(jobs).find(
-    (j) => j.payable_id === payableId && j.rail === rail && j.state === 'running',
+    (j) => j.payable_id === payableId && j.rail === rail && j.state === 'running'
+      && (seller === null || (j.seller ?? null) === seller || (j.seller == null && seller === OWNER_ADDRESS)),
   ) ?? null;
 }
 
