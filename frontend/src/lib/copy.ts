@@ -61,7 +61,6 @@ export const COPY = {
     `Refused by this app: ${plain} Nothing was sent to the chain.`,
   reserved: 'Reserved for this payment. The co-signer approved the reservation and the transfer.',
   labInvoiceLabel: 'Lab invoice (testnet, not a real invoice)',
-  recordedRunLabel: 'Recorded run, 24 Nov 2026',
 } as const
 
 // One refused number, one basis, everywhere: the chain total since deploy
