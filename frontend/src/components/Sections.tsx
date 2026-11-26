@@ -138,7 +138,9 @@ export function Features() {
     (reversed): the 7 recorded refusals of the 24 Nov 2026 run, each
     linking to its explorer transaction. Nothing here is a card grid and
     nothing is invented: an empty registry renders an honest empty state,
-    not a placeholder row. The duplicated track halves are aria-hidden so
+    not a placeholder row — but the refusal marquee is static recorded
+    data, so it (and the recorded-run caption) render even then, with no
+    API. Only the paid marquee is gated on live data. The duplicated track halves are aria-hidden so
     a screen reader hears each record once; under reduced motion the
     marquees become a wrapped static grid (index.css). */
 export function ProofWall() {
@@ -163,7 +165,7 @@ export function ProofWall() {
           the chain code, not a paraphrase.
         </p>
       </Reveal>
-      {paid.length === 0 ? (
+      {paid.length === 0 && (
         <p className="mt-14 text-center text-[15px] text-muted">
           {invoices.isError
             ? COPY.statsNoData
@@ -171,7 +173,8 @@ export function ProofWall() {
               ? `Loading payables…${slow ? ' Still loading — the test API is slow right now.' : ''}`
               : 'No paid invoices on the test registry right now.'}
         </p>
-      ) : (
+      )}
+      {paid.length > 0 && (
         <div className="mt-14">
           <div className="po-marquee border-y border-line py-3" data-testid="proof-wall-paid">
             <div className="po-marquee__track">
@@ -192,37 +195,43 @@ export function ProofWall() {
               ))}
             </div>
           </div>
-          <div className="po-marquee po-marquee--rev border-b border-line py-3" data-testid="proof-wall-refused">
-            <div className="po-marquee__track">
-              {refusalTrack.map((r, i) => (
-                <a
-                  key={`${r.code}-${i}`}
-                  href={`${EXPLORER_TX}${r.txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-hidden={i >= RECORDED_REFUSALS.length}
-                  tabIndex={i >= RECORDED_REFUSALS.length ? -1 : undefined}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-[14px] whitespace-nowrap text-ink hover:border-brand-600"
-                >
-                  <span className="font-medium">
-                    {r.code} {r.name}
-                  </span>
-                  <span className="font-mono text-xs text-muted">
-                    {r.txHash.slice(0, 8)}…{r.txHash.slice(-6)}
-                  </span>
-                  <span className="rounded-full bg-refused-bg px-2 py-0.5 text-[11px] font-semibold text-refused-fg">
-                    Refused
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
-          <p className="mt-6 text-center text-[13px] text-muted">
-            Paid rows are live from the test registry. Refusal rows are the recorded run of{' '}
-            {RECORDED_DATE} — {RECORDED_REFUSALS.length} refusals, each with its chain code.
-          </p>
         </div>
       )}
+      {/* The refusal marquee + recorded-run caption are static recorded
+          data (frontend/src/lib/recorded.ts) — they render unconditionally,
+          even when the API is down or the registry has zero paid payables.
+          Only the paid marquee above is gated on live data. */}
+      <div className={paid.length > 0 ? undefined : 'mt-14'}>
+        <div className="po-marquee po-marquee--rev border-b border-line py-3" data-testid="proof-wall-refused">
+          <div className="po-marquee__track">
+            {refusalTrack.map((r, i) => (
+              <a
+                key={`${r.code}-${i}`}
+                href={`${EXPLORER_TX}${r.txHash}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-hidden={i >= RECORDED_REFUSALS.length}
+                tabIndex={i >= RECORDED_REFUSALS.length ? -1 : undefined}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-[14px] whitespace-nowrap text-ink hover:border-brand-600"
+              >
+                <span className="font-medium">
+                  {r.code} {r.name}
+                </span>
+                <span className="font-mono text-xs text-muted">
+                  {r.txHash.slice(0, 8)}…{r.txHash.slice(-6)}
+                </span>
+                <span className="rounded-full bg-refused-bg px-2 py-0.5 text-[11px] font-semibold text-refused-fg">
+                  Refused
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+        <p className="mt-6 text-center text-[13px] text-muted">
+          Paid rows are live from the test registry. Refusal rows are the recorded run of{' '}
+          {RECORDED_DATE} — {RECORDED_REFUSALS.length} refusals, each with its chain code.
+        </p>
+      </div>
       <Reveal className="mt-10 text-center">
         <Link to="/dashboard" className="btn-ember">
           Open the full dashboard →
@@ -606,6 +615,7 @@ export function HowItWorks() {
     setStep(i)
     const el = ref.current
     if (!el || reduceMotion) return
+    if (typeof window.matchMedia !== 'function') return
     if (!window.matchMedia('(min-width: 1024px)').matches) return
     const rect = el.getBoundingClientRect()
     const top = rect.top + window.scrollY
@@ -784,9 +794,9 @@ export function VerifierSection() {
 
 /** Spec Matrix — the hard bounds in one hairline table (SKILL.md §3 #8).
     Every row is tagged LIVE (read from /api/config on this visit) or
-    RECORDED (the 24 Nov 2026 run, labelled with its date). The one number
-    the brief asked for that is NOT here is a reject-code count: no
-    "27 reject codes" figure exists anywhere in the repo, so the table
+    RECORDED (the 24 Nov 2026 run, labelled with its date). The contract
+    declares 27 reject codes (README.md:32; contracts/CONTRACT_REPORT.md:38),
+    but only 7 refusals were observed in the recorded run, so the table
     states the 7 recorded refusals instead — never an unverified count. */
 export function SpecMatrix() {
   const config = useConfig()
@@ -1040,7 +1050,7 @@ export function JudgesSection() {
 const FAQ_ITEMS = [
   {
     q: 'What happens if I pay the same invoice twice?',
-    a: 'The contract refuses the second payment before any money moves, and the refusal itself is on chain with its code. The recorded run has 7 such refusals, each linked from the proof wall above.',
+    a: 'The contract refuses the second payment before any money moves, and the refusal itself is on chain with its code. The recorded run has 7 refusals in total, including one for a second payment, each linked from the proof wall above.',
   },
   {
     q: 'Where does the money actually go?',
@@ -1060,7 +1070,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What if the test API is down when I open the page?',
-    a: 'The dashboard keeps showing the last verified numbers and says so, with the time they were last refreshed. A receipt does not depend on the API at all — it re-verifies from the chain alone.',
+    a: 'The dashboard keeps showing the last verified numbers and says so, with the time they were last refreshed. A receipt is re-verified from the chain on each visit instead of trusting a stored copy — but the receipt page itself loads through the API, so it cannot open while the API is down. Only the on-chain record and the downloadable verifier are API-independent.',
   },
   {
     q: 'What if a payment is refused?',

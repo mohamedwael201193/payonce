@@ -120,6 +120,27 @@ describe('Design pass — Proof Wall', () => {
     expect(screen.getByText(/recorded run of 2026-11-24/)).toBeInTheDocument()
     expect(screen.getByText(/7 refusals, each with its chain code/)).toBeInTheDocument()
   })
+
+  it('still shows the recorded refusals when the API is down — no paid rows, no collapse', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/invoices')) return { ok: false, status: 500, json: async () => ({}) }
+        const body = url.includes('/api/stats') ? STATS : url.includes('/api/config') ? CONFIG : null
+        if (!body) return { ok: false, status: 404, json: async () => ({}) }
+        return { ok: true, status: 200, json: async () => body }
+      }),
+    )
+    renderWithProviders(<ProofWall />)
+    await waitFor(() => expect(screen.getByTestId('proof-wall-refused')).toBeInTheDocument())
+    expect(screen.queryByTestId('proof-wall-paid')).toBeNull()
+    const refused = screen.getByTestId('proof-wall-refused')
+    expect(within(refused).getByRole('link', { name: /WrongStatus/ }).getAttribute('href')).toMatch(
+      /^https:\/\/ccdexplorer\.io\/testnet\/transaction\/a5ec5e40/,
+    )
+    expect(screen.getByText(/recorded run of 2026-11-24/)).toBeInTheDocument()
+    expect(screen.getByText(/7 refusals, each with its chain code/)).toBeInTheDocument()
+  })
 })
 
 describe('Design pass — pinned scroll story (HowItWorks)', () => {
@@ -136,6 +157,13 @@ describe('Design pass — pinned scroll story (HowItWorks)', () => {
     // in jsdom there is no layout, so the scroll position is meaningless).
     expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1)
   })
+
+  it('step buttons do not throw where matchMedia is absent (jsdom)', async () => {
+    renderWithProviders(<HowItWorks />)
+    await waitFor(() => expect(screen.getByText(/Latest payment — Payable 1006/)).toBeInTheDocument())
+    expect(() => fireEvent.click(screen.getByRole('button', { name: /Pay once/ }))).not.toThrow()
+    expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1)
+  })
 })
 
 describe('Design pass — Spec Matrix', () => {
@@ -150,7 +178,10 @@ describe('Design pass — Spec Matrix', () => {
     expect(screen.getByText(/16.2 testnet CCD in the recorded run/)).toBeInTheDocument()
     expect(screen.getByText('<13150,0>')).toBeInTheDocument()
     expect(screen.getByText(/2 sellers on the test registry — agent tokens 1476, 1506/)).toBeInTheDocument()
-    // No invented reject-code count anywhere on the section.
+    // The declared 27-code set is not shown as an observed count: the
+    // section states only the 7 refusals observed in the recorded run
+    // (the 27 declared codes exist in the contract — README.md:32,
+    // contracts/CONTRACT_REPORT.md:38).
     expect(document.body.textContent).not.toMatch(/27 reject codes/)
   })
 })
@@ -166,6 +197,14 @@ describe('Design pass — FAQ', () => {
     expect(second).toHaveAttribute('aria-expanded', 'true')
     expect(first).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText(/The payee is read from the chain, never from the document/)).toBeInTheDocument()
+  })
+
+  it('attributes only the second-payment refusal to double payment, and says the receipt page needs the API', async () => {
+    renderWithProviders(<FaqSection />)
+    expect(screen.getByText(/7 refusals in total, including one for a second payment/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /What if the test API is down/ }))
+    expect(screen.getByText(/the receipt page itself loads through the API/)).toBeInTheDocument()
+    expect(screen.getByText(/Only the on-chain record and the downloadable verifier are API-independent/)).toBeInTheDocument()
   })
 })
 

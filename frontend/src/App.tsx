@@ -34,10 +34,13 @@ const queryClient = new QueryClient({
 //   - Query-only change -> NO scroll at all. Tab switches on
 //     /dashboard/pay change only ?tab=, so the view stays exactly
 //     where the user is.
-// A same-URL re-click changes neither pathname nor hash, so the effect
-// does not re-run and the view stays — the old same-hash re-click case
-// is gone with the #pay anchor (the pay link is a different pathname
-// now, /dashboard/pay).
+// A same-URL re-click changes neither pathname nor hash, so the location
+// effect does not re-run — a document click listener below handles it, so
+// re-clicking a same-hash anchor ("See how it works" while already on
+// /#how) scrolls to its target again instead of being a no-op. The
+// hash-retry loop is cancelled when superseded or unmounted, so a stale
+// loop from a dangling-hash load cannot scroll to top after a later
+// hash navigation.
 //
 // The old /#invoice anchor is gone with the landing flow (fix-back-12).
 function ScrollToTop() {
@@ -53,7 +56,10 @@ function ScrollToTop() {
       return
     }
     let tries = 0
+    let rafId: number | null = null
+    let cancelled = false
     const scroll = () => {
+      if (cancelled) return
       let el: Element | null = null
       try {
         el = document.querySelector(hash)
@@ -67,14 +73,46 @@ function ScrollToTop() {
       }
       if (tries < 10) {
         tries += 1
-        requestAnimationFrame(scroll)
+        rafId = requestAnimationFrame(scroll)
       } else {
         // Hash target never mounted: top, not nowhere.
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
       }
     }
     scroll()
+    // A superseded or unmounted retry loop must never fire: cancel its
+    // pending frame so a stale loop from a dangling-hash load cannot
+    // scrollTo({ top: 0 }) after a later hash navigation.
+    return () => {
+      cancelled = true
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
   }, [pathname, search, hash])
+  // Same-hash re-click: a location effect cannot see it (neither pathname
+  // nor hash changes), so a plain in-page anchor click — "See how it
+  // works" while already on /#how — would otherwise be a no-op. Listen
+  // for clicks on plain href="#…" anchors and scroll to the target when
+  // it exists. No preventDefault: the native anchor scroll (if any) goes
+  // to the same target.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null
+      if (!anchor) return
+      const href = anchor.getAttribute('href') ?? ''
+      if (href.length < 2) return
+      let el: Element | null = null
+      try {
+        el = document.querySelector(href)
+      } catch {
+        return
+      }
+      if (el && typeof (el as HTMLElement).scrollIntoView === 'function') {
+        ;(el as HTMLElement).scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' })
+      }
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
   return null
 }
 

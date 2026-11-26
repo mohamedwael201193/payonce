@@ -524,6 +524,10 @@ body {
   .po-story__panel {
     opacity: 1;
     visibility: visible;
+    /* The base rule gives .po-story__panel pointer-events: none and only
+       .is-on restores auto — without this, every non-active panel is
+       visible but pointer-dead under reduced motion. */
+    pointer-events: auto;
   }
   .po-story__panels {
     display: block;

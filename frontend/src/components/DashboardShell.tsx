@@ -71,7 +71,7 @@ function useActiveNav() {
 }
 
 const itemClass = (active: boolean) =>
-  `flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition-colors ${
+  `flex shrink-0 items-center gap-3 rounded-full px-4 py-3 text-[15px] font-medium whitespace-nowrap transition-colors ${
     active ? 'bg-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]' : 'text-white/85 hover:bg-white/10 hover:text-white'
   }`
 
@@ -129,7 +129,7 @@ function SidebarArt() {
       <p className="px-6 pt-2 pb-6 text-xs leading-relaxed text-white/70">
         Testnet · Concordium
         <br />
-        Every number on this page is live from the test registry.
+        Every number on this page is from the test registry.
       </p>
     </div>
   )
@@ -269,9 +269,15 @@ function MobileChrome() {
     { to: '/judges', label: 'Judges', icon: Receipt, active: undefined as boolean | undefined },
     { to: '/verify-age', label: 'Verify age', icon: ShieldCheck, active: undefined as boolean | undefined },
   ]
+  // Fragment, not a wrapper div: a sticky header sticks only within its
+  // containing block, and a wrapper holding only this header (the tab bar
+  // below is fixed, so it contributes no height) is exactly header-height
+  // — the header could never stick. As a fragment the header's containing
+  // block is the full-height shell root in DashboardShell, so it stays
+  // pinned while the page scrolls. The testid lives on the header itself.
   return (
-    <div data-testid="app-chrome-mobile">
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-gradient-to-b from-sky-0 to-sky-1 px-4 py-3 text-white">
+    <>
+      <header data-testid="app-chrome-mobile" className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-gradient-to-b from-sky-0 to-sky-1 px-4 py-3 text-white">
         <Link to="/" aria-label="PayOnce home" title="PayOnce — back to home" className="flex items-center gap-3">
           <Logo dark size={28} />
         </Link>
@@ -294,7 +300,7 @@ function MobileChrome() {
                 <Link
                   to={t.to}
                   aria-current={t.active ? 'page' : undefined}
-                  className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium ${
+                  className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[12px] font-medium ${
                     t.active ? 'text-brand-700' : 'text-muted hover:text-ink'
                   }`}
                 >
@@ -306,7 +312,7 @@ function MobileChrome() {
                   to={t.to}
                   end={t.to === '/'}
                   className={({ isActive }) =>
-                    `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium ${
+                    `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[12px] font-medium ${
                       isActive ? 'text-brand-700' : 'text-muted hover:text-ink'
                     }`
                   }
@@ -319,7 +325,7 @@ function MobileChrome() {
           })}
         </ul>
       </nav>
-    </div>
+    </>
   )
 }
 

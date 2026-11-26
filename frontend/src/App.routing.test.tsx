@@ -299,6 +299,30 @@ describe('App routing (tab bug repro)', () => {
     expect(window.location.pathname).toBe('/verify-age')
   })
 
+  it('re-clicking "See how it works" while already on /#how scrolls to #how again', async () => {
+    const user = userEvent.setup()
+    renderApp('/#how')
+    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
+    expect(scrollIntoViewSpy).toHaveBeenCalled()
+    scrollToSpy.mockClear()
+    scrollIntoViewSpy.mockClear()
+    await user.click(screen.getByRole('link', { name: 'See how it works' }))
+    expect(scrollIntoViewSpy).toHaveBeenCalled()
+    expect(scrollIntoViewSpy.mock.instances[0]).toHaveAttribute('id', 'how')
+  })
+
+  it('a stale hash-retry loop is cancelled on unmount — no scroll to top after', async () => {
+    const { unmount } = renderApp('/#missing-target')
+    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
+    // The dangling hash schedules the retry loop; nothing scrolls yet.
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+    expect(scrollToSpy).not.toHaveBeenCalled()
+    unmount()
+    // Drive the queued rAF frames: a stale loop would scrollTo({ top: 0 }).
+    advanceDemo(500)
+    expect(scrollToSpy).not.toHaveBeenCalled()
+  })
+
   it('clicking "Pay an invoice" twice on /dashboard/pay causes no scroll yank', async () => {
     const user = userEvent.setup()
     renderApp('/dashboard/pay?tab=pick')
