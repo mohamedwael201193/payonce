@@ -266,8 +266,8 @@ test('POST /api/attacks/unlisted_seller reports the missing setup + live checks'
   assert.equal(json.live, false);
   assert.equal(json.tx_sent, false);
   assert.equal(json.outcome, 'not_set_up');
-  assert.match(json.plain, /not set up on this registry yet/);
-  assert.equal(json.recorded_example.vendor_list_live.length, 1);
+  assert.match(json.plain, /No lab fraud invoice exists on this registry/);
+  assert.equal(json.recorded_example.vendor_list_live.length, 2);
   assert.equal(json.recorded_example.cosigner_dry_run_live.decision, 'REFUSE');
   assert.equal(json.recorded_example.cosigner_dry_run_live.code, 'no-approval');
 });

@@ -36,7 +36,7 @@ export async function reconcile() {
     const counters = await loadCounters();
     const known = new Set([...KNOWN_IDS, ...(counters.freshIds ?? [])]);
     let missing = 0;
-    for (let id = FRESH_ID_START; id < FRESH_ID_START + 50 && missing < 3; id += 1) {
+    for (let id = FRESH_ID_START; id < FRESH_ID_START + 2000 && missing < 3; id += 1) {
       let view = null;
       try { view = await getPayableOrNull(c, SELLER, id); } catch { /* treat as missing for this probe */ }
       if (view) {

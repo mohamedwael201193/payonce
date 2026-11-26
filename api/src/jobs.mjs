@@ -37,7 +37,7 @@ import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2 } from '
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { appendEntry, ledgerForDecide, resolveTransfer } from './ledger.mjs';
 import { docForPayable, recordedPaymentTx } from './docs.mjs';
-import { loadJobs, saveJob, saveReceipt, loadCounters, saveCounters, runningJobFor } from './store.mjs';
+import { loadJobs, saveJob, saveReceipt, updateCounters, runningJobFor } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo, shortHash } from './config.mjs';
 
 export const CCD_STEPS = ['check_status', 'check_agent', 'submit', 'wait_finality', 'read_back', 'verify'];
@@ -160,11 +160,11 @@ async function payerBalances(c, view) {
 }
 
 async function recordVerifierRun(result) {
-  const c = await loadCounters();
-  c.verifierRuns += 1;
-  if (result.allPass) c.verifierPassed += 1; else c.verifierFailed += 1;
-  c.lastVerifierRunAt = new Date().toISOString();
-  await saveCounters(c);
+  await updateCounters((c) => {
+    c.verifierRuns += 1;
+    if (result.allPass) c.verifierPassed += 1; else c.verifierFailed += 1;
+    c.lastVerifierRunAt = new Date().toISOString();
+  });
 }
 
 function buildReceipt(job, view, txs, verifier, paymentTxSource) {
@@ -246,9 +246,9 @@ async function runCcd(job) {
     if (rr) {
       const info = rejectInfo(rr.rejectReason);
       await setStep(job, 'wait_finality', 'refused', `The chain refused the payment (${info.name}). Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain', reject: info });
-      const counters = await loadCounters();
-      counters.liveRefusals.push({ txHash: pay.txHash, code: info.code, at: new Date().toISOString() });
-      await saveCounters(counters);
+      await updateCounters((counters) => {
+        counters.liveRefusals.push({ txHash: pay.txHash, code: info.code, at: new Date().toISOString() });
+      });
       return await finishJob(job, 'refused', 'refused');
     }
     await setStep(job, 'wait_finality', 'ok', `Finalized. Fee: ${fee ?? '—'} testnet CCD.`, { layer: 'chain' });

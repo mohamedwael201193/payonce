@@ -29,9 +29,9 @@ import {
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import { feeOf, rejectOf, rejectInfo } from './jobs.mjs';
-import { loadCounters, saveCounters } from './store.mjs';
+import { updateCounters } from './store.mjs';
 import {
-  REGISTRY, OWNER_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo,
+  REGISTRY, OWNER_ADDRESS, SELLER2_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo,
 } from './config.mjs';
 
 const RECORDED_DATE = '2026-11-24';
@@ -58,9 +58,9 @@ function base(kind, payableId) {
 }
 
 async function recordLiveRefusal(txHash, code) {
-  const c = await loadCounters();
-  c.liveRefusals.push({ txHash, code, at: new Date().toISOString() });
-  await saveCounters(c);
+  await updateCounters((c) => {
+    c.liveRefusals.push({ txHash, code, at: new Date().toISOString() });
+  });
 }
 
 export async function attackPayTwice(payableId, mode) {
@@ -203,9 +203,11 @@ export async function attackUnlistedSeller(payableId) {
   const c = await grpc();
   // Live vendor-list read: the demo payer's approvals (exactly the owner).
   const approval = await getVendor(c, PAYER_ADDRESS, OWNER_ADDRESS);
-  const vendorList = approval
-    ? [{ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' }]
-    : [];
+  const approval2 = await getVendor(c, PAYER_ADDRESS, SELLER2_ADDRESS);
+  const vendorList = [
+    ...(approval ? [{ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' }] : []),
+    ...(approval2 ? [{ seller: SELLER2_ADDRESS, label: 'Second seller account (PayOnce Seller 2)' }] : []),
+  ];
   // Live co-signer dry run for an unlisted seller: approval = null (live
   // read — no approval row exists for the placeholder seller), agent
   // assumed Active (labelled assumption: the dry run isolates the
@@ -233,13 +235,13 @@ export async function attackUnlistedSeller(payableId) {
     ...base('unlisted_seller', payableId),
     layer: 'app',
     outcome: 'not_set_up',
-    plain: `The lab fraud invoice is not set up on this registry yet — no second seller account exists (only the demo seller holds an Active agent token). Nothing was sent. The vendor list has one seller, read live from the chain.`,
+    plain: `No lab fraud invoice exists on this registry: every account that holds an Active agent token (1476 and 1506) is on the payer's vendor list, and a stranger cannot register an invoice under another seller's token. Nothing was sent. The co-signer decision for an unlisted seller is computed live below (a dry run, no transaction).`,
     recorded_example: {
       date: RECORDED_DATE,
       registry: '<13149,0> (v1)',
       note: 'Recorded run, 24 Nov 2026 (v1 registry): the chain accepted a fraudster invoice because anyone can register one, and the v1 co-signer approved it (dry run: approve). On v2 the co-signer refuses an unlisted seller — see the live dry run below.',
       vendor_list_live: vendorList,
-      vendor_list_note: 'Read live from the chain just now: get_vendor(demo payer, demo seller) returns the approval row; any other seller returns no row.',
+      vendor_list_note: 'Read live from the chain just now: get_vendor(demo payer, seller) returns an approval row for each listed seller; any other seller returns no row.',
       cosigner_dry_run_live: {
         decision: dryRun.decision,
         code: dryRun.code,

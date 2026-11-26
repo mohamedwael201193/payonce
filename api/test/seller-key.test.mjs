@@ -19,7 +19,7 @@ const { SELLER2_ADDRESS, OWNER_ADDRESS } = await import('../src/config.mjs')
 const { docForPayableForSeller, recordedRunFor, recordedPaymentTx, recordedPaymentTxForSeller } = await import('../src/docs.mjs')
 const { paymentTxsFor } = await import('../src/receipts.mjs')
 const server = await import('../src/server.mjs')
-const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, __setChainReaderForTests } = server
+const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, isNodeError, __setChainReaderForTests } = server
 
 const S1 = OWNER_ADDRESS
 const S2 = SELLER2_ADDRESS
@@ -184,4 +184,13 @@ test('writes: every write handler in server.mjs calls the seller-1 guard first',
 
 test('cleanup: the chain stub is removed', () => {
   __setChainReaderForTests(null)
+})
+
+test('transient node errors map to a retryable 503, other errors stay 500', () => {
+  for (const m of ['14 UNAVAILABLE: No connection established', 'Received HTTP status code 429', 'DEADLINE_EXCEEDED', 'read ECONNRESET', '8 RESOURCE_EXHAUSTED: rate']) {
+    assert.equal(isNodeError(new Error(m)), true, m)
+  }
+  assert.equal(isNodeError(Object.assign(new Error('x'), { code: 14 })), true)
+  assert.equal(isNodeError(new Error('cannot read properties of undefined')), false)
+  assert.equal(isNodeError(new Error('invalid JSON body')), false)
 })

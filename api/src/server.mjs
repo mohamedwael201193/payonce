@@ -8,6 +8,7 @@
 // (POST /api/payables, POST /payables/:id/pay, live attacks); every
 // read-only endpoint works without them.
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { CredentialRegistrationId } from '@concordium/web-sdk';
 import { backend } from './backend.mjs';
@@ -26,7 +27,7 @@ import {
   recordedRefusals, judgeFiles,
 } from './docs.mjs';
 import {
-  loadJobs, loadCounters, saveCounters,
+  loadJobs, loadCounters, updateCounters,
   hitWindow, leftInWindow, loadConsents, loadBuyerAgent,
 } from './store.mjs';
 import {
@@ -44,6 +45,7 @@ import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
 import { listableRows, scanIsComplete, statsBody } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
+import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import {
   createAgeProofHandlers, ageGateCheck,
@@ -52,7 +54,7 @@ import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
   OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
   SELLER2_ADDRESS, SELLER2_TOKEN, SELLER2_BADGE, SELLER2_AGENT_CARD_URL,
-  FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS,
+  FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS, FRESH_ID_START,
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
   txUrl, instanceUrl, fmtCcd, fmtEudemo, shortHash, ENV,
 } from './config.mjs';
@@ -99,6 +101,13 @@ const rateLimited = (res, retryAfterS, msg) =>
   apiError(res, 429, 'rate_limited', 'app', msg ?? 'Too many tries in a minute. Wait 30 seconds.', { retryable: true, retry_after_s: retryAfterS });
 const chainUnreachable = (res, e) =>
   apiError(res, 503, 'chain_unreachable', 'node', `The testnet is not answering (${e?.message ?? 'no response'}). Showing the last verified data.`, { retryable: true });
+// A transient node / transport failure (rate limit, unavailable, timeout)
+// is a retryable 503, never a 500 that reads as a bug in the API.
+export function isNodeError(e) {
+  const msg = String(e?.message ?? e ?? '');
+  if ([4, 8, 14].includes(Number(e?.code))) return true; // gRPC DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, UNAVAILABLE
+  return /UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|Received HTTP status code (429|502|503|504)|ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|socket hang up|node busy/i.test(msg);
+}
 const internal = (res, e) => {
   console.error('[api] internal error:', e?.message ?? e);
   apiError(res, 500, 'internal', 'server', 'Something went wrong on our side. Nothing was sent unless a transaction link appears above.');
@@ -252,6 +261,24 @@ async function scanSnapshot(c) {
       } else {
         skipped.push(id);
       }
+    }
+    // Frontier discovery: payables registered beyond the server's counter
+    // (a counter that regressed or never saw them) are still on chain. Probe
+    // upward from the highest known fresh id until three consecutive ids are
+    // absent, count what is found and fold it into the counters, so
+    // payables_total is derivable from the registry and not from a stored
+    // list that can fall behind.
+    {
+      const ids = await knownIds();
+      const top = Math.max(FRESH_ID_START - 1, ...ids.filter((i) => i >= FRESH_ID_START));
+      const found = [];
+      let misses = 0;
+      for (let id = top + 1; misses < 3 && id <= top + 200; id += 1) {
+        const { view, ok } = await readPayableWithRetry(c, id);
+        if (!ok) { skipped.push(id); break; }
+        if (view) { rows.push(view); found.push(id); misses = 0; } else misses += 1;
+      }
+      if (found.length) await foldDiscoveredIds(found);
     }
     // Second seller (main 86e2596 wiring): seller-2 rows are part of the
     // served list, so they get the same retry + fail-closed treatment --
@@ -682,11 +709,11 @@ async function handleVerify(req, res, id) {
 
   if (mode === 'before_pay') {
     const result = await verifyBeforePay(c, { view, docBytes, docSha256, chainTimeMs: now.slotMs, payerBalances });
-    const counters = await loadCounters();
-    counters.verifierRuns += 1;
-    if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
-    counters.lastVerifierRunAt = new Date().toISOString();
-    await saveCounters(counters);
+    await updateCounters((counters) => {
+      counters.verifierRuns += 1;
+      if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
+      counters.lastVerifierRunAt = new Date().toISOString();
+    });
     // Consent anchor (W-01, reported beside the 9 P3 checks — the check
     // counts stay exactly 9/10/12, so the existing suites keep passing).
     // Seller-aware (fix-back §4.3): the verify caller's seller, not the
@@ -762,11 +789,11 @@ async function handleVerify(req, res, id) {
     // v2 because the view comes from the v2 registry <13150,0> and the
     // verifier is v2-only unconditionally.
     : await verifyPltV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256, reserve: pltEvidence.reserve, confirm: pltEvidence.confirm, registryIndex: String(REGISTRY.index), gen: 'v2' });
-  const counters = await loadCounters();
-  counters.verifierRuns += 1;
-  if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
-  counters.lastVerifierRunAt = new Date().toISOString();
-  await saveCounters(counters);
+  await updateCounters((counters) => {
+    counters.verifierRuns += 1;
+    if (result.allPass) counters.verifierPassed += 1; else counters.verifierFailed += 1;
+    counters.lastVerifierRunAt = new Date().toISOString();
+  });
   const failed = result.checks.find((ch) => ch.status === 'fail');
   sendJson(res, 200, {
     payable_id: id, mode, verdict: result.allPass ? 'paid' : 'blocked',
@@ -791,45 +818,48 @@ async function handleCreatePayable(req, res) {
   }
   const c = await grpc();
   const { v2enc } = await backend();
-  const counters = await loadCounters();
-  const id = counters.nextFreshId;
   const amount = asset === 'ccd' ? FRESH_CCD_MICRO : FRESH_EUDEMO_BASE;
   const payee = asset === 'ccd' ? PAYEE_CCD : PAYEE_EUDEMO;
-  const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
-  const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller: SELLER, due: dueMs });
-  const docHash = await storeDocument(id, docText);
   const sig = await signers();
-  let sent;
+  let reg;
   try {
-    sent = await sendUpdate(c, {
-      from: sig.owner, receiveName: 'register_payable',
-      parameterHex: v2enc.encodeV2RegisterPayable({
-        id, payee, amount: amount.toString(), asset: asset === 'ccd' ? 'CCD' : 'EUDemo',
-        dueMs, docHashHex: docHash, token: OWNER_TOKEN, expected: PAYER_ADDRESS, legal: null,
-      }),
-      maxEnergy: 6000n,
+    // The id is allocated atomically and a chain Duplicate (-2) moves on to
+    // the next id (see fresh-id.mjs). The document is stored only AFTER the
+    // registration succeeded, so a duplicate never overwrites the document
+    // of the payable that already owns that id.
+    reg = await registerWithFreshId(async (id) => {
+      const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
+      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller: SELLER, due: dueMs });
+      const docHash = createHash('sha256').update(Buffer.from(docText, 'utf8')).digest('hex');
+      const sent = await sendUpdate(c, {
+        from: sig.owner, receiveName: 'register_payable',
+        parameterHex: v2enc.encodeV2RegisterPayable({
+          id, payee, amount: amount.toString(), asset: asset === 'ccd' ? 'CCD' : 'EUDemo',
+          dueMs, docHashHex: docHash, token: OWNER_TOKEN, expected: PAYER_ADDRESS, legal: null,
+        }),
+        maxEnergy: 6000n,
+      });
+      const status = await waitFinalized(c, sent.txHash);
+      const rr = rejectOf(status);
+      return { txHash: sent.txHash, status, docText, dueMs, rejected: rr ? rejectInfo(rr.rejectReason) : null };
     });
   } catch (e) {
     return chainUnreachable(res, e);
   }
-  const status = await waitFinalized(c, sent.txHash);
-  const rr = rejectOf(status);
-  if (rr) {
-    const info = rejectInfo(rr.rejectReason);
-    const counters2 = await loadCounters();
-    counters2.liveRefusals.push({ txHash: sent.txHash, code: info.code, at: new Date().toISOString() });
-    await saveCounters(counters2);
-    return apiError(res, 409, 'chain_refused', 'chain', `The chain refused the registration (${info.code} ${info.name}).`, { reject: info, fee_testnet_ccd: feeOf(status), tx_hash: sent.txHash, explorer_url: txUrl(sent.txHash) });
+  if (!reg.ok) {
+    const info = reg.rejected;
+    await updateCounters((counters2) => {
+      counters2.liveRefusals.push({ txHash: reg.txHash, code: info.code, at: new Date().toISOString() });
+    });
+    return apiError(res, 409, 'chain_refused', 'chain', `The chain refused the registration (${info.code} ${info.name}).`, { reject: info, fee_testnet_ccd: feeOf(reg.status), tx_hash: reg.txHash, explorer_url: txUrl(reg.txHash) });
   }
-  counters.nextFreshId = id + 1;
-  counters.freshIds = [...(counters.freshIds ?? []), id];
-  await saveCounters(counters);
+  await storeDocument(reg.id, reg.docText);
   sendJson(res, 201, {
-    payable_id: id,
-    tx_hash: sent.txHash,
-    explorer_url: txUrl(sent.txHash),
-    fee_testnet_ccd: feeOf(status) ?? '0',
-    due: new Date(dueMs).toISOString(),
+    payable_id: reg.id,
+    tx_hash: reg.txHash,
+    explorer_url: txUrl(reg.txHash),
+    fee_testnet_ccd: feeOf(reg.status) ?? '0',
+    due: new Date(reg.dueMs).toISOString(),
   });
 }
 
@@ -1376,6 +1406,7 @@ const server = createServer(async (req, res) => {
     return notFound(res, `No route ${req.method} ${url.pathname}.`);
   } catch (e) {
     if (e?.message === 'body too large' || e?.message === 'invalid JSON body') return badRequest(res, e.message);
+    if (isNodeError(e)) return chainUnreachable(res, e);
     return internal(res, e);
   }
 });

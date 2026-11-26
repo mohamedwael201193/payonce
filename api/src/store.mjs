@@ -72,6 +72,25 @@ export async function saveCounters(c) {
   await initStore();
   return impl().saveCounters(c);
 }
+// Serialised read-modify-write of the counters document. The counters row
+// is ONE document (verifier runs, live refusals, fresh-id allocation); the
+// old load ... await chain finality ... save pattern overwrote concurrent
+// changes (a pay job finishing, a verify run) with a stale copy and could
+// move nextFreshId BACKWARDS, so the next create hit chain Duplicate (-2).
+// Every mutation now goes through this queue: the mutator runs on a fresh
+// load and its result is saved before the next one starts. (One API
+// process; a second instance would need a row lock in pgstore as well.)
+let counterQueue = Promise.resolve();
+export function updateCounters(mutator) {
+  const run = counterQueue.then(async () => {
+    const c = await loadCounters();
+    const out = await mutator(c);
+    await saveCounters(c);
+    return out;
+  });
+  counterQueue = run.catch(() => {});
+  return run;
+}
 
 // ---- consents (one record per (seller, payable), keyed by seller:payableId) ----
 // Added by the main-defect fix (2026-11-25): b55ae35 imported

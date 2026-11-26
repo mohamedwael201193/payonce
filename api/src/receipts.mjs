@@ -36,7 +36,7 @@ import {
 } from './chain-v2.mjs';
 import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.mjs';
 import { docForPayable, docForPayableForSeller, recordedPaymentTx, recordedPaymentTxForSeller } from './docs.mjs';
-import { loadReceipts, saveReceipt, loadCounters, saveCounters, loadConsents, receiptKey, consentKey } from './store.mjs';
+import { loadReceipts, saveReceipt, updateCounters, loadConsents, receiptKey, consentKey } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, txUrl } from './config.mjs';
 
 export const ART12_RETENTION =
@@ -332,12 +332,12 @@ export async function buildReceiptFor(payableId, seller = SELLER) {
         };
       }
     }
-    const counters = await loadCounters();
-    counters.verifierRuns += 1;
-    if (verifier && verifier.passed === verifier.total) counters.verifierPassed += 1;
-    else counters.verifierFailed += 1;
-    counters.lastVerifierRunAt = new Date().toISOString();
-    await saveCounters(counters);
+    await updateCounters((counters) => {
+      counters.verifierRuns += 1;
+      if (verifier && verifier.passed === verifier.total) counters.verifierPassed += 1;
+      else counters.verifierFailed += 1;
+      counters.lastVerifierRunAt = new Date().toISOString();
+    });
   } catch (e) {
     // The verifier failing to run is reported as a null verifier, never as
     // a fake pass — the receipt still names its transactions.
