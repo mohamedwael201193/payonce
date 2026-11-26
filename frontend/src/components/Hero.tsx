@@ -67,9 +67,9 @@ export function Hero() {
             </a>
           </div>
           <p className="mt-5 text-[15px]">
-            <a href="/dashboard" className="font-medium text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
+            <Link to="/app" className="font-medium text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
               Open the live dashboard →
-            </a>
+            </Link>
           </p>
         </div>
       </div>

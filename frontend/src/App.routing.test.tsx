@@ -1,42 +1,43 @@
-// App routing — REPRODUCTION of the user-reported tab bug (2026-11-25 03:24 EET):
-// clicking "Pay an invoice" or any tab bounces back to the landing page and
-// nothing works. Renders the REAL <App/> (BrowserRouter) and clicks every tab
-// from every start page, asserting the URL, the rendered view, and that the
-// anchor scroll actually fires. Scroll is observed, not assumed: window.scrollTo
-// and Element.scrollIntoView are stubbed spies, because jsdom has no layout.
-// Fix-back-12: the old /#invoice anchor is gone — the pay flow lives in
-// the dashboard tabs now. Pay-route fix (2026-11-26): the tabs live on
-// their own route /dashboard/pay, so the "Pay an invoice" tests assert
-// that route (no #pay anchor anywhere) instead of /dashboard?tab=pick#pay.
+// v9 routing, shell and seller-key tests. Renders the real <AppRoutes/> in a
+// MemoryRouter against a mocked API that records every call.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, configure, render, screen, waitFor, within } from '@testing-library/react'
+import { configure, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
+import { AppRoutes, legacyPayTarget, routeFamily } from './App'
+import { BANNED_WORDS } from './lib/copy'
 
-// The full suite runs 19+ files in parallel on 1.5 shared CPUs; the first
-// render + mocked fetch + navigation in this file can take over the
-// 1 s default waitFor timeout under that load (the same two tests failed
-// twice in full runs and passed in isolation, then failed 3 of 4 full runs
-// across the landing judges — all pure 5 s timeouts, no assertion ever
-// failed). 10 s waitFor + the 15 s testTimeout in vitest.config.ts are
-// headroom for the loaded VM, not for a slow app.
+vi.mock('./landing/LandingPage', () => ({ LandingPage: () => <h1>Landing stub</h1> }))
+
 configure({ asyncUtilTimeout: 10_000 })
+
+const S1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
+const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+const DAY = 86_400_000
+const due = (d: number) => new Date(Date.now() + d * DAY).toISOString()
 
 const CONFIG = {
   network: 'testnet',
-  registry: { index: 13150, subindex: 0, module_ref: 'MODULE-REF-PLACEHOLDER' },
-  cis8004_test_instance: { index: 12802, subindex: 0, official_module_ref: 'OFFICIAL-MODULE-PLACEHOLDER', is_official_registry: true },
-  reservation_secs: 300,
+  registry: { index: 13150, subindex: 0, module_ref: 'MODREF' },
+  cis8004_test_instance: { index: 12802, subindex: 0, official_module_ref: 'OFF', is_official_registry: true },
+  reservation_secs: 3600,
   co_signer_margin_secs: 60,
   assets: { ccd: { decimals: 6, label: 'CCD (testnet)' }, eudemo: { decimals: 6, label: 'EUDemo (testnet demo token)' } },
   payer_label: 'Demo payer account (lab)',
   sponsor_label: 'Lab seller account',
   explorer: { tx: 'https://ccdexplorer.io/testnet/transaction/', instance: 'https://ccdexplorer.io/testnet/instance/' },
-  vendor_list: [{ seller: 'SELLER-PLACEHOLDER', label: 'Lab seller' }],
-  build: { vendor_list_enforced_by_co_signer: false, named_payer_on_invoice: false, confirm_by: 'payer_or_seller', header_expiry_bound: false, co_signer_runs_as: 'in_process_lab' },
+  vendor_list: [
+    { seller: S1, label: 'Lab seller' },
+    { seller: S2, label: 'Second seller' },
+  ],
+  sellers: [
+    { seller: S1, label: 'Seller 1 — PayOnce Seller', agent_token: 1476, badge: 'b1', badge_url: 'https://example.test/b1', agent_card_url: 'https://example.test/c1' },
+    { seller: S2, label: 'Seller 2 — PayOnce Seller 2', agent_token: 1506, badge: 'b2', badge_url: 'https://example.test/b2', agent_card_url: 'https://example.test/c2' },
+  ],
+  build: { vendor_list_enforced_by_co_signer: true, named_payer_on_invoice: true, confirm_by: 'payer', header_expiry_bound: true, co_signer_runs_as: 'x' },
   limits: { new_invoices_per_hour: 3, attempts_per_minute_per_ip: 10 },
-  verifier: { file: 'verify-payable.mjs', version_date: '2026-11-24' },
+  verifier: { file: 'verify-payable-v2.mjs', version_date: '2026-11-24' },
   as_of: '2026-11-24T10:42:07Z',
 }
 const HEALTH = {
@@ -48,337 +49,373 @@ const HEALTH = {
   co_signer: { status: 'ok' },
   budget: { new_invoices_left_this_hour: 3, attack_sends_left_this_hour: 5 },
 }
-const STATS = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
-// Fix-back-6 B1/B11: the unified live snapshot only accepts a stats+list
-// pair that AGREES (stats.payables_total === items.length and
-// stats.paid_total === paid-in-list) — a disagreeing pair is a partial
-// scan and is retried, never rendered. So this mock's stats MUST match
-// its 3-item list (1 paid), or the home hero stays on its loading
-// skeleton and the 'Payables overview' wait below times out.
-const DAY_MS = 24 * 60 * 60 * 1000
-// Mock dues are relative to Date.now() — NOT fixed calendar dates
-// (fix-back-5 O4a, same dueInDays pattern as MF-H1/MF-H4). These items
-// feed the REAL App: HomePage's HeroDemo (real-now pick) and
-// InvoiceShowcase + DashboardPage (real-now derivedStatus pills). Fixed
-// dues would flip the pick 2 → 1004 after Dec 1 and, after Dec 26, leave
-// NO future unpaid CCD payable — the demo would render "Demo unavailable"
-// and the 'Payables overview' wait in the viewport test below would time out.
-// Relative dues preserve the pick (2, soonest-due unpaid CCD), the order
-// 2 < 1004, and both Unpaid pills at any run date. (The 'Due
-// 2026-12-01…' string in VERIFY_AFTER_PAY below is a canned verify-response
-// detail, not derived from these dues — it stays fixed.)
-const dueInDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString()
-const INVOICES = {
-  items: [
-    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
-    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 2, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 2' },
-    { seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1004, asset: 'ccd', amount_display: '0.500000 CCD', due: dueInDays(7), status: 'unpaid', label: 'Lab invoice' },
-  ],
+const ITEMS = [
+  { seller: S1, payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: due(-2), status: 'paid', label: 'Lab invoice 1' },
+  { seller: S1, payable_id: 2, asset: 'ccd', amount_display: '0.500000 CCD', due: due(2), status: 'unpaid', label: 'Lab invoice 2' },
+  { seller: S2, payable_id: 1, asset: 'ccd', amount_display: '0.500000 CCD', due: due(-1), status: 'paid', label: 'Second seller invoice 1' },
+]
+const STATS = { payables_total: 3, paid_total: 2, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-26T03:41:30.615Z' }
+
+function facts(seller: string, id: number) {
+  const paid = id === 1
+  return {
+    payable_id: id,
+    asset: { kind: 'ccd', token: 'CCD' },
+    amount: '500000',
+    amount_display: '0.500000 CCD',
+    payee: `PAYEE-${seller.slice(0, 4)}-${id}`,
+    seller,
+    due: due(2),
+    is_past_due: false,
+    status: paid
+      ? { kind: 'paid', payer: 'PAYER', paid_at: '2026-11-24T10:00:00Z', payment_tx: 'ab'.repeat(32), payment_tx_source: 'chain' }
+      : { kind: 'unpaid' },
+    agent: { registry: { index: 12802, subindex: 0 }, token: '1' },
+    doc_sha256: 'cd'.repeat(32),
+    label: 'x',
+  }
 }
-const VERIFY_AFTER_PAY = {
-  seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB', payable_id: 1,
-  mode: 'after_pay',
-  verdict: 'paid',
-  passed: 10,
-  total: 10,
+const CHECKS = (mode: string) => ({
+  payable_id: 2,
+  mode,
+  verdict: mode === 'after_pay' ? 'paid' : 'ready',
+  passed: 2,
+  total: 2,
   blocked_reason: null,
   checks: [
-    { id: 'registered', label: 'Payable is registered', status: 'ok', detail: 'seller=42jaZZgd…, id=1, asset=CCD, amount=500000', layer: 'chain' },
-    { id: 'doc', label: 'Document hash matches', status: 'ok', detail: 'sha256(doc)=c9fef19aa010ed3d…, stored=c9fef19aa010ed3d…', layer: 'chain' },
-    { id: 'agent', label: 'Seller agent active', status: 'ok', detail: 'Seller agent is active on the official registry.', layer: 'chain' },
-    { id: 'status_paid', label: 'Registry status is Paid', status: 'ok', detail: 'Paid by 4MvdM… at 2026-11-24T08:37:45.000Z', layer: 'chain' },
-    { id: 'amount', label: 'Amount matches', status: 'ok', detail: 'Amount 500000 microCCD matches the document.', layer: 'chain' },
-    { id: 'payee', label: 'Payee matches', status: 'ok', detail: 'Payee on chain matches the document.', layer: 'chain' },
-    { id: 'due', label: 'Due date', status: 'ok', detail: 'Due 2026-12-01T08:03:26.555Z.', layer: 'chain' },
-    { id: 'seller', label: 'Seller', status: 'ok', detail: 'Seller account is the recorded seller.', layer: 'chain' },
-    { id: 'reservation', label: 'Reservation', status: 'ok', detail: 'No open reservation blocks the payment.', layer: 'chain' },
-    { id: 'receipt', label: 'Receipt', status: 'ok', detail: 'Receipt is re-verifiable on chain.', layer: 'chain' },
+    { id: 'a', label: 'Payable is registered', status: 'ok', detail: 'found', layer: 'chain' },
+    { id: 'b', label: 'Document hash matches', status: 'ok', detail: 'same', layer: 'app' },
   ],
-  checked_at: '2026-11-24T17:08:24.616Z',
-  read_ms: 120,
-}
-const AGE_HEALTH = {
-  service: 'age-proof',
-  prover_available: false,
-  prover: { service: 'prover', network: 'testnet', attributes_held: ['date_of_birth'], issuer_did: null, allow_list: [], refuses: [] },
-  anchored_run: { vra: 'vra', vaa: 'vaa', record_sha256: 'abc', statements: [] },
-  proven_rejections: [],
-  checked_at: '2026-11-24T10:42:07Z',
-}
+  checked_at: '2026-11-26T04:00:00Z',
+  read_ms: 10,
+})
+
+let calls: Array<{ url: string; method: string; body?: string }>
 
 function mockApi() {
+  calls = []
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
-      const body = url.includes('/api/payables/1/verify')
-        ? VERIFY_AFTER_PAY
-        : url.includes('/api/invoices')
-          ? INVOICES
-          : url.includes('/api/stats')
-            ? STATS
-            : url.includes('/api/config')
-              ? CONFIG
-              : url.includes('/api/health')
-                ? HEALTH
-                : url.includes('/api/age-proof/health')
-                  ? AGE_HEALTH
-                  : url.includes('/api/judges/files')
-                    ? { files: [] }
-                    : null
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push({ url, method, body: init?.body as string | undefined })
+      const u = new URL(url, 'http://x')
+      const seller = u.searchParams.get('seller') ?? S1
+      const m = /\/api\/payables\/(\d+)(\/\w+)?$/.exec(u.pathname)
+      let body: unknown = null
+      if (u.pathname === '/api/invoices') body = { items: ITEMS }
+      else if (u.pathname === '/api/stats') body = STATS
+      else if (u.pathname === '/api/config') body = CONFIG
+      else if (u.pathname === '/api/health') body = HEALTH
+      else if (u.pathname === '/api/judges/files') body = { files: [] }
+      else if (u.pathname === '/api/age-proof/health') return { ok: false, status: 503, json: async () => ({ error: { code: 'prover_unavailable', layer: 'server', message: 'not provisioned', retryable: false } }) }
+      else if (u.pathname === '/api/cosigner/dry-run') body = { decision: 'REFUSE', reason: 'wrong-recipient', plain: 'The co-signer would refuse this transfer. Nothing was sent.', tx_sent: false }
+      else if (m && m[2] === '/verify') body = CHECKS(JSON.parse(init!.body as string).mode)
+      else if (m && m[2] === '/pay') body = { job_id: 'job1', payable_id: Number(m[1]), rail: 'ccd', steps: ['check_status', 'submit'] }
+      else if (m && !m[2]) body = facts(seller, Number(m[1]))
+      else if (/\/api\/receipts\/(\d+)/.test(u.pathname))
+        body = {
+          payable_id: Number(/receipts\/(\d+)/.exec(u.pathname)![1]),
+          seller,
+          amount_display: '0.500000 CCD',
+          payee: 'PAYEE',
+          payer_label: 'Demo payer account (lab)',
+          txs: [{ label: 'Payment', tx_hash: 'ef'.repeat(32), explorer_url: 'x' }],
+          verifier: null,
+          payment_tx_source: 'chain',
+        }
       if (!body) return { ok: false, status: 404, json: async () => ({}) }
       return { ok: true, status: 200, json: async () => body }
     }),
   )
 }
 
-describe('App routing (tab bug repro)', () => {
-  let scrollToSpy: ReturnType<typeof vi.fn>
-  let scrollIntoViewSpy: ReturnType<typeof vi.fn>
-  // rAF as a QUEUE, not a single slot: the whole HomePage renders, and
-  // CountUp registers its own rAF ticks too. A one-slot stub only ever
-  // drives the last registrant, so the demo clock would never advance and
-  // the scroll-hijack test would pass vacuously.
-  let rafQueue: Array<{ id: number; cb: FrameRequestCallback }>
-  let rafId: number
-  let now: number
+function stubMedia(desktop: boolean) {
+  vi.stubGlobal('matchMedia', (q: string) => ({
+    matches: desktop,
+    media: q,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+  }))
+}
 
-  beforeEach(() => {
-    mockApi()
-    scrollToSpy = vi.fn()
-    scrollIntoViewSpy = vi.fn()
-    window.scrollTo = scrollToSpy as unknown as typeof window.scrollTo
-    Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView
-    rafQueue = []
-    rafId = 0
-    now = 1000
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      rafQueue.push({ id: ++rafId, cb })
-      return rafId
+function Where() {
+  const l = useLocation()
+  return <p data-testid="where">{`${l.pathname}${l.search}`}</p>
+}
+
+function renderAt(url: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[url]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AppRoutes />
+        <Where />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+const where = () => screen.getByTestId('where').textContent
+
+beforeEach(() => {
+  mockApi()
+  stubMedia(true)
+  vi.stubGlobal('EventSource', class { onmessage = null; onerror = null; close() {} })
+  window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+  try {
+    window.localStorage.clear()
+  } catch {
+    /* ignore */
+  }
+})
+afterEach(() => vi.unstubAllGlobals())
+
+describe('legacy redirects', () => {
+  const cases: Array<[string, string]> = [
+    ['/dashboard', '/app'],
+    ['/dashboard?tab=pick#pay', '/app/pay'],
+    ['/dashboard/pay?tab=pick', '/app/pay'],
+    ['/dashboard/pay?tab=try', '/app/break'],
+    [`/dashboard/pay?tab=pay&payable=2&seller=${S1}`, `/app/pay/${S1}/2`],
+    [`/dashboard/pay?payable=1&seller=${S2}`, `/app/pay/${S2}/1`],
+    [`/dashboard/pay?tab=receipt&payable=1&seller=${S2}`, `/app/receipt/${S2}/1`],
+    ['/judges', '/app/judges'],
+    [`/receipt/1?seller=${S2}`, `/app/receipt/${S2}/1`],
+    ['/verify-age', '/app/age'],
+    [`/?payable=2&seller=${S1}`, `/app/pay/${S1}/2`],
+    ['/app/nope', '/app'],
+    ['/nope', '/'],
+  ]
+  for (const [from, to] of cases) {
+    it(`${from} -> ${to}`, async () => {
+      renderAt(from)
+      await waitFor(() => expect(where()).toBe(to))
     })
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-      rafQueue = rafQueue.filter((x) => x.id !== id)
-    })
-    vi.spyOn(performance, 'now').mockImplementation(() => now)
-    vi.stubGlobal(
-      'matchMedia',
-      (q: string) => ({
-        matches: false,
-        media: q,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        // framer-motion 11 calls the deprecated addListener/removeListener
-        // (initPrefersReducedMotion); without them every run logs
-        // "motionMediaQuery.addListener is not a function" to stderr.
-        addListener: () => {},
-        removeListener: () => {},
-      }),
-    )
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    vi.restoreAllMocks()
-    window.history.pushState({}, '', '/')
-  })
-
-  const renderApp = (startUrl: string) => {
-    window.history.pushState({}, '', startUrl)
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    return render(
-      <QueryClientProvider client={client}>
-        <App />
-      </QueryClientProvider>,
-    )
   }
 
-  /** Advance the rAF clock by ms (100ms steps — the demo engine caps dt at 100). Every queued callback runs each frame, like a real rAF loop. */
-  const advanceDemo = (ms: number) => {
-    const steps = Math.ceil(ms / 100)
-    for (let i = 0; i < steps; i++) {
-      now += 100
-      const q = rafQueue
-      rafQueue = []
-      act(() => {
-        q.forEach(({ cb }) => cb(now))
-      })
+  it('a legacy link with no seller resolves to the first seller (the API default), in the canonical address form', async () => {
+    renderAt('/dashboard/pay?tab=pick&payable=2')
+    await waitFor(() => expect(where()).toBe(`/app/pay/${S1}/2`))
+  })
+
+  it('legacyPayTarget maps every tab once', () => {
+    expect(legacyPayTarget(new URLSearchParams('tab=check&payable=3&seller=X'))).toBe('/app/pay/X/3')
+    expect(legacyPayTarget(new URLSearchParams('tab=receipt&payable=3'))).toBe('/app/receipt/1/3')
+  })
+  it('the route family ignores the invoice, so choosing another invoice does not scroll', () => {
+    expect(routeFamily('/app/pay/S/1')).toBe(routeFamily('/app/pay/S/2'))
+    expect(routeFamily('/app/pay')).not.toBe(routeFamily('/app/invoices'))
+  })
+})
+
+describe('shell', () => {
+  it('desktop: one sidebar, one nav landmark, one active pill, no bottom bar', async () => {
+    renderAt('/app')
+    await screen.findByRole('heading', { name: 'Overview' })
+    expect(screen.getAllByTestId('app-sidebar')).toHaveLength(1)
+    expect(screen.getAllByRole('navigation', { name: 'App' })).toHaveLength(1)
+    expect(screen.getAllByTestId('nav-pill')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull()
+  })
+
+  it('mobile: top bar and bottom tab bar, no sidebar, one nav landmark', async () => {
+    stubMedia(false)
+    renderAt('/app')
+    await screen.findByRole('heading', { name: 'Overview' })
+    expect(screen.queryByTestId('app-sidebar')).toBeNull()
+    expect(screen.getAllByRole('navigation', { name: 'App' })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
+  })
+
+  it('switching tasks swaps only the outlet: the chrome node is the same element (no remount)', async () => {
+    const user = userEvent.setup()
+    renderAt('/app')
+    await screen.findByRole('heading', { name: 'Overview' })
+    const sidebar = screen.getByTestId('app-sidebar')
+    const shell = screen.getByTestId('app-shell')
+    const nav = within(sidebar).getByRole('navigation', { name: 'App' })
+    for (const [name, path, heading] of [
+      ['Pay', '/app/pay', 'Pay an invoice'],
+      ['Invoices', '/app/invoices', 'Invoices'],
+      ['Break it', '/app/break', 'Break it'],
+      ['Judges', '/app/judges', 'For judges'],
+      ['Overview', '/app', 'Overview'],
+    ] as const) {
+      await user.click(within(nav).getByRole('link', { name }))
+      await waitFor(() => expect(where()).toBe(path))
+      await screen.findByRole('heading', { level: 1, name: heading })
+      expect(screen.getByTestId('app-sidebar')).toBe(sidebar)
+      expect(screen.getByTestId('app-shell')).toBe(shell)
+      expect(sidebar.isConnected).toBe(true)
+      expect(within(sidebar).getByRole('link', { name })).toHaveAttribute('aria-current', 'page')
     }
+  })
+
+  it('judges stays inside the shell', async () => {
+    renderAt('/app/judges')
+    await screen.findByRole('heading', { level: 1, name: 'For judges' })
+    expect(screen.getByTestId('app-sidebar')).toBeInTheDocument()
+  })
+})
+
+describe('seller key, end to end', () => {
+  it('opening a seller-2 payable reads, checks and receipts it WITH the seller, never by id alone', async () => {
+    renderAt(`/app/pay/${S2}/1`)
+    await screen.findByText(/Payable 1, Seller 2/)
+    const payableCalls = calls.filter((c) => /\/api\/payables\/1/.test(c.url))
+    expect(payableCalls.length).toBeGreaterThan(0)
+    for (const c of payableCalls) expect(c.url).toContain(`seller=${S2}`)
+    // already paid: the receipt is read for the same seller
+    await screen.findByTestId('receipt-view')
+    const receiptCalls = calls.filter((c) => /\/api\/receipts\//.test(c.url))
+    for (const c of receiptCalls) expect(c.url).toContain(`seller=${S2}`)
+    const verifyCalls = calls.filter((c) => /\/verify/.test(c.url))
+    expect(verifyCalls.length).toBeGreaterThan(0)
+    for (const c of verifyCalls) expect(c.url).toContain(`seller=${S2}`)
+  })
+
+  it('seller 1 and seller 2 with the same id are different invoices (different payee shown)', async () => {
+    const a = renderAt(`/app/pay/${S1}/2`)
+    await screen.findByText(new RegExp(`PAYEE-${S1.slice(0, 4)}-2`))
+    a.unmount()
+    renderAt(`/app/pay/${S2}/2`)
+    await screen.findByText(new RegExp(`PAYEE-${S2.slice(0, 4)}-2`))
+  })
+
+  it('paying a seller-2 invoice is disabled with a plain reason (the API signs only for seller 1)', async () => {
+    renderAt(`/app/pay/${S2}/2`)
+    const btn = await screen.findByRole('button', { name: /Review and pay/ })
+    await waitFor(() => expect(btn).toHaveAttribute('aria-disabled', 'true'))
+    expect(screen.getByText(/signs payments only for seller 1/)).toBeInTheDocument()
+  })
+
+  it('every Pay / Receipt link in the invoice list carries (seller, id)', async () => {
+    renderAt('/app/invoices')
+    await screen.findAllByTestId('invoice-row')
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
+    expect(hrefs).toContain(`/app/receipt/${S2}/1`)
+    expect(hrefs).toContain(`/app/receipt/${S1}/1`)
+    expect(hrefs).toContain(`/app/pay/${S1}/2`)
+  })
+
+  it('"1" and "2" are accepted as seller shorthand and rewritten to the address', async () => {
+    renderAt('/app/pay/2/1')
+    await waitFor(() => expect(where()).toBe(`/app/pay/${S2}/1`))
+  })
+
+  it('the receipt is a deep link: it works for a payable not paid in this session', async () => {
+    renderAt(`/app/receipt/${S2}/1`)
+    await screen.findByRole('heading', { name: 'Paid once' })
+    expect(await screen.findByTestId('verifier-line')).toBeInTheDocument()
+    expect(screen.getByTestId('verifier-command').textContent).toBe(`node src/verify-payable-v2.mjs 1 ${'ef'.repeat(32)}`)
+  })
+
+  it('an unpaid receipt link says so and links to the pay screen with the seller', async () => {
+    renderAt(`/app/receipt/${S1}/2`)
+    const link = await screen.findByRole('link', { name: 'Pay this invoice' })
+    expect(link).toHaveAttribute('href', `/app/pay/${S1}/2`)
+  })
+})
+
+describe('pay flow', () => {
+  it('checks run on load, the review sheet is a modal dialog, Escape closes it, confirm posts with the seller', async () => {
+    const user = userEvent.setup()
+    renderAt(`/app/pay/${S1}/2`)
+    const btn = await screen.findByRole('button', { name: /Review and pay/ })
+    await screen.findByTestId('check-summary')
+    await waitFor(() => expect(btn).not.toHaveAttribute('aria-disabled'))
+    await user.click(btn)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: /Pay .* on testnet/ })))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await user.click(btn)
+    await user.click(await screen.findByRole('button', { name: /Pay .* on testnet/ }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.includes(`/api/payables/2/pay?seller=${S1}`))).toBe(true))
+  })
+})
+
+describe('break it', () => {
+  it('the injection attack is a real co-signer dry-run call, labelled as such', async () => {
+    const user = userEvent.setup()
+    renderAt('/app/break')
+    const btn = await screen.findByRole('button', { name: 'Try the injected instruction' })
+    await waitFor(() => expect(btn).not.toHaveAttribute('aria-disabled'))
+    await user.click(btn)
+    const out = await screen.findByTestId('attack-outcome')
+    expect(calls.some((c) => c.url.includes('/api/cosigner/dry-run'))).toBe(true)
+    expect(out).toHaveTextContent('REAL CALL')
+    expect(out).toHaveTextContent('Co-signer')
+  })
+
+  it('the fraudster button is disabled when no fraud payable exists', async () => {
+    renderAt('/app/break')
+    const btn = await screen.findByRole('button', { name: /Pay a fraudster/ })
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/No invoice from a seller outside the vendor list/)).toBeInTheDocument()
+  })
+})
+
+describe('overview', () => {
+  it('shows LIVE tags, four stat cards, and a recorded fallback (with a derived date) when the API is down', async () => {
+    renderAt('/app')
+    await waitFor(() => expect(screen.getAllByText('LIVE').length).toBeGreaterThanOrEqual(4))
+    expect(screen.getAllByTestId('stat-card')).toHaveLength(4)
+  })
+
+  it('StartHere ticks from local flags and can be dismissed', async () => {
+    window.localStorage.setItem('po.step.verified', '1')
+    const user = userEvent.setup()
+    renderAt('/app')
+    await screen.findByText('1 of 3 done.')
+    await user.click(screen.getByRole('button', { name: 'Hide this' }))
+    await waitFor(() => expect(screen.queryByTestId('start-here')).toBeNull())
+  })
+})
+
+describe('copy bans on every app route', () => {
+  const routes = ['/app', '/app/pay', `/app/pay/${S1}/2`, '/app/invoices', `/app/receipt/${S2}/1`, '/app/break', '/app/age']
+  for (const r of routes) {
+    it(`no banned word, hype word or emoji on ${r.slice(0, 20)}`, async () => {
+      renderAt(r)
+      await screen.findAllByRole('heading')
+      await new Promise((res) => setTimeout(res, 300))
+      const text = document.body.textContent ?? ''
+      for (const b of BANNED_WORDS) {
+        expect(text.toLowerCase(), `banned: ${b.word}`).not.toContain(b.word.toLowerCase())
+      }
+      for (const w of ['unleash', 'elevate', 'revolutionize', 'seamless', 'effortless', 'supercharge', 'game-changing', 'cutting-edge']) {
+        expect(text.toLowerCase()).not.toContain(w)
+      }
+      expect(/\p{Extended_Pictographic}/u.test(text)).toBe(false)
+    })
   }
 
-  it('dashboard sidebar "Pay an invoice" opens the pay route /dashboard/pay', async () => {
-    const user = userEvent.setup()
-    renderApp('/dashboard')
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
-    scrollToSpy.mockClear()
-    scrollIntoViewSpy.mockClear()
-    await user.click(screen.getByRole('link', { name: 'Pay an invoice' }))
-    // The pay flow is its own route now — a different pathname, no anchor.
-    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
-    expect(window.location.search).toContain('tab=pick')
-    expect(window.location.hash).toBe('')
-    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
-    // A pathname change scrolls to the TOP — nothing yanks the view down
-    // to an anchor, because there is no anchor left to yank to.
-    expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+  it('the judges page prints no typed test count and one fee figure', async () => {
+    renderAt('/app/judges')
+    await screen.findByRole('heading', { level: 1, name: 'For judges' })
+    const text = document.body.textContent ?? ''
+    expect(text).not.toMatch(/\b\d+ (Rust )?tests\b/)
+    expect(text).not.toContain('19.6')
+    expect(text).toContain('16.2 testnet CCD')
   })
+})
 
-  it('fresh load of /dashboard/pay opens at the top — no anchor scroll', async () => {
-    renderApp('/dashboard/pay?tab=pick')
-    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
-    expect(window.location.pathname).toBe('/dashboard/pay')
-    expect(window.location.hash).toBe('')
-    expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+describe('source rules for the app', () => {
+  const files = import.meta.glob('./app/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  it('no window.location.reload and no plain <a href="/..."> for internal routes', () => {
+    for (const [path, src] of Object.entries(files)) {
+      expect(src, path).not.toContain('location.reload')
+      expect(src, path).not.toMatch(/<a\s+href="\/(?!\/)/)
+    }
   })
-
-  it('legacy /dashboard?tab=pick#pay redirects to /dashboard/pay with no hash', async () => {
-    renderApp('/dashboard?tab=pick#pay')
-    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
-    expect(window.location.search).toContain('tab=pick')
-    expect(window.location.hash).toBe('')
-    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
-  })
-
-  it('legacy /dashboard?tab=pay&payable=2#pay redirects keeping tab and payable', async () => {
-    renderApp('/dashboard?tab=pay&payable=2#pay')
-    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
-    expect(window.location.search).toContain('tab=pay')
-    expect(window.location.search).toContain('payable=2')
-    expect(window.location.hash).toBe('')
-    expect(screen.getByRole('tab', { name: /Pay once/ })).toHaveAttribute('aria-selected', 'true')
-  })
-
-  it('tab switches on /dashboard/pay do not scroll (query-only change)', async () => {
-    const user = userEvent.setup()
-    renderApp('/dashboard/pay?tab=pick')
-    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
-    scrollToSpy.mockClear()
-    scrollIntoViewSpy.mockClear()
-    await user.click(screen.getByRole('tab', { name: /Check/ }))
-    await waitFor(() => expect(window.location.search).toContain('tab=check'))
-    expect(screen.getByRole('tab', { name: /Check/ })).toHaveAttribute('aria-selected', 'true')
-    expect(scrollToSpy).not.toHaveBeenCalled()
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
-  })
-
-  it('dashboard sidebar has no dead "Live console" tab — the console lives here, in /dashboard', async () => {
-    const user = userEvent.setup()
-    renderApp('/dashboard')
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
-    // The old sidebar pointed "Live console" at /#console, an anchor that no
-    // longer exists on the landing (the console moved into /dashboard). The
-    // tab is gone instead of dead — and the remaining tabs all land.
-    expect(screen.queryByRole('link', { name: 'Live console' })).toBeNull()
-    await user.click(screen.getByRole('link', { name: 'For judges' }))
-    await waitFor(() => expect(window.location.pathname).toBe('/judges'))
-    expect(screen.getByRole('heading', { name: 'For judges' })).toBeInTheDocument()
-  })
-
-  it('every header tab lands on its own working view (Home / Dashboard / For judges)', async () => {
-    const user = userEvent.setup()
-    renderApp('/')
-    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
-    await user.click(screen.getAllByRole('link', { name: 'Dashboard' })[0])
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
-    expect(window.location.pathname).toBe('/dashboard')
-    await user.click(screen.getAllByRole('link', { name: 'For judges' })[0])
-    await waitFor(() => expect(window.location.pathname).toBe('/judges'))
-    expect(screen.getByRole('heading', { name: 'For judges' })).toBeInTheDocument()
-    await user.click(screen.getAllByRole('link', { name: 'Home' })[0])
-    await waitFor(() => expect(window.location.pathname).toBe('/'))
-    expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument()
-  })
-
-  it('verify-age route renders its own view', async () => {
-    renderApp('/verify-age')
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /Prove you are 18\+ without revealing your birthday/ })).toBeInTheDocument(),
-    )
-    expect(window.location.pathname).toBe('/verify-age')
-  })
-
-  it('clicking "Pay an invoice" twice on /dashboard/pay causes no scroll yank', async () => {
-    const user = userEvent.setup()
-    renderApp('/dashboard/pay?tab=pick')
-    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
-    scrollToSpy.mockClear()
-    scrollIntoViewSpy.mockClear()
-    // Sidebar "Pay an invoice" link, same URL as the current one: a
-    // same-URL click must not move the viewport at all.
-    await user.click(screen.getByRole('link', { name: 'Pay an invoice' }))
-    expect(window.location.pathname).toBe('/dashboard/pay')
-    expect(window.location.search).toContain('tab=pick')
-    expect(window.location.hash).toBe('')
-    expect(scrollToSpy).not.toHaveBeenCalled()
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
-    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
-  })
-
-  it('footer "Pay an invoice" opens the pay route from the home page (bug 1c)', async () => {
-    const user = userEvent.setup()
-    renderApp('/')
-    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
-    scrollToSpy.mockClear()
-    scrollIntoViewSpy.mockClear()
-    // The footer's "Pay an invoice" link: it leaves the landing for the
-    // pay route — the view opens at the top, with no anchor scroll.
-    const footer = screen.getByRole('contentinfo')
-    const footerLink = within(footer).getByRole('link', { name: 'Pay an invoice' })
-    await user.click(footerLink)
-    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
-    expect(window.location.search).toContain('tab=pick')
-    expect(window.location.hash).toBe('')
-    expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument()
-    expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
-  })
-
-  it('an old /?payable= link redirects to the pay route', async () => {
-    renderApp('/?payable=2')
-    await waitFor(() => expect(window.location.pathname).toBe('/dashboard/pay'))
-    expect(window.location.search).toContain('tab=pick')
-    expect(window.location.search).toContain('payable=2')
-    expect(window.location.hash).toBe('')
-    expect(screen.getByRole('tab', { name: /Pick an invoice/ })).toHaveAttribute('aria-selected', 'true')
-  })
-
-  it('no rendered link anywhere in the app points at #invoice or #pay', async () => {
-    const { unmount } = renderApp('/')
-    await waitFor(() => expect(screen.getByText('Every invoice paid once. Every payment provable.')).toBeInTheDocument())
-    const landingHrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
-    expect(landingHrefs.filter((href) => href.includes('#invoice'))).toEqual([])
-    expect(landingHrefs.filter((href) => href.includes('#pay'))).toEqual([])
-    unmount()
-    renderApp('/dashboard')
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
-    const dashHrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
-    expect(dashHrefs.filter((href) => href.includes('#invoice'))).toEqual([])
-    expect(dashHrefs.filter((href) => href.includes('#pay'))).toEqual([])
-    unmount()
-    renderApp('/dashboard/pay')
-    await waitFor(() => expect(screen.getByRole('tablist', { name: 'Pay flow steps' })).toBeInTheDocument())
-    const payHrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href') ?? '')
-    expect(payHrefs.filter((href) => href.includes('#invoice'))).toEqual([])
-    expect(payHrefs.filter((href) => href.includes('#pay'))).toEqual([])
-  })
-
-  it('the hero demo never yanks the viewport while the user reads below it', async () => {
-    renderApp('/')
-    // Wait for LIVE data (not the static sidebar text): 'Payables overview' only
-    // renders once the demo's live panels are on screen. Waiting for the
-    // static 'Pick an invoice' text resolves before the fetch lands, and
-    // then the demo is still in its static frame and the test is vacuous.
-    await waitFor(() => expect(screen.getByText('Payables overview')).toBeInTheDocument())
-    // Let the page sit through 20 s of rAF ticks (CountUp + the demo's
-    // tour cursor). The tour only writes the cursor transform and toggles
-    // the dwell highlight — it never scrolls — so there is nothing left
-    // that could yank the viewport while the user reads below the demo.
-    scrollIntoViewSpy.mockClear()
-    advanceDemo(20000)
-    // No scrollIntoView from the hero at all: the glimpse is a static
-    // card, it must never move the user's viewport.
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+  it('nothing in the app starts at opacity 0 except overlay motion in the sheet', () => {
+    for (const [path, src] of Object.entries(files)) {
+      if (path.endsWith('ui.tsx')) continue
+      expect(src, path).not.toMatch(/initial=\{\{[^}]*opacity:\s*0/)
+    }
   })
 })
