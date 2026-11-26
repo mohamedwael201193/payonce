@@ -56,7 +56,7 @@
 // which the default loader is built). `selfHosted` is the object returned
 // by scheme.mjs createFacilitator(); omit it (or pass allowFallback:false)
 // to disable the fallback entirely.
-import { grpcClient, getTxStatus } from '../chain.mjs';
+import { grpcClient, getTxStatus, decodeCborMemo } from '../chain.mjs';
 import { getPayable } from '../registry.mjs';
 import { checkPayableBinding } from './binding.mjs';
 import { HostedFacilitatorError } from './hosted.mjs';
@@ -142,8 +142,14 @@ export function matchSettleTxContents(summary, expected) {
     return 'expected settle contents have no payableId — cannot check the settled transfer memo';
   }
   const memoHex = typeof match.memo === 'string' ? match.memo : '';
+  // On chain the memo is CBOR (a text-string header, e.g. 0x78 0x40 for a 64-byte text), so decode it as
+  // CBOR first; the raw-UTF-8 reading is kept only for legacy fixtures whose memo hex is plain text.
+  // (Found by the first real hosted settle, 2026-11-26: a real memo never matched the raw reading.)
   let memoText = '';
-  try { memoText = memoHex ? Buffer.from(memoHex, 'hex').toString('utf8') : ''; } catch { memoText = ''; }
+  try {
+    memoText = decodeCborMemo(memoHex).text;
+    if (!memoText && memoHex) memoText = Buffer.from(memoHex, 'hex').toString('utf8');
+  } catch { memoText = ''; }
   if (memoText !== `payable:${expected.payableId}`) return `settled transfer memo is ${memoText ? `'${memoText}'` : '(missing)'} != 'payable:${expected.payableId}'`;
   return null;
 }

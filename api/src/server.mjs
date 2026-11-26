@@ -9,6 +9,7 @@
 // read-only endpoint works without them.
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { CredentialRegistrationId } from '@concordium/web-sdk';
 import { backend } from './backend.mjs';
@@ -1455,7 +1456,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   ready().then(() => {
     server.listen(PORT, HOST, () => {
       console.log(`payonce-api listening on http://${HOST}:${PORT} (registry <${REGISTRY.index},${REGISTRY.subindex}>, ${NETWORK})`);

@@ -525,8 +525,15 @@ test('FIXBACK2 A2: matchSettleTxContents — CCD match passes; wrong sender/amou
 
 test('FIXBACK2 A2: matchSettleTxContents — PLT match passes only with the canonical payable memo', () => {
   const pltExpected = { sender: PAYER, amount: '10000', recipient: PAYEE, asset: 'EUDemo', payableId: 9 };
-  // Transfer9's memo is 'ipayable:9', not 'payable:9' — it must NOT match payable 9.
-  assert.match(matchSettleTxContents(TRANSFER9_SUMMARY, pltExpected), /memo/);
+  // Transfer9's memo is the REAL on-chain form: CBOR text 'ipayable:9' (0x69 = text, 9 bytes) = 'payable:9'.
+  // (Before 2026-11-26 this test pinned the opposite — the raw-UTF-8 reading — and the first real hosted
+  // settle was refused for it: a real settled transfer never matched.) It matches payable 9, not payable 8.
+  assert.equal(matchSettleTxContents(TRANSFER9_SUMMARY, pltExpected), null);
+  assert.match(matchSettleTxContents(TRANSFER9_SUMMARY, { ...pltExpected, payableId: 8 }), /memo/);
+  // A v2 memo (longer than 23 bytes, two-byte CBOR header) decodes as well.
+  const v2memo = JSON.parse(JSON.stringify(TRANSFER9_SUMMARY));
+  v2memo.events[0].memo = encodeCborMemo('payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97504').toString('hex');
+  assert.equal(matchSettleTxContents(v2memo, { ...pltExpected, payableId: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97504' }), null);
   const goodMemo = JSON.parse(JSON.stringify(TRANSFER9_SUMMARY));
   goodMemo.events[0].memo = Buffer.from('payable:9', 'utf8').toString('hex');
   assert.equal(matchSettleTxContents(goodMemo, pltExpected), null);

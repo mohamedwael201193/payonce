@@ -261,6 +261,9 @@ const JUDGE_FILE_DEFS = [
   { name: 'verify-payable.mjs', path: () => join(BACKEND_DIR, 'src/verifier/verify-payable.mjs') },
   { name: 'v2-live-e2e-2026-11-24.json', path: () => join(BACKEND_DIR, 'test/v2-live-e2e-2026-11-24.json') },
   { name: 'live-e2e-2026-11-24.json', path: () => join(BACKEND_DIR, 'test/live-e2e-2026-11-24.json') },
+  // The one real x402 settle through the hosted testnet facilitator (2026-11-26): facilitator responses,
+  // the settled transaction read back from the chain, confirm_plt, and the keyless verifier result.
+  { name: 'x402-hosted-settle-2026-11-26.json', path: () => join(BACKEND_DIR, 'test/x402-hosted-settle-2026-11-26.json') },
   { name: 'invoice-010-v2-ccd.txt', path: () => join(BACKEND_DIR, 'test/invoices/invoice-010-v2-ccd.txt') },
   { name: 'invoice-011-v2-eudemo.txt', path: () => join(BACKEND_DIR, 'test/invoices/invoice-011-v2-eudemo.txt') },
   { name: 'invoice-006-ccd.txt', path: () => join(BACKEND_DIR, 'test/invoices/invoice-006-ccd.txt') },

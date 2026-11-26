@@ -31,6 +31,7 @@ const ENV_PATH = '/home/hatch/workspace/concordium-trusted-agents/.env';
 export const OWNER_ADDRESS = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB';
 export const SELLER_B_ADDRESS = '4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs';
 export const AGENT_C3_ADDRESS = '3cjnRyk51g6b3ox6Ez64KrFxC69TCjthnxKL2PDTA5q6rvJh8n';
+export const SELLER2_ADDRESS = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr';
 export const PAYEE2_ADDRESS = '4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg';
 export const REGISTRY = { index: 13149n, subindex: 0n };
 
@@ -52,8 +53,11 @@ export function loadSigners() {
   const wallet = ConcordiumHdWallet.fromSeedPhrase(env.CONCORDIUM_WALLET_SEED_PHRASE, 'Testnet');
   const sellerB = buildBasicAccountSigner(wallet.getAccountSigningKey(0, 1, 1).toString('hex'));
   const agentC3Key0 = buildBasicAccountSigner(wallet.getAccountSigningKey(0, 1, 3).toString('hex'));
+  // Second seller (agent token 1506): identity 0, counter 0 of the same seed.
+  const seller2 = buildBasicAccountSigner(wallet.getAccountSigningKey(0, 0, 0).toString('hex'));
   return {
     owner: { address: OWNER_ADDRESS, signer: owner },
+    seller2: { address: SELLER2_ADDRESS, signer: seller2 },
     sellerB: { address: SELLER_B_ADDRESS, signer: sellerB },
     agentC3Key0: { address: AGENT_C3_ADDRESS, signer: agentC3Key0 },
   };
