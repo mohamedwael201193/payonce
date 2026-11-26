@@ -1,0 +1,835 @@
+{
+ "captured_at": "2026-11-26T04:30:29.189Z",
+ "api_base": "https://payonce-api-n98a.onrender.com",
+ "stats": {
+  "payables_total": 53,
+  "paid_total": 33,
+  "voided_total": 1,
+  "reserved_total": 5,
+  "refused_on_chain_since_deploy": 21,
+  "last_verifier_run_at": "2026-11-26T04:29:36.026Z"
+ },
+ "invoices": [
+  {
+   "payable_id": 1,
+   "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-26T17:11:03.665Z",
+   "status": "Paid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 2,
+   "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+   "asset": "eudemo",
+   "amount_display": "10.00 EUDemo",
+   "due": "2026-11-26T17:22:28.636Z",
+   "status": "Paid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 1,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "10.000000 CCD",
+   "due": "2026-12-01T08:03:26.555Z",
+   "status": "Unpaid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 2,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "5.000000 CCD",
+   "due": "2026-12-01T08:03:26.555Z",
+   "status": "Unpaid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 3,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "1.00 EUDemo",
+   "due": "2026-12-01T08:03:26.555Z",
+   "status": "Unpaid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 5,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "1.000000 CCD",
+   "due": "2026-11-24T08:05:59.988Z",
+   "status": "Unpaid",
+   "label": "Contract-matrix test payable (testnet)"
+  },
+  {
+   "payable_id": 10,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-12-26T12:00:00.000Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 11,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-12-26T12:00:00.000Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1000,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T10:50:03.797Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1001,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T10:50:40.533Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1002,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T10:56:58.441Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1003,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T10:57:38.512Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1004,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T10:58:25.269Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1005,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T13:11:46.300Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1006,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T15:07:59.465Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1007,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "1.000000 CCD",
+   "due": "2026-11-25T20:01:43.436Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1008,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:14:50.815Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1010,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:18:01.618Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1012,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:21:43.297Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1013,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:27:05.740Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1014,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:27:21.393Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1015,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T20:28:10.228Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1016,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T21:30:25.335Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1017,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:39:57.308Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1018,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:40:21.943Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1019,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:41:55.511Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1020,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:46:58.608Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1021,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:47:12.059Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1023,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:50:49.130Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1025,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:51:31.792Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1026,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:53:37.072Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1027,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:53:54.971Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1028,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:55:23.644Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1029,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T21:56:17.125Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1030,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T21:57:10.189Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1031,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T21:58:07.647Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1032,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:02:42.557Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1034,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:35:06.670Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1035,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:35:22.977Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1036,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:36:15.155Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1037,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:40:00.780Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1038,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:40:17.142Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1039,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:41:23.847Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1040,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T22:42:20.371Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1041,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T23:02:34.260Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1042,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T23:08:04.854Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1043,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T23:14:02.871Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1044,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T23:14:53.368Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1045,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "ccd",
+   "amount_display": "0.500000 CCD",
+   "due": "2026-11-25T23:15:59.138Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1046,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T23:20:34.374Z",
+   "status": "Unpaid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1047,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T23:20:47.767Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1048,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T23:21:34.755Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  },
+  {
+   "payable_id": 1049,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "asset": "eudemo",
+   "amount_display": "0.01 EUDemo",
+   "due": "2026-11-25T23:22:18.281Z",
+   "status": "Paid",
+   "label": "Lab invoice (testnet, not a real invoice)"
+  }
+ ],
+ "facts": {
+  "payable_id": 10,
+  "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+  "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+  "amount_display": "0.500000 CCD",
+  "asset": "ccd",
+  "due": "2026-12-26T12:00:00.000Z",
+  "doc_sha256": "c9fef19aa010ed3da158678cbfcafb5005699e55eef81ca1104f3250d8addb7f",
+  "label": "Lab invoice (testnet, not a real invoice)",
+  "status": "paid",
+  "document": "PAYONCE TEST INVOICE — payable 10 (v2 Rail A, CCD)\nSeller: 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\nPayee: 4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin\nAmount: 0.5 CCD (500000 microCCD)\nDue: 2026-12-26T12:00:00.000Z\nTest only — Concordium testnet, no real goods or services.\n",
+  "document_matches_chain": true
+ },
+ "receipts": [
+  {
+   "payable_id": 1049,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "a21c94521b0bcf8e5b3bc6a01705fc5c0d5bc6d1840fb48dc29167051c558c64"
+    }
+   ],
+   "verifier": null
+  },
+  {
+   "payable_id": 1047,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "e74f84f657f19922c6d084bd71e3a825d1ad22e1846cca3bcf4facdac2e25a3e"
+    }
+   ],
+   "verifier": {
+    "passed": 12,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:22.374Z"
+   }
+  },
+  {
+   "payable_id": 1044,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "3bb937b2f3a7f6ebe7dfda1803a1fdcb33e48ab587a50c1c30dca9f66bdd645a"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:22.602Z"
+   }
+  },
+  {
+   "payable_id": 1043,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.500000 CCD",
+   "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+   "txs": [
+    {
+     "label": "Payment",
+     "tx_hash": "b631dc20c8d0366e46deb2db3826204f37d73ebc1fd454c501c9710dba17c110"
+    }
+   ],
+   "verifier": {
+    "passed": 10,
+    "total": 10,
+    "checked_at": "2026-11-26T04:30:22.809Z"
+   }
+  },
+  {
+   "payable_id": 1041,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.500000 CCD",
+   "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+   "txs": [
+    {
+     "label": "Payment",
+     "tx_hash": "fff51f656054ebe21481d966df79606d76bbdf43454940802f067d1d60e53c00"
+    }
+   ],
+   "verifier": {
+    "passed": 10,
+    "total": 10,
+    "checked_at": "2026-11-26T04:30:23.021Z"
+   }
+  },
+  {
+   "payable_id": 1040,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "986e7c0ff29e92032a1ff6a3911ee7fdcda49c0f935d9ffa55c348904b2be148"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:23.234Z"
+   }
+  },
+  {
+   "payable_id": 1039,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "dbf749361550a37c23a6952546f0c3704214dbcbd4050a2d1b07987f3d1b2c0b"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:23.445Z"
+   }
+  },
+  {
+   "payable_id": 1038,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "85262d38080143ff386a74bdee24afea2f6b754fe284aa244d9888a9ef1cccc4"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:23.653Z"
+   }
+  },
+  {
+   "payable_id": 1036,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "25a7faf43e7a7823ba56fa5a9c95f08cf0824f181a02f39e3d5ce2886c3c99c7"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:23.874Z"
+   }
+  },
+  {
+   "payable_id": 1035,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "3db2e863ce46dc8b9c5e5168e5ebe483186d95622f9ceabd2857f513507b9605"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:24.090Z"
+   }
+  },
+  {
+   "payable_id": 1032,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "795f409c5754e2fbdb6a2c186d30bfd73824403eb17142dcd1a30e2749a30b9f"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:24.299Z"
+   }
+  },
+  {
+   "payable_id": 1031,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.500000 CCD",
+   "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
+   "txs": [
+    {
+     "label": "Payment",
+     "tx_hash": "9a7ec39e8dd512f112a51f508821109f736b3e595776b564b1804ca17f67cf5d"
+    }
+   ],
+   "verifier": {
+    "passed": 9,
+    "total": 10,
+    "checked_at": "2026-11-26T04:30:27.233Z"
+   }
+  },
+  {
+   "payable_id": 1030,
+   "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+   "amount_display": "0.01 EUDemo",
+   "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+   "txs": [
+    {
+     "label": "Transfer",
+     "tx_hash": "1947760f11006a9b4bb11f0dff2752fc66b249fd9b3c1ead25bc393c0b344217"
+    }
+   ],
+   "verifier": {
+    "passed": 13,
+    "total": 15,
+    "checked_at": "2026-11-26T04:30:27.446Z"
+   }
+  }
+ ],
+ "recorded_run_date": "2026-11-24",
+ "recorded_steps": {
+  "payable_id": 10,
+  "steps": [
+   {
+    "step": "register",
+    "detail": "Payable 10 registered (CCD 0.5, payee1, due 26 Dec 2026)",
+    "txHash": "e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9"
+   },
+   {
+    "step": "pay",
+    "detail": "Owner paid via pay_ccd (0.5 CCD attached)",
+    "txHash": "7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197"
+   },
+   {
+    "step": "verify",
+    "detail": "Verifier re-run: 10/10 checks pass (CCD branch)",
+    "txHash": null
+   }
+  ]
+ },
+ "verify": {
+  "payable_id": 10,
+  "verdict": "paid",
+  "passed": 10,
+  "total": 10,
+  "checked_at": "2026-11-26T04:30:28.297Z",
+  "checks": [
+   {
+    "id": "registered",
+    "label": "Payable is registered on the test registry",
+    "status": "ok"
+   },
+   {
+    "id": "doc",
+    "label": "Invoice document matches the on-chain hash",
+    "status": "ok"
+   },
+   {
+    "id": "agent",
+    "label": "Seller agent is Active on the official CIS-8004 registry",
+    "status": "ok"
+   },
+   {
+    "id": "registry_zero",
+    "label": "Registry holds no CCD after the payment",
+    "status": "ok"
+   },
+   {
+    "id": "status_paid",
+    "label": "Registry status is Paid",
+    "status": "ok"
+   },
+   {
+    "id": "tx_finalized",
+    "label": "Payment transaction is finalized",
+    "status": "ok"
+   },
+   {
+    "id": "invoked_pay_ccd",
+    "label": "The payment transaction invoked pay_ccd for this payable",
+    "status": "ok"
+   },
+   {
+    "id": "sender_is_payer",
+    "label": "The transaction sender is the recorded payer",
+    "status": "ok"
+   },
+   {
+    "id": "single_transfer_to_payee",
+    "label": "Exactly one transfer from the registry to the stored payee",
+    "status": "ok"
+   },
+   {
+    "id": "no_other_transfer",
+    "label": "No other transfer in the payment transaction",
+    "status": "ok"
+   }
+  ]
+ },
+ "config": {
+  "network": "testnet",
+  "registry": {
+   "index": 13150,
+   "subindex": 0,
+   "module_ref": "c8083a94f57495ecc0ac6b7f18eb7f5944989897929c095e638b6362d55685a8"
+  },
+  "explorer": {
+   "tx": "https://ccdexplorer.io/testnet/transaction/",
+   "instance": "https://ccdexplorer.io/testnet/instance/"
+  },
+  "reservation_secs": 3600,
+  "verifier": {
+   "file": "verify-payable-v2.mjs",
+   "version_date": "2026-11-24"
+  }
+ },
+ "tests": {
+  "frontend": {
+   "files": 25,
+   "cases": 286
+  },
+  "api": {
+   "files": 18,
+   "cases": 330
+  }
+ },
+ "counts": {
+  "listed": 53,
+  "paid": 33,
+  "unpaid": 20
+ }
+}
