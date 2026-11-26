@@ -395,3 +395,24 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* v9 app tokens as Tailwind utilities (bg-po-paper, text-po-ink, ...). The
+   values live in src/app/app.css under .po-app; `inline` makes the utilities
+   read the variable where they are used. */
+@theme inline {
+  --color-po-paper: var(--po-paper);
+  --color-po-surface: var(--po-surface);
+  --color-po-sunken: var(--po-sunken);
+  --color-po-ink: var(--po-ink);
+  --color-po-grey: var(--po-grey);
+  --color-po-line: var(--po-line);
+  --color-po-line-strong: var(--po-line-strong);
+  --color-po-accent: var(--po-accent);
+  --color-po-accent-ink: var(--po-accent-ink);
+  --color-po-ok: var(--po-ok);
+  --color-po-ok-bg: var(--po-ok-bg);
+  --color-po-bad: var(--po-bad);
+  --color-po-bad-bg: var(--po-bad-bg);
+  --color-po-warn: var(--po-warn);
+  --color-po-warn-bg: var(--po-warn-bg);
+}

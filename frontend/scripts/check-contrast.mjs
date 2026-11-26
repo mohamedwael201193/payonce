@@ -8,7 +8,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const src = readFileSync(join(root, 'src/lib/tokens.ts'), 'utf8')
+// v9: the app palette pairs (src/app/tokens.ts) are checked with the same rule.
+const src =
+  readFileSync(join(root, 'src/lib/tokens.ts'), 'utf8') + '\n' + readFileSync(join(root, 'src/app/tokens.ts'), 'utf8')
 
 const pairRe = /\{\s*name:\s*'([^']+)'\s*,\s*fg:\s*'(#[0-9A-Fa-f]{6})'\s*,\s*bg:\s*'(#[0-9A-Fa-f]{6})'\s*\}/g
 const pairs = [...src.matchAll(pairRe)].map((m) => ({ name: m[1], fg: m[2], bg: m[3] }))

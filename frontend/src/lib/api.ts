@@ -508,6 +508,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function sellerQuery(seller?: string): string {
+  return seller ? `?seller=${encodeURIComponent(seller)}` : ''
+}
+
 export const api = {
   getConfig: () => request<ApiConfig>('/api/config', configSchema),
   getHealth: () => request<Health>('/api/health', healthSchema),
@@ -550,8 +554,11 @@ export const api = {
     }
     return res.text()
   },
-  verify: (id: number, mode: 'before_pay' | 'after_pay', doc_sha256?: string) =>
-    request<VerifyResponse>(`/api/payables/${id}/verify`, verifySchema, {
+  // v9: the key of a payable is (seller, id). The seller travels as
+  // ?seller=<address> on every call that names a payable, so a seller-2 row
+  // can never read, check or pay seller 1's payable of the same id.
+  verify: (id: number, mode: 'before_pay' | 'after_pay', doc_sha256?: string, seller?: string) =>
+    request<VerifyResponse>(`/api/payables/${id}/verify${sellerQuery(seller)}`, verifySchema, {
       method: 'POST',
       body: JSON.stringify({ mode, ...(doc_sha256 ? { doc_sha256 } : {}) }),
     }),
@@ -567,9 +574,9 @@ export const api = {
       }),
       { method: 'POST', body: JSON.stringify({ asset }) },
     ),
-  pay: (id: number, rail: 'ccd' | 'eudemo', doc_sha256?: string) =>
+  pay: (id: number, rail: 'ccd' | 'eudemo', doc_sha256?: string, seller?: string) =>
     request<PayJob>(
-      `/api/payables/${id}/pay`,
+      `/api/payables/${id}/pay${sellerQuery(seller)}`,
       z.object({ job_id: z.string(), payable_id: z.number(), rail: z.enum(['ccd', 'eudemo']), steps: z.array(z.string()) }),
       { method: 'POST', body: JSON.stringify({ rail, ...(doc_sha256 ? { doc_sha256 } : {}) }) },
     ),

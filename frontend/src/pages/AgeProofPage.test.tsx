@@ -260,12 +260,11 @@ describe('AgeProofPage', () => {
     expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
   })
 
-  it('B7: the header sits on a dark band, and the verify intro has no stray valid:false fragment', async () => {
+  it('B7: the verify intro has no stray valid:false fragment', async () => {
     const { container } = renderPage()
     await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    // The AppHeader is white-on-dark by design: it must render inside a
-    // dark band, never directly on the light paper.
-    expect(container.querySelector('div.bg-sky-0 > header')).toBeTruthy()
+    // v9: the page lives inside the app shell, so it renders no header of its own.
+    expect(container.querySelector('header')).toBeNull()
     expect(screen.queryByText(/returns HTTP 400 with/)).toBeNull()
   })
 })

@@ -19,8 +19,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ageProofApi } from '../lib/api'
 import { ApiError } from '../lib/types'
-import { AppHeader } from '../components/AppHeader'
-import { Footer } from '../components/Sections'
 import { useSlowLoad } from '../components/polish'
 
 const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
@@ -188,17 +186,10 @@ export function AgeProofPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper pb-24 md:pb-0">
-      {/* B7: the header is white-on-dark by design — on the light paper
-          background its nav text was near-invisible. Same dark band as the
-          judges/receipt pages. */}
-      <div className="bg-sky-0">
-        <AppHeader dark />
-      </div>
-      <main className="mx-auto max-w-[880px] px-4 py-10 sm:px-6">
-        <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">Age proof · V&amp;A · Testnet</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Prove you are 18+ without revealing your birthday</h1>
-        <p className="mt-3 max-w-[640px] text-body">
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-po-ink sm:text-[40px]">Prove you are 18+ without revealing your birthday</h1>
+        <p className="mt-3 max-w-[640px] text-po-grey">
           An agent can prove its human is 18 or older — and in the EU — without ever seeing the date of
           birth. The proof is a zero-knowledge presentation from the holder&apos;s Concordium credential,
           checked by the official testnet verifier. Nothing about the person is revealed, not even the
@@ -206,15 +197,15 @@ export function AgeProofPage() {
         </p>
 
         {/* Prover status — honest about provisioning. */}
-        <section aria-label="Prover status" className="mt-8 rounded-[20px] border border-line bg-card p-6">
+        <section aria-label="Prover status" className="mt-8 po-card p-5 sm:p-6">
           {health.isLoading ? (
-            <p className="text-body">
+            <p className="text-po-grey">
               Checking the age-proof prover…{healthSlow ? ' Still checking — the test API is slow right now.' : ''}
             </p>
           ) : proverDown ? (
             <div>
-              <h2 className="text-lg font-semibold text-ink">Prover not provisioned yet</h2>
-              <p className="mt-2 text-body">
+              <h2 className="text-lg font-medium text-po-ink">Prover not provisioned yet</h2>
+              <p className="mt-2 text-po-grey">
                 The age-proof prover runs as a loopback sidecar on the API host, and its secret sidecar
                 file has not been provisioned there yet. Until it is, this page shows the design and the
                 anchored run — it does not pretend to verify live. Age-gated payments (1 CCD or 1.00
@@ -223,64 +214,64 @@ export function AgeProofPage() {
             </div>
           ) : health.isError ? (
             <div>
-              <h2 className="text-lg font-semibold text-ink">Age proof is unavailable right now</h2>
-              <p className="mt-2 text-body">
+              <h2 className="text-lg font-medium text-po-ink">Age proof is unavailable right now</h2>
+              <p className="mt-2 text-po-grey">
                 {health.error instanceof ApiError ? health.error.body.message : 'The API did not answer.'}
               </p>
             </div>
           ) : (
             <div>
-              <h2 className="text-lg font-semibold text-ink">Prover live — {health.data?.prover.network}</h2>
-              <p className="mt-2 text-body">
+              <h2 className="text-lg font-medium text-po-ink">Prover live — {health.data?.prover.network}</h2>
+              <p className="mt-2 text-po-grey">
                 Attributes held (names only): {health.data?.prover.attributes_held.join(', ')}. The prover
                 answers only the shapes on the allow-list below and refuses everything else.
               </p>
-              <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-body">
+              <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-po-grey">
                 {health.data?.prover.allow_list.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-              <p className="mt-4 text-sm text-muted">Refused, always: {health.data?.prover.refuses.join('; ')}.</p>
+              <p className="mt-4 text-sm text-po-grey">Refused, always: {health.data?.prover.refuses.join('; ')}.</p>
             </div>
           )}
         </section>
 
         {/* Anchored run. */}
-        <section aria-label="Anchored run" className="mt-6 rounded-[20px] border border-line bg-card p-6">
-          <h2 className="text-lg font-semibold text-ink">Anchored run — the proof that already happened</h2>
-          <p className="mt-2 text-body">
+        <section aria-label="Anchored run" className="mt-6 po-card p-5 sm:p-6">
+          <h2 className="text-lg font-medium text-po-ink">Anchored run — the proof that already happened</h2>
+          <p className="mt-2 text-po-grey">
             One V&amp;A V1 run is anchored on testnet: the verifier anchored a request (VRA), the prover
             returned the presentation, the verifier anchored the answer (VAA). Statements: dob in range
             18000101–20081125, nationality in the EU 27 set. Holder: account C3.
           </p>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex flex-col gap-1 sm:flex-row sm:gap-3">
-              <dt className="w-32 shrink-0 font-medium text-ink">Request (VRA)</dt>
+              <dt className="w-32 shrink-0 font-medium text-po-ink">Request (VRA)</dt>
               <dd className="min-w-0 break-all">
-                <a className="text-brand-700 underline" href={`${TX_BASE}${AGE_PROOF_VRA}`} target="_blank" rel="noreferrer">
+                <a className="text-po-accent-ink underline" href={`${TX_BASE}${AGE_PROOF_VRA}`} target="_blank" rel="noreferrer">
                   {AGE_PROOF_VRA}
                 </a>
               </dd>
             </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:gap-3">
-              <dt className="w-32 shrink-0 font-medium text-ink">Answer (VAA)</dt>
+              <dt className="w-32 shrink-0 font-medium text-po-ink">Answer (VAA)</dt>
               <dd className="min-w-0 break-all">
-                <a className="text-brand-700 underline" href={`${TX_BASE}${AGE_PROOF_VAA}`} target="_blank" rel="noreferrer">
+                <a className="text-po-accent-ink underline" href={`${TX_BASE}${AGE_PROOF_VAA}`} target="_blank" rel="noreferrer">
                   {AGE_PROOF_VAA}
                 </a>
               </dd>
             </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:gap-3">
-              <dt className="w-32 shrink-0 font-medium text-ink">Record sha256</dt>
-              <dd className="min-w-0 break-all font-mono text-xs text-body">{AGE_PROOF_RECORD_SHA256}</dd>
+              <dt className="w-32 shrink-0 font-medium text-po-ink">Record sha256</dt>
+              <dd className="min-w-0 break-all font-mono text-xs text-po-grey">{AGE_PROOF_RECORD_SHA256}</dd>
             </div>
           </dl>
         </section>
 
         {/* Try a forbidden shape. */}
-        <section aria-label="Try a forbidden shape" className="mt-6 rounded-[20px] border border-line bg-card p-6">
-          <h2 className="text-lg font-semibold text-ink">Try a forbidden shape</h2>
-          <p className="mt-2 text-body">
+        <section aria-label="Try a forbidden shape" className="mt-6 po-card p-5 sm:p-6">
+          <h2 className="text-lg font-medium text-po-ink">Try a forbidden shape</h2>
+          <p className="mt-2 text-po-grey">
             Ask the prover to reveal the holder&apos;s first name. The policy refuses reveals outright —
             the live answer is HTTP 403 <code>REVEAL_REFUSED</code>, before any proof is built.
           </p>
@@ -288,7 +279,7 @@ export function AgeProofPage() {
             type="button"
             onClick={tryForbidden}
             disabled={forbiddenBusy || !issuerDid}
-            className="mt-4 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-4 po-btn po-btn-ink"
           >
             {forbiddenBusy ? 'Asking the prover…' : 'Reveal the first name'}
           </button>
@@ -296,27 +287,27 @@ export function AgeProofPage() {
               with no explanation in this section — the intro copy still
               reads live. The loading banner says why, in place. */}
           {health.isLoading ? (
-            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="status">
+            <p className="mt-3 rounded-[10px] border border-po-line bg-po-paper p-4 text-sm text-po-grey" role="status">
               Checking the age-proof prover… The demo buttons stay disabled until it answers.
             </p>
           ) : demoUnavailable ? (
-            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
+            <p className="mt-3 rounded-[10px] border border-po-line bg-po-paper p-4 text-sm text-po-grey" role="note">
               Demo unavailable — {demoUnavailableReason}
             </p>
           ) : null}
-          {forbiddenError ? <p className="mt-3 text-sm text-body" role="alert">{forbiddenError}</p> : null}
+          {forbiddenError ? <p className="mt-3 text-sm text-po-grey" role="alert">{forbiddenError}</p> : null}
           {forbidden ? (
-            <div className="mt-4 rounded-[12px] border border-line bg-paper p-4" role="status">
-              <p className="text-sm text-body">{`HTTP ${forbidden.status} · rule ${forbidden.rule}`}</p>
-              <p className="mt-1 text-sm text-body">{forbidden.reason}</p>
+            <div className="mt-4 rounded-[10px] border border-po-line bg-po-paper p-4" role="status">
+              <p className="text-sm text-po-grey">{`HTTP ${forbidden.status} · rule ${forbidden.rule}`}</p>
+              <p className="mt-1 text-sm text-po-grey">{forbidden.reason}</p>
             </div>
           ) : null}
         </section>
 
         {/* Verify panel. */}
-        <section aria-label="Verify my age proof" className="mt-6 rounded-[20px] border border-line bg-card p-6">
-          <h2 className="text-lg font-semibold text-ink">Verify my age proof</h2>
-          <p className="mt-2 text-body">
+        <section aria-label="Verify my age proof" className="mt-6 po-card p-5 sm:p-6">
+          <h2 className="text-lg font-medium text-po-ink">Verify my age proof</h2>
+          <p className="mt-2 text-po-grey">
             Send the allowed shape — dob in the 18+ range plus EU nationality — through the prover to the
             official testnet verifier. A valid presentation returns HTTP 200; a rejected one returns HTTP
             400. Give the payable and the payer too, and a valid proof is
@@ -326,7 +317,7 @@ export function AgeProofPage() {
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-ink">Payable to unlock</span>
+              <span className="text-sm font-medium text-po-ink">Payable to unlock</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -334,22 +325,22 @@ export function AgeProofPage() {
                 onChange={(e) => setPayableId(e.target.value)}
                 placeholder="e.g. 1007"
                 aria-label="Payable to unlock"
-                className="mt-1 w-full rounded-[12px] border border-line bg-paper px-3 py-2 text-sm text-ink"
+                className="po-input mt-1"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-ink">Payer account</span>
+              <span className="text-sm font-medium text-po-ink">Payer account</span>
               <input
                 type="text"
                 value={payer}
                 onChange={(e) => setPayer(e.target.value)}
                 placeholder="e.g. 4MvdME… (demo payer)"
                 aria-label="Payer account"
-                className="mt-1 w-full rounded-[12px] border border-line bg-paper px-3 py-2 text-sm text-ink"
+                className="po-input mt-1"
               />
             </label>
           </div>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-po-grey">
             The proof is filed only when the presentation&apos;s credential holder is this payer — a proof
             for someone else never unlocks your pay.
           </p>
@@ -357,32 +348,32 @@ export function AgeProofPage() {
             type="button"
             onClick={tryVerify}
             disabled={verifyBusy || !issuerDid}
-            className="mt-4 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-4 po-btn po-btn-ink"
           >
             {verifyBusy ? 'Verifying…' : 'Verify the 18+ proof'}
           </button>
           {health.isLoading ? (
-            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="status">
+            <p className="mt-3 rounded-[10px] border border-po-line bg-po-paper p-4 text-sm text-po-grey" role="status">
               Checking the age-proof prover… The demo buttons stay disabled until it answers.
             </p>
           ) : demoUnavailable ? (
-            <p className="mt-3 rounded-[12px] border border-line bg-paper p-4 text-sm text-body" role="note">
+            <p className="mt-3 rounded-[10px] border border-po-line bg-po-paper p-4 text-sm text-po-grey" role="note">
               Demo unavailable — {demoUnavailableReason}
             </p>
           ) : null}
-          {verifyError ? <p className="mt-3 text-sm text-body" role="alert">{verifyError}</p> : null}
+          {verifyError ? <p className="mt-3 text-sm text-po-grey" role="alert">{verifyError}</p> : null}
           {verify ? (
-            <div className="mt-4 rounded-[12px] border border-line bg-paper p-4" role="status">
-              <p className="text-sm text-body">{`HTTP ${verify.status} · valid: ${verify.valid ? 'true' : 'false'}`}</p>
-              <p className="mt-1 text-sm text-body">{verify.detail}</p>
+            <div className="mt-4 rounded-[10px] border border-po-line bg-po-paper p-4" role="status">
+              <p className="text-sm text-po-grey">{`HTTP ${verify.status} · valid: ${verify.valid ? 'true' : 'false'}`}</p>
+              <p className="mt-1 text-sm text-po-grey">{verify.detail}</p>
             </div>
           ) : null}
         </section>
 
         {/* Precision note. */}
-        <section aria-label="What this proves" className="mt-6 rounded-[20px] border border-line bg-card p-6">
-          <h2 className="text-lg font-semibold text-ink">What this proves — and what it does not</h2>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-body">
+        <section aria-label="What this proves" className="mt-6 po-card p-5 sm:p-6">
+          <h2 className="text-lg font-medium text-po-ink">What this proves — and what it does not</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-po-grey">
             <li>
               Proven live: forbidden statement shapes are refused with HTTP 403 by the prover policy
               (18 shapes), and a tampered presentation is rejected with HTTP 400 by the official
@@ -399,13 +390,12 @@ export function AgeProofPage() {
             </li>
           </ul>
           <p className="mt-4 text-sm">
-            <Link to="/" className="font-medium text-brand-700">
-              Back to PayOnce
+            <Link to="/app/pay" className="inline-flex min-h-[44px] items-center font-medium text-po-accent-ink underline">
+              Pay an invoice
             </Link>
           </p>
         </section>
-      </main>
-      <Footer />
+      </div>
     </div>
   )
 }

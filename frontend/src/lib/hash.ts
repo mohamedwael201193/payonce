@@ -1,0 +1,7 @@
+// Document fingerprint: SHA-256 of the invoice text, computed in the browser
+// with WebCrypto. The text is never uploaded.
+export async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
