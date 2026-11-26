@@ -1,6 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "git": { "deploymentEnabled": { "main": true, "v9-app": false, "v9-landing": false, "v9-backend": false, "whole-design": false, "batch-d/ci-nits": false } },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "v9-app": false,
+      "v9-landing": false,
+      "v9-backend": false,
+      "whole-design": false,
+      "batch-d/ci-nits": false
+    }
+  },
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
-  "rewrites": [{ "destination": "/index.html", "source": "/((?!\.well-known/).*)" }]
+  "rewrites": [
+    {
+      "destination": "/index.html",
+      "source": "/((?!.well-known/).*)"
+    }
+  ]
 }
