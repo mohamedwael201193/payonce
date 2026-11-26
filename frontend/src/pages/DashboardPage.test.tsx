@@ -70,13 +70,15 @@ const CONFIG = {
 }
 
 // Payable 3 facts for the pay-tabs preload (per-row Pay link test).
+// The seller is seller 1 — the row's seller — as the live server
+// answers a ?seller=<seller 1> request with seller 1's facts.
 const FACTS_3 = {
   payable_id: 3,
   asset: { kind: 'eudemo', token: 'TOK' },
   amount: '0.01',
   amount_display: '0.01 EUDemo',
   payee: 'PAYEE-PLACEHOLDER',
-  seller: 'SELLER-PLACEHOLDER',
+  seller: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
   due: dueInDays(2),
   is_past_due: false,
   status: { kind: 'unpaid' },
@@ -357,7 +359,12 @@ describe('DashboardPage', () => {
     await waitFor(() => expect(screen.getByText('Payable 1')).toBeInTheDocument())
     const table = screen.getByRole('table')
     const row3 = within(table).getByText('Payable 3').closest('tr') as HTMLElement
-    expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe('/dashboard/pay?tab=pay&payable=3')
+    // F-3.1 (round-3 fix-back): the row Pay link carries the seller, like
+    // the View link in the same row — without it the pay tab would load
+    // seller 1's same-id payable for a seller-2 row.
+    expect(within(row3).getByText('Pay').closest('a')?.getAttribute('href')).toBe(
+      '/dashboard/pay?tab=pay&payable=3&seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+    )
     const row1 = within(table).getByText('Payable 1').closest('tr') as HTMLElement
     expect(within(row1).queryByText('Pay')).not.toBeInTheDocument()
     expect(within(row1).getByText('View').closest('a')?.getAttribute('href')).toBe('/receipt/1?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB')

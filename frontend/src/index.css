@@ -469,7 +469,11 @@ body {
 .po-marquee--rev .po-marquee__track {
   animation-direction: reverse;
 }
-.po-marquee:hover .po-marquee__track {
+.po-marquee:hover .po-marquee__track,
+.po-marquee:focus-within .po-marquee__track {
+  /* N-1 (round-3 fix-back): keyboard users tabbing through the marquee's
+     links get the same pause hover users get — otherwise the track slides
+     away from the focused link. */
   animation-play-state: paused;
 }
 @keyframes po-marq {

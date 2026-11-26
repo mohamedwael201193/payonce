@@ -144,6 +144,34 @@ describe('api seller threading (second-seller fix-back §4.3/§4.5)', () => {
     await expect(api.getPayable(1)).resolves.toEqual(payable)
     expect(fn.mock.calls[0][0]).not.toContain('?seller=')
   })
+
+  // F-2 (round-3 fix-back): verify takes an optional seller and appends
+  // ?seller= when one is given. Without it the server defaults to seller
+  // 1, so a seller-less verify of seller 2's payable returns seller 1's
+  // verdict — the exact blindness the ReceiptChecker and the pay flow's
+  // before-pay check had.
+  it('verify appends ?seller= when a seller is given, and omits it otherwise', async () => {
+    const verdict = {
+      payable_id: 1006,
+      mode: 'after_pay',
+      verdict: 'paid',
+      passed: 10,
+      total: 10,
+      blocked_reason: null,
+      checks: [
+        { id: 'registered', label: 'Payable is registered', status: 'ok', detail: 'seller=3ARQvcVD…, id=1006', layer: 'chain' },
+        { id: 'status_paid', label: 'Registry status is Paid', status: 'ok', detail: 'Paid by 9Zzz… at 2026-11-25T15:08:00.000Z', layer: 'chain' },
+      ],
+      checked_at: '2026-11-25T17:11:16.000Z',
+      read_ms: 120,
+    }
+    const fn = mockFetchOnce({ ok: true, status: 200, json: verdict })
+    await expect(api.verify(1006, 'after_pay', undefined, S2)).resolves.toMatchObject({ payable_id: 1006, verdict: 'paid' })
+    expect(fn.mock.calls[0][0]).toContain(`/api/payables/1006/verify?seller=${encodeURIComponent(S2)}`)
+    fn.mockClear()
+    await expect(api.verify(1006, 'after_pay')).resolves.toMatchObject({ payable_id: 1006, verdict: 'paid' })
+    expect(fn.mock.calls[0][0]).not.toContain('?seller=')
+  })
 })
 
 describe('api.getPayable', () => {

@@ -417,13 +417,20 @@ function ReceiptChecker() {
   const reduceMotion = useReducedMotion()
   const target = latestPaidInvoice(invoices.data ?? [])
   const targetId = target?.payable_id ?? null
-  // Last good verify result, keyed by payable id. A re-check that fails
+  // F-2 (round-3 fix-back): the target's seller. Seller 2's payables
+  // share ids with seller 1's, so the verify below must carry it — a
+  // seller-less verify resolves to seller 1's same-id verdict. The kept
+  // result is keyed by (seller, id) for the same reason: the latest paid
+  // payable can flip seller at the same id across polls, and seller 1's
+  // kept verdict must never stand for seller 2's target.
+  const targetSeller = target?.seller ?? null
+  // Last good verify result, keyed by (seller, payable id). A re-check that fails
   // never clears it — the page keeps showing the last verified verdict.
-  const [kept, setKept] = useState<{ id: number; result: VerifyResponse; at: string } | null>(null)
+  const [kept, setKept] = useState<{ id: number; seller: string | null; result: VerifyResponse; at: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shown, setShown] = useState(0)
   const [run, setRun] = useState(0)
-  const keptForTarget = kept && targetId !== null && kept.id === targetId ? kept : null
+  const keptForTarget = kept && targetId !== null && kept.id === targetId && kept.seller === targetSeller ? kept : null
   // Same Still-loading suffix as the sibling loaders (fix-back-2 minor):
   // a checker still verifying after 15 s says so instead of spinning
   // silently. Active only while a target exists and no result/error yet.
@@ -437,10 +444,13 @@ function ReceiptChecker() {
     let cancelled = false
     setError(null)
     api
-      .verify(targetId, 'after_pay')
+      // F-2: the checker targets the same latest-paid selection as the
+      // step-04 story panel — verify the target's own seller, never the
+      // server's seller-1 default.
+      .verify(targetId, 'after_pay', undefined, targetSeller ?? undefined)
       .then((r) => {
         if (cancelled) return
-        setKept({ id: targetId, result: r, at: new Date().toISOString() })
+        setKept({ id: targetId, seller: targetSeller, result: r, at: new Date().toISOString() })
         setError(null)
       })
       .catch((e) => {
@@ -449,7 +459,7 @@ function ReceiptChecker() {
     return () => {
       cancelled = true
     }
-  }, [targetId, run])
+  }, [targetId, targetSeller, run])
 
   // Staged reveal, replayed whenever a fresh result lands for this target
   // (including Replay). Reduced motion shows all 5 stages at once.

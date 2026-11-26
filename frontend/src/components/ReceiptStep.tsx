@@ -31,7 +31,10 @@ export function ReceiptCard({
     setVerifying(true)
     setVerifyError(null)
     try {
-      const res = await api.verify(receipt.payable_id, 'after_pay')
+      // F-2 sweep: a receipt carries its seller (Receipt.seller) — re-verify
+      // that seller's payable, never the server's seller-1 default, or a
+      // seller-2 receipt re-verifies against seller 1's same-id payable.
+      const res = await api.verify(receipt.payable_id, 'after_pay', undefined, receipt.seller)
       setVerifyResult({ passed: res.passed, total: res.total, checked_at: res.checked_at })
     } catch {
       setVerifyError('The verifier could not finish. The transaction links above are still correct. Check again.')

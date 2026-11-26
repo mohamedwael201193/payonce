@@ -821,3 +821,169 @@ describe('PayFlowTabs fix-back-15: seen-guard strand + stale error banner (X1/X1
   })
 })
 
+// Seller threading (F-2/F-3, round-3 fix-back): the pay flow's preload,
+// check and pay steps must all carry the seller. Seller 2's payables
+// share ids with seller 1's, so a seller-less load/verify resolves to
+// seller 1's same-id row — the mock answers a seller-less facts fetch
+// with seller 1's facts (decoy), so a regression shows seller 1's data
+// instead of just dropping a query param. And a seller-2 payable must
+// never offer a pay action: the server signs seller 1 only.
+describe('PayFlowTabs seller threading (F-2/F-3)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  const S1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB'
+  const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+  const INVOICES_S2 = {
+    items: [
+      { seller: S1, payable_id: 1, asset: 'ccd', amount_display: '0.5 CCD', due: dueInDays(-1), status: 'paid', label: 'Lab invoice 1' },
+      { seller: S2, payable_id: 3, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 3' },
+      { seller: S1, payable_id: 5, asset: 'eudemo', amount_display: '0.01 EUDemo', due: dueInDays(2), status: 'unpaid', label: 'Lab invoice 5' },
+    ],
+  }
+  const STATS_S2 = { payables_total: 3, paid_total: 1, refused_on_chain_since_deploy: 7, last_verifier_run_at: '2026-11-24T10:42:07Z' }
+  const CONFIG_S2 = {
+    ...CONFIG,
+    sellers: [
+      {
+        seller: S1,
+        label: 'Seller 1 — PayOnce Seller',
+        agent_token: 1476,
+        badge: 'JyP9XawpXHMjTN5ocrA5a',
+        badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a',
+        agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card.json',
+      },
+      {
+        seller: S2,
+        label: 'Seller 2 — PayOnce Seller 2',
+        agent_token: 1476,
+        badge: 'JyP9Y9nGU4KaM7DBDXRgm',
+        badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y9nGU4KaM7DBDXRgm',
+        agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card-seller2.json',
+      },
+    ],
+  }
+  const FACTS_3_S2 = { ...FACTS_3, seller: S2 }
+  const FACTS_3_S1 = { ...FACTS_3, seller: S1 }
+
+  function mockApiS2() {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/payables/3/document')) {
+        return { ok: true, status: 200, text: async () => 'Payable 3\nAmount 0.01 EUDemo', json: async () => ({}) }
+      }
+      if (url.includes('/api/payables/3/verify')) {
+        return { ok: true, status: 200, json: async () => VERIFY_3 }
+      }
+      const body = url.includes('/api/invoices')
+        ? INVOICES_S2
+        : url.includes('/api/stats')
+          ? STATS_S2
+          : url.includes('/api/config')
+            ? CONFIG_S2
+            : url.includes('/api/payables/3')
+              ? url.includes(`seller=${S2}`)
+                ? FACTS_3_S2
+                : FACTS_3_S1
+              : url.includes('/api/health')
+                ? HEALTH
+                : null
+      if (!body) return { ok: false, status: 404, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => body }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function factsCalls(fetchMock: ReturnType<typeof vi.fn>, id: number) {
+    return fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.includes(`/api/payables/${id}`) && !u.includes('/verify') && !u.includes('/document'))
+  }
+
+  it('F-3.2: a ?payable=3&seller=S2 preload loads seller 2\u2019s facts, never seller 1\u2019s same-id decoy', async () => {
+    const fetchMock = mockApiS2()
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+    // The facts panel names seller 2, not seller 1's decoy address.
+    expect(screen.getByText(S2)).toBeInTheDocument()
+    expect(screen.queryByText(S1)).toBeNull()
+    // Every facts fetch for 3 carried ?seller=<seller 2>.
+    const calls = factsCalls(fetchMock, 3)
+    expect(calls.length).toBeGreaterThan(0)
+    for (const u of calls) expect(u).toContain(`seller=${S2}`)
+    // … and the URL kept the seller (a reload re-loads seller 2).
+    expect(screen.getByTestId('location')).toHaveTextContent(`seller=${S2}`)
+  })
+
+  it('F-3 gate: a seller-2 payable shows the cannot-pay message and offers no pay action', async () => {
+    mockApiS2()
+    renderTabsWithNav('/dashboard/pay?tab=pay&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() =>
+      expect(within(screen.getByRole('tabpanel')).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    const panel = screen.getByRole('tabpanel')
+    // The gate needs the config (seller 1's address) as well as the
+    // facts — wait for it to render rather than asserting on the first
+    // facts paint, which can land before the config does.
+    await waitFor(() =>
+      expect(
+        within(panel).getByText('This payable belongs to the second seller — it cannot be paid here.'),
+      ).toBeInTheDocument(),
+    )
+    expect(within(panel).getByText(/the server signs payments for seller 1 only/)).toBeInTheDocument()
+    // No pay action anywhere in the pay step — neither rail's button.
+    expect(within(panel).queryByRole('button', { name: /Pay 0.01 EUDemo on chain/ })).toBeNull()
+    expect(within(panel).queryByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })).toBeNull()
+    // Navigation back is still offered.
+    expect(within(panel).getByRole('button', { name: /Back to Check/ })).toBeInTheDocument()
+  })
+
+  it('F-2: the before-pay check verifies the loaded payable\u2019s own seller', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockApiS2()
+    renderTabsWithNav('/dashboard/pay?tab=pick&payable=3&seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr')
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+    await user.click(screen.getByRole('tab', { name: /Check/ }))
+    await user.click(screen.getByRole('button', { name: 'Check invoice' }))
+    await waitFor(() => expect(screen.getByText(/All gating checks passed/)).toBeInTheDocument())
+    const verifyCalls = fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/payables/3/verify'))
+    expect(verifyCalls.length).toBeGreaterThan(0)
+    for (const u of verifyCalls) expect(u).toContain(`seller=${S2}`)
+  })
+
+  it('F-3 sweep: picking seller 2\u2019s invoice from the lab list loads seller 2\u2019s facts and syncs ?seller=', async () => {
+    const fetchMock = mockApiS2()
+    renderTabsWithNav('/dashboard/pay?tab=pick')
+    await waitFor(() => expect(screen.getByRole('option', { name: /Payable 3/ })).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Lab invoices (testnet, not real)'), {
+      target: { value: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr:3' },
+    })
+    await waitFor(() => expect(screen.getByText('Payable 3 — 0.01 EUDemo')).toBeInTheDocument())
+    // The loaded facts are seller 2's (the seller-less onLoaded load is
+    // superseded by the seller-threaded onNumber load under the
+    // generation guard) …
+    expect(screen.getByText(S2)).toBeInTheDocument()
+    expect(screen.queryByText(S1)).toBeNull()
+    // … at least one facts fetch carried the seller …
+    const calls = factsCalls(fetchMock, 3)
+    expect(calls.some((u) => u.includes(`seller=${S2}`))).toBe(true)
+    // … and the URL kept it for a reload.
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`seller=${S2}`))
+  })
+
+  it('control: a seller-less preload still loads seller 1 and still offers Pay', async () => {
+    mockApiS2()
+    renderTabsWithNav('/dashboard/pay?tab=pay&payable=3')
+    await waitFor(() =>
+      expect(within(screen.getByRole('tabpanel')).getByText(/Payable 3 — 0.01 EUDemo/)).toBeInTheDocument(),
+    )
+    const panel = screen.getByRole('tabpanel')
+    // Seller 1's facts: no gate message, the pay buttons are there
+    // (disabled until the check runs — the gate is about the seller,
+    // not the check).
+    expect(within(panel).queryByText(/belongs to the second seller/)).toBeNull()
+    expect(within(panel).getByRole('button', { name: /Pay 0.01 EUDemo \(3 steps\)/ })).toBeInTheDocument()
+  })
+})

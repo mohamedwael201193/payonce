@@ -121,6 +121,15 @@ export function PayFlowTabs() {
   }
 
   const explorerBase = config.data?.explorer.tx ?? 'https://ccdexplorer.io/testnet/transaction/'
+  // F-3: seller 1's address — the first entry of the config sellers list
+  // (api/src/server.mjs builds it [seller 1, seller 2]). The server signs
+  // payments for seller 1 only, so any loaded payable whose seller is not
+  // this address is a second-seller payable: readable, never payable from
+  // this UI. Undefined until the config loads — no gate fires before it
+  // is known, and the server still refuses a seller-2 write with a 400.
+  const seller1 = config.data?.sellers?.[0]?.seller
+  const isSecondSellerPayable =
+    seller1 !== undefined && state.facts !== null && state.facts.seller !== seller1
   const runningJobId = state.pay.kind === 'running' ? state.pay.job.job_id : null
   const { job: liveJob, error: jobError } = useJobEvents(runningJobId)
 
@@ -138,8 +147,12 @@ export function PayFlowTabs() {
     if (!liveJob) return
     dispatch({ type: 'PAY_UPDATED', job: liveJob })
     if (liveJob.state === 'succeeded') {
+      // N-3 (round-3 fix-back): thread the loaded facts' seller — a
+      // just-succeeded job is always seller 1 in practice, but the
+      // receipt fetch must name the seller it belongs to (same pattern
+      // as TryPanel's getRecorded(id, facts?.seller)).
       void api
-        .getReceipt(liveJob.payable_id)
+        .getReceipt(liveJob.payable_id, state.facts?.seller)
         .then((r) => {
           setReceipt(r)
         })
@@ -148,13 +161,17 @@ export function PayFlowTabs() {
     if (liveJob.state === 'succeeded' || liveJob.state === 'refused' || liveJob.state === 'failed') {
       void queryClient.invalidateQueries({ queryKey: ['live-snapshot'] })
     }
-  }, [liveJob, queryClient])
+  }, [liveJob, queryClient, state.facts])
 
   // ?payable=<id> preload. The ref records the id of the most recent load
   // (every load path sets it — see loadFacts), so the effect below can
   // tell a failed load of an id ("do not retry it forever") from a URL
-  // that names a different payable than the loaded facts.
+  // that names a different payable than the loaded facts. The seller
+  // ref is its F-3 companion: a failed load of (id, seller 2) must not
+  // suppress a later load of (id, seller 1), or vice versa — the pair,
+  // not the bare id, is the load's identity.
   const preloadedId = useRef<number | null>(null)
+  const preloadedSeller = useRef<string | null>(null)
 
   // Fix-back-14 MF-2: generation counter for loadFacts. Each load tags
   // its generation; a resolution (or failure) belonging to an older
@@ -163,16 +180,22 @@ export function PayFlowTabs() {
   // the late 3 landed on screen while the URL said 5, with Pay enabled.
   const loadGen = useRef(0)
 
-  const loadFacts = useCallback(async (id: number) => {
+  // F-3 (round-3 fix-back): loadFacts takes the seller the URL (or the
+  // picker) names and passes it to getPayable. A seller-less load is the
+  // server's seller-1 default — loading seller 2's payable without it
+  // silently returns seller 1's same-id payable facts. A missing seller
+  // still means seller 1 (number/paste/fresh paths have no seller).
+  const loadFacts = useCallback(async (id: number, seller?: string) => {
     // Fix-back-13 MF-1: record the id being loaded here, not only in the
     // preload effect — every load path (preload, hand-pick, fresh) marks
     // its id, so the effect below can tell "already loaded / loading"
     // from "the URL names a different payable than the loaded facts".
     preloadedId.current = id
+    preloadedSeller.current = seller ?? null
     const gen = ++loadGen.current
     dispatch({ type: 'FACTS_LOADING' })
     try {
-      const facts = await api.getPayable(id)
+      const facts = await api.getPayable(id, seller)
       // Fix-back-14 MF-2: ignore a stale resolution — a newer load has
       // been requested since this one started.
       if (loadGen.current !== gen) return null
@@ -216,6 +239,11 @@ export function PayFlowTabs() {
   // reload 3 forever: the panel stranded on Payable 5 while the URL
   // said 3, and tab switches re-ran the same guard.
   const pendingSyncId = useRef<number | null>(null)
+  // F-3 companion of pendingSyncId: the seller of the outstanding sync.
+  // A hand-pick of seller 2's payable syncs ?seller= alongside ?payable=
+  // — without it a reload would drop the seller and load seller 1's
+  // same-id facts. null = the sync names no seller (seller-1 default).
+  const pendingSyncSeller = useRef<string | null>(null)
 
   // Fix-back-15 MF-1: the query string the preload effect last
   // observed. Any observed change resolves a pending sync: it either
@@ -228,18 +256,27 @@ export function PayFlowTabs() {
   const lastSearch = useRef<string | null>(null)
 
   const syncPayableParam = useCallback(
-    (id: number) => {
+    (id: number, seller?: string) => {
       // Fix-back-15 MF-1: record the pending sync SYNCHRONOUSLY — the
       // navigation lands a beat later (startTransition), and the
       // preload effect must know a sync to this id is outstanding in
       // that beat. Without this the effect cannot tell the T2 beat
       // (visible param is the stale pre-sync value) from a real param
       // change (a row Pay link that has landed).
+      // F-3: the sync carries the seller too. A seller-2 hand-pick that
+      // synced only the id would strand the URL seller-less — a reload
+      // would then load seller 1's same-id payable. Conversely a
+      // seller-less sync (number/paste/fresh — seller 1 by definition)
+      // DELETES a stale ?seller=, so a previous seller-2 param can never
+      // linger over a seller-1 load.
       pendingSyncId.current = id
+      pendingSyncSeller.current = seller ?? null
       setParams(
         (prev) => {
           const next = new URLSearchParams(prev)
           next.set('payable', String(id))
+          if (seller) next.set('seller', seller)
+          else next.delete('seller')
           return next
         },
         { replace: true },
@@ -268,23 +305,51 @@ export function PayFlowTabs() {
     const search = params.toString()
     if (lastSearch.current !== null && lastSearch.current !== search) {
       pendingSyncId.current = null
+      pendingSyncSeller.current = null
     }
     lastSearch.current = search
     const id = Number.parseInt(params.get('payable') ?? '', 10)
     if (!Number.isFinite(id) || id <= 0) return
-    if (state.facts?.payable_id === id) return
+    // F-3: the URL names a (payable, seller) pair. An absent ?seller=
+    // is the server's seller-1 default; a present one names its seller
+    // outright. The loaded facts must match BOTH — seller 2's payable
+    // shares its id with seller 1's, so an id-only match would keep
+    // seller 1's facts on screen while the URL names seller 2's.
+    // (effectiveSeller null = config not loaded yet and no param: the
+    // seller half cannot be checked until the config arrives, and the
+    // effect re-runs then.)
+    const paramSeller = params.get('seller')
+    const effectiveSeller = paramSeller ?? seller1 ?? null
+    if (state.facts?.payable_id === id && (effectiveSeller === null || state.facts.seller === effectiveSeller)) return
     // A load is in flight — do not fire a second one. The effect
     // re-runs when the load settles and retries the param then; a
     // param change that arrived mid-load is not lost.
     if (state.factsState === 'loading') return
-    if (state.factsState === 'not-found' && preloadedId.current === id) return
-    // A sync to a different id is still outstanding: the visible param
-    // is the stale pre-sync value (T2 beat) — do not act on it.
-    // With no sync outstanding the param is current, and a mismatch
-    // against the loaded facts always reloads (X1 strand fix).
-    if (pendingSyncId.current !== null && pendingSyncId.current !== id) return
-    void loadFacts(id)
-  }, [params, loadFacts, state.facts, state.factsState])
+    // The last load already requested exactly this (id, seller) and the
+    // facts on screen are its answer — even if their seller disagrees
+    // with the URL, a reload would fetch the same answer forever. (The
+    // live server answers a seller-2 request with seller-2 facts or a
+    // 404; only an inconsistent answer can land here, and looping on it
+    // would spin the poll forever.) This suppresses ONLY the pair the
+    // effect has already loaded — a URL naming any other pair reloads.
+    if (
+      state.facts?.payable_id === id &&
+      preloadedId.current === id &&
+      preloadedSeller.current === paramSeller
+    )
+      return
+    if (state.factsState === 'not-found' && preloadedId.current === id && preloadedSeller.current === paramSeller) return
+    // A sync to a different (id, seller) is still outstanding: the
+    // visible param is the stale pre-sync value (T2 beat) — do not act
+    // on it. With no sync outstanding the param is current, and a
+    // mismatch against the loaded facts always reloads (X1 strand fix).
+    if (
+      pendingSyncId.current !== null &&
+      (pendingSyncId.current !== id || pendingSyncSeller.current !== paramSeller)
+    )
+      return
+    void loadFacts(id, paramSeller ?? undefined)
+  }, [params, loadFacts, state.facts, state.factsState, seller1])
 
   const onLoaded = useCallback((text: string, hash: string, payableId: number | null) => {
     setDocText(text)
@@ -296,9 +361,13 @@ export function PayFlowTabs() {
   }, [loadFacts, syncPayableParam])
 
   const onNumber = useCallback(
-    (id: number) => {
-      syncPayableParam(id)
-      void loadFacts(id)
+    // F-3 sweep: the lab picker names the seller (InvoiceStep passes it
+    // from the picked row) — thread it into the facts load, or picking
+    // seller 2's invoice loads seller 1's same-id facts. The number
+    // field has no seller and keeps the seller-1 default.
+    (id: number, seller?: string) => {
+      syncPayableParam(id, seller)
+      void loadFacts(id, seller)
     },
     [loadFacts, syncPayableParam],
   )
@@ -337,7 +406,10 @@ export function PayFlowTabs() {
     try {
       const docSha256 =
         state.invoice.kind === 'loaded' && state.invoice.docSha256 ? state.invoice.docSha256 : undefined
-      const res = await api.verify(facts.payable_id, 'before_pay', docSha256)
+      // F-2: verify the loaded payable's own seller — a seller-less
+      // before-pay check of seller 2's payable returns seller 1's
+      // same-id verdict (and could call a seller-2 payable "ready").
+      const res = await api.verify(facts.payable_id, 'before_pay', docSha256, facts.seller)
       if (res.verdict === 'ready') dispatch({ type: 'CHECK_READY', result: res })
       else if (res.verdict === 'paid') dispatch({ type: 'CHECK_BLOCKED', result: res })
       else dispatch({ type: 'CHECK_BLOCKED', result: res })
@@ -353,6 +425,11 @@ export function PayFlowTabs() {
     async (rail: 'ccd' | 'eudemo') => {
       const facts = state.facts
       if (!facts) return
+      // F-3: second guard — a second-seller payable can never be paid
+      // from this UI (the server signs seller 1 only). The pay panel
+      // does not render the pay action for it; this closes the handler
+      // path too, so a stale enabled button could never start a pay.
+      if (seller1 !== undefined && facts.seller !== seller1) return
       // Fix-back-14 MF-3: second guard — never start a pay for a payable
       // the ready check was not run for. The button is disabled in that
       // state (payDisabledReason binds check to facts); this closes the
@@ -388,7 +465,7 @@ export function PayFlowTabs() {
         })
       }
     },
-    [state.facts, state.invoice, state.check],
+    [state.facts, state.invoice, state.check, seller1],
   )
 
   const payDisabled = useCallback(
@@ -545,22 +622,45 @@ export function PayFlowTabs() {
         {state.facts ? (
           <div className="space-y-6">
             <FactsLine facts={state.facts} />
-            <PayStep
-              facts={state.facts}
-              payState={state.pay}
-              liveJob={liveJob}
-              onPay={onPay}
-              payDisabled={payDisabled}
-              explorerBase={explorerBase}
-            />
-            {paid && receipt ? (
-              <PrimaryButton onClick={() => goTab('receipt')}>View receipt →</PrimaryButton>
-            ) : paid ? (
-              <PrimaryButton disabled disabledReason={null}>
-                Loading receipt…
-              </PrimaryButton>
+            {isSecondSellerPayable ? (
+              // F-3: a second-seller payable can never be paid from this
+              // UI — server writes are seller-1-only by design (the
+              // server signs for seller 1 only). Show that plainly and
+              // offer no pay action at all — never silently load seller
+              // 1's same-id payable instead.
+              <>
+                <div role="alert" className="rounded-md border border-line bg-paper-2 p-4">
+                  <p className="text-[15px] font-medium text-ink">
+                    This payable belongs to the second seller — it cannot be paid here.
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    Payable {state.facts.payable_id} belongs to the second seller, not seller 1. This UI can only
+                    pay seller 1&apos;s payables: the server signs payments for seller 1 only, so a payment for
+                    this payable would be refused. You can still check it on the Check tab.
+                  </p>
+                </div>
+                <SecondaryButton onClick={() => goTab('check')}>Back to Check →</SecondaryButton>
+              </>
             ) : (
-              <SecondaryButton onClick={() => goTab('check')}>Back to Check →</SecondaryButton>
+              <>
+                <PayStep
+                  facts={state.facts}
+                  payState={state.pay}
+                  liveJob={liveJob}
+                  onPay={onPay}
+                  payDisabled={payDisabled}
+                  explorerBase={explorerBase}
+                />
+                {paid && receipt ? (
+                  <PrimaryButton onClick={() => goTab('receipt')}>View receipt →</PrimaryButton>
+                ) : paid ? (
+                  <PrimaryButton disabled disabledReason={null}>
+                    Loading receipt…
+                  </PrimaryButton>
+                ) : (
+                  <SecondaryButton onClick={() => goTab('check')}>Back to Check →</SecondaryButton>
+                )}
+              </>
             )}
           </div>
         ) : (

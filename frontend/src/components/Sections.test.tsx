@@ -308,6 +308,74 @@ describe('HowItWorks latest-payment card (FIX-4) + one latest rule (FIX-7f)', ()
   })
 })
 
+// F-2 (round-3 fix-back): the ReceiptChecker verifies the SAME latest-paid
+// selection as the step-04 card above, so it must verify that payable's
+// seller too. The mock answers a seller-less verify of 1006 with seller
+// 1's verdict (a different payer + timestamp), so a regression shows
+// seller 1's verdict under seller 2's receipt instead of just dropping a
+// query param.
+const VERIFY_1006_S2 = {
+  ...VERIFY_AFTER_PAY,
+  payable_id: 1006,
+  checks: VERIFY_AFTER_PAY.checks.map((c) =>
+    c.id === 'status_paid' ? { ...c, detail: 'Paid by 9Zzz… at 2026-11-25T15:08:00.000Z' } : c,
+  ),
+}
+const VERIFY_1006_S1_DECOY = {
+  ...VERIFY_AFTER_PAY,
+  payable_id: 1006,
+  checks: VERIFY_AFTER_PAY.checks.map((c) =>
+    c.id === 'status_paid' ? { ...c, detail: 'Paid by 4MvdM… at 2026-11-24T08:37:45.000Z' } : c,
+  ),
+}
+
+function mockApiSeller2LatestVerify() {
+  const fetchMock = vi.fn(async (url: string) => {
+    const body = url.includes('/api/payables/1006/verify')
+      ? url.includes(`seller=${S2}`)
+        ? VERIFY_1006_S2
+        : VERIFY_1006_S1_DECOY
+      : url.includes('/api/invoices')
+        ? INVOICES_SELLER2_LATEST
+        : url.includes('/api/stats')
+          ? STATS_TWO_PAID
+          : null
+    if (!body) return { ok: false, status: 404, json: async () => ({}) }
+    return { ok: true, status: 200, json: async () => body }
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('VerifierSection / ReceiptChecker seller threading (F-2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('verifies the latest paid payable with its own seller, never seller 1\u2019s same-id verdict', async () => {
+    const fetchMock = mockApiSeller2LatestVerify()
+    renderVerifier()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    // The verify call went to seller 2, never seller-less: every
+    // /api/payables/1006/verify call carries ?seller=<seller 2>.
+    const verifyCalls = fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/payables/1006/verify'))
+    expect(verifyCalls.length).toBeGreaterThan(0)
+    for (const u of verifyCalls) expect(u).toContain(`seller=${S2}`)
+    // … so the checker shows seller 2's verdict, not seller 1's decoy …
+    expect(screen.getByText(/Paid by 9Zzz… at 2026-11-25T15:08:00/)).toBeInTheDocument()
+    expect(screen.queryByText(/Paid by 4MvdM…/)).toBeNull()
+  })
+})
+
 // ReceiptChecker stability + truth (fix-back-6 B9/B12): a blocked verdict
 // whose only fails are the missing reservation/confirm evidence rows (the
 // live Payable 1049 shape) must explain itself, and a failed re-check

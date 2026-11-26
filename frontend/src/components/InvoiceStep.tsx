@@ -33,7 +33,10 @@ export function InvoiceStep({
   budgetLeft,
 }: {
   onLoaded: (docText: string, docSha256: string, payableId: number | null) => void
-  onNumber: (id: number) => void
+  // F-3 sweep: the lab picker names the seller of the picked row — pass
+  // it through, or picking seller 2's invoice loads seller 1's same-id
+  // facts. The number field has no seller and calls onNumber(id) alone.
+  onNumber: (id: number, seller?: string) => void
   onFresh: (asset: 'ccd' | 'eudemo') => void
   budgetLeft: number | null
 }) {
@@ -85,12 +88,13 @@ export function InvoiceStep({
       try {
         // The lab picker lists both sellers' payables (ids collide
         // across sellers), so the document fetch carries the picked
-        // invoice's seller (fix-back §4.3). The number/paste path has no
-        // seller and keeps the seller-1 default — the pay flow is
-        // seller-1-only.
+        // invoice's seller (fix-back §4.3) — and so does the facts load
+        // below (F-3 sweep: onNumber(id, seller) threads it into
+        // loadFacts). The number/paste path has no seller and keeps the
+        // seller-1 default — the pay flow is seller-1-only.
         const text = await api.getDocument(id, seller)
         await loadText(text)
-        onNumber(id)
+        onNumber(id, seller)
       } catch (e) {
         setError(
           e instanceof ApiError

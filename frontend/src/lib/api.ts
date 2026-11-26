@@ -550,8 +550,13 @@ export const api = {
     }
     return res.text()
   },
-  verify: (id: number, mode: 'before_pay' | 'after_pay', doc_sha256?: string) =>
-    request<VerifyResponse>(`/api/payables/${id}/verify`, verifySchema, {
+  // F-2 (round-3 fix-back): verify takes an optional seller. Seller 2's
+  // payables share ids with seller 1's, and the server defaults a
+  // seller-less verify to seller 1 (resolveSellerStrict) — so a
+  // seller-less verify of seller 2's payable returns seller 1's verdict.
+  // Callers pass the seller whenever one is in scope.
+  verify: (id: number, mode: 'before_pay' | 'after_pay', doc_sha256?: string, seller?: string) =>
+    request<VerifyResponse>(`/api/payables/${id}/verify${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, verifySchema, {
       method: 'POST',
       body: JSON.stringify({ mode, ...(doc_sha256 ? { doc_sha256 } : {}) }),
     }),

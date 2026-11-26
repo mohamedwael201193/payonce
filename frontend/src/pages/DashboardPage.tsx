@@ -336,7 +336,7 @@ export function DashboardPage() {
                           <td className="px-4 py-4 text-right">
                             {derivedStatus(inv) !== 'paid' ? (
                               <Link
-                                to={`/dashboard/pay?tab=pay&payable=${inv.payable_id}`}
+                                to={`/dashboard/pay?tab=pay&payable=${inv.payable_id}&seller=${inv.seller}`}
                                 className="mr-3 inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
                               >
                                 Pay <ArrowRight className="h-4 w-4" aria-hidden="true" />
