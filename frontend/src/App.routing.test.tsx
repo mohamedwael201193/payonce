@@ -195,14 +195,14 @@ describe('legacy redirects', () => {
     })
   }
 
-  it('a legacy link with no seller resolves to the first seller (the API default), in the canonical address form', async () => {
+  it('a legacy link with no seller resolves by the registry list: a number only one seller has opens that invoice', async () => {
     renderAt('/dashboard/pay?tab=pick&payable=2')
     await waitFor(() => expect(where()).toBe(`/app/pay/${S1}/2`))
   })
 
   it('legacyPayTarget maps every tab once', () => {
     expect(legacyPayTarget(new URLSearchParams('tab=check&payable=3&seller=X'))).toBe('/app/pay/X/3')
-    expect(legacyPayTarget(new URLSearchParams('tab=receipt&payable=3'))).toBe('/app/receipt/1/3')
+    expect(legacyPayTarget(new URLSearchParams('tab=receipt&payable=3'))).toBe('/app/receipt/any/3')
   })
   it('the route family ignores the invoice, so choosing another invoice does not scroll', () => {
     expect(routeFamily('/app/pay/S/1')).toBe(routeFamily('/app/pay/S/2'))
@@ -284,11 +284,10 @@ describe('seller key, end to end', () => {
     await screen.findByText(new RegExp(`PAYEE-${S2.slice(0, 4)}-2`))
   })
 
-  it('paying a seller-2 invoice is disabled with a plain reason (the API signs only for seller 1)', async () => {
+  it('a seller-2 invoice is not gated by its seller: the pay button never says "seller 1 only"', async () => {
     renderAt(`/app/pay/${S2}/2`)
-    const btn = await screen.findByRole('button', { name: /Review and pay/ })
-    await waitFor(() => expect(btn).toHaveAttribute('aria-disabled', 'true'))
-    expect(screen.getByText(/signs payments only for seller 1/)).toBeInTheDocument()
+    await screen.findByRole('button', { name: /Review and pay/ })
+    expect(screen.queryByText(/signs payments only for seller 1/)).not.toBeInTheDocument()
   })
 
   it('every Pay / Receipt link in the invoice list carries (seller, id)', async () => {
@@ -309,7 +308,10 @@ describe('seller key, end to end', () => {
     renderAt(`/app/receipt/${S2}/1`)
     await screen.findByRole('heading', { name: 'Paid once' })
     expect(await screen.findByTestId('verifier-line')).toBeInTheDocument()
-    expect(screen.getByTestId('verifier-command').textContent).toBe(`node src/verify-payable-v2.mjs 1 ${'ef'.repeat(32)}`)
+    expect(screen.getByTestId('verifier-command').textContent).toBe(
+      `curl -s "https://payonce-api-n98a.onrender.com/api/payables/1/document?seller=${S2}" -o invoice-s2-1.txt
+node src/verify-payable-v2.mjs 1 ${'ef'.repeat(32)} --seller ${S2} --doc invoice-s2-1.txt`,
+    )
   })
 
   it('an unpaid receipt link says so and links to the pay screen with the seller', async () => {

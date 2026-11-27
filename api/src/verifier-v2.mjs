@@ -123,12 +123,12 @@ export async function verifyBeforePay(c, { view, docBytes = null, docSha256 = nu
     const need = BigInt(view.amount) + FEE_HEADROOM_MICROCCD;
     const have = BigInt(payerBalances?.ccdAvailableMicro ?? '0');
     balanceOk = have >= need;
-    balanceDetail = `payer holds ${have} microCCD available, needs ${need} (amount + 100 CCD fee headroom)`;
+    balanceDetail = `payer holds ${have} microCCD available, needs ${need} (amount + 50 CCD fee headroom)`;
   } else {
     const haveToken = BigInt(payerBalances?.eudemoBase ?? '0');
     const haveCcd = BigInt(payerBalances?.ccdAvailableMicro ?? '0');
     balanceOk = haveToken >= BigInt(view.amount) && haveCcd >= FEE_HEADROOM_MICROCCD;
-    balanceDetail = `payer holds ${haveToken} EUDemo base units (needs ${view.amount}) and ${haveCcd} microCCD for fees (needs ${FEE_HEADROOM_MICROCCD})`;
+    balanceDetail = `payer holds ${haveToken} EUDemo base units (needs ${view.amount}) and ${haveCcd} microCCD for fees (needs ${FEE_HEADROOM_MICROCCD}; the fee guard tops the payer up from the treasury when it runs low)`;
   }
   checks.push(row('balance', 'Payer balance covers the payment', balanceOk ? 'ok' : 'fail', balanceDetail, 'chain'));
 
@@ -142,6 +142,7 @@ export async function verifyBeforePay(c, { view, docBytes = null, docSha256 = nu
     && byId.agent.status === 'ok'
     && byId.due.status === 'ok'
     && byId.status.status === 'ok'
+    && byId.balance.status === 'ok' // the payer must be able to pay: same rule on both rails (B3)
     && (byId.doc.status === 'ok' || byId.doc.status === 'not_run')
   ) {
     verdict = 'ready';

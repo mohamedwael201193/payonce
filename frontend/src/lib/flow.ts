@@ -122,7 +122,7 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
       const job = action.job
       if (job.state === 'succeeded') return { ...state, pay: { kind: 'succeeded', job } }
       if (job.state === 'refused') return { ...state, pay: { kind: 'refused', job } }
-      if (job.state === 'failed') return { ...state, pay: { kind: 'failed', job, message: 'The payment job failed.' } }
+      if (job.state === 'failed') return { ...state, pay: { kind: 'failed', job, message: jobFailureReason(job) } }
       return { ...state, pay: { kind: 'running', job } }
     }
     case 'PAY_FAILED':
@@ -132,6 +132,29 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
     default:
       return state
   }
+}
+
+/** The real reason a job failed, in plain words, from the step that failed. Never the bare
+    "the payment job failed": the step detail is what the server recorded. */
+export function jobFailureReason(job: JobSnapshot): string {
+  const step = job.steps.find((s) => s.status === 'failed' || s.status === 'refused')
+  const detail = (step?.detail ?? '').replace(/^Error: /, '').trim()
+  if (/enough funds|insufficient/i.test(detail)) {
+    return 'The demo payer ran out of testnet CCD for fees, so the chain refused to start this step. Nothing was paid unless a transaction link is shown. The payer refills itself: try again in a minute.'
+  }
+  if (/fetch failed|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE|429|ECONN|ETIMEDOUT|node busy/i.test(detail)) {
+    return 'The public testnet node did not answer in time. Check the transaction links, then try again.'
+  }
+  if (!detail) return 'The payment stopped before it finished. Check the transaction links, then try again.'
+  const where = step ? STEP_WORDS[step.step] ?? step.step : 'a step'
+  return `The payment stopped at "${where}": ${detail}`
+}
+
+const STEP_WORDS: Record<string, string> = {
+  check_status: 'Check the invoice status', check_agent: 'Check the seller agent', submit: 'Submit the payment',
+  wait_finality: 'Wait for the chain to finalize', read_back: 'Read the payment back', verify: 'Run the verifier',
+  check_wallet: 'Check the wallet', reserve: 'Reserve the invoice', co_sign_decide: 'Co-signer decision',
+  submit_transfer: 'Submit the transfer', confirm: 'Confirm the payment',
 }
 
 /** Is the check fresh enough to pay (P3 §6: check older than 10 min blocks pay)? */
@@ -149,6 +172,7 @@ export function payDisabledReason(
   rail: 'ccd' | 'eudemo',
   payerStatus: 'ok' | 'low' | 'empty',
   walletEudemoStatus: 'ok' | 'low',
+  payerRefilling = false,
 ): string | null {
   if (state.check.kind !== 'ready') return 'Run the check first.'
   if (!isCheckFresh(state)) return 'The check is more than 10 minutes old. Check again.'
@@ -171,8 +195,11 @@ export function payDisabledReason(
     return 'This is an EUDemo invoice. Use Pay in EUDemo.'
   if (rail === 'eudemo' && facts.asset.kind !== 'eudemo')
     return 'This is a CCD invoice. Use Pay in CCD.'
-  if (rail === 'ccd' && payerStatus !== 'ok')
-    return 'The demo payer account is low on testnet CCD.'
+  // Both rails pay fees from the demo payer, so both stop for the same reason (B3).
+  if (payerStatus !== 'ok')
+    return payerRefilling
+      ? 'Refilling testnet fees for the demo payer. Try again in a minute.'
+      : 'The demo payer account is low on testnet CCD.'
   if (rail === 'eudemo' && walletEudemoStatus !== 'ok')
     return 'The demo wallet holds less EUDemo than this invoice.'
   if (state.pay.kind === 'running') return 'A payment is already running.'

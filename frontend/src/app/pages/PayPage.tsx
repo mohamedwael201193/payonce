@@ -22,6 +22,7 @@ import { tidyAmount } from '../format'
 import { markMilestone, useAppData, useDocumentTitle, useNow, useSellers, type SellerDirectory } from '../hooks'
 import { keyStr, parseKeyPath, payPath, receiptPath, resolveSeller, sellerName, type PayableKey } from '../keys'
 import { Address } from '../Address'
+import { ANY_SELLER, AnySeller } from '../AnySeller'
 import { overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
 import {
   Button,
@@ -60,6 +61,8 @@ export function PayPage() {
         This pay link is incomplete. A pay link names a seller and a payable number. Pick an invoice below.
       </Notice>
     )
+  } else if (parsed && parsed.sellerParam === ANY_SELLER) {
+    body = <AnySeller id={parsed.id} to={payPath} />
   } else if (parsed && !seller) {
     body = dir.error ? (
       <Notice tone="error">The seller list could not be loaded, so this link cannot be resolved yet. Try again in a moment.</Notice>
@@ -99,6 +102,8 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
   const health = useHealth()
   const [creating, setCreating] = useState<'ccd' | 'eudemo' | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [createSeller, setCreateSeller] = useState<string>('')
+  const newSeller = createSeller || current?.seller || dir.sellers[0]?.seller || ''
 
   const ready = useMemo(() => readyToPay(data.items), [data.items])
   const overdue = useMemo(() => overdueItems(data.items).slice(0, 40), [data.items])
@@ -115,10 +120,10 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
     setCreating(asset)
     setCreateError(null)
     try {
-      const created = await api.createPayable(asset)
-      const first = dir.sellers[0]?.seller
-      void queryClient.invalidateQueries({ queryKey: ['live-snapshot'] })
-      if (first) navigate(payPath({ seller: first, id: created.payable_id }))
+      const created = await api.createPayable(asset, newSeller || undefined)
+      // The API adds the new invoice to its served list before it answers, so the refetch shows it.
+      await queryClient.invalidateQueries({ queryKey: ['live-snapshot'] })
+      if (newSeller) navigate(payPath({ seller: newSeller, id: created.payable_id }))
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.body.message : 'The testnet did not accept a new invoice just now.')
     } finally {
@@ -190,9 +195,19 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
         </summary>
         <div className="mt-3 flex flex-col gap-3">
           <p className="text-sm text-po-grey">
-            This writes a real invoice to the testnet registry for seller 1.{' '}
+            This writes a real invoice to the testnet registry for the seller you pick.{' '}
             {budget !== undefined ? `${budget} left this hour.` : ''}
           </p>
+          <label className="flex flex-col gap-1.5 text-sm text-po-grey sm:max-w-xs">
+            Seller
+            <select className="po-input" value={newSeller} onChange={(e) => setCreateSeller(e.target.value)} aria-label="Seller of the new invoice">
+              {dir.sellers.map((s) => (
+                <option key={s.seller} value={s.seller}>
+                  {sellerName(s.seller, dir.sellers)}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-wrap gap-3">
             <Button small onClick={() => void create('ccd')} busy={creating === 'ccd'} disabled={Boolean(createDisabled) || creating !== null} disabledReason={createDisabled}>
               New CCD invoice
@@ -263,10 +278,6 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
 
   const alreadyPaid = facts.status.kind === 'paid'
   const rail = facts.asset.kind
-  const sellerOneAddress = dir.sellers[0]?.seller
-  // The API signs only for seller 1 ("rejectNonSeller1Write" in the server).
-  // Reads, checks and receipts work for every seller.
-  const writeUnsupported = Boolean(dir.ready && sellerOneAddress && k.seller !== sellerOneAddress)
 
   // ---- checks
   const runCheck = useCallback(
@@ -318,9 +329,6 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
   const receipt = useReceipt(showReceipt ? k.id : null, k.seller)
 
   const payDisabled = (): string | null => {
-    if (writeUnsupported) {
-      return 'This API signs payments only for seller 1. Checks and receipts work for every seller.'
-    }
     if (state.check.kind === 'running') return 'Reading the chain.'
     if (state.check.kind === 'idle') return 'The checks have not run yet.'
     if (state.check.kind === 'blocked') return `Cannot pay: ${blockedText(state.check.result)}`
@@ -330,6 +338,7 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
       rail,
       health.data?.payer.status ?? 'ok',
       health.data?.wallet_eudemo.status ?? 'ok',
+      Boolean(health.data?.payer.refilling),
     )
   }
   const reason = payDisabled()

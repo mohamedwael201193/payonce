@@ -527,11 +527,12 @@ test('verify: stubbed verifier 400 -> 400 valid:false (shape of the proven live 
 
 // ---- prover down: fail closed with 503 prover_unavailable ----
 const downFetch = async () => { throw new Error('connect ECONNREFUSED 127.0.0.1:8788'); };
-test('prover down: health -> 503 prover_unavailable', async () => {
+test('prover down: health -> 200 prover_available:false (a status, no console 503)', async () => {
   const h = createAgeProofHandlers(makeDeps({ fetchImpl: downFetch }));
   const res = fakeRes();
   await h.handleHealth({}, res);
-  assert.equal(res.status, 503);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.prover_available, false);
   assert.equal(res.body.error.code, 'prover_unavailable');
 });
 test('prover down: policy-check -> 503 prover_unavailable', async () => {

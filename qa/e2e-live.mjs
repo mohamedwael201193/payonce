@@ -350,7 +350,7 @@ async function main() {
     check(again.status === 409 && again.json?.error?.code === 'already_paid', sk, rail, 'double pay: the API refuses (already_paid)', `HTTP 409 ${again.json?.error?.message?.slice(0, 80)}`, `HTTP ${again.status} ${again.json?.error?.code}`);
     if (sk !== 'seller1') continue; // attack sends are seller-1 only
     if (state.attacksLeft < 1) { row(sk, rail, 'double pay: second payment sent to the chain', 'SKIP', 'attack-send budget (3/hour/IP) is empty'); continue; }
-    const at = await POST('/api/attacks/pay_twice', { payable_id: p.id, mode: 'send_to_chain' }, { retries: 0, timeoutMs: 240_000 });
+    const at = await POST('/api/attacks/pay_twice', { payable_id: p.id, seller: p.sellerAddr, mode: 'send_to_chain' }, { retries: 0, timeoutMs: 240_000 });
     state.attacksLeft--;
     const expected = rail === 'ccd' ? -5 : -16;
     check(at.json?.outcome === 'refused' && at.json?.reject?.code === expected && isHash(at.json?.tx_hash), sk, rail, 'double pay: on-chain reject of a real second payment', `${at.json?.reject?.name} (${at.json?.reject?.code}), fee ${at.json?.fee_testnet_ccd} testnet CCD`, `outcome ${at.json?.outcome} reject ${JSON.stringify(at.json?.reject)} (expected ${expected})`, { rejected_tx: at.json?.tx_hash });
@@ -370,7 +370,7 @@ async function main() {
     else {
       if (state.attacksLeft < 1) row('seller1', 'ccd', 'wrong amount: on-chain reject', 'SKIP', 'attack-send budget empty');
       else {
-        const at = await POST('/api/attacks/wrong_amount', { payable_id: id }, { retries: 0, timeoutMs: 240_000 });
+        const at = await POST('/api/attacks/wrong_amount', { payable_id: id, seller: S1 }, { retries: 0, timeoutMs: 240_000 });
         state.attacksLeft--;
         check(at.json?.outcome === 'refused' && at.json?.reject?.code === -6 && isHash(at.json?.tx_hash), 'seller1', 'ccd', 'wrong amount: on-chain reject of amount+1', `${at.json?.reject?.name} (${at.json?.reject?.code})`, `outcome ${at.json?.outcome} reject ${JSON.stringify(at.json?.reject)}`, { register_tx: regTx, rejected_tx: at.json?.tx_hash });
       }
@@ -385,7 +385,7 @@ async function main() {
   }
   // fraud payable: the unlisted-seller co-signer decision, live
   {
-    const at = await POST('/api/attacks/unlisted_seller', { payable_id: paid['seller1:ccd']?.id ?? 1 }, { retries: 2, retryOn500: true });
+    const at = await POST('/api/attacks/unlisted_seller', { payable_id: paid['seller1:ccd']?.id ?? 1, seller: S1 }, { retries: 2, retryOn500: true });
     const dry = at.json?.recorded_example?.cosigner_dry_run_live;
     check(at.status === 200 && at.json?.tx_sent === false && dry?.decision === 'REFUSE' && dry?.code === 'no-approval', 'seller1', '-', 'fraud payable: co-signer REFUSES an unlisted seller (live dry run, no-approval)', `REFUSE ${dry?.code}; vendor list read live: ${at.json?.recorded_example?.vendor_list_live?.length} sellers`, `HTTP ${at.status} outcome ${at.json?.outcome} dry-run ${JSON.stringify(dry)}`);
   }

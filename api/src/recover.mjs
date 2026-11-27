@@ -82,9 +82,9 @@ export async function scanBlockForPaidTx(c, blockHash, payableId, seller, view =
  *  Returns the view's txHash immediately when the contract already has it
  *  (EUDemo path); null when the payable is not Paid / not CCD / the block
  *  cannot be located / no Paid event is found. Never invents a hash. */
-export async function recoverCcdPaymentTx(payableId) {
+export async function recoverCcdPaymentTx(payableId, seller = SELLER) {
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, payableId);
+  const view = await getPayableOrNull(c, seller, payableId);
   if (!view || view.status !== 'Paid') return null;
   if (view.record?.txHash) return view.record.txHash; // EUDemo path (or a future CCD path that records it)
   if (view.asset !== 'CCD') return null;
@@ -92,5 +92,5 @@ export async function recoverCcdPaymentTx(payableId) {
   if (!Number.isFinite(paidAtMs) || paidAtMs <= 0) return null;
   const block = await findBlockAtTime(c, paidAtMs);
   if (!block) return null;
-  return scanBlockForPaidTx(c, block.hash, payableId, SELLER, view);
+  return scanBlockForPaidTx(c, block.hash, payableId, seller, view);
 }

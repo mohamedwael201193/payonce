@@ -10,6 +10,8 @@ import { ApiError } from '../../lib/types'
 import { ReceiptView } from '../ReceiptView'
 import { markMilestone, useDocumentTitle, useSellers } from '../hooks'
 import { parseKeyPath, payPath, resolveSeller, sellerName, type PayableKey } from '../keys'
+import { ANY_SELLER, AnySeller } from '../AnySeller'
+import { receiptPath } from '../keys'
 import { ButtonLink, EmptyState, Notice, PageHeader, Skeleton } from '../ui'
 
 export function ReceiptPage() {
@@ -45,6 +47,8 @@ export function ReceiptPage() {
         A receipt link names a seller and a payable number, like /app/receipt/1/10. Pick a paid invoice from the list.
       </EmptyState>
     )
+  } else if (parsed.sellerParam === ANY_SELLER) {
+    body = <AnySeller id={parsed.id} to={receiptPath} />
   } else if (!seller) {
     body = dir.error ? (
       <Notice tone="error">The seller list could not be loaded, so this link cannot be resolved. Try again in a moment.</Notice>

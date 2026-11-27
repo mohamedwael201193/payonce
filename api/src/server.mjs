@@ -40,6 +40,7 @@ import {
 } from './consent.mjs';
 import { mcpToolsList, mcpCheckBadge, mcpAgentOf, mcpAgentsByOwner, MCP_URL } from './mcp-client.mjs';
 import { checkBalances, topUpPayer, BALANCE_OK_MICROCCD } from './balance-watch.mjs';
+import { ensureFunded, startGuardLoop, guardHealth, FEE_HEADROOM_MICROCCD } from './balance-guard.mjs';
 import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } from './buyer-agent.mjs';
 import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
@@ -117,6 +118,49 @@ const internal = (res, e) => {
   console.error('[api] internal error:', e?.message ?? e);
   apiError(res, 500, 'internal', 'server', 'Something went wrong on our side. Nothing was sent unless a transaction link appears above.');
 };
+
+// ---- fee funding (B1): a send is only started when the payer can cover its
+// fees; otherwise the fee guard is kicked and the caller gets a typed,
+// retryable 503 `refilling_fees` instead of a failed transaction.
+export function isFundsError(e) {
+  return /not have enough funds|insufficient|enough funds|InsufficientFunds|cannot cover/i.test(String(e?.message ?? e ?? ''));
+}
+const refillingFees = (res) =>
+  apiError(res, 503, 'refilling_fees', 'server', 'The demo payer is refilling its testnet fees. Nothing was sent. Try again in a minute.', { retryable: true, retry_after_s: 60 });
+/** Returns true after sending the 503 when the payer cannot cover fees. */
+async function payerNeedsRefill(res) {
+  if (chainReaderOverride) return false;
+  try {
+    const c = await grpc();
+    const info = await getAccount(c, PAYER_ADDRESS);
+    const have = BigInt(microCcdOf(info.accountAvailableBalance ?? info.accountAmount));
+    if (have >= FEE_HEADROOM_MICROCCD) return false;
+  } catch { return false; } // an unreadable balance never blocks by itself; the send path still types its own errors
+  void ensureFunded({ reason: 'pay' });
+  refillingFees(res);
+  return true;
+}
+/** Send-path failure → typed envelope (never a bare 500). */
+function sendFailure(res, e) {
+  if (isFundsError(e)) { void ensureFunded({ reason: 'send_failed' }); return refillingFees(res); }
+  if (isNodeError(e)) return chainUnreachable(res, e);
+  console.error('[api] send failed:', String(e?.message ?? e).replace(/\b[0-9a-fA-F]{64}\b/g, '<hex>').slice(0, 300));
+  return apiError(res, 502, 'send_failed', 'chain', 'The transaction could not be sent just now. Nothing moved. Try again.', { retryable: true });
+}
+
+/** Retry a read that failed on a transient node error (gRPC UNAVAILABLE / 429 / timeout), so one
+    busy moment on the public node does not become a 503 for the caller (B8). */
+async function retryNode(fn, attempts = 4) {
+  let last;
+  for (let i = 0; i < attempts; i += 1) {
+    try { return await fn(); } catch (e) {
+      last = e;
+      if (!isNodeError(e) || i === attempts - 1) throw e;
+      await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+    }
+  }
+  throw last;
+}
 
 function sendJson(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -408,6 +452,22 @@ export async function refreshScan() {
   return scanInFlight;
 }
 
+/** Read-through update of ONE row in the served scan (after a create or a pay), so the list the
+    UI refetches is current at once instead of after the next full scan (B12). Never throws. */
+export async function upsertServedRow(seller, id) {
+  if (!served || chainReaderOverride) return false;
+  try {
+    const c = await grpc();
+    const { view, ok } = await readPayableUncached(c, id, seller);
+    if (!ok || !view) return false;
+    const rows = served.rows.filter((r) => !(r.id === view.id && r.seller === view.seller));
+    rows.push(view);
+    served = { at: Date.now(), rows };
+    try { await saveScan({ at: served.at, rows: scanForJson(rows) }); } catch { /* the next full scan persists */ }
+    return true;
+  } catch { return false; }
+}
+
 let scanLoopStarted = false;
 /** Boot: warm from the persisted copy, then scan forever in the background. */
 export async function startScanLoop() {
@@ -587,9 +647,15 @@ async function handleHealth(req, res) {
       sponsor = { status: available >= 50_000_000n ? 'ok' : available > 0n ? 'low' : 'empty' };
     } catch { /* keep empty */ }
   }
+  const guard = await guardHealth();
+  // A low payer while the guard works is a short, named state, not a failure.
+  if (payer.status !== 'ok') payer = { ...payer, refilling: guard.enabled, reason: guard.refilling ? 'refilling_fees' : guard.skipped ?? null };
+  if (chainOk && payer.status !== 'ok') void ensureFunded({ reason: 'health' });
   sendJson(res, 200, {
     chain: { reachable: chainOk, checked_at: new Date().toISOString() },
     node_busy: !chainOk,
+    fee_guard: guard,
+    scan: served ? { ready: true, age_s: Math.round((Date.now() - served.at) / 1000), rows: served.rows.length, last_outcome: refreshState.lastOutcome } : { ready: false, last_outcome: refreshState.lastOutcome },
     payer,
     sponsor,
     wallet_eudemo: walletEudemo,
@@ -803,17 +869,18 @@ async function handleVerify(req, res, id) {
   const seller = resolveSellerStrict(req, res);
   if (!seller) return;
   const c = await grpc();
-  const view = await getPayableOrNull(c, seller, id);
+  const view = await retryNode(() => getPayableOrNull(c, seller, id));
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
-  const now = await chainNow(c);
+  const now = await retryNode(() => chainNow(c));
   const docBytes = docSha256 ? null : await docForPayableForSeller(seller, id);
   const { chain } = await backend();
-  const payerInfo = await getAccount(c, PAYER_ADDRESS);
+  const payerInfo = await retryNode(() => getAccount(c, PAYER_ADDRESS));
   const payerBalances = {
     ccdAvailableMicro: microCcdOf(payerInfo.accountAvailableBalance ?? payerInfo.accountAmount),
     eudemoBase: chain.tokenBalance(payerInfo, 'EUDemo'),
   };
 
+  if (BigInt(payerBalances.ccdAvailableMicro) < FEE_HEADROOM_MICROCCD && !chainReaderOverride) void ensureFunded({ reason: 'verify' });
   if (mode === 'before_pay') {
     const result = await verifyBeforePay(c, { view, docBytes, docSha256, chainTimeMs: now.slotMs, payerBalances });
     await updateCounters((counters) => {
@@ -850,7 +917,7 @@ async function handleVerify(req, res, id) {
 
   // after_pay: the payment tx comes from the store / evidence index.
   const { txs } = await paymentTxsFor(id, view);
-  const balance = await getRegistryBalance(c);
+  const balance = await retryNode(() => getRegistryBalance(c));
   if (view.status !== 'Paid') {
     return sendJson(res, 200, {
       payable_id: id, mode, verdict: 'blocked',
@@ -881,12 +948,12 @@ async function handleVerify(req, res, id) {
       checked_at: new Date().toISOString(), read_ms: Date.now() - started,
     });
   }
-  const summary = await getTx(c, payHash);
-  const blockTime = await getBlockTime(c, summary.blockHash);
+  const summary = await retryNode(() => getTx(c, payHash));
+  const blockTime = await retryNode(() => getBlockTime(c, summary.blockHash));
   // MF-3: the EUDemo run supplies the stored reserve/confirm evidence
   // (pltEvidenceFor) — without it the fail-closed rows would fail every
   // PLT verification, including real paid payables.
-  const pltEvidence = view.asset === 'EUDemo' ? await pltEvidenceFor(c, txs) : { reserve: null, confirm: null };
+  const pltEvidence = view.asset === 'EUDemo' ? await retryNode(() => pltEvidenceFor(c, txs)) : { reserve: null, confirm: null };
   const result = view.asset === 'CCD'
     ? await verifyCcdV2(c, { payableId: id, txHash: payHash, summary, blockTime, view, balance, docBytes, docSha256 })
     // G7 fix-back-7 MF-1: the registryIndex/gen pair below is passed
@@ -969,9 +1036,12 @@ async function handleCreatePayable(req, res) {
       },
     });
   } catch (e) {
-    return chainUnreachable(res, e);
+    return sendFailure(res, e);
   }
-  if (reg.ok && !chainReaderOverride) void refreshScan(); // show the new invoice at the next complete scan
+  if (reg.ok && !chainReaderOverride) {
+    await upsertServedRow(seller, reg.id); // the list shows the new invoice at once
+    void refreshScan();
+  }
   if (!reg.ok) {
     const info = reg.rejected;
     await updateCounters((counters2) => {
@@ -1042,8 +1112,9 @@ async function handlePay(req, res, id) {
       verify_url: gate.verify_url, payable_id: gate.payable_id,
     });
   }
+  if (await payerNeedsRefill(res)) return;
   const { job, created } = await createOrReturnJob(id, rail, seller);
-  if (created) void Promise.resolve(runJob(job)).catch(() => {}).finally(() => { if (!chainReaderOverride) void refreshScan(); });
+  if (created) void Promise.resolve(runJob(job)).catch(() => {}).finally(async () => { if (!chainReaderOverride) { await upsertServedRow(seller, id); void refreshScan(); } });
   sendJson(res, 200, {
     job_id: job.job_id, payable_id: job.payable_id, seller: job.seller ?? seller, rail: job.rail,
     steps: job.steps.map((s) => s.step),
@@ -1108,7 +1179,8 @@ async function handleTxStatus(req, res, hash) {
 
 async function handleDryRun(req, res) {
   const body = await readBody(req).catch(() => ({}));
-  if (rejectNonSeller1Write(req, res, body)) return;
+  const seller = resolveWriteSeller(req, res, body);
+  if (!seller) return;
   const payableId = Number(body.payable_id);
   const to = typeof body.to === 'string' ? body.to : null;
   const amount = body.amount != null ? String(body.amount) : null;
@@ -1117,7 +1189,7 @@ async function handleDryRun(req, res) {
     return badRequest(res, 'dry-run needs { payable_id, to, amount, memo }.');
   }
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, payableId);
+  const view = await getPayableOrNull(c, seller, payableId);
   if (!view) return notFound(res, `No payable ${payableId} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
   const { chain, decideMod } = await backend();
   const decide = decideMod.decide;
@@ -1133,7 +1205,14 @@ async function handleDryRun(req, res) {
   } else {
     memoHex = chain.encodeCborMemo(memoInput).toString('hex');
   }
-  const snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
+  let snapshot = await buildSnapshotV2(c, { seller, payableId, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
+  // The transfer gate only decides on a Reserved payable. An Unpaid one is evaluated on the
+  // hypothetical Reserved state (labelled in the answer), so a refusal is about the transfer
+  // (payee / amount / memo) and not about the missing reservation.
+  const hypotheticalReserved = view.status === 'Unpaid';
+  if (hypotheticalReserved) {
+    snapshot = { ...snapshot, payable: { ...snapshot.payable, status: 'Reserved', payer: PAYER_ADDRESS, expiresMs: String(Date.now() + 3_600_000) } };
+  }
   const now = await chainNow(c);
   const headerExpirySeconds = view.record?.expiresMs
     ? Math.floor((Number(view.record.expiresMs) - 60_000) / 1000)
@@ -1141,8 +1220,10 @@ async function handleDryRun(req, res) {
   const decision = decide(snapshot, {
     kind: 'transfer', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce,
     recipient: to, amount, token: 'EUDemo', memo: memoHex, headerExpirySeconds, operations: 1,
-  }, await ledgerForDecide(`${SELLER}:${payableId}`));
+  }, await ledgerForDecide(`${seller}:${payableId}`));
   sendJson(res, 200, {
+    basis: hypotheticalReserved ? 'hypothetical_reserved' : 'live_state',
+    basis_note: hypotheticalReserved ? 'The payable is Unpaid, so the transfer gate was evaluated as if it were reserved by the demo payer. Nothing was reserved or sent.' : 'Evaluated on the live chain state.',
     decision: decision.decision,
     reason: decision.code,
     plain: decision.decision === 'SIGN'
@@ -1155,39 +1236,44 @@ async function handleDryRun(req, res) {
 async function handleAttack(req, res, kind) {
   const ip = clientIp(req);
   const body = await readBody(req).catch(() => ({}));
-  if (rejectNonSeller1Write(req, res, body)) return;
+  // Every attack names its payable by (seller, id): the seller comes from
+  // ?seller= or the body, absent = seller 1; ids collide across sellers.
+  const seller = resolveWriteSeller(req, res, body);
+  if (!seller) return;
   const payableId = Number(body.payable_id);
   const mode = body.mode === 'precheck_only' ? 'precheck_only' : body.mode === 'send_to_chain' ? 'send_to_chain' : undefined;
   if (!Number.isInteger(payableId) || payableId < 1) return badRequest(res, 'payable_id must be a positive integer.');
   if (!['pay_twice', 'wrong_amount', 'unlisted_seller'].includes(kind)) return notFound(res, `Unknown attack kind ${kind}.`);
   // Sends cost a testnet fee: budget them. Prechecks and dry runs do not.
-  const willSend = (kind === 'pay_twice' && mode !== 'precheck_only') || (kind === 'wrong_amount');
-  if (willSend && kind !== 'wrong_amount') {
-    const budget = await hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
-    if (!budget.allowed) return rateLimited(res, Math.ceil(budget.resetMs / 1000), 'The demo’s budget for attack sends is used up for this hour.');
-  }
-  if (willSend && kind === 'wrong_amount') {
+  let willSend = kind === 'pay_twice' && mode !== 'precheck_only';
+  if (kind === 'wrong_amount') {
     // Only the CCD wrong-amount sends; the EUDemo one is a dry run.
     const c = await grpc();
-    const view = await getPayableOrNull(c, SELLER, payableId);
-    if (view?.asset === 'CCD' && view.status === 'Unpaid') {
-      const budget = await hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
-      if (!budget.allowed) return rateLimited(res, Math.ceil(budget.resetMs / 1000), 'The demo’s budget for attack sends is used up for this hour.');
-    }
+    const view = await getPayableOrNull(c, seller, payableId);
+    willSend = view?.asset === 'CCD' && view.status === 'Unpaid';
+  }
+  if (willSend) {
+    const budget = await hitWindow(`atk:${ip}`, 3_600_000, LIMITS.attackSendsPerHour);
+    if (!budget.allowed) return rateLimited(res, Math.ceil(budget.resetMs / 1000), 'The demo’s budget for attack sends is used up for this hour.');
+    if (await payerNeedsRefill(res)) return;
   }
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   let result;
-  if (kind === 'pay_twice') result = await attackPayTwice(payableId, mode);
-  else if (kind === 'wrong_amount') result = await attackWrongAmount(payableId);
-  else result = await attackUnlistedSeller(payableId);
+  try {
+    if (kind === 'pay_twice') result = await attackPayTwice(payableId, mode, seller);
+    else if (kind === 'wrong_amount') result = await attackWrongAmount(payableId, seller);
+    else result = await attackUnlistedSeller(payableId, seller);
+  } catch (e) {
+    return sendFailure(res, e);
+  }
   sendJson(res, 200, result);
 }
 
 async function handleReceipt(req, res, id) {
   const seller = resolveSellerStrict(req, res);
   if (!seller) return;
-  const receipt = await buildReceiptFor(id, seller);
+  const receipt = await retryNode(() => buildReceiptFor(id, seller));
   if (!receipt) {
     const c = await grpc();
     const view = await getPayableOrNull(c, seller, id);
@@ -1551,6 +1637,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ready().then(() => warmScanFromStore()).then(() => {
     server.listen(PORT, HOST, () => {
       void startScanLoop();
+      startGuardLoop();
       console.log(`payonce-api listening on http://${HOST}:${PORT} (registry <${REGISTRY.index},${REGISTRY.subindex}>, ${NETWORK})`);
     });
   }).catch((e) => {

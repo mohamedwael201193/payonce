@@ -53,8 +53,8 @@ function recordedRefusal(code) {
   return v1.find((r) => r.code === code) ?? null;
 }
 
-function base(kind, payableId) {
-  return { kind, payable_id: payableId, layer: 'chain', live: false, tx_sent: false, outcome: '', plain: '' };
+function base(kind, payableId, seller = null) {
+  return { kind, payable_id: payableId, seller, layer: 'chain', live: false, tx_sent: false, outcome: '', plain: '' };
 }
 
 async function recordLiveRefusal(txHash, code) {
@@ -63,10 +63,10 @@ async function recordLiveRefusal(txHash, code) {
   });
 }
 
-export async function attackPayTwice(payableId, mode) {
+export async function attackPayTwice(payableId, mode, seller = SELLER) {
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, payableId);
-  const res = base('pay_twice', payableId);
+  const view = await getPayableOrNull(c, seller, payableId);
+  const res = base('pay_twice', payableId, seller);
   if (!view) {
     const rec = recordedRefusal(-3);
     return { ...res, layer: 'chain', outcome: 'not_found', plain: `No payable ${payableId} is on the test registry.`, recorded_example: { date: RECORDED_DATE, registry: '<13149,0> (v1)', ...rec } };
@@ -77,6 +77,7 @@ export async function attackPayTwice(payableId, mode) {
     return {
       ...res,
       layer: 'app',
+      live: true, // a live read of the chain; nothing is sent (tx_sent stays false)
       outcome: 'precheck',
       plain: view.status === 'Paid'
         ? `This app: payable ${payableId} is already Paid — a second payment would be refused by the chain (${expectedCode} ${rejectInfo(expectedCode).name}). Nothing was sent.`
@@ -98,7 +99,7 @@ export async function attackPayTwice(payableId, mode) {
   const receiveName = isCcd ? 'pay_ccd' : 'reserve_plt';
   const sent = await sendUpdate(c, {
     from: sig.sellerB, receiveName,
-    parameterHex: v2enc.encodeV2PayableKey({ seller: SELLER, id: payableId }),
+    parameterHex: v2enc.encodeV2PayableKey({ seller, id: payableId }),
     ...(isCcd ? { amountMicroCcd: BigInt(view.amount) } : {}),
     maxEnergy: 6000n,
   });
@@ -121,10 +122,10 @@ export async function attackPayTwice(payableId, mode) {
   };
 }
 
-export async function attackWrongAmount(payableId) {
+export async function attackWrongAmount(payableId, seller = SELLER) {
   const c = await grpc();
-  const view = await getPayableOrNull(c, SELLER, payableId);
-  const res = base('wrong_amount', payableId);
+  const view = await getPayableOrNull(c, seller, payableId);
+  const res = base('wrong_amount', payableId, seller);
   if (!view) {
     const rec = recordedRefusal(-3);
     return { ...res, outcome: 'not_found', plain: `No payable ${payableId} is on the test registry.`, recorded_example: { date: RECORDED_DATE, registry: '<13149,0> (v1)', ...rec } };
@@ -144,7 +145,7 @@ export async function attackWrongAmount(payableId) {
     const wrongAmount = BigInt(view.amount) + 1n;
     const sent = await sendUpdate(c, {
       from: sig.sellerB, receiveName: 'pay_ccd',
-      parameterHex: v2enc.encodeV2PayableKey({ seller: SELLER, id: payableId }),
+      parameterHex: v2enc.encodeV2PayableKey({ seller, id: payableId }),
       amountMicroCcd: wrongAmount, maxEnergy: 6000n,
     });
     const status = await waitFinalized(c, sent.txHash);
@@ -170,7 +171,7 @@ export async function attackWrongAmount(payableId) {
   // Reserved state (labelled); the payable itself is never reserved.
   const { decideMod, chain } = await backend();
   const decide = decideMod.decide;
-  const snapshot = await buildSnapshotV2(c, { seller: SELLER, payableId, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
+  const snapshot = await buildSnapshotV2(c, { seller, payableId, agentAccount: PAYER_ADDRESS, sponsorAccount: null, signatureThreshold: 1 });
   const reservedSnapshot = {
     ...snapshot,
     payable: {
@@ -184,9 +185,9 @@ export async function attackWrongAmount(payableId) {
   const decision = decide(reservedSnapshot, {
     kind: 'transfer', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce,
     recipient: view.payee, amount: wrongAmount, token: 'EUDemo',
-    memo: chain.encodeCborMemo(canonicalMemoV2(SELLER, payableId)).toString('hex'),
+    memo: chain.encodeCborMemo(canonicalMemoV2(seller, payableId)).toString('hex'),
     headerExpirySeconds: Math.floor((Date.now() + 3540_000) / 1000), operations: 1,
-  }, await ledgerForDecide(`${SELLER}:${payableId}`));
+  }, await ledgerForDecide(`${seller}:${payableId}`));
   return {
     ...res,
     layer: 'co_signer',
@@ -199,7 +200,7 @@ export async function attackWrongAmount(payableId) {
   };
 }
 
-export async function attackUnlistedSeller(payableId) {
+export async function attackUnlistedSeller(payableId, seller = SELLER) {
   const c = await grpc();
   // Live vendor-list read: the demo payer's approvals (exactly the owner).
   const approval = await getVendor(c, PAYER_ADDRESS, OWNER_ADDRESS);
@@ -232,7 +233,7 @@ export async function attackUnlistedSeller(payableId) {
     { unresolved: [] },
   );
   return {
-    ...base('unlisted_seller', payableId),
+    ...base('unlisted_seller', payableId, seller),
     layer: 'app',
     outcome: 'not_set_up',
     plain: `No lab fraud invoice exists on this registry: every account that holds an Active agent token (1476 and 1506) is on the payer's vendor list, and a stranger cannot register an invoice under another seller's token. Nothing was sent. The co-signer decision for an unlisted seller is computed live below (a dry run, no transaction).`,

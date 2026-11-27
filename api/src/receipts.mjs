@@ -38,6 +38,7 @@ import { verifyCcdV2, verifyPltV2, pltReceiptExtraChecks } from './verifier-v2.m
 import { docForPayable, docForPayableForSeller, recordedPaymentTx, recordedPaymentTxForSeller } from './docs.mjs';
 import { loadReceipts, saveReceipt, updateCounters, loadConsents, receiptKey, consentKey } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, txUrl } from './config.mjs';
+import { recoverCcdPaymentTx } from './recover.mjs';
 
 export const ART12_RETENTION =
   'Retained for at least 6 months by the provider (PayOnce lab) from the payment date, as EU AI Act Art. 12 requires for AI-system logs. The record itself holds no personal data; only its hash is anchored on chain.';
@@ -198,7 +199,7 @@ export async function verifyRecordAnchor(txHash) {
 }
 
 /** Payment transactions for a paid payable, from the store then evidence. */
-export async function paymentTxsFor(payableId, view) {
+async function paymentTxsStored(payableId, view) {
   const receipts = await loadReceipts();
   // The receipt store is keyed by (seller, payable id); seller 1's matrix
   // payable 1 shares the id with seller 2's payable 1. A stored receipt
@@ -257,6 +258,22 @@ export async function paymentTxsFor(payableId, view) {
     }
   }
   return { txs: [], source: view.asset === 'CCD' ? 'server_store' : 'chain' };
+}
+
+/** Stored / recorded legs first; for a Paid payable the server never saw (paid outside the API),
+ *  the chain itself names the payment: the EUDemo view stores the transfer hash, and a CCD pay
+ *  tx is found from the Paid event in the block at paidAt. Never invents a hash. */
+export async function paymentTxsFor(payableId, view) {
+  const found = await paymentTxsStored(payableId, view);
+  if (found.txs.length || view.status !== 'Paid') return found;
+  try {
+    if (view.asset === 'EUDemo' && view.record?.txHash) return { txs: [['Transfer', view.record.txHash]], source: 'chain' };
+    if (view.asset === 'CCD') {
+      const tx = await recoverCcdPaymentTx(payableId, view.seller);
+      if (tx) return { txs: [['Payment', tx]], source: 'chain' };
+    }
+  } catch { /* fall through: no receipt rather than a guessed one */ }
+  return found;
 }
 
 /** Build (and store) the receipt for a paid payable. Returns null when

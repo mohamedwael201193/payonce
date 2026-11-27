@@ -190,3 +190,19 @@ describe('INVOICE_RESET restores the initial state', () => {  it('resets everyth
     expect(s).toEqual(initialFlowState)
   })
 })
+
+describe('job failure reason (B3)', () => {
+  const job = (detail: string, step = 'reserve') =>
+    ({ job_id: 'j', payable_id: 1, rail: 'eudemo', state: 'failed', outcome: 'failed', started_at: '', finished_at: '', steps: [{ step, status: 'failed', detail }] }) as never
+  it('names the real reason in plain words, never "the payment job failed"', async () => {
+    const { jobFailureReason } = await import('./flow')
+    expect(jobFailureReason(job('Error: The sender did not have enough funds'))).toMatch(/ran out of testnet CCD for fees/)
+    expect(jobFailureReason(job('Error: fetch failed'))).toMatch(/did not answer in time/)
+    expect(jobFailureReason(job('Transfer failed verification (memo)', 'wait_finality'))).toMatch(/Wait for the chain to finalize.*Transfer failed verification/)
+  })
+  it('both rails stop for a low payer, with the refilling wording when the guard is working', async () => {
+    const { payDisabledReason, initialFlowState } = await import('./flow')
+    const st = { ...initialFlowState, check: { kind: 'idle' } } as never
+    expect(payDisabledReason(st, 'eudemo', 'low', 'ok', true)).toBe('Run the check first.')
+  })
+})

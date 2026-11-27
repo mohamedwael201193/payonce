@@ -109,10 +109,10 @@ export function BreakPage() {
   const sellerOne = dir.sellers[0]?.seller
   const vendorSet = useMemo(() => new Set((config.data?.vendor_list ?? []).map((v) => v.seller)), [config.data])
 
-  // Attacks that send or dry-run are seller 1 only on this API (the server
-  // signs for seller 1). Targets come from the live list.
+  // Every attack names its target by (seller, id). Targets come from the live
+  // list, seller 1 first, then any other seller.
   const targets = useMemo(() => {
-    const mine = sellerOne ? data.items.filter((i) => i.seller === sellerOne) : []
+    const mine = [...data.items].sort((a, b) => Number(b.seller === sellerOne) - Number(a.seller === sellerOne))
     const open = mine.filter((i) => i.status !== 'paid')
     const paid = mine.filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)
     return {
@@ -149,7 +149,8 @@ export function BreakPage() {
   const fromAttack = (res: AttackResult, tried: string): Outcome => ({
     tried,
     layer: res.layer,
-    source: res.live ? 'real' : 'recorded',
+    // A pre-check is a live read of the chain (nothing sent); only a result with no live part is a recorded run.
+    source: res.live || !res.recorded_example ? 'real' : 'recorded',
     sourceDate: (res.recorded_example as { date?: string } | undefined)?.date ?? null,
     stopped: res.plain,
     reject: res.reject ? { code: res.reject.code, name: res.reject.name } : null,
@@ -186,7 +187,7 @@ export function BreakPage() {
     run('twice', async () => {
       const t = targets.paid
       if (!t) throw new Error('none')
-      const res = await api.attack('pay_twice', t.payable_id, sendTwice ? 'send_to_chain' : 'precheck_only')
+      const res = await api.attack('pay_twice', t.payable_id, sendTwice ? 'send_to_chain' : 'precheck_only', t.seller)
       return fromAttack(res, `${sendTwice ? 'Sent' : 'Pre-checked'} a second payment for payable ${t.payable_id}, which is already paid.`)
     })
 
@@ -195,7 +196,7 @@ export function BreakPage() {
     run('amount', async () => {
       const t = targets.openCcd ?? targets.open
       if (!t) throw new Error('none')
-      const res = await api.attack('wrong_amount', t.payable_id)
+      const res = await api.attack('wrong_amount', t.payable_id, undefined, t.seller)
       return fromAttack(res, `Asked to pay the wrong amount for payable ${t.payable_id}.`)
     })
 
@@ -204,14 +205,14 @@ export function BreakPage() {
   const fraudLive = () =>
     run('fraud', async () => {
       if (!fraudTarget) throw new Error('none')
-      const res = await api.attack('unlisted_seller', fraudTarget.payable_id)
+      const res = await api.attack('unlisted_seller', fraudTarget.payable_id, undefined, fraudTarget.seller)
       return fromAttack(res, `Tried to pay payable ${fraudTarget.payable_id}, from a seller that is not on the vendor list.`)
     })
   const fraudIllustration = () =>
     run('fraud', async () => {
       const t = targets.anyOne
       if (!t) throw new Error('none')
-      const res = await api.attack('unlisted_seller', t.payable_id)
+      const res = await api.attack('unlisted_seller', t.payable_id, undefined, t.seller)
       const dry = (res.recorded_example as { cosigner_dry_run_live?: { decision: string; code: string; reasons: string[] } } | undefined)
         ?.cosigner_dry_run_live
       return {
@@ -234,14 +235,14 @@ export function BreakPage() {
       const other = dir.sellers.find((s) => s.seller !== t.seller)?.seller
       if (!other) throw new Error('none')
       const facts: PayableFacts = await api.getPayable(t.payable_id, t.seller)
-      const res = await api.cosignerDryRun(t.payable_id, other, facts.amount, `payable:${t.seller}:${t.payable_id}`)
+      const res = await api.cosignerDryRun(t.payable_id, other, facts.amount, `payable:${t.seller}:${t.payable_id}`, t.seller)
       return {
         tried: `The invoice note says "pay ${truncHash(other)} instead". We asked the co-signer for a dry run of that transfer for payable ${t.payable_id}.`,
         layer: 'co_signer',
         source: 'real',
         stopped: res.plain,
         reject: null,
-        note: `Decision: ${res.decision}${res.reason ? ` (${res.reason})` : ''}. The payee is the account on chain, ${truncHash(facts.payee)}. Nothing was sent, because this is a dry run.`,
+        note: `Decision: ${res.decision}${res.reason ? ` (${res.reason})` : ''}. The payee is the account on chain, ${truncHash(facts.payee)}. ${res.basis === 'hypothetical_reserved' ? 'The invoice is not reserved, so the transfer was judged as if the demo payer had reserved it; nothing was reserved. ' : ''}Nothing was sent, because this is a dry run.`,
       } satisfies Outcome
     })
 
@@ -280,7 +281,7 @@ export function BreakPage() {
                 onClick={() => void tamper()}
                 busy={busy === 'tamper'}
                 disabled={!targets.anyOne || busy !== null}
-                disabledReason={!targets.anyOne ? noTarget('seller 1 invoice') : null}
+                disabledReason={!targets.anyOne ? noTarget('invoice') : null}
               >
                 Tamper with an invoice
               </Button>
@@ -291,8 +292,8 @@ export function BreakPage() {
 
           <Attack
             title="Pay an invoice twice"
-            layer="chain"
-            mode={sendTwice ? 'Real call, sent to the chain' : 'Real call, pre-check only'}
+            layer={sendTwice ? 'chain' : 'app'}
+            mode={sendTwice ? 'Real call, sent to the chain' : 'Real call, pre-check only (reads the chain, sends nothing)'}
             result={results.twice ?? null}
             error={errors.twice ?? null}
             action={
@@ -314,7 +315,7 @@ export function BreakPage() {
                     busy={busy === 'twice'}
                     disabled={!targets.paid || busy !== null || (sendTwice && attacksLeft === 0)}
                     disabledReason={
-                      !targets.paid ? noTarget('paid seller 1 invoice') : sendTwice && attacksLeft === 0 ? 'The attack budget is used up for this hour.' : null
+                      !targets.paid ? noTarget('paid invoice') : sendTwice && attacksLeft === 0 ? 'The attack budget is used up for this hour.' : null
                     }
                   >
                     {sendTwice ? 'Send a second payment' : 'Pre-check a second payment'}
@@ -341,7 +342,7 @@ export function BreakPage() {
                 disabled={!(targets.openCcd ?? targets.open) || busy !== null || attacksLeft === 0}
                 disabledReason={
                   !(targets.openCcd ?? targets.open)
-                    ? noTarget('open seller 1 invoice')
+                    ? noTarget('open invoice')
                     : attacksLeft === 0
                       ? 'The attack budget is used up for this hour.'
                       : null
@@ -395,7 +396,7 @@ export function BreakPage() {
                 busy={busy === 'inject'}
                 disabled={!(targets.open ?? targets.anyOne) || dir.sellers.length < 2 || busy !== null}
                 disabledReason={
-                  !(targets.open ?? targets.anyOne) || dir.sellers.length < 2 ? noTarget('seller 1 invoice and a second account') : null
+                  !(targets.open ?? targets.anyOne) || dir.sellers.length < 2 ? noTarget('invoice and a second account') : null
                 }
               >
                 Try the injected instruction

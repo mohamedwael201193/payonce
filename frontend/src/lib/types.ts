@@ -72,7 +72,8 @@ export interface ApiConfig {
 export interface Health {
   chain: { reachable: boolean; checked_at: string }
   node_busy: boolean
-  payer: { status: 'ok' | 'low' | 'empty' }
+  payer: { status: 'ok' | 'low' | 'empty'; refilling?: boolean; reason?: string | null }
+  fee_guard?: { enabled: boolean; refilling: boolean; last_refill_at?: string | null; last_refill_tx?: string | null; refills_24h?: number }
   sponsor: { status: 'ok' | 'low' | 'empty' }
   wallet_eudemo: { status: 'ok' | 'low' }
   co_signer: { status: 'ok' | 'unavailable' }
@@ -222,6 +223,7 @@ export interface AttackResult {
   payable_id: number
   layer: Layer
   live: boolean
+  seller?: string | null
   tx_sent: boolean
   outcome: string
   reject?: RejectInfo | null

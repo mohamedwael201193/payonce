@@ -95,6 +95,9 @@ export function Nav() {
             <Link to="/app/judges" onClick={() => setOpen(false)}>
               For judges
             </Link>
+            <Link to="/app" onClick={() => setOpen(false)}>
+              Open the app
+            </Link>
             <Link to="/app/pay" className="po-btn po-btn--solid" onClick={() => setOpen(false)}>
               Pay a live invoice
             </Link>

@@ -328,6 +328,18 @@ function proverDown(deps, res) {
     { retryable: true });
 }
 
+/** The health probe answers 200 with prover_available:false (a status, not a failure), so a page that
+ *  only asks "is the prover there?" does not log a 503 in the browser console. Every action route
+ *  still fails closed with 503 prover_unavailable. */
+function proverUnavailableStatus(deps, res) {
+  return deps.sendJson(res, 200, {
+    service: 'payonce-age-proof',
+    prover_available: false,
+    error: { code: 'prover_unavailable', layer: 'server', retryable: true,
+      message: 'The age-proof prover is not reachable on this host. The prover sidecar has not been provisioned yet — age verification is unavailable, and age-gated payments stay refused. Nothing was sent.' },
+  });
+}
+
 /**
  * Build the four age-proof route handlers.
  * deps: { proverUrl, verifierUrl, fetchImpl, readBody, sendJson, apiError,
@@ -350,10 +362,10 @@ export function createAgeProofHandlers(deps) {
     let health;
     try {
       const r = await proverHealthFetch(fetchImpl, proverUrl);
-      if (!r.ok) return proverDown(deps, res);
+      if (!r.ok) return proverUnavailableStatus(deps, res);
       health = await r.json();
     } catch {
-      return proverDown(deps, res);
+      return proverUnavailableStatus(deps, res);
     }
     return deps.sendJson(res, 200, {
       service: 'payonce-age-proof',

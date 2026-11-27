@@ -180,13 +180,12 @@ test('writes: create and pay resolve the seller (default seller 1, seller 2 by b
   assert.match(res.captured.json.error.message, /unknown seller/)
 })
 
-test('writes: create and pay go through the seller resolver, attack through the seller-1 guard', async () => {
+test('writes: create, pay, attacks and dry-run all go through the seller resolver', async () => {
   const { readFileSync } = await import('node:fs')
   const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8')
   const END = '\n}\n'
   const body = (name) => { const i = src.indexOf(`async function ${name}(`); return i < 0 ? '' : src.slice(i, src.indexOf(END, i)) }
-  for (const name of ['handleCreatePayable', 'handlePay']) assert.ok(body(name).includes('resolveWriteSeller(req, res, body)'), name)
-  for (const name of ['handleAttack', 'handleDryRun']) assert.ok(body(name).includes('rejectNonSeller1Write(req, res, body)'), name)
+  for (const name of ['handleCreatePayable', 'handlePay', 'handleAttack', 'handleDryRun']) assert.ok(body(name).includes('resolveWriteSeller(req, res, body)'), name)
 })
 
 test('seller-keyed jobs: a running seller-1 job never blocks or returns the seller-2 job for the same bare id', async () => {

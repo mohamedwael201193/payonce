@@ -76,7 +76,8 @@ function ScrollToTop() {
 /** The seller part of a legacy link: ?seller=<address>, else "1" (the API
     default), which the app resolves against /api/config. */
 function legacySeller(params: URLSearchParams): string {
-  return params.get('seller') || '1'
+  // No seller named: the number alone can name two invoices, so the app resolves it against the registry list.
+  return params.get('seller') || 'any'
 }
 
 function legacyPayable(params: URLSearchParams): number | null {
@@ -150,6 +151,7 @@ export function AppRoutes() {
       <Route path="/dashboard" element={<LegacyDashboard />} />
       <Route path="/dashboard/pay" element={<LegacyDashboardPay />} />
       <Route path="/judges" element={<Navigate to="/app/judges" replace />} />
+      <Route path="/receipt" element={<Navigate to="/app/invoices" replace />} />
       <Route path="/receipt/:payableId" element={<LegacyReceipt />} />
       <Route path="/verify-age" element={<LegacyAge />} />
       <Route path="*" element={<Navigate to="/" replace />} />

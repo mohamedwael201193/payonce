@@ -8,13 +8,12 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { BANNED_WORDS, GLOSSARY, buildStatusString, buildStatusText, coSignerRunsAsSentence, reservationDefinition } from '../../lib/copy'
 import { EXPLORER_INSTANCE } from '../../lib/tokens'
-import { useConfig } from '../../hooks/useApi'
+import { useConfig, usePayable } from '../../hooks/useApi'
 import { ccdPayFeeSentence, recordedLabel } from '../fees'
 import { useDocumentTitle } from '../hooks'
 import { verifierCommand } from '../verifier'
 import { Card, CopyButton, ExplorerTx, KeyValue, PageHeader, Skeleton, useExplorerBase } from '../ui'
 import type { ReactNode } from 'react'
-import { RECORDED_DATE } from '../../lib/recorded'
 import { Address } from '../Address'
 
 const SAMPLE_TXS: Array<{ label: string; hash: string }> = [
@@ -47,7 +46,7 @@ const KNOWN_LIMITS = [
   'Race: the co-signer co-signs only while at least 60 s of the reservation remain, and binds the transfer’s header expiry to the reservation expiry minus 60 s.',
   'Seller identity: the seller holds an Active agent token on the official registry <12802,0>, cross-checked by the contract at registration and at payment. There is no LEI and no company proof: the seller is the owner’s own identity, not a company.',
   'One testnet seed holds the keys (in-process, testnet only). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
-  'This API signs payments only for seller 1. Reads, checks and receipts work for every seller; a seller-2 payment is not implemented yet.',
+  'The demo payer signs payments for both sellers; each seller signs only its own invoice registrations. The demo payer refills its testnet fees from a treasury account when it runs low, and says so while it does.',
   'Refused transactions still cost a fee. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
@@ -83,6 +82,9 @@ export function JudgesPage() {
   const instBase = config.data?.explorer.instance ?? EXPLORER_INSTANCE
   const reg = config.data?.registry
   const official = config.data?.cis8004_test_instance
+  // The recorded run's date is the chain's own: payable 11 was paid in that run, and the registry says when.
+  const runPayable = usePayable(11, config.data?.sellers?.[0]?.seller)
+  const runDate = runPayable.data?.status.kind === 'paid' ? runPayable.data.status.paid_at : null
 
   const sampleCmd = verifierCommand({
     payableId: 10,
@@ -93,6 +95,8 @@ export function JudgesPage() {
     payableId: 11,
     txHash: '690c5e2beebd25554b81e18d014aa81c7adde3f35bff505fe0615efe536d2214',
     docPath: '../backend/test/invoices/invoice-011-v2-eudemo.txt',
+    reserveTx: 'a36aa1e0d2ea71a4702075cd0d94752fac7f088dfb52d4038322b7e617180f0d',
+    confirmTx: 'adf55f61c1345d14f05c6c0ee59b996dae8aaef06213e485a17cfb96376100c2',
   })
   const setup = 'cd api && npm install\ncd ../backend && npm install\ncd ../api'
   const commands = `${setup}\n${sampleCmd}\n${sampleCmd2}`
@@ -117,7 +121,7 @@ export function JudgesPage() {
         </div>
         <p className="text-[15px] text-po-grey">
           Expected output: <code className="po-hash">ALL CHECKS PASS (10/10)</code> for payable 10 and{' '}
-          <code className="po-hash">ALL CHECKS PASS (12/12)</code> for payable 11. {recordedLabel(RECORDED_DATE)}.
+          <code className="po-hash">ALL CHECKS PASS (14/14)</code> for payable 11, which also reads its reservation and confirm transactions. {recordedLabel(runDate)}.
         </p>
         <p className="text-[15px] text-po-grey">
           To check a payment from this app, open its receipt: it prints the same command with that payment&apos;s hash.{' '}
@@ -170,7 +174,7 @@ export function JudgesPage() {
       </Section>
 
       <Section id="sample-txs" title="Sample transactions">
-        <p className="text-[15px] text-po-grey">{recordedLabel(RECORDED_DATE)}. Every link opens the testnet explorer.</p>
+        <p className="text-[15px] text-po-grey">{recordedLabel(runDate)}. Every link opens the testnet explorer.</p>
         <ul className="divide-y divide-po-line">
           {SAMPLE_TXS.map((t) => (
             <li key={t.hash} className="grid gap-1 py-2 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-4">

@@ -86,7 +86,16 @@ const configSchema = z.object({
 const healthSchema = z.object({
   chain: z.object({ reachable: z.boolean(), checked_at: z.string() }),
   node_busy: z.boolean(),
-  payer: z.object({ status: z.enum(['ok', 'low', 'empty']) }),
+  payer: z.object({ status: z.enum(['ok', 'low', 'empty']), refilling: z.boolean().optional(), reason: z.string().nullable().optional() }),
+  fee_guard: z
+    .object({
+      enabled: z.boolean(),
+      refilling: z.boolean(),
+      last_refill_at: z.string().nullable().optional(),
+      last_refill_tx: z.string().nullable().optional(),
+      refills_24h: z.number().optional(),
+    })
+    .optional(),
   sponsor: z.object({ status: z.enum(['ok', 'low', 'empty']) }),
   wallet_eudemo: z.object({ status: z.enum(['ok', 'low']) }),
   co_signer: z.object({ status: z.enum(['ok', 'unavailable']) }),
@@ -238,6 +247,7 @@ const attackSchema = z.object({
   payable_id: z.number(),
   layer: z.enum(['app', 'chain', 'co_signer', 'node', 'server']),
   live: z.boolean(),
+  seller: z.string().nullable().optional(),
   tx_sent: z.boolean(),
   outcome: z.string(),
   reject: z
@@ -345,6 +355,8 @@ export const ageProofApi = {
   health: async (): Promise<AgeProofHealth> => {
     const { status, body } = await rawJson('/api/age-proof/health')
     if (status !== 200) throw ageProofError(status, body)
+    // 200 with prover_available:false is the quiet "not provisioned" status: same error the page already handles.
+    if ((body as { prover_available?: boolean } | null)?.prover_available === false) throw ageProofError(503, body)
     const parsed = ageProofHealthSchema.safeParse(body)
     if (!parsed.success) {
       throw new ApiError(status, {
@@ -592,7 +604,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ mode, ...(doc_sha256 ? { doc_sha256 } : {}) }),
     }),
-  createPayable: (asset: 'ccd' | 'eudemo') =>
+  createPayable: (asset: 'ccd' | 'eudemo', seller?: string) =>
     request<{ payable_id: number; tx_hash: string; explorer_url: string; fee_testnet_ccd: string; due: string }>(
       '/api/payables',
       z.object({
@@ -602,7 +614,7 @@ export const api = {
         fee_testnet_ccd: z.string(),
         due: z.string(),
       }),
-      { method: 'POST', body: JSON.stringify({ asset }) },
+      { method: 'POST', body: JSON.stringify({ asset, ...(seller ? { seller } : {}) }) },
     ),
   pay: (id: number, rail: 'ccd' | 'eudemo', doc_sha256?: string, seller?: string) =>
     request<PayJob>(
@@ -622,17 +634,17 @@ export const api = {
         explorer_url: z.string(),
       }),
     ),
-  cosignerDryRun: (payable_id: number, to: string, amount: string, memo: string) =>
-    request<{ decision: string; reason: string; plain: string; tx_sent: boolean }>(
+  cosignerDryRun: (payable_id: number, to: string, amount: string, memo: string, seller?: string) =>
+    request<{ decision: string; reason: string; plain: string; tx_sent: boolean; basis?: string; basis_note?: string }>(
       '/api/cosigner/dry-run',
-      z.object({ decision: z.string(), reason: z.string(), plain: z.string(), tx_sent: z.boolean() }),
-      { method: 'POST', body: JSON.stringify({ payable_id, to, amount, memo }) },
+      z.object({ decision: z.string(), reason: z.string(), plain: z.string(), tx_sent: z.boolean(), basis: z.string().optional(), basis_note: z.string().optional() }),
+      { method: 'POST', body: JSON.stringify({ payable_id, to, amount, memo, ...(seller ? { seller } : {}) }) },
     ),
-  attack: (kind: string, payable_id: number, mode?: 'send_to_chain' | 'precheck_only') =>
+  attack: (kind: string, payable_id: number, mode?: 'send_to_chain' | 'precheck_only', seller?: string) =>
     request<AttackResult>(
       `/api/attacks/${kind}`,
       attackSchema,
-      { method: 'POST', body: JSON.stringify({ payable_id, ...(mode ? { mode } : {}) }) },
+      { method: 'POST', body: JSON.stringify({ payable_id, ...(seller ? { seller } : {}), ...(mode ? { mode } : {}) }) },
     ),
   getReceipt: (id: number, seller?: string) =>
     request<Receipt>(`/api/receipts/${id}${seller ? `?seller=${encodeURIComponent(seller)}` : ''}`, receiptSchema),

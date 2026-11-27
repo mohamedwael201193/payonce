@@ -12,7 +12,7 @@ import { useConfig } from '../hooks/useApi'
 import { CheckRows, CheckRowsSkeleton } from './Checks'
 import { tidyAmount } from './format'
 import { sellerName, type PayableKey, type SellerInfo } from './keys'
-import { paymentTxOf, verifierCommand } from './verifier'
+import { PUBLIC_API_BASE, receiptCommands } from './verifier'
 import { Button, Card, CopyButton, ExplorerTx, KeyValue, Notice, StatusPill, useExplorerBase } from './ui'
 import { Address } from './Address'
 
@@ -36,8 +36,13 @@ export function ReceiptView({
     staleTime: 30_000,
     refetchOnMount: 'always',
   })
-  const paymentTx = paymentTxOf(receipt.txs)
-  const cmd = paymentTx ? verifierCommand({ payableId: receipt.payable_id, txHash: paymentTx }) : null
+  const cmd = receiptCommands({
+    payableId: receipt.payable_id,
+    seller: keyOf.seller,
+    sellerOne: sellers[0]?.seller,
+    txs: receipt.txs,
+    apiBase: PUBLIC_API_BASE,
+  })
   const result = verify.data
 
   return (
@@ -111,7 +116,7 @@ export function ReceiptView({
         <div>
           <h3 className="text-lg font-medium text-po-ink">Check it without us</h3>
           <p className="mt-1 text-[15px] text-po-grey">
-            Run this from the <code className="po-hash">api/</code> folder of the repository. It reads the chain and needs no keys.
+            Run these from the <code className="po-hash">api/</code> folder of the repository (after <code className="po-hash">npm install</code> there and in <code className="po-hash">backend/</code>). The first line downloads the registered invoice text. It reads the chain and needs no keys.
           </p>
           <pre className="mt-3 overflow-x-auto rounded-[10px] bg-po-ink p-4 font-mono text-[13px] text-po-paper" data-testid="verifier-command">
             {cmd}
