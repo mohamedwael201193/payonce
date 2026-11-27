@@ -44,7 +44,7 @@ import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } fro
 import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
-import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem } from './listable.mjs';
+import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoKeySet } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
@@ -647,7 +647,7 @@ async function handleStats(req, res) {
     liveRefusals: refusals.filter((r) => r.origin === 'live_this_server').length,
     sellers: sellerCounts(scan.rows),
   });
-  sendJson(res, 200, { ...body, scan_id: meta.scan_id, complete: true, served_at: new Date().toISOString(), by_kind: kindCounts(scan.rows) });
+  sendJson(res, 200, { ...body, scan_id: meta.scan_id, complete: true, served_at: new Date().toISOString(), by_kind: kindCounts(scan.rows, demoKeySet(counters.demoIds)) });
 }
 
 // GET /api/stats/refusals — the list behind refused_on_chain_since_deploy.
@@ -667,10 +667,11 @@ async function handleInvoices(req, res) {
   const scan = servedScan();
   if (!scan) return warmingUp(res);
   const meta = scanMeta(scan);
+  const demoKeys = demoKeySet((await loadCounters()).demoIds);
   const items = listableRows(scan.rows)
     .sort((a, b) => (a.seller === b.seller ? a.id - b.id : a.seller < b.seller ? -1 : 1))
-    .map((r) => invoiceItem(r, { label: labelFor(r), amountDisplay: amountDisplay(r) }));
-  sendJson(res, 200, { items, ...meta, rows_scanned: scan.rows.length, by_kind: kindCounts(scan.rows) });
+    .map((r) => invoiceItem(r, { label: labelFor(r), amountDisplay: amountDisplay(r), demoKeys }));
+  sendJson(res, 200, { items, ...meta, rows_scanned: scan.rows.length, by_kind: kindCounts(scan.rows, demoKeys) });
 }
 
 async function payableFacts(c, view, chainTimeMs) {
@@ -979,6 +980,11 @@ async function handleCreatePayable(req, res) {
     return apiError(res, 409, 'chain_refused', 'chain', `The chain refused the registration (${info.code} ${info.name}).`, { reject: info, fee_testnet_ccd: feeOf(reg.status), tx_hash: reg.txHash, explorer_url: txUrl(reg.txHash) });
   }
   await storeDocument(reg.id, reg.docText);
+  // Provenance: a payable registered through the app is a demo invoice, unless the
+  // caller is an automated run (header x-payonce-run: test).
+  if (String(req.headers?.['x-payonce-run'] ?? '').toLowerCase() !== 'test') {
+    await updateCounters((c2) => { c2.demoIds = [...(c2.demoIds ?? []), { seller, id: reg.id }]; });
+  }
   sendJson(res, 201, {
     payable_id: reg.id,
     seller,

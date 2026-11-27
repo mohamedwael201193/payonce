@@ -80,30 +80,41 @@ export function statsBody({
 }
 
 // ---- demo vs automated test runs (2026-11-27) ----
-// The chain has no "this was a test" flag, so the split is an explicit,
-// stable, id-based rule (it never depends on status, so a row does not
-// change bucket when it is paid and the numbers cannot jump):
-//   demo    the curated demo invoices: seller 1 ids 10, 11 and seller 2
-//           ids 1, 2 (the invoices the guided flow was built around)
+// The chain has no "test" flag, so provenance is recorded server-side:
+//   demo    curated demo invoices (seller 1 ids 10, 11; seller 2 ids 1, 2),
+//           the open payables seeded for judges (SEEDED_DEMO, evidence
+//           qa/out/seed-open-payables.json), and every payable a visitor
+//           registers through POST /api/payables (its id is appended to the
+//           persisted counters.demoIds list as "<seller>:<id>")
 //   matrix  contract-matrix test payables: seller 1 ids 1..5
-//   lab     every other row: lab invoices registered by automated test
-//           runs ("Lab invoice (testnet, not a real invoice)")
-// matrix + lab together are the "automated test runs" and are ALWAYS
-// counted in the headline totals; the split is shown, never hidden.
-export const KIND_RULE = 'demo = seller 1 ids 10, 11 and seller 2 ids 1, 2; matrix = seller 1 ids 1-5 (contract-matrix tests); lab = every other row (automated test runs). Id-based, so a row never changes bucket when its status changes.'
+//   lab     every other row: registered by automated e2e / test runs
+//           (requests carrying header x-payonce-run: test are never demo)
+// matrix + lab are the "automated test runs", ALWAYS counted in the
+// headline totals. Kind never depends on status, so a row cannot change
+// bucket when it is paid.
+export const KIND_RULE = 'demo = curated demo invoices (seller 1 ids 10, 11; seller 2 ids 1, 2), the open payables seeded for judges (seller 1 ids 1095-1098, seller 2 ids 5002-5005) and every payable registered through the app (recorded in the server list counters.demoIds); matrix = seller 1 ids 1-5 (contract-matrix tests); lab = every other row (automated test runs, registered with x-payonce-run: test or before provenance was recorded). Never depends on status.'
+export const SEEDED_DEMO = [
+  ...[1095, 1096, 1097, 1098].map((id) => ({ seller: OWNER_ADDRESS, id })),
+  ...[5002, 5003, 5004, 5005].map((id) => ({ seller: SELLER2_ADDRESS, id })),
+]
 const DEMO_S1 = new Set([10, 11])
 const DEMO_S2 = new Set([1, 2])
-export function rowKind(r) {
-  const isS2 = r.seller === SELLER2_ADDRESS
-  if (isS2) return DEMO_S2.has(r.id) ? 'demo' : 'lab'
+/** Set of "<seller>:<id>" keys for the recorded demo provenance. */
+export function demoKeySet(recorded = []) {
+  return new Set([...SEEDED_DEMO, ...(recorded ?? [])].map((d) => `${d.seller}:${d.id}`))
+}
+export function rowKind(r, demoKeys = demoKeySet()) {
+  const seller = r.seller ?? OWNER_ADDRESS
+  if (demoKeys.has(`${seller}:${r.id}`)) return 'demo'
+  if (seller === SELLER2_ADDRESS) return DEMO_S2.has(r.id) ? 'demo' : 'lab'
   if (DEMO_S1.has(r.id)) return 'demo'
   if (r.id >= 1 && r.id <= 5) return 'matrix'
   return 'lab'
 }
-export function kindCounts(rows) {
+export function kindCounts(rows, demoKeys = demoKeySet()) {
   const out = { demo: { total: 0, paid: 0 }, matrix: { total: 0, paid: 0 }, lab: { total: 0, paid: 0 } }
   for (const r of listableRows(rows)) {
-    const k = out[rowKind(r)]
+    const k = out[rowKind(r, demoKeys)]
     k.total += 1
     if (r.status === 'Paid') k.paid += 1
   }
@@ -113,7 +124,7 @@ export function kindCounts(rows) {
     rule: KIND_RULE,
   }
 }
-export function invoiceItem(r, { label, amountDisplay }) {
+export function invoiceItem(r, { label, amountDisplay, demoKeys }) {
   return {
     payable_id: r.id,
     seller: r.seller,
@@ -122,6 +133,6 @@ export function invoiceItem(r, { label, amountDisplay }) {
     due: r.due,
     status: r.status,
     label,
-    kind: rowKind(r),
+    kind: rowKind(r, demoKeys),
   }
 }

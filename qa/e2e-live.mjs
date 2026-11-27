@@ -108,7 +108,7 @@ async function http(method, path, body = null, { retries = 3, timeoutMs = 90_000
     try {
       const res = await fetch(API + path, {
         method,
-        headers: body ? { 'content-type': 'application/json' } : {},
+        headers: body ? { 'content-type': 'application/json', 'x-payonce-run': 'test' } : { 'x-payonce-run': 'test' },
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(timeoutMs),
       });

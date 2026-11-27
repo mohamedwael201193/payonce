@@ -17,6 +17,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { handleStats, handleInvoices, __setChainReaderForTests, refreshScan, __resetScanForTests } from '../src/server.mjs'
 import { OWNER_ADDRESS } from '../src/config.mjs'
+import { rowKind, demoKeySet, kindCounts, SEEDED_DEMO } from '../src/listable.mjs'
 
 function view(id, status, asset = 'CCD', amount = '500000') {
   return { id, status, asset, amount, due: '2026-12-01T08:03:26.555Z' }
@@ -170,4 +171,22 @@ test('polling 10 times between refreshes returns identical numbers (no flip-flop
 
 test('cleanup: the chain stub is removed so no other test file inherits it', () => {
   __setChainReaderForTests(null)
+})
+
+test('demo provenance: curated + judge-seeded open payables + app-registered ids are demo; matrix/other are test runs', () => {
+  const S2 = '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr'
+  for (const id of [1095, 1096, 1097, 1098]) assert.equal(rowKind({ id, seller: OWNER_ADDRESS }), 'demo')
+  for (const id of [5002, 5003, 5004, 5005]) assert.equal(rowKind({ id, seller: S2 }), 'demo')
+  assert.equal(SEEDED_DEMO.length, 8)
+  assert.equal(rowKind({ id: 1200, seller: OWNER_ADDRESS }), 'lab')
+  assert.equal(rowKind({ id: 3, seller: OWNER_ADDRESS }), 'matrix')
+  // a payable registered through the app is recorded and becomes demo
+  const keys = demoKeySet([{ seller: OWNER_ADDRESS, id: 1200 }])
+  assert.equal(rowKind({ id: 1200, seller: OWNER_ADDRESS }, keys), 'demo')
+  assert.equal(rowKind({ id: 1201, seller: OWNER_ADDRESS }, keys), 'lab')
+  // status never moves a row between buckets
+  const rows = [1095, 1200, 1201].map((id, i) => ({ id, seller: OWNER_ADDRESS, status: i ? 'Paid' : 'Unpaid' }))
+  const k = kindCounts(rows, keys)
+  assert.equal(k.demo.total, 2)
+  assert.equal(k.test_runs.total, 1)
 })

@@ -27,7 +27,7 @@ function fail(msg) {
 async function req(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-payonce-run': 'test' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
