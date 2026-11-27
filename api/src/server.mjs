@@ -274,15 +274,25 @@ async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3) {
   if (!chainReaderOverride && out.ok && out.view && (out.view.status === 'Paid' || out.view.status === 'Voided')) terminalRows.set(ck, out.view);
   return out;
 }
-async function readPayableUncached(c, id, seller = SELLER, attempts = 3) {
+// The public testnet node answers about 4 reads per second and then 429s. Reads are paced
+// to that (one every 250 ms) and a 429 backs off for a full second per attempt.
+let lastNodeRead = 0;
+async function paceNodeRead() {
+  const wait = lastNodeRead + 250 - Date.now();
+  lastNodeRead = Math.max(Date.now(), lastNodeRead + 250);
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+}
+async function readPayableUncached(c, id, seller = SELLER, attempts = chainReaderOverride ? 3 : 5) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
+      if (!chainReaderOverride) await paceNodeRead();
       // A null view is a successful read of an absent payable (never
       // created under this seller), not a skip — only a throw skips.
       const view = chainReaderOverride ? await chainReaderOverride(id, seller) : await getPayableOrNull(c, seller, id);
       return { view, ok: true };
-    } catch {
-      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    } catch (e) {
+      const base = !chainReaderOverride && /429|RESOURCE_EXHAUSTED/.test(String(e?.message)) ? 1000 : 250;
+      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, base * (attempt + 1)));
     }
   }
   return { view: null, ok: false };
