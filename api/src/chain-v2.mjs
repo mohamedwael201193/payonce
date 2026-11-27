@@ -193,7 +193,10 @@ export async function withNonceRetry(fn) {
       return await fn();
     } catch (e) {
       lastErr = e;
-      if (!/duplicate nonce/i.test(e?.message ?? '')) throw e;
+      // A stale nonce, or a node that answered 429 / UNAVAILABLE BEFORE accepting the tx: nothing
+      // was sent, so rebuilding and resubmitting is safe.
+      const retriable = /duplicate nonce/i.test(e?.message ?? '') || /RESOURCE_EXHAUSTED|UNAVAILABLE|HTTP status code (429|502|503|504)|ECONNRESET|ETIMEDOUT/i.test(String(e?.message ?? '')) || [8, 14].includes(Number(e?.code));
+      if (!retriable) throw e;
       if (attempt === 6) throw e;
       await new Promise((r) => setTimeout(r, 4000));
     }

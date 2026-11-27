@@ -310,11 +310,21 @@ export function __setChainReaderForTests(fn) {
 // full scan, which the public node otherwise rate-limits (429 -> node_busy). Not used when
 // the test seam is set.
 const terminalRows = new Map();
-async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3) {
+// An Unpaid payable past its due date can no longer be paid or reserved (PastDue), so its row is
+// re-read only every EXPIRED_REREAD_MS (the seller could still void it). Most lab invoices are in
+// this state; without this each scan re-read hundreds of them and kept the public node at its rate
+// limit (429s on the request path).
+const EXPIRED_REREAD_MS = 20 * 60_000;
+const expiredRows = new Map(); // key -> { view, at }
+async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3, { fresh = false } = {}) {
   const ck = `${seller}:${id}`;
   if (!chainReaderOverride && terminalRows.has(ck)) return { view: terminalRows.get(ck), ok: true };
+  const exp = expiredRows.get(ck);
+  if (!fresh && !chainReaderOverride && exp && Date.now() - exp.at < EXPIRED_REREAD_MS) return { view: exp.view, ok: true };
   const out = await readPayableUncached(c, id, seller, attempts);
   if (!chainReaderOverride && out.ok && out.view && (out.view.status === 'Paid' || out.view.status === 'Voided')) terminalRows.set(ck, out.view);
+  else if (!chainReaderOverride && out.ok && out.view && out.view.status === 'Unpaid' && Number(out.view.dueMs) < Date.now() - 3_600_000) expiredRows.set(ck, { view: out.view, at: Date.now() });
+  else expiredRows.delete(ck);
   return out;
 }
 // The public testnet node answers about 4 reads per second and then 429s. Reads are paced
@@ -792,10 +802,10 @@ async function handleGetPayable(req, res, id) {
   // handler is testable offline with a stubbed chain reader. A read
   // that fails all 3 retries is a 503, never a partial answer; the
   // live-chain path is unchanged when no override is set.
-  const { view, ok } = await readPayableWithRetry(c, id, seller);
+  const { view, ok } = await readPayableWithRetry(c, id, seller, 3, { fresh: true });
   if (!ok) return chainUnreachable(res, new Error(`the testnet node did not answer for payable ${id}`));
   if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
-  const now = await chainNow(c);
+  const now = await retryNode(() => chainNow(c));
   sendJson(res, 200, await payableFacts(c, view, now.slotMs));
 }
 
@@ -1163,8 +1173,10 @@ async function handleTxStatus(req, res, hash) {
   const c = await grpc();
   let status;
   try {
-    status = await getTx(c, hash.toLowerCase());
-  } catch {
+    status = await retryNode(() => getTx(c, hash.toLowerCase()));
+  } catch (e) {
+    // A busy node is a retryable 503, not "unknown transaction" (that would let a rate limit read as a missing tx).
+    if (isNodeError(e)) return chainUnreachable(res, e);
     return notFound(res, `No transaction ${hash.slice(0, 8)}… is known to the testnet yet.`);
   }
   const rr = rejectOf(status);
