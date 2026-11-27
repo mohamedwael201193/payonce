@@ -1,10 +1,10 @@
 {
  "schema": "payonce.agent-run/1",
- "run_id": "run-20261127191439-c887",
+ "run_id": "run-20261127230641-65ed",
  "network": "testnet",
  "api": "http://127.0.0.1:7431",
- "started_at": "2026-11-27T19:14:39.801Z",
- "finished_at": "2026-11-27T19:17:08.784Z",
+ "started_at": "2026-11-27T23:06:41.319Z",
+ "finished_at": "2026-11-27T23:10:06.519Z",
  "planner": {
   "kind": "scripted",
   "label": "scripted agent (deterministic planner, not a language model)",
@@ -46,25 +46,25 @@
    {
     "key": "L1",
     "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-    "payable_id": 1472,
-    "tx_hash": "e95f69c1e8ac46f329319f98c16d2e332cbf81d384edfa1dbf296b84ea9f3297",
-    "explorer_url": "https://ccdexplorer.io/testnet/transaction/e95f69c1e8ac46f329319f98c16d2e332cbf81d384edfa1dbf296b84ea9f3297",
+    "payable_id": 1480,
+    "tx_hash": "72b1d3cfe68607358b751a2b97de1361c40096e939ef359ccbddb11dda782e21",
+    "explorer_url": "https://ccdexplorer.io/testnet/transaction/72b1d3cfe68607358b751a2b97de1361c40096e939ef359ccbddb11dda782e21",
     "age_gate": null
    },
    {
     "key": "L2",
     "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
-    "payable_id": 5015,
-    "tx_hash": "310100f1e23311b1e4d98a80f260eb6ee21780cee0fb83b8fa0aef7232eb363a",
-    "explorer_url": "https://ccdexplorer.io/testnet/transaction/310100f1e23311b1e4d98a80f260eb6ee21780cee0fb83b8fa0aef7232eb363a",
+    "payable_id": 5019,
+    "tx_hash": "63781e82ea2eb1faa3a8c4d10901f9db29f5e9e8990d107f0480ff25e60d98fc",
+    "explorer_url": "https://ccdexplorer.io/testnet/transaction/63781e82ea2eb1faa3a8c4d10901f9db29f5e9e8990d107f0480ff25e60d98fc",
     "age_gate": null
    },
    {
     "key": "A1",
     "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-    "payable_id": 1473,
-    "tx_hash": "81850578a767a8fb9d38c033f6356a45d90c5e1d925a610a0577711dbf18b76f",
-    "explorer_url": "https://ccdexplorer.io/testnet/transaction/81850578a767a8fb9d38c033f6356a45d90c5e1d925a610a0577711dbf18b76f",
+    "payable_id": 1481,
+    "tx_hash": "fd3a2fb2cd4e097e0f27fb424478e1cb4634de4fb8970458d6c6b329920ea13b",
+    "explorer_url": "https://ccdexplorer.io/testnet/transaction/fd3a2fb2cd4e097e0f27fb424478e1cb4634de4fb8970458d6c6b329920ea13b",
     "age_gate": 18
    }
   ],
@@ -85,10 +85,10 @@
   {
    "email_id": "email-1",
    "from": "billing@alder-bakery.example",
-   "subject": "Invoice 1472 from Alder Bakery",
+   "subject": "Invoice 1480 from Alder Bakery",
    "hostile_fixture": null,
    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-   "payable_id": 1472,
+   "payable_id": 1480,
    "outcome": "paid",
    "checks": [
     {
@@ -124,7 +124,7 @@
      "label": "Served invoice document matches the on-chain hash",
      "status": "ok",
      "side": "doc",
-     "detail": "sha256(served)=a40789347cb2d5b9…, on chain=a40789347cb2d5b9…"
+     "detail": "sha256(served)=ca907693110ca2a0…, on chain=ca907693110ca2a0…"
     },
     {
      "id": "attachment_matches_chain",
@@ -166,14 +166,7 @@
      "label": "Seller checks buyer: buyer agent Active on the official registry, owner and agentWallet equal the paying account",
      "status": "ok",
      "side": "buyer",
-     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:warn"
-    },
-    {
-     "id": "buyer_badge_card",
-     "label": "Buyer agent full 15-check badge (published card)",
-     "status": "warn",
-     "side": "buyer",
-     "detail": "The full badge could not be confirmed for the buyer agent: badge_valid:false (not required on this server: PAYONCE_BUYER_BADGE_REQUIRED=0) Active + owner + agentWallet are the gate here, and this is stated plainly."
+     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:ok"
     },
     {
      "id": "before_pay_verifier",
@@ -188,9 +181,9 @@
     "amount": "500000",
     "amount_display": "0.500000 CCD",
     "payee": "4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin",
-    "due": "2026-11-28T19:14:40.167Z",
+    "due": "2026-11-28T23:06:41.359Z",
     "status": "unpaid",
-    "doc_sha256": "a40789347cb2d5b92fa9188798ff5e6c193f38ff12be0574870aa5ae979fd257",
+    "doc_sha256": "ca907693110ca2a088411ebb43cd1dd752e5e6034b092e859d2c5bfadc085951",
     "agent_token": "1476"
    },
    "verdict": "pay",
@@ -227,11 +220,11 @@
    "txs": [
     {
      "step": "submit",
-     "tx_hash": "eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a",
-     "explorer_url": "https://ccdexplorer.io/testnet/transaction/eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a"
+     "tx_hash": "9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50"
     }
    ],
-   "job_id": "job_1472_ccd_06574d14",
+   "job_id": "job_1480_ccd_1adde664",
    "rail": "ccd",
    "refused_by": null,
    "receipt": {
@@ -240,21 +233,21 @@
     "txs": [
      {
       "label": "Payment",
-      "tx_hash": "eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a",
-      "explorer_url": "https://ccdexplorer.io/testnet/transaction/eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a"
+      "tx_hash": "9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50"
      }
     ],
     "verifier_reread": {
      "passed": 10,
      "total": 10,
-     "checked_at": "2026-11-27T19:15:44.436Z"
+     "checked_at": "2026-11-27T23:07:43.455Z"
     },
-    "anchor_tx": "ae9f1ae2ec9e05fa800441adf14a8309b02795860afd1cd853dc690c0402eb4f",
-    "record_hash": "91c03fb0060cfe9b317a6f9e12a57c29a65c1402e06dc89d65085417a759e79b"
+    "anchor_tx": "a4b96977e5bbe1e63c25086013ca84153826516f1e6ebe9003dd49a0a406bf85",
+    "record_hash": "610af3672e8c07e815f54f6ffd6fe81740465c5bc52a45ee42ccd688a490c95e"
    },
    "keyless_verifier": {
-    "fetch_document": "curl -s \"http://127.0.0.1:7431/api/payables/1472/document?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\" -o invoice-1472.txt",
-    "run": "node src/verify-payable-v2.mjs 1472 eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a --doc invoice-1472.txt",
+    "fetch_document": "curl -s \"http://127.0.0.1:7431/api/payables/1480/document?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\" -o invoice-1480.txt",
+    "run": "node src/verify-payable-v2.mjs 1480 9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50 --doc invoice-1480.txt",
     "cwd": "api/ (clone of the public repo, after `npm ci` in api/ and backend/)",
     "keyless": true
    },
@@ -263,7 +256,7 @@
     "pass": true,
     "passed": 10,
     "total": 10,
-    "command": "node src/verify-payable-v2.mjs 1472 eef44899d0d1e5f4cd6fdfa3a4147989a5e2fc79c3b9378d5d34b5a3bc27023a --doc invoice-1472.txt"
+    "command": "node src/verify-payable-v2.mjs 1480 9265d9bf44ef6e64a037813c932429e792aac0521d80d3cd3201c997e262dc50 --doc invoice-1480.txt"
    }
   },
   {
@@ -303,10 +296,10 @@
   {
    "email_id": "email-3",
    "from": "billing@birch-dairy.example",
-   "subject": "Invoice 5015 from Birch Dairy",
+   "subject": "Invoice 5019 from Birch Dairy",
    "hostile_fixture": null,
    "seller": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
-   "payable_id": 5015,
+   "payable_id": 5019,
    "outcome": "paid",
    "checks": [
     {
@@ -342,7 +335,7 @@
      "label": "Served invoice document matches the on-chain hash",
      "status": "ok",
      "side": "doc",
-     "detail": "sha256(served)=aff85cb4bdee568e…, on chain=aff85cb4bdee568e…"
+     "detail": "sha256(served)=479aca2b68c8e4fe…, on chain=479aca2b68c8e4fe…"
     },
     {
      "id": "attachment_matches_chain",
@@ -384,14 +377,7 @@
      "label": "Seller checks buyer: buyer agent Active on the official registry, owner and agentWallet equal the paying account",
      "status": "ok",
      "side": "buyer",
-     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:warn"
-    },
-    {
-     "id": "buyer_badge_card",
-     "label": "Buyer agent full 15-check badge (published card)",
-     "status": "warn",
-     "side": "buyer",
-     "detail": "The full badge could not be confirmed for the buyer agent: badge_valid:false (not required on this server: PAYONCE_BUYER_BADGE_REQUIRED=0) Active + owner + agentWallet are the gate here, and this is stated plainly."
+     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:ok"
     },
     {
      "id": "before_pay_verifier",
@@ -406,9 +392,9 @@
     "amount": "10000",
     "amount_display": "0.01 EUDemo",
     "payee": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
-    "due": "2026-11-28T19:15:05.147Z",
+    "due": "2026-11-28T23:06:55.917Z",
     "status": "unpaid",
-    "doc_sha256": "aff85cb4bdee568e7ea567aa4310cc6fb962354c05914537f1ef7443745e33c9",
+    "doc_sha256": "479aca2b68c8e4fe30f56c37afc6b57d2495d4fd85a613569ca3ecc1f2cc0428",
     "agent_token": "1506"
    },
    "verdict": "pay",
@@ -445,21 +431,21 @@
    "txs": [
     {
      "step": "reserve",
-     "tx_hash": "7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2",
-     "explorer_url": "https://ccdexplorer.io/testnet/transaction/7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2"
+     "tx_hash": "edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e"
     },
     {
      "step": "submit_transfer",
-     "tx_hash": "50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee",
-     "explorer_url": "https://ccdexplorer.io/testnet/transaction/50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee"
+     "tx_hash": "24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2"
     },
     {
      "step": "confirm",
-     "tx_hash": "a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c",
-     "explorer_url": "https://ccdexplorer.io/testnet/transaction/a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c"
+     "tx_hash": "9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51"
     }
    ],
-   "job_id": "job_5015_eudemo_631f0e3c",
+   "job_id": "job_5019_eudemo_957477f6",
    "rail": "eudemo",
    "refused_by": null,
    "receipt": {
@@ -468,31 +454,31 @@
     "txs": [
      {
       "label": "Reservation",
-      "tx_hash": "7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2",
-      "explorer_url": "https://ccdexplorer.io/testnet/transaction/7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2"
+      "tx_hash": "edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e"
      },
      {
       "label": "Transfer",
-      "tx_hash": "50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee",
-      "explorer_url": "https://ccdexplorer.io/testnet/transaction/50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee"
+      "tx_hash": "24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2"
      },
      {
       "label": "Confirm",
-      "tx_hash": "a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c",
-      "explorer_url": "https://ccdexplorer.io/testnet/transaction/a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c"
+      "tx_hash": "9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51"
      }
     ],
     "verifier_reread": {
      "passed": 15,
      "total": 15,
-     "checked_at": "2026-11-27T19:16:44.423Z"
+     "checked_at": "2026-11-27T23:08:37.166Z"
     },
-    "anchor_tx": "9cf7622438b5cefed3f365a195dec3a05ef1bee71100570b318bfb1f31b04d04",
-    "record_hash": "c16a5a5625e4ed845acf59bad46e259c119f68abfa13fceefdc59980a563418b"
+    "anchor_tx": "2043fa2a61da68a8768c406a2743bb29fe210db5c89db0e1e0a871b257a99404",
+    "record_hash": "6db9de45bb87f9c8d9a9d074752e09a65fb4c9a83fd0c1223c9c6754b29e8bed"
    },
    "keyless_verifier": {
-    "fetch_document": "curl -s \"http://127.0.0.1:7431/api/payables/5015/document?seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr\" -o invoice-s2-5015.txt",
-    "run": "node src/verify-payable-v2.mjs 5015 50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee --seller 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr --doc invoice-s2-5015.txt --reserve 7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2 --confirm a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c",
+    "fetch_document": "curl -s \"http://127.0.0.1:7431/api/payables/5019/document?seller=3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr\" -o invoice-s2-5019.txt",
+    "run": "node src/verify-payable-v2.mjs 5019 24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2 --seller 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr --doc invoice-s2-5019.txt --reserve edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e --confirm 9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51",
     "cwd": "api/ (clone of the public repo, after `npm ci` in api/ and backend/)",
     "keyless": true
    },
@@ -501,7 +487,7 @@
     "pass": true,
     "passed": 14,
     "total": 14,
-    "command": "node src/verify-payable-v2.mjs 5015 50e24676af5092b543c3df42520b9ecc704692dad989a02b8c4abf34c01649ee --seller 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr --doc invoice-s2-5015.txt --reserve 7a0c23c4c5944f441dc70abc753f73ee7461051559b5c6fc6d7b9f9c218fa6a2 --confirm a7c1c2a4421bfff4f18174c4010763fdb903eb87641b916c74b26bb004f41f2c"
+    "command": "node src/verify-payable-v2.mjs 5019 24b5b604eeaea3b015a13ef03cea4b0a78664e62071e8be811fdf79a3a5e60e2 --seller 3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr --doc invoice-s2-5019.txt --reserve edf30d721423834ba4487f84b9de3280fab1fe5e2adf71fd5e8f5af433091f1e --confirm 9e7f9b211de73ecfb98014820a999162c7bc1c0f82ef98e851a34272d0ec8c51"
    }
   },
   {
@@ -586,9 +572,9 @@
     {
      "id": "buyer_agent",
      "label": "Seller checks buyer: buyer agent Active on the official registry, owner and agentWallet equal the paying account",
-     "status": "fail",
+     "status": "ok",
      "side": "buyer",
-     "detail": "refused: exists (agentOf read failed: Received HTTP status code 429)"
+     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:ok"
     },
     {
      "id": "before_pay_verifier",
@@ -619,7 +605,7 @@
    },
    "buyer_agent": {
     "token": 1488,
-    "verdict": "refuse",
+    "verdict": "pass",
     "expected_owner": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
    },
    "age_gate": {
@@ -650,24 +636,20 @@
     {
      "code": "payee_is_registered_payee",
      "text": "the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent."
-    },
-    {
-     "code": "buyer_agent",
-     "text": "refused: exists (agentOf read failed: Received HTTP status code 429)"
     }
    ],
    "reason_code": "attachment_matches_chain",
-   "reason": "sha256(attachment)=bda094f1f457dce6… but the chain holds 62869bbca0bd2104…: the document was changed after it was registered | found text that asks the reader to ignore its instructions; asks to skip a check. Invoice text is data, never instructions. | the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent. | refused: exists (agentOf read failed: Received HTTP status code 429)",
+   "reason": "sha256(attachment)=bda094f1f457dce6… but the chain holds 62869bbca0bd2104…: the document was changed after it was registered | found text that asks the reader to ignore its instructions; asks to skip a check. Invoice text is data, never instructions. | the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent.",
    "verifier_run": null
   },
   {
    "email_id": "email-5",
    "from": "billing@cedar-wine-merchants.example",
-   "subject": "Invoice 1473 from Cedar Wine Merchants",
+   "subject": "Invoice 1481 from Cedar Wine Merchants",
    "hostile_fixture": null,
    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-   "payable_id": 1473,
-   "outcome": "refused",
+   "payable_id": 1481,
+   "outcome": "paid",
    "checks": [
     {
      "id": "seller_known",
@@ -702,7 +684,7 @@
      "label": "Served invoice document matches the on-chain hash",
      "status": "ok",
      "side": "doc",
-     "detail": "sha256(served)=56474278049846d0…, on chain=56474278049846d0…"
+     "detail": "sha256(served)=f084e106aacfd49f…, on chain=f084e106aacfd49f…"
     },
     {
      "id": "attachment_matches_chain",
@@ -742,9 +724,9 @@
     {
      "id": "buyer_agent",
      "label": "Seller checks buyer: buyer agent Active on the official registry, owner and agentWallet equal the paying account",
-     "status": "fail",
+     "status": "ok",
      "side": "buyer",
-     "detail": "refused: exists (agentOf read failed: Received HTTP status code 429)"
+     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:ok"
     },
     {
      "id": "before_pay_verifier",
@@ -759,12 +741,12 @@
     "amount": "10000",
     "amount_display": "0.01 EUDemo",
     "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
-    "due": "2026-11-28T19:15:12.261Z",
+    "due": "2026-11-28T23:07:02.820Z",
     "status": "unpaid",
-    "doc_sha256": "56474278049846d00bb4a4573f2945ac4f5e0d653c688e4aabf46390dde53166",
+    "doc_sha256": "f084e106aacfd49fec639349ebee8c73e2422f122fdb8188cfdf7d607ea2e17e",
     "agent_token": "1476"
    },
-   "verdict": "refuse",
+   "verdict": "pay",
    "seller_agent": {
     "token": 1476,
     "badge": "JyP9XawpXHMjTN5ocrA5a",
@@ -775,7 +757,7 @@
    },
    "buyer_agent": {
     "token": 1488,
-    "verdict": "refuse",
+    "verdict": "pass",
     "expected_owner": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
    },
    "age_gate": {
@@ -783,7 +765,7 @@
     "reason": "the invoice document (bound to the chain by its hash) states \"Age restriction: 18+\"",
     "source": "document",
     "min_age": 18,
-    "proof_on_file": false,
+    "proof_on_file": true,
     "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
     "enforced_by": "the API server and the verifier. On the CCD rail the contract cannot verify a zero-knowledge proof; on the EUDemo rail the co-signer gate sits behind the same check."
    },
@@ -793,16 +775,84 @@
     "total": 9,
     "blocked_reason": null
    },
-   "refused_by": "PayOnce check (before any transaction)",
+   "refused_by": null,
    "reasons": [
     {
-     "code": "buyer_agent",
-     "text": "refused: exists (agentOf read failed: Received HTTP status code 429)"
+     "code": "age_proof_required",
+     "text": "This payable is age-gated (the invoice document (bound to the chain by its hash) states \"Age restriction: 18+\"). The buyer must present a fresh V&A V1 18+ proof from a credential held by the paying account. None is on file."
     }
    ],
-   "reason_code": "buyer_agent",
-   "reason": "refused: exists (agentOf read failed: Received HTTP status code 429)",
-   "verifier_run": null
+   "reason_code": "paid",
+   "reason": "All checks passed both ways; paid through the PayOnce API.",
+   "age_proof": {
+    "ok": true,
+    "binding": "bound",
+    "statements": [
+     "dob>=18",
+     "nationality in EU27"
+    ],
+    "verified_at": "2026-11-27T23:09:06.621Z"
+   },
+   "txs": [
+    {
+     "step": "reserve",
+     "tx_hash": "740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72"
+    },
+    {
+     "step": "submit_transfer",
+     "tx_hash": "7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a"
+    },
+    {
+     "step": "confirm",
+     "tx_hash": "778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858",
+     "explorer_url": "https://ccdexplorer.io/testnet/transaction/778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858"
+    }
+   ],
+   "job_id": "job_1481_eudemo_3a93cd01",
+   "rail": "eudemo",
+   "receipt": {
+    "amount": "0.01 EUDemo",
+    "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+    "txs": [
+     {
+      "label": "Reservation",
+      "tx_hash": "740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72"
+     },
+     {
+      "label": "Transfer",
+      "tx_hash": "7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a"
+     },
+     {
+      "label": "Confirm",
+      "tx_hash": "778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858",
+      "explorer_url": "https://ccdexplorer.io/testnet/transaction/778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858"
+     }
+    ],
+    "verifier_reread": {
+     "passed": 15,
+     "total": 15,
+     "checked_at": "2026-11-27T23:09:44.963Z"
+    },
+    "anchor_tx": "d1071da821beeb6aa81f8679eac4df72f5426d1847e9aee78c5733a63caf05c7",
+    "record_hash": "b8fcbeca9b0b5b12599d36ce3aeca364eb59743f8cd812e886dc25cdde7a8641"
+   },
+   "keyless_verifier": {
+    "fetch_document": "curl -s \"http://127.0.0.1:7431/api/payables/1481/document?seller=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB\" -o invoice-1481.txt",
+    "run": "node src/verify-payable-v2.mjs 1481 7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a --doc invoice-1481.txt --reserve 740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72 --confirm 778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858",
+    "cwd": "api/ (clone of the public repo, after `npm ci` in api/ and backend/)",
+    "keyless": true
+   },
+   "verifier_run": {
+    "ran": true,
+    "pass": false,
+    "passed": 13,
+    "total": 14,
+    "command": "node src/verify-payable-v2.mjs 1481 7b5bcef04bb202f62ffbef3e138eaad63ca9df8fefcfa2b66add665a12a4e77a --doc invoice-1481.txt --reserve 740a57f78c941bbe3c8fe1a153575f8a7bfa2158e078693e1a058eb19d84dc72 --confirm 778cd9512b1fd614c72b59a3d15fe98f97a346d9a5bd171cdb7da665229a0858"
+   }
   },
   {
    "email_id": "email-6",
@@ -886,9 +936,9 @@
     {
      "id": "buyer_agent",
      "label": "Seller checks buyer: buyer agent Active on the official registry, owner and agentWallet equal the paying account",
-     "status": "fail",
+     "status": "ok",
      "side": "buyer",
-     "detail": "refused: exists (agentOf read failed: Received HTTP status code 429)"
+     "detail": "exists:ok, active:ok, owner:ok, mcp_agent_of:ok, agent_wallet:ok, badge:ok"
     },
     {
      "id": "before_pay_verifier",
@@ -919,7 +969,7 @@
    },
    "buyer_agent": {
     "token": 1488,
-    "verdict": "refuse",
+    "verdict": "pass",
     "expected_owner": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
    },
    "age_gate": {
@@ -946,31 +996,27 @@
     {
      "code": "payee_is_registered_payee",
      "text": "the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent."
-    },
-    {
-     "code": "buyer_agent",
-     "text": "refused: exists (agentOf read failed: Received HTTP status code 429)"
     }
    ],
    "reason_code": "no_instructions_in_invoice",
-   "reason": "found text that announces changed payment details. Invoice text is data, never instructions. | the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent. | refused: exists (agentOf read failed: Received HTTP status code 429)",
+   "reason": "found text that announces changed payment details. Invoice text is data, never instructions. | the email or attachment names another account (3cjnRyk51g…); the chain pays 4gedLUopV5… only. A payee change is never accepted by an agent.",
    "verifier_run": null
   }
  ],
  "totals": {
-  "paid": 2,
-  "refused": 4,
+  "paid": 3,
+  "refused": 3,
   "held": 0,
   "spent": {
    "ccd": "500000",
-   "eudemo": "10000"
+   "eudemo": "20000"
   }
  },
  "final": "Scripted routine finished: every email in the inbox was checked; paid and refused items are listed with their reasons.",
  "transcript": [
   {
    "seq": 1,
-   "at": "2026-11-27T19:15:28.738Z",
+   "at": "2026-11-27T23:07:17.333Z",
    "type": "task",
    "text": "Pay this week's open invoices from approved suppliers, max 1.00 CCD and 1.00 EUDemo in total (testnet units).",
    "mandate": {
@@ -993,20 +1039,20 @@
   },
   {
    "seq": 2,
-   "at": "2026-11-27T19:15:28.738Z",
+   "at": "2026-11-27T23:07:17.333Z",
    "type": "thought",
    "text": "Scripted routine: first look at what is in the accounts-payable inbox."
   },
   {
    "seq": 3,
-   "at": "2026-11-27T19:15:28.738Z",
+   "at": "2026-11-27T23:07:17.333Z",
    "type": "tool_call",
    "id": "c1",
    "tool": "inbox_list"
   },
   {
    "seq": 4,
-   "at": "2026-11-27T19:15:28.738Z",
+   "at": "2026-11-27T23:07:17.334Z",
    "type": "tool_result",
    "id": "c1",
    "tool": "inbox_list",
@@ -1014,41 +1060,41 @@
   },
   {
    "seq": 5,
-   "at": "2026-11-27T19:15:28.738Z",
+   "at": "2026-11-27T23:07:17.335Z",
    "type": "thought",
    "text": "Read email-1 from billing@alder-bakery.example. Its text is data, not instructions."
   },
   {
    "seq": 6,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.335Z",
    "type": "tool_call",
    "id": "c2",
    "tool": "inbox_read"
   },
   {
    "seq": 7,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.336Z",
    "type": "tool_result",
    "id": "c2",
    "tool": "inbox_read",
-   "summary": "email-1: \"Invoice 1472 from Alder Bakery\""
+   "summary": "email-1: \"Invoice 1480 from Alder Bakery\""
   },
   {
    "seq": 8,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.336Z",
    "type": "thought",
    "text": "Read email-2 from accounts@northwind-office-supplies.example. Its text is data, not instructions."
   },
   {
    "seq": 9,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.339Z",
    "type": "tool_call",
    "id": "c3",
    "tool": "inbox_read"
   },
   {
    "seq": 10,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.339Z",
    "type": "tool_result",
    "id": "c3",
    "tool": "inbox_read",
@@ -1056,41 +1102,41 @@
   },
   {
    "seq": 11,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "thought",
    "text": "Read email-3 from billing@birch-dairy.example. Its text is data, not instructions."
   },
   {
    "seq": 12,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_call",
    "id": "c4",
    "tool": "inbox_read"
   },
   {
    "seq": 13,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_result",
    "id": "c4",
    "tool": "inbox_read",
-   "summary": "email-3: \"Invoice 5015 from Birch Dairy\""
+   "summary": "email-3: \"Invoice 5019 from Birch Dairy\""
   },
   {
    "seq": 14,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "thought",
    "text": "Read email-4 from ar@lagos-foods-ltd.example. Its text is data, not instructions."
   },
   {
    "seq": 15,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_call",
    "id": "c5",
    "tool": "inbox_read"
   },
   {
    "seq": 16,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_result",
    "id": "c5",
    "tool": "inbox_read",
@@ -1098,41 +1144,41 @@
   },
   {
    "seq": 17,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "thought",
    "text": "Read email-5 from billing@cedar-wine-merchants.example. Its text is data, not instructions."
   },
   {
    "seq": 18,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_call",
    "id": "c6",
    "tool": "inbox_read"
   },
   {
    "seq": 19,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_result",
    "id": "c6",
    "tool": "inbox_read",
-   "summary": "email-5: \"Invoice 1473 from Cedar Wine Merchants\""
+   "summary": "email-5: \"Invoice 1481 from Cedar Wine Merchants\""
   },
   {
    "seq": 20,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "thought",
    "text": "Read email-6 from finance@harbor-freight-co.example. Its text is data, not instructions."
   },
   {
    "seq": 21,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_call",
    "id": "c7",
    "tool": "inbox_read"
   },
   {
    "seq": 22,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_result",
    "id": "c7",
    "tool": "inbox_read",
@@ -1140,20 +1186,20 @@
   },
   {
    "seq": 23,
-   "at": "2026-11-27T19:15:28.739Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "thought",
    "text": "Discover the open payables on the registry through the PayOnce tools."
   },
   {
    "seq": 24,
-   "at": "2026-11-27T19:15:28.740Z",
+   "at": "2026-11-27T23:07:17.340Z",
    "type": "tool_call",
    "id": "c8",
    "tool": "list_payables"
   },
   {
    "seq": 25,
-   "at": "2026-11-27T19:15:28.743Z",
+   "at": "2026-11-27T23:07:17.347Z",
    "type": "tool_result",
    "id": "c8",
    "tool": "list_payables",
@@ -1161,20 +1207,20 @@
   },
   {
    "seq": 26,
-   "at": "2026-11-27T19:15:28.743Z",
+   "at": "2026-11-27T23:07:17.347Z",
    "type": "thought",
-   "text": "email-1 (\"Invoice 1472 from Alder Bakery\") names payable 1472. Verify it, both ways, before any money moves."
+   "text": "email-1 (\"Invoice 1480 from Alder Bakery\") names payable 1480. Verify it, both ways, before any money moves."
   },
   {
    "seq": 27,
-   "at": "2026-11-27T19:15:28.743Z",
+   "at": "2026-11-27T23:07:17.348Z",
    "type": "tool_call",
    "id": "c9",
    "tool": "check_payable"
   },
   {
    "seq": 28,
-   "at": "2026-11-27T19:15:32.637Z",
+   "at": "2026-11-27T23:07:20.105Z",
    "type": "tool_result",
    "id": "c9",
    "tool": "check_payable",
@@ -1182,20 +1228,20 @@
   },
   {
    "seq": 29,
-   "at": "2026-11-27T19:15:32.637Z",
+   "at": "2026-11-27T23:07:20.105Z",
    "type": "thought",
    "text": "Every check passed in both directions and the mandate allows it: pay."
   },
   {
    "seq": 30,
-   "at": "2026-11-27T19:15:32.637Z",
+   "at": "2026-11-27T23:07:20.105Z",
    "type": "tool_call",
    "id": "c10",
    "tool": "pay_payable"
   },
   {
    "seq": 31,
-   "at": "2026-11-27T19:15:32.637Z",
+   "at": "2026-11-27T23:07:20.106Z",
    "type": "guard",
    "tool": "pay_payable",
    "allow": true,
@@ -1203,7 +1249,7 @@
   },
   {
    "seq": 32,
-   "at": "2026-11-27T19:15:43.971Z",
+   "at": "2026-11-27T23:07:42.982Z",
    "type": "tool_result",
    "id": "c10",
    "tool": "pay_payable",
@@ -1211,20 +1257,20 @@
   },
   {
    "seq": 33,
-   "at": "2026-11-27T19:15:43.972Z",
+   "at": "2026-11-27T23:07:42.982Z",
    "type": "thought",
    "text": "Paid. Fetch the receipt and run the keyless verifier on it."
   },
   {
    "seq": 34,
-   "at": "2026-11-27T19:15:43.972Z",
+   "at": "2026-11-27T23:07:42.982Z",
    "type": "tool_call",
    "id": "c11",
    "tool": "receipt"
   },
   {
    "seq": 35,
-   "at": "2026-11-27T19:15:52.797Z",
+   "at": "2026-11-27T23:07:52.729Z",
    "type": "tool_result",
    "id": "c11",
    "tool": "receipt",
@@ -1232,20 +1278,20 @@
   },
   {
    "seq": 36,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.730Z",
    "type": "thought",
    "text": "email-2 (\"Overdue invoice 7731 - settle today\") names payable 1. Verify it, both ways, before any money moves."
   },
   {
    "seq": 37,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.730Z",
    "type": "tool_call",
    "id": "c12",
    "tool": "check_payable"
   },
   {
    "seq": 38,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.731Z",
    "type": "tool_result",
    "id": "c12",
    "tool": "check_payable",
@@ -1253,26 +1299,26 @@
   },
   {
    "seq": 39,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.731Z",
    "type": "thought",
    "text": "Not paying: verdict refuse (seller_known). On to the next email."
   },
   {
    "seq": 40,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.731Z",
    "type": "thought",
-   "text": "email-3 (\"Invoice 5015 from Birch Dairy\") names payable 5015. Verify it, both ways, before any money moves."
+   "text": "email-3 (\"Invoice 5019 from Birch Dairy\") names payable 5019. Verify it, both ways, before any money moves."
   },
   {
    "seq": 41,
-   "at": "2026-11-27T19:15:52.798Z",
+   "at": "2026-11-27T23:07:52.732Z",
    "type": "tool_call",
    "id": "c13",
    "tool": "check_payable"
   },
   {
    "seq": 42,
-   "at": "2026-11-27T19:16:05.105Z",
+   "at": "2026-11-27T23:07:55.944Z",
    "type": "tool_result",
    "id": "c13",
    "tool": "check_payable",
@@ -1280,20 +1326,20 @@
   },
   {
    "seq": 43,
-   "at": "2026-11-27T19:16:05.105Z",
+   "at": "2026-11-27T23:07:55.945Z",
    "type": "thought",
    "text": "Every check passed in both directions and the mandate allows it: pay."
   },
   {
    "seq": 44,
-   "at": "2026-11-27T19:16:05.105Z",
+   "at": "2026-11-27T23:07:55.945Z",
    "type": "tool_call",
    "id": "c14",
    "tool": "pay_payable"
   },
   {
    "seq": 45,
-   "at": "2026-11-27T19:16:05.105Z",
+   "at": "2026-11-27T23:07:55.945Z",
    "type": "guard",
    "tool": "pay_payable",
    "allow": true,
@@ -1301,7 +1347,7 @@
   },
   {
    "seq": 46,
-   "at": "2026-11-27T19:16:43.600Z",
+   "at": "2026-11-27T23:08:35.191Z",
    "type": "tool_result",
    "id": "c14",
    "tool": "pay_payable",
@@ -1309,20 +1355,20 @@
   },
   {
    "seq": 47,
-   "at": "2026-11-27T19:16:43.600Z",
+   "at": "2026-11-27T23:08:35.191Z",
    "type": "thought",
    "text": "Paid. Fetch the receipt and run the keyless verifier on it."
   },
   {
    "seq": 48,
-   "at": "2026-11-27T19:16:43.600Z",
+   "at": "2026-11-27T23:08:35.191Z",
    "type": "tool_call",
    "id": "c15",
    "tool": "receipt"
   },
   {
    "seq": 49,
-   "at": "2026-11-27T19:16:53.724Z",
+   "at": "2026-11-27T23:08:47.166Z",
    "type": "tool_result",
    "id": "c15",
    "tool": "receipt",
@@ -1330,88 +1376,174 @@
   },
   {
    "seq": 50,
-   "at": "2026-11-27T19:16:53.724Z",
+   "at": "2026-11-27T23:08:47.166Z",
    "type": "thought",
    "text": "email-4 (\"Invoice 1095: urgent, pay today\") names payable 1095. Verify it, both ways, before any money moves."
   },
   {
    "seq": 51,
-   "at": "2026-11-27T19:16:53.724Z",
+   "at": "2026-11-27T23:08:47.166Z",
    "type": "tool_call",
    "id": "c16",
    "tool": "check_payable"
   },
   {
    "seq": 52,
-   "at": "2026-11-27T19:17:04.202Z",
+   "at": "2026-11-27T23:08:50.508Z",
    "type": "tool_result",
    "id": "c16",
    "tool": "check_payable",
-   "summary": "verdict refuse: Refuse: attachment_matches_chain, no_instructions_in_invoice, payee_is_registered_payee, buyer_agent"
+   "summary": "verdict refuse: Refuse: attachment_matches_chain, no_instructions_in_invoice, payee_is_registered_payee"
   },
   {
    "seq": 53,
-   "at": "2026-11-27T19:17:04.202Z",
+   "at": "2026-11-27T23:08:50.508Z",
    "type": "thought",
-   "text": "Not paying: verdict refuse (attachment_matches_chain, no_instructions_in_invoice, payee_is_registered_payee, buyer_agent). On to the next email."
+   "text": "Not paying: verdict refuse (attachment_matches_chain, no_instructions_in_invoice, payee_is_registered_payee). On to the next email."
   },
   {
    "seq": 54,
-   "at": "2026-11-27T19:17:04.202Z",
+   "at": "2026-11-27T23:08:50.508Z",
    "type": "thought",
-   "text": "email-5 (\"Invoice 1473 from Cedar Wine Merchants\") names payable 1473. Verify it, both ways, before any money moves."
+   "text": "email-5 (\"Invoice 1481 from Cedar Wine Merchants\") names payable 1481. Verify it, both ways, before any money moves."
   },
   {
    "seq": 55,
-   "at": "2026-11-27T19:17:04.202Z",
+   "at": "2026-11-27T23:08:50.508Z",
    "type": "tool_call",
    "id": "c17",
    "tool": "check_payable"
   },
   {
    "seq": 56,
-   "at": "2026-11-27T19:17:06.550Z",
+   "at": "2026-11-27T23:08:52.155Z",
    "type": "tool_result",
    "id": "c17",
    "tool": "check_payable",
-   "summary": "verdict refuse: Refuse: buyer_agent"
+   "summary": "verdict needs_age_proof: This payable is age-gated (the invoice document (bound to the chain by its hash) states \"Age restriction: 18+\"). The buyer must present a fresh V&A V1 18+ proof from a credential held by the paying account. None is "
   },
   {
    "seq": 57,
-   "at": "2026-11-27T19:17:06.550Z",
+   "at": "2026-11-27T23:08:52.156Z",
    "type": "thought",
-   "text": "Not paying: verdict refuse (buyer_agent). On to the next email."
+   "text": "The payable is age-gated: ask the scoped prover for a V&A 18+ proof for the paying account."
   },
   {
    "seq": 58,
-   "at": "2026-11-27T19:17:06.550Z",
+   "at": "2026-11-27T23:08:52.156Z",
+   "type": "tool_call",
+   "id": "c18",
+   "tool": "present_age_proof"
+  },
+  {
+   "seq": 59,
+   "at": "2026-11-27T23:09:06.620Z",
+   "type": "tool_result",
+   "id": "c18",
+   "tool": "present_age_proof",
+   "summary": "18+ proof filed (bound)"
+  },
+  {
+   "seq": 60,
+   "at": "2026-11-27T23:09:06.620Z",
+   "type": "thought",
+   "text": "A fresh 18+ proof is on file: check the payable again."
+  },
+  {
+   "seq": 61,
+   "at": "2026-11-27T23:09:06.620Z",
+   "type": "tool_call",
+   "id": "c19",
+   "tool": "check_payable"
+  },
+  {
+   "seq": 62,
+   "at": "2026-11-27T23:09:09.319Z",
+   "type": "tool_result",
+   "id": "c19",
+   "tool": "check_payable",
+   "summary": "verdict pay: All checks pass, both directions. Safe to pay."
+  },
+  {
+   "seq": 63,
+   "at": "2026-11-27T23:09:09.319Z",
+   "type": "thought",
+   "text": "Every check passed in both directions and the mandate allows it: pay."
+  },
+  {
+   "seq": 64,
+   "at": "2026-11-27T23:09:09.319Z",
+   "type": "tool_call",
+   "id": "c20",
+   "tool": "pay_payable"
+  },
+  {
+   "seq": 65,
+   "at": "2026-11-27T23:09:09.319Z",
+   "type": "guard",
+   "tool": "pay_payable",
+   "allow": true,
+   "text": "Mandate guard passed: approved supplier, latest check is \"pay\", amount fits the budget."
+  },
+  {
+   "seq": 66,
+   "at": "2026-11-27T23:09:44.041Z",
+   "type": "tool_result",
+   "id": "c20",
+   "tool": "pay_payable",
+   "summary": "paid 0.01 EUDemo, 3 tx"
+  },
+  {
+   "seq": 67,
+   "at": "2026-11-27T23:09:44.041Z",
+   "type": "thought",
+   "text": "Paid. Fetch the receipt and run the keyless verifier on it."
+  },
+  {
+   "seq": 68,
+   "at": "2026-11-27T23:09:44.041Z",
+   "type": "tool_call",
+   "id": "c21",
+   "tool": "receipt"
+  },
+  {
+   "seq": 69,
+   "at": "2026-11-27T23:09:55.123Z",
+   "type": "tool_result",
+   "id": "c21",
+   "tool": "receipt",
+   "summary": "receipt 0.01 EUDemo, 3 tx"
+  },
+  {
+   "seq": 70,
+   "at": "2026-11-27T23:09:55.123Z",
    "type": "thought",
    "text": "email-6 (\"Updated bank details for invoice 1096\") names payable 1096. Verify it, both ways, before any money moves."
   },
   {
-   "seq": 59,
-   "at": "2026-11-27T19:17:06.550Z",
+   "seq": 71,
+   "at": "2026-11-27T23:09:55.123Z",
    "type": "tool_call",
-   "id": "c18",
+   "id": "c22",
    "tool": "check_payable"
   },
   {
-   "seq": 60,
-   "at": "2026-11-27T19:17:08.783Z",
+   "seq": 72,
+   "at": "2026-11-27T23:10:06.518Z",
    "type": "tool_result",
-   "id": "c18",
+   "id": "c22",
    "tool": "check_payable",
-   "summary": "verdict refuse: Refuse: no_instructions_in_invoice, payee_is_registered_payee, buyer_agent"
+   "summary": "verdict refuse: Refuse: no_instructions_in_invoice, payee_is_registered_payee"
   },
   {
-   "seq": 61,
-   "at": "2026-11-27T19:17:08.783Z",
+   "seq": 73,
+   "at": "2026-11-27T23:10:06.518Z",
    "type": "thought",
-   "text": "Not paying: verdict refuse (no_instructions_in_invoice, payee_is_registered_payee, buyer_agent). On to the next email."
+   "text": "Not paying: verdict refuse (no_instructions_in_invoice, payee_is_registered_payee). On to the next email."
   },
   {
-   "seq": 62,
-   "at": "2026-11-27T19:17:08.783Z",
+   "seq": 74,
+   "at": "2026-11-27T23:10:06.518Z",
    "type": "final",
    "text": "Scripted routine finished: every email in the inbox was checked; paid and refused items are listed with their reasons."
   }

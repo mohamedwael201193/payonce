@@ -107,10 +107,11 @@ function upperMinusYears(years, daysOffset, nowMs) {
 }
 /** The prover's allowed 18+ dob uppers: today−18y / today−21y, +0/+1 day. */
 export function allowedAdultUppers(nowMs = Date.now()) {
-  return [18, 21].flatMap((n) => [upperMinusYears(n, 0, nowMs), upperMinusYears(n, 1, nowMs)]);
+  // +2 days too: the SDK builds the bound from the local date (+1), which is a day ahead of UTC for part of every day.
+  return [18, 21].flatMap((n) => [upperMinusYears(n, 0, nowMs), upperMinusYears(n, 1, nowMs), upperMinusYears(n, 2, nowMs)]);
 }
 export function allowed21Uppers(nowMs = Date.now()) {
-  return [upperMinusYears(21, 0, nowMs), upperMinusYears(21, 1, nowMs)];
+  return [upperMinusYears(21, 0, nowMs), upperMinusYears(21, 1, nowMs), upperMinusYears(21, 2, nowMs)];
 }
 
 function requestStatements(request) {

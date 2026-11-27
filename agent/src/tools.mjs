@@ -121,7 +121,17 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
   });
 
   // ---------------------------------------------------------------- check_payable
+  // A busy public node (HTTP 429) can fail a read inside a check. That is an outage, not a finding: re-run the
+  // whole check up to twice before the verdict stands (it is read-only, so repeating it is safe).
   async function checkPayable(args = {}) {
+    let out = await checkPayableOnce(args);
+    for (let i = 0; i < 2 && out.verdict === 'refuse' && out.checks.some((c) => c.status === 'fail' && /429|read failed|did not answer|UNAVAILABLE/i.test(c.detail ?? '')); i += 1) {
+      await new Promise((r) => setTimeout(r, 4000 * (i + 1)));
+      out = await checkPayableOnce(args);
+    }
+    return out;
+  }
+  async function checkPayableOnce(args = {}) {
     const id = Number(args.id ?? args.payable_id);
     const checks = [];
     const out = { seller: args.seller, payable_id: id, verdict: 'refuse', reasons: [], checks, limits: [
@@ -321,7 +331,14 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
           throw e;
         }
         const steps = [];
-        const job = await client.waitJob(started.job_id, { onStep: (s) => steps.push({ step: s.step, status: s.status, detail: s.detail, tx_hash: s.txHash ?? null }) });
+        let job = await client.waitJob(started.job_id, { onStep: (s) => steps.push({ step: s.step, status: s.status, detail: s.detail, tx_hash: s.txHash ?? null }) });
+        // A busy public node (429) can fail the very first read of a job. Nothing was sent then (no tx hash on any step), so one retry is safe.
+        const sentSomething = (j) => (j.steps ?? []).some((s) => s.txHash);
+        if (job.outcome !== 'paid' && !sentSomething(job) && /429|UNAVAILABLE|node busy|RESOURCE_EXHAUSTED/i.test(JSON.stringify(job.steps ?? []))) {
+          await new Promise((r) => setTimeout(r, 6000));
+          const again = await client.pay(args.seller, id, { rail, docSha256: verdict.facts.doc_sha256 });
+          job = await client.waitJob(again.job_id, {});
+        }
         const paid = job.outcome === 'paid';
         const txs = (job.steps ?? []).filter((s) => s.txHash).map((s) => ({ step: s.step, tx_hash: s.txHash, explorer_url: s.explorerUrl }));
         const refusedStep = (job.steps ?? []).find((s) => s.status === 'refused' || s.status === 'failed');
