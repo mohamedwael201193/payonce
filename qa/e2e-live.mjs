@@ -189,10 +189,11 @@ async function chainHelpers() {
   const { backend } = await imp('api/src/backend.mjs');
   const conf = await imp('api/src/config.mjs');
   const jobs = await imp('api/src/jobs.mjs');
+  const docs = await imp('api/src/docs.mjs');
   const { v2enc } = await backend();
   const sig = await chain.signers();
   const c = await chain.grpc();
-  chainCache = { ...chain, c, sig, v2enc, conf, rejectOf: jobs.rejectOf, rejectInfo: jobs.rejectInfo };
+  chainCache = { ...chain, c, sig, v2enc, conf, docs, rejectOf: jobs.rejectOf, rejectInfo: jobs.rejectInfo };
   return chainCache;
 }
 
@@ -203,10 +204,8 @@ async function registerDirect({ sellerAddr, isS2, rail }) {
   const amount = rail === 'ccd' ? 500000n : 10000n;
   const payee = isS2 ? sellerAddr : rail === 'ccd' ? h.conf.PAYEE_CCD : h.conf.PAYEE_EUDEMO;
   const dueMs = Date.now() + 24 * 3_600_000;
-  const docText = [
-    'PAYONCE LAB INVOICE (testnet, not a real invoice)', `Invoice: ${id}`, `Seller: ${sellerAddr}`, `Payee: ${payee}`,
-    `Asset: ${rail === 'ccd' ? 'CCD' : 'EUDemo'}`, `Amount: ${amount}`, `Due: ${new Date(dueMs).toISOString()}`, 'Created by qa/e2e-live.mjs (direct registration)', '',
-  ].join('\n');
+  // the exact lab invoice the API regenerates and serves, so its hash matches the chain
+  const docText = h.docs.generateLabDocument({ id, asset: rail === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller: sellerAddr, due: dueMs });
   const docHash = sha256(Buffer.from(docText));
   const sent = await h.sendUpdate(h.c, {
     from: isS2 ? h.sig.seller2 : h.sig.owner, receiveName: 'register_payable', maxEnergy: 6000n,

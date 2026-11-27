@@ -918,7 +918,20 @@ async function handleCreatePayable(req, res) {
       const status = await waitFinalized(c, sent.txHash);
       const rr = rejectOf(status);
       return { txHash: sent.txHash, status, docText, dueMs, rejected: rr ? rejectInfo(rr.rejectReason) : null };
-    }, { which: isS2 ? 2 : 1 });
+    }, {
+      which: isS2 ? 2 : 1,
+      findFree: async (from) => {
+        const existing = [];
+        let id = from;
+        for (let n = 0; n < 400; n += 1) {
+          const { view, ok } = await readPayableWithRetry(c, id, seller);
+          if (!ok || !view) return { free: id, existing };
+          existing.push(id);
+          id += 1;
+        }
+        return { free: id, existing };
+      },
+    });
   } catch (e) {
     return chainUnreachable(res, e);
   }

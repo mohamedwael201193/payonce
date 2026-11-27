@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-11-27T02:30:21.414Z",
+  "registry": "<13150,0>",
+  "payables": [
+    {
+      "seller": "seller1",
+      "seller_address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payable_id": 1095,
+      "rail": "ccd",
+      "amount": "100000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "62869bbca0bd21044cdc0648c1dd9da70ca29cc5f559abe983c010fe2a510bb1",
+      "register_tx": "b8f12eced5a1f65c1e8e4e024e345090fbc3ce1f229002acf2f1111300b76e60"
+    },
+    {
+      "seller": "seller1",
+      "seller_address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payable_id": 1096,
+      "rail": "ccd",
+      "amount": "100000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "53cf8e07803fe4d18dbe845be1be0102c95d3d79e6d225665fa05111e9ae332b",
+      "register_tx": "249927c98cae34ebddbe1f80b790de475ee249c94a98ce93af7a9fee2d9930e2"
+    },
+    {
+      "seller": "seller1",
+      "seller_address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payable_id": 1097,
+      "rail": "eudemo",
+      "amount": "10000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "3ad459dd75d442ea38b2dea193f664229369293794e26ecbc1857672387ea93d",
+      "register_tx": "cd151c9653f368213e628af41d1dae9f3f4408bbf7f3e270d7e1658f48113447"
+    },
+    {
+      "seller": "seller1",
+      "seller_address": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "payable_id": 1098,
+      "rail": "eudemo",
+      "amount": "10000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "ce513d032e0dabf45332f3147667b25ed4bce8a27152ca02d4dd215e1330c199",
+      "register_tx": "81e964af954739b41efc28842e02464248a7031a256fba5d7b2f6d6e703254c3"
+    },
+    {
+      "seller": "seller2",
+      "seller_address": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "payable_id": 5002,
+      "rail": "ccd",
+      "amount": "100000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "bf114f558416adfbb4bfac1ddfb46fada505e47ffbeece55f68ca7be0a2f3bbf",
+      "register_tx": "8277fa85baba026ecdeb251c0a29edb0f6e9b96ab289544546176637eb57895f"
+    },
+    {
+      "seller": "seller2",
+      "seller_address": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "payable_id": 5003,
+      "rail": "ccd",
+      "amount": "100000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "e608eecca197c1de01c7282df881af3641d6d0a32aa3f646bae81950cbb6828c",
+      "register_tx": "714b2e7df3650c9c57a6252159663c98352df9836cfeeded700f97be89275d05"
+    },
+    {
+      "seller": "seller2",
+      "seller_address": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "payable_id": 5004,
+      "rail": "eudemo",
+      "amount": "10000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "807ddf961d431b005c5df9ec49e28247f2479a95b377e98aa437a041ebc66f53",
+      "register_tx": "85bb1e54e32437a62cece3995968d14307830d7e51f6dfe8c06f124bf3fa10ec"
+    },
+    {
+      "seller": "seller2",
+      "seller_address": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "payable_id": 5005,
+      "rail": "eudemo",
+      "amount": "10000",
+      "status": "Unpaid",
+      "due": "2026-12-12T12:00:00.000Z",
+      "doc_sha256": "7dde5d00c4c4e31818d5cf1153f540047bd3115631d0a3667ddad27f6237d536",
+      "register_tx": "0fe4af87e238dad07814ef9a1060847bd07ad5fcf2ecc831ca5e5c2e2181d54d"
+    }
+  ]
+}

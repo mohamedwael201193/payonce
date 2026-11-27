@@ -74,7 +74,7 @@ export async function foldDiscoveredIds(ids, which = 1) {
  * { id, ok: false, ...out } for a non-duplicate refusal or `attempts`
  * duplicates in a row.
  */
-export async function registerWithFreshId(trySend, { attempts = 8, which = 1 } = {}) {
+export async function registerWithFreshId(trySend, { attempts = 8, which = 1, findFree = null } = {}) {
   let last = null;
   for (let i = 0; i < attempts; i += 1) {
     const id = await allocateFreshId(which);
@@ -94,6 +94,12 @@ export async function registerWithFreshId(trySend, { attempts = 8, which = 1 } =
       // Duplicate: a payable with this id already exists on chain. Count it
       // (the stats scan must see it) and move to the next id.
       await confirmFreshId(id, which);
+      // With a chain reader, jump past the whole run of existing ids at once instead of one by one.
+      if (findFree) {
+        const { free, existing } = await findFree(id + 1);
+        await foldDiscoveredIds(existing, which);
+        await updateCounters((c) => { const f = fields(which); c[f.next] = Math.max(c[f.next] ?? f.start, free); });
+      }
       continue;
     }
     await releaseFreshId(id, which);

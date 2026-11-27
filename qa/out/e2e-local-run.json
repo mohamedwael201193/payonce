@@ -1,0 +1,476 @@
+{
+  "api": "http://127.0.0.1:7411",
+  "started_at": "2026-11-26T05:07:56.268Z",
+  "finished_at": "2026-11-26T05:11:13.972Z",
+  "counts": {
+    "PASS": 41,
+    "FAIL": 10,
+    "INFO": 1
+  },
+  "created": {
+    "seller1:ccd": {
+      "id": 1092,
+      "via": "api",
+      "register_tx": "2a6fdfccec096026335483cc07c3f45375bddf72359e9d5c4eff89eb0fa48309"
+    },
+    "seller1:eudemo": {
+      "id": 1093,
+      "via": "api",
+      "register_tx": "f4904e4de32a0db9c6096bb1b96a7cff20bc9031d3a2b77a3a768aef36e58544"
+    },
+    "seller2:ccd": {
+      "id": 5000,
+      "via": "api",
+      "register_tx": "9f84d287c8057d5f4386054058e912fd06132b059890dce201fc6b1b4fb3e0f9"
+    },
+    "seller2:eudemo": {
+      "id": 5001,
+      "via": "api",
+      "register_tx": "562252c7fb00a59fcb3f28d3fcc93f6cb189b8ad953adce9f93ffdaee277f692"
+    }
+  },
+  "paid": {
+    "seller1:ccd": {
+      "id": 1092,
+      "legs": {
+        "Payment": "d07ab8b3848778757f3c2e7f2791b337c2ec48f96f5ded3a72fa05bc457a2a51"
+      },
+      "payTx": "d07ab8b3848778757f3c2e7f2791b337c2ec48f96f5ded3a72fa05bc457a2a51"
+    }
+  },
+  "rows": [
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/config",
+      "status": "PASS",
+      "detail": "matches the frontend schema",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/health",
+      "status": "PASS",
+      "detail": "chain reachable; payer ok, wallet_eudemo ok, co_signer ok; budget {\"new_invoices_left_this_hour\":30,\"attack_sends_left_this_hour\":30}",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/stats",
+      "status": "PASS",
+      "detail": "payables 92, paid 53, refused 15",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/invoices",
+      "status": "PASS",
+      "detail": "92 rows from 2 sellers",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "stats == recount of /api/invoices",
+      "status": "PASS",
+      "detail": "payables_total and paid_total equal the listed rows",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "stats provenance",
+      "status": "PASS",
+      "detail": "generated_at 2026-11-26T05:08:07.437Z; payables_total=live, paid_total=live, voided_total=live, reserved_total=live, refused_on_chain_since_deploy=recorded, last_verifier_run_at=server",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/stats/refusals",
+      "status": "FAIL",
+      "detail": "HTTP 404",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "every counted refusal re-reads as rejected on chain",
+      "status": "FAIL",
+      "detail": "0 not confirmed as rejected: ",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "sellers 1476 / 1506 configured",
+      "status": "PASS",
+      "detail": "S1 42jaZZgd...zmRjNB token 1476; S2 3ARQvcVD...a2uExr token 1506",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "seller write support (config.build.seller_writes)",
+      "status": "INFO",
+      "detail": "[\"seller_1\",\"seller_2\"]",
+      "txs": {}
+    },
+    {
+      "seller": "api",
+      "rail": "-",
+      "step": "GET /api/judges/files",
+      "status": "PASS",
+      "detail": "8 files with sha256",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "create invoice via POST /api/payables (register_payable on chain)",
+      "status": "PASS",
+      "detail": "payable 1092",
+      "txs": {
+        "register_tx": "2a6fdfccec096026335483cc07c3f45375bddf72359e9d5c4eff89eb0fa48309"
+      }
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "list (GET /api/invoices)",
+      "status": "PASS",
+      "detail": "payable 1092 listed Unpaid, 0.500000 CCD",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "payable facts",
+      "status": "PASS",
+      "detail": "unpaid; 0.500000 CCD; seller 42jaZZgd...zmRjNB",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "document hash",
+      "status": "PASS",
+      "detail": "sha256(GET document) == on-chain doc hash 1a9cd007...76f338",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "verify before_pay",
+      "status": "PASS",
+      "detail": "verdict ready, 6/9 checks",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "pay (POST /api/payables/:id/pay)",
+      "status": "PASS",
+      "detail": "job job_1092_ccd_8eee79f0; steps check_status > check_agent > submit > wait_finality > read_back > verify",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "confirm (job: chain steps finalised, verifier run)",
+      "status": "PASS",
+      "detail": "state succeeded/paid; check_status:ok check_agent:ok submit:ok wait_finality:ok read_back:ok verify:ok",
+      "txs": {
+        "submit": "d07ab8b3848778757f3c2e7f2791b337c2ec48f96f5ded3a72fa05bc457a2a51"
+      }
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "receipt (GET /api/receipts/:id)",
+      "status": "PASS",
+      "detail": "legs Payment; verifier 10/10",
+      "txs": {
+        "Payment": "d07ab8b3848778757f3c2e7f2791b337c2ec48f96f5ded3a72fa05bc457a2a51"
+      }
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "verify after_pay (API)",
+      "status": "PASS",
+      "detail": "verdict paid, 10/10",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "independent keyless verifier",
+      "status": "PASS",
+      "detail": "ALL CHECKS PASS (10/10)",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "create invoice via POST /api/payables (register_payable on chain)",
+      "status": "PASS",
+      "detail": "payable 1093",
+      "txs": {
+        "register_tx": "f4904e4de32a0db9c6096bb1b96a7cff20bc9031d3a2b77a3a768aef36e58544"
+      }
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "list (GET /api/invoices)",
+      "status": "PASS",
+      "detail": "payable 1093 listed Unpaid, 0.01 EUDemo",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "payable facts",
+      "status": "PASS",
+      "detail": "unpaid; 0.01 EUDemo; seller 42jaZZgd...zmRjNB",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "document hash",
+      "status": "PASS",
+      "detail": "sha256(GET document) == on-chain doc hash ed2a25ca...ac40ca",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "verify before_pay",
+      "status": "PASS",
+      "detail": "verdict ready, 6/9 checks",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "pay (POST /api/payables/:id/pay)",
+      "status": "PASS",
+      "detail": "job job_1093_eudemo_c85a9d80; steps check_wallet > reserve > co_sign_decide > submit_transfer > wait_finality > confirm > verify",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "confirm (job: chain steps finalised, verifier run)",
+      "status": "FAIL",
+      "detail": "state failed/failed; ; confirm:failed Error: The sender/sponsor did not have enough funds to cover the costs | verify:pending ",
+      "txs": {
+        "reserve": "40567b2d2ebf9b1c1c575fc4cc990801e08e77397861ed871f0dcb772e82dabb",
+        "submit_transfer": "abdb5ee0922cc4cb6f700fe404dc3148463beed0f8a833d3126fd647c9fc080c"
+      }
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "create invoice via POST /api/payables (register_payable on chain)",
+      "status": "PASS",
+      "detail": "payable 5000",
+      "txs": {
+        "register_tx": "9f84d287c8057d5f4386054058e912fd06132b059890dce201fc6b1b4fb3e0f9"
+      }
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "list (GET /api/invoices)",
+      "status": "PASS",
+      "detail": "payable 5000 listed Unpaid, 0.500000 CCD",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "payable facts",
+      "status": "PASS",
+      "detail": "unpaid; 0.500000 CCD; seller 3ARQvcVD...a2uExr",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "document hash",
+      "status": "PASS",
+      "detail": "sha256(GET document) == on-chain doc hash 1a87a39c...2e5247",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "verify before_pay",
+      "status": "PASS",
+      "detail": "verdict ready, 5/9 checks",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "pay (POST /api/payables/:id/pay)",
+      "status": "PASS",
+      "detail": "job job_5000_ccd_7edbe296; steps check_status > check_agent > submit > wait_finality > read_back > verify",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "ccd",
+      "step": "confirm (job: chain steps finalised, verifier run)",
+      "status": "FAIL",
+      "detail": "state failed/failed; ; submit:failed Error: The sender/sponsor did not have enough funds to cover the costs | wait_finality:pending  | read_back:pending  | verify:pending ",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "create invoice via POST /api/payables (register_payable on chain)",
+      "status": "PASS",
+      "detail": "payable 5001",
+      "txs": {
+        "register_tx": "562252c7fb00a59fcb3f28d3fcc93f6cb189b8ad953adce9f93ffdaee277f692"
+      }
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "list (GET /api/invoices)",
+      "status": "PASS",
+      "detail": "payable 5001 listed Unpaid, 0.01 EUDemo",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "payable facts",
+      "status": "PASS",
+      "detail": "unpaid; 0.01 EUDemo; seller 3ARQvcVD...a2uExr",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "document hash",
+      "status": "PASS",
+      "detail": "sha256(GET document) == on-chain doc hash c278dde4...f107cb",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "verify before_pay",
+      "status": "PASS",
+      "detail": "verdict ready, 5/9 checks",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "pay (POST /api/payables/:id/pay)",
+      "status": "PASS",
+      "detail": "job job_5001_eudemo_74ecac95; steps check_wallet > reserve > co_sign_decide > submit_transfer > wait_finality > confirm > verify",
+      "txs": {}
+    },
+    {
+      "seller": "seller2",
+      "rail": "eudemo",
+      "step": "confirm (job: chain steps finalised, verifier run)",
+      "status": "FAIL",
+      "detail": "state failed/failed; ; reserve:failed Error: The sender/sponsor did not have enough funds to cover the costs | co_sign_decide:pending  | submit_transfer:pending  | wait_finality:pending  | confirm:pending  | verify:pending ",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "double pay: the API refuses (already_paid)",
+      "status": "PASS",
+      "detail": "HTTP 409 Payable 1092 is already Paid by 4MvdMEGC… at 2026-11-26T05:08:36.495Z.",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "double pay: on-chain reject of a real second payment",
+      "status": "FAIL",
+      "detail": "outcome undefined reject undefined (expected -5)",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "wrong amount: on-chain reject of amount+1",
+      "status": "FAIL",
+      "detail": "outcome undefined reject undefined",
+      "txs": {
+        "register_tx": "45427bcd8976ea831839d44d9a8317e49472e3caf8adfe4fdb4177997d9c45c9"
+      }
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "tamper: verify blocks a forged document",
+      "status": "PASS",
+      "detail": "verdict blocked (doc)",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "tamper: pay refuses a forged document",
+      "status": "PASS",
+      "detail": "HTTP 409 doc_mismatch, nothing sent",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "ccd",
+      "step": "tamper: payable still unpaid",
+      "status": "PASS",
+      "detail": "unpaid after every refused attempt",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "-",
+      "step": "fraud payable: co-signer REFUSES an unlisted seller (live dry run, no-approval)",
+      "status": "PASS",
+      "detail": "REFUSE no-approval; vendor list read live: 2 sellers",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "wrong payee",
+      "status": "FAIL",
+      "detail": "The sender/sponsor did not have enough funds to cover the costs",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "stranger confirm",
+      "status": "FAIL",
+      "detail": "The sender/sponsor did not have enough funds to cover the costs",
+      "txs": {}
+    },
+    {
+      "seller": "seller1",
+      "rail": "eudemo",
+      "step": "fraud registration",
+      "status": "FAIL",
+      "detail": "The sender/sponsor did not have enough funds to cover the costs",
+      "txs": {}
+    }
+  ]
+}

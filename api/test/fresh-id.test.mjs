@@ -100,3 +100,19 @@ test('stats discover payables on chain beyond a regressed counter and fold them 
   assert.equal(res2.captured.json.items.length, live.size, 'stats and list agree')
   __setChainReaderForTests(null)
 })
+
+test('with a chain reader, a Duplicate jumps past the whole run of existing ids', async () => {
+  await reset(7000)
+  const exists = new Set(Array.from({ length: 30 }, (_, i) => 7000 + i))
+  const tried = []
+  const out = await registerWithFreshId(
+    async (id) => { tried.push(id); return { txHash: `t${id}`, rejected: exists.has(id) ? { code: -2, name: 'Duplicate' } : null } },
+    { findFree: async (from) => { const existing = []; let id = from; while (exists.has(id)) { existing.push(id); id += 1 } return { free: id, existing } } },
+  )
+  assert.equal(out.ok, true)
+  assert.equal(out.id, 7030)
+  assert.deepEqual(tried, [7000, 7030])
+  const c = await loadCounters()
+  assert.ok(c.freshIds.includes(7015) && c.freshIds.includes(7030))
+  assert.equal(c.nextFreshId, 7031)
+})
