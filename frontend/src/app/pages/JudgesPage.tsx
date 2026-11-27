@@ -15,6 +15,7 @@ import { verifierCommand } from '../verifier'
 import { Card, CopyButton, ExplorerTx, KeyValue, PageHeader, Skeleton, useExplorerBase } from '../ui'
 import type { ReactNode } from 'react'
 import { RECORDED_DATE } from '../../lib/recorded'
+import { Address } from '../Address'
 
 const SAMPLE_TXS: Array<{ label: string; hash: string }> = [
   { label: 'CCD, payable 10 registered', hash: 'e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9' },
@@ -141,7 +142,7 @@ export function JudgesPage() {
               )}
             </KeyValue>
             <KeyValue label="Module reference">
-              <span className="po-hash">{reg?.module_ref ?? 'Not loaded.'}</span>
+              {reg?.module_ref ? <Address value={reg.module_ref} kind="hash" label="module reference" expandable /> : 'Not loaded.'}
             </KeyValue>
             <KeyValue label="Official CIS-8004 registry">
               {official ? (
@@ -285,7 +286,7 @@ cd contracts/payable_registry_v2_1 && cargo concordium test`}</pre>
                 <a href={f.url} className="font-medium text-po-accent-ink underline decoration-po-line-strong">
                   {f.name}
                 </a>
-                <p className="po-hash text-po-grey">SHA-256: {f.sha256}</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-po-ink">SHA-256 <Address value={f.sha256} kind="hash" label={`${f.name} SHA-256`} explorer={false} /></p>
               </li>
             ))}
           </ul>

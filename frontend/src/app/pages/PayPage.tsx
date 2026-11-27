@@ -21,6 +21,8 @@ import { ccdPayFeeSentence } from '../fees'
 import { tidyAmount } from '../format'
 import { markMilestone, useAppData, useDocumentTitle, useNow, useSellers, type SellerDirectory } from '../hooks'
 import { keyStr, parseKeyPath, payPath, receiptPath, resolveSeller, sellerName, type PayableKey } from '../keys'
+import { Address } from '../Address'
+import { overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
 import {
   Button,
   ButtonLink,
@@ -98,8 +100,10 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
   const [creating, setCreating] = useState<'ccd' | 'eudemo' | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
 
-  const open = useMemo(() => data.items.filter((i) => i.status !== 'paid').sort((a, b) => a.due.localeCompare(b.due)), [data.items])
-  const paid = useMemo(() => data.items.filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id), [data.items])
+  const ready = useMemo(() => readyToPay(data.items), [data.items])
+  const overdue = useMemo(() => overdueItems(data.items).slice(0, 40), [data.items])
+  const paid = useMemo(() => paidItems(data.items).slice(0, 40), [data.items])
+  const open = ready
   const known = current ? data.items.some((i) => i.seller === current.seller && i.payable_id === current.id) : true
   const label = (i: { seller: string; payable_id: number; amount_display: string; due: string }) =>
     `${sellerName(i.seller, dir.sellers)}, payable ${i.payable_id}, ${tidyAmount(i.amount_display)}`
@@ -147,14 +151,21 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
                 {sellerName(current.seller, dir.sellers)}, payable {current.id}
               </option>
             ) : null}
-            <optgroup label={`Open (${open.length})`}>
-              {open.map((i) => (
+            <optgroup label={`Ready to pay (${ready.length})`}>
+              {ready.map((i) => (
                 <option key={`${i.seller}|${i.payable_id}`} value={`${i.seller}|${i.payable_id}`}>
-                  {label(i)}
+                  {label(i)}, due {i.due.slice(0, 10)}
                 </option>
               ))}
             </optgroup>
-            <optgroup label={`Paid (${paid.length})`}>
+            <optgroup label={`Overdue, latest 40 (${data.items.filter((i) => i.status !== 'paid').length - ready.length} in all)`}>
+              {overdue.map((i) => (
+                <option key={`${i.seller}|${i.payable_id}`} value={`${i.seller}|${i.payable_id}`}>
+                  {label(i)}, due {i.due.slice(0, 10)}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Paid, latest 40">
               {paid.map((i) => (
                 <option key={`${i.seller}|${i.payable_id}`} value={`${i.seller}|${i.payable_id}`}>
                   {label(i)}
@@ -171,7 +182,7 @@ function Picker({ current, dir }: { current: PayableKey | null; dir: SellerDirec
         </div>
       ) : null}
       {open.length === 0 && data.source !== 'loading' ? (
-        <p className="mt-3 text-[15px] text-po-grey">Every listed invoice is paid. Register a new test invoice to pay one.</p>
+        <p className="mt-3 text-[15px] text-po-grey">No listed invoice is ready to pay: each is paid or past due. Register a new test invoice to pay one.</p>
       ) : null}
       <details className="mt-4">
         <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-[15px] font-medium text-po-accent-ink">
@@ -400,10 +411,10 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
         <dl className="mt-2 divide-y divide-po-line">
           <KeyValue label="Amount">{amount}</KeyValue>
           <KeyValue label="Payee, from the chain">
-            <span className="po-hash">{facts.payee}</span>
+            <Address value={facts.payee} kind="account" label="payee account" expandable />
           </KeyValue>
           <KeyValue label="Invoice hash on chain">
-            <span className="po-hash">{facts.doc_sha256}</span>
+            <Address value={facts.doc_sha256} kind="hash" label="invoice hash" expandable />
           </KeyValue>
           <KeyValue label="Due">{facts.due.slice(0, 10)}</KeyValue>
         </dl>
@@ -497,8 +508,9 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
                 ) : null}
               </div>
               {docHash ? (
-                <p className="po-hash text-po-grey" data-testid="own-copy-hash">
-                  Your copy: {docHash}. {docHash === facts.doc_sha256 ? 'It matches the hash on chain.' : 'It does not match the hash on chain.'}
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-po-ink" data-testid="own-copy-hash">
+                  Your copy: <Address value={docHash} kind="hash" label="hash of your copy" explorer={false} />
+                  {docHash === facts.doc_sha256 ? 'It matches the hash on chain.' : 'It does not match the hash on chain.'}
                 </p>
               ) : null}
             </div>
@@ -594,13 +606,13 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
             </div>
             <dl className="divide-y divide-po-line rounded-[10px] border border-po-line bg-po-paper px-4">
               <KeyValue label="Payee">
-                <span className="po-hash">{facts.payee}</span>
+                <Address value={facts.payee} kind="account" label="payee account" expandable />
               </KeyValue>
               <KeyValue label="Amount">{amount}</KeyValue>
               <KeyValue label="Currency">{assetLabel}</KeyValue>
               <KeyValue label="Network">Concordium testnet</KeyValue>
               <KeyValue label="Invoice hash">
-                <span className="po-hash">{docHash ?? facts.doc_sha256}</span>
+                <Address value={docHash ?? facts.doc_sha256} kind="hash" label="invoice hash" expandable />
               </KeyValue>
               <KeyValue label="Seller">{sellerName(k.seller, dir.sellers)}</KeyValue>
             </dl>

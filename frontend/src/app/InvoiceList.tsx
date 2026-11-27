@@ -19,7 +19,7 @@ const COLS = 'md:grid-cols-[64px_minmax(0,1.1fr)_minmax(0,1.6fr)_132px_120px_100
 export function InvoiceList({ items, sellers }: { items: InvoiceItem[]; sellers: SellerInfo[] }) {
   return (
     <div role="table" aria-label="Invoices" className="po-card overflow-hidden">
-      <div role="row" className={`hidden gap-4 border-b border-po-line px-5 py-3 text-sm text-po-grey md:grid ${COLS}`}>
+      <div role="row" className={`hidden gap-4 border-b border-po-line bg-po-sunken px-5 py-3 text-sm font-semibold text-po-ink md:grid ${COLS}`}>
         <span role="columnheader">Number</span>
         <span role="columnheader">Seller</span>
         <span role="columnheader">Invoice</span>
@@ -67,7 +67,7 @@ export function InvoiceList({ items, sellers }: { items: InvoiceItem[]; sellers:
               <span role="cell" className="order-7 col-span-2 mt-2 md:order-none md:col-span-1 md:mt-0 md:justify-self-end">
                 <Link
                   to={paid ? receiptPath(key) : payPath(key)}
-                  className="inline-flex min-h-[44px] items-center font-medium text-po-accent-ink underline decoration-po-line-strong"
+                  className={`po-btn po-btn-sm ${paid ? 'po-btn-secondary' : 'po-btn-primary'}`}
                 >
                   {paid ? 'Receipt' : 'Pay'}
                   <span className="sr-only">

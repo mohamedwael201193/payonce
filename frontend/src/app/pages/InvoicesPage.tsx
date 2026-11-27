@@ -3,15 +3,16 @@
 // is a link, and changing one never remounts the page.
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download } from 'lucide-react'
-import { derivedStatus, filterInvoices, invoicesToCsv } from '../../lib/dashboard'
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { defaultOrder, derivedStatus, filterInvoices, invoicesToCsv } from '../../lib/dashboard'
 import { InvoiceList } from '../InvoiceList'
 import { useAppData, useDocumentTitle, useSellers } from '../hooks'
 import { sellerName } from '../keys'
 import { recordedLabel } from '../fees'
-import { Button, ButtonLink, EmptyState, Notice, PageHeader, Skeleton, SourceTag } from '../ui'
+import { Button, ButtonLink, ButtonRow, EmptyState, Notice, PageHeader, Skeleton, SourceTag } from '../ui'
 
 const SELECT = 'po-input'
+export const PAGE_SIZE = 25
 
 export function InvoicesPage() {
   useDocumentTitle('Invoices - PayOnce')
@@ -23,6 +24,7 @@ export function InvoicesPage() {
   const seller = params.get('seller') ?? ''
   const status = params.get('status') ?? ''
   const rail = params.get('rail') ?? ''
+  const pageParam = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1)
 
   const set = (name: string, value: string) =>
     setParams(
@@ -30,6 +32,7 @@ export function InvoicesPage() {
         const next = new URLSearchParams(prev)
         if (value) next.set(name, value)
         else next.delete(name)
+        if (name !== 'page') next.delete('page')
         return next
       },
       { replace: true },
@@ -40,8 +43,11 @@ export function InvoicesPage() {
     if (seller) rows = rows.filter((i) => i.seller === seller)
     if (rail) rows = rows.filter((i) => i.asset === rail)
     if (status) rows = rows.filter((i) => derivedStatus(i) === status)
-    return [...rows].sort((a, b) => (a.status === b.status ? b.payable_id - a.payable_id : a.status === 'paid' ? 1 : -1))
+    return defaultOrder(rows)
   }, [data.items, q, seller, rail, status])
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
+  const page = Math.min(pageParam, pages)
+  const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const sellerOptions = useMemo(() => {
     const seen = [...new Set(data.items.map((i) => i.seller))]
@@ -79,7 +85,7 @@ export function InvoicesPage() {
         <Notice tone="warn">The live API did not answer. This list is the recorded snapshot ({recordedLabel(data.asOf)}), not live.</Notice>
       ) : null}
 
-      <form role="search" aria-label="Filter invoices" onSubmit={(e) => e.preventDefault()} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr]">
+      <form role="search" aria-label="Filter invoices" onSubmit={(e) => e.preventDefault()} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1.3fr]">
         <label className="flex flex-col gap-1.5 text-sm text-po-grey sm:col-span-2 lg:col-span-1">
           Search
           <input
@@ -106,7 +112,7 @@ export function InvoicesPage() {
           <select value={status} onChange={(e) => set('status', e.target.value)} className={SELECT}>
             <option value="">All statuses</option>
             <option value="paid">Paid</option>
-            <option value="unpaid">Open</option>
+            <option value="unpaid">Ready to pay</option>
             <option value="overdue">Overdue</option>
           </select>
         </label>
@@ -121,7 +127,7 @@ export function InvoicesPage() {
       </form>
 
       <p className="text-sm text-po-grey" aria-live="polite">
-        {loading ? 'Reading the registry' : `Showing ${shown.length} of ${data.items.length} invoices`}
+        {loading ? 'Reading the registry' : `Showing ${shown.length ? (page - 1) * PAGE_SIZE + 1 : 0} to ${Math.min(page * PAGE_SIZE, shown.length)} of ${shown.length}${shown.length !== data.items.length ? ` matching (${data.items.length} in all)` : ''}. Ready to pay comes first.`}
       </p>
 
       {loading ? (
@@ -146,7 +152,24 @@ export function InvoicesPage() {
           {filtered ? 'Try a different seller, status or search.' : 'Register an invoice on the testnet to see it here.'}
         </EmptyState>
       ) : (
-        <InvoiceList items={shown} sellers={dir.sellers} />
+        <>
+          <InvoiceList items={visible} sellers={dir.sellers} />
+          {pages > 1 ? (
+            <nav aria-label="Pages" className="flex flex-wrap items-center justify-between gap-3">
+              <p className="po-num text-sm text-po-grey">
+                Page {page} of {pages}
+              </p>
+              <ButtonRow>
+                <Button small disabled={page <= 1} onClick={() => set('page', String(page - 1))}>
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Previous
+                </Button>
+                <Button small disabled={page >= pages} onClick={() => set('page', String(page + 1))}>
+                  Next <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </ButtonRow>
+            </nav>
+          ) : null}
+        </>
       )}
     </div>
   )

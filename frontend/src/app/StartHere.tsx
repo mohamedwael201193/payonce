@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
+import { readyToPay } from '../lib/dashboard'
 import type { InvoiceItem } from '../lib/types'
 import { itemKey, payPath, receiptPath } from './keys'
 import { useFlag } from './hooks'
@@ -16,7 +17,7 @@ export function StartHere({ items }: { items: InvoiceItem[] }) {
   const [receipt] = useFlag('step.receipt')
   const [dismissed, setDismissed] = useFlag('start.hidden')
 
-  const firstOpen = items.find((i) => i.status !== 'paid')
+  const firstOpen = readyToPay(items)[0]
   const latestPaid = [...items].filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)[0]
   const payTo = firstOpen ? payPath(itemKey(firstOpen)) : '/app/pay'
 

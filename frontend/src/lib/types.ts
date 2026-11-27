@@ -88,6 +88,8 @@ export interface Stats {
   // scanned on chain but never listed, so the total can never exceed the list.
   voided_total?: number
   reserved_total?: number
+  /** Where each figure comes from: kind is 'live', 'recorded' or 'server'. */
+  sources?: Record<string, { kind: string; basis?: string }>
 }
 
 export interface InvoiceItem {

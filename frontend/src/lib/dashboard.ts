@@ -172,3 +172,26 @@ export function dashboardStats(stats: Stats | undefined, items: InvoiceItem[]) {
     },
   }
 }
+
+/** "Ready to pay": open and not past due, soonest due first. This is the
+    list a payer wants; overdue and paid rows sit behind filters and tabs. */
+export function readyToPay(items: InvoiceItem[], nowMs = Date.now()): InvoiceItem[] {
+  return items
+    .filter((i) => derivedStatus(i, nowMs) === 'unpaid')
+    .sort((a, b) => a.due.localeCompare(b.due) || a.payable_id - b.payable_id)
+}
+
+/** Overdue (open, past due): most recently due first. */
+export function overdueItems(items: InvoiceItem[], nowMs = Date.now()): InvoiceItem[] {
+  return items.filter((i) => derivedStatus(i, nowMs) === 'overdue').sort((a, b) => b.due.localeCompare(a.due) || b.payable_id - a.payable_id)
+}
+
+/** Paid, newest payable first. */
+export function paidItems(items: InvoiceItem[]): InvoiceItem[] {
+  return items.filter((i) => i.status === 'paid').sort((a, b) => b.payable_id - a.payable_id)
+}
+
+/** Default order of the Invoices table: ready to pay, then overdue, then paid. */
+export function defaultOrder(items: InvoiceItem[], nowMs = Date.now()): InvoiceItem[] {
+  return [...readyToPay(items, nowMs), ...overdueItems(items, nowMs), ...paidItems(items)]
+}

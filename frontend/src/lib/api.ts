@@ -102,6 +102,7 @@ const statsSchema = z.object({
   last_verifier_run_at: z.string().nullable(),
   voided_total: z.number().optional(),
   reserved_total: z.number().optional(),
+  sources: z.record(z.object({ kind: z.string() }).passthrough()).optional(),
 })
 
 const invoiceItemSchema = z.object({

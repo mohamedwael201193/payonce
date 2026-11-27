@@ -14,6 +14,7 @@ import { tidyAmount } from './format'
 import { sellerName, type PayableKey, type SellerInfo } from './keys'
 import { paymentTxOf, verifierCommand } from './verifier'
 import { Button, Card, CopyButton, ExplorerTx, KeyValue, Notice, StatusPill, useExplorerBase } from './ui'
+import { Address } from './Address'
 
 export function ReceiptView({
   keyOf,
@@ -54,7 +55,7 @@ export function ReceiptView({
         </KeyValue>
         <KeyValue label="Amount">{tidyAmount(receipt.amount_display)}</KeyValue>
         <KeyValue label="Payee, from the chain">
-          <span className="po-hash">{receipt.payee}</span>
+          <Address value={receipt.payee} kind="account" label="payee account" expandable />
         </KeyValue>
         <KeyValue label="Paid from">{receipt.payer_label}</KeyValue>
         {facts?.status.kind === 'paid' ? <KeyValue label="Paid at">{formatPaidAt(facts.status.paid_at)}</KeyValue> : null}

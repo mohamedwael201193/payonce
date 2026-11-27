@@ -116,3 +116,22 @@ describe('dashboardStats (honesty: one total, one source)', () => {
     expect(cards.total.sub).toBe('Live from the test registry')
   })
 })
+
+describe('ready to pay', () => {
+  const NOW = Date.parse('2026-11-27T12:00:00Z')
+  const mk = (id: number, due: string, status: 'paid' | 'unpaid' = 'unpaid') =>
+    ({ payable_id: id, seller: 'S', asset: 'ccd', amount_display: '1 CCD', due, status, label: 'x' }) as never
+  const items = [
+    mk(1, '2026-11-20T00:00:00Z'),
+    mk(2, '2026-12-20T00:00:00Z'),
+    mk(3, '2026-12-12T00:00:00Z'),
+    mk(4, '2026-12-01T00:00:00Z', 'paid'),
+  ]
+  it('lists open, not-overdue invoices by due date, soonest first', async () => {
+    const { readyToPay, overdueItems, paidItems, defaultOrder } = await import('./dashboard')
+    expect(readyToPay(items, NOW).map((i) => i.payable_id)).toEqual([3, 2])
+    expect(overdueItems(items, NOW).map((i) => i.payable_id)).toEqual([1])
+    expect(paidItems(items).map((i) => i.payable_id)).toEqual([4])
+    expect(defaultOrder(items, NOW).map((i) => i.payable_id)).toEqual([3, 2, 1, 4])
+  })
+})
