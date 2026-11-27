@@ -15,6 +15,7 @@ import { verifierCommand } from '../verifier'
 import { Card, CopyButton, ExplorerTx, KeyValue, PageHeader, Skeleton, useExplorerBase } from '../ui'
 import type { ReactNode } from 'react'
 import { Address } from '../Address'
+import { AgentBadges, OwnerProofPanel } from '../AgentIdentity'
 
 const SAMPLE_TXS: Array<{ label: string; hash: string }> = [
   { label: 'CCD, payable 10 registered', hash: 'e36da695159bfb809d96b732c9d056cead0ccf357e4a2a763ccc801625b606f9' },
@@ -41,10 +42,10 @@ const CONSENT_TXS: Array<{ label: string; hash: string }> = [
 
 const KNOWN_LIMITS = [
   'Only the CCD route moves money inside the contract’s own transaction. The EUDemo route depends on the co-signer’s decision and on the node’s 2-of-3 rule. The contract cannot see PLT transfers.',
-  'The vendor list is on chain, and the co-signer refuses any payable whose seller is not on it. On the EUDemo rail the chain refuses an unlisted seller too (-19: reserve_plt always needs an approval row). On the CCD rail the chain refuses only in strict mode (-19), and strict mode is off in this demo run, so a CCD payment to an unlisted seller is not stopped on chain. You can see the co-signer’s rule on Break it.',
+  'Strict vendor-list mode is on by default. The vendor list is on chain, and an unlisted seller is refused on both rails. EUDemo: the co-signer refuses it and so does the chain (-19: reserve_plt always needs an approval row). CCD: the API refuses before it signs (a policy we run, not a chain revert), because the contract refuses an unlisted seller on chain only when the buyer has switched on its own strict flag (set_strict), and that flag is still off on the registry. Until it is switched on, a CCD payment to an unlisted seller sent from outside this API is not stopped on chain. You can see the co-signer’s rule on Break it.',
   'On the EUDemo route the seller names the expected payer at registration, and only the reserving payer can confirm: a confirm from any other account reverts (-17). The contract still cannot see the PLT transfer itself, so the verifier, not the status, is the check to trust: it re-reads the transfer (payee, amount, memo) from the chain.',
   'Race: the co-signer co-signs only while at least 60 s of the reservation remain, and binds the transfer’s header expiry to the reservation expiry minus 60 s.',
-  'Seller identity: the seller holds an Active agent token on the official registry <12802,0>, cross-checked by the contract at registration and at payment. There is no LEI and no company proof: the seller is the owner’s own identity, not a company.',
+  'Seller identity: the sellers and the payer hold Active agent tokens on the official registry <12802,0>, and the seller token is cross-checked by the contract at registration and at payment. The accountable human is a testnet identity: the owner of seller 1 has a published 18+ and EU proof from the testnet identity provider, with test attribute values. There is no LEI and no company proof: the seller is the owner’s own identity, not a company. Seller 2’s owner has no proof of its own.',
   'One testnet seed holds the keys (in-process, testnet only). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
   'The demo payer signs payments for both sellers; each seller signs only its own invoice registrations. The demo payer refills its testnet fees from a treasury account when it runs low, and says so while it does.',
   'Refused transactions still cost a fee. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
@@ -107,6 +108,47 @@ export function JudgesPage() {
         title="For judges"
         lead="Everything on this page can be checked without us: contracts and transactions on the explorer, and a keyless verifier you run yourself. No keys, no .env, read-only."
       />
+
+      <Section id="identity" title="Who is behind the agents">
+        <p className="text-[15px] text-po-grey">
+          Three agents hold a token on the official Concordium agent registry. Press Check badge: the answer comes from the registry&apos;s own endpoint, called from your browser, and the words Verified by Concordium appear only when it returns badge_valid true.
+        </p>
+        <AgentBadges />
+        <h3 className="mt-2 text-lg font-semibold text-po-ink">The accountable human</h3>
+        <OwnerProofPanel />
+      </Section>
+
+      <Section id="x402" title="x402 settle on a receipt">
+        <p className="text-[15px] text-po-grey">
+          One invoice was paid by x402 through the hosted Concordium facilitator, then verified from the chain (14 of 14 checks). The hosted settle call answered &ldquo;not found&rdquo; while the chain had already confirmed the transfer, and the receipt says so.
+        </p>
+        <div>
+          <Link to="/app/x402" className="po-btn po-btn-secondary po-btn-sm">
+            Open the x402 receipt
+          </Link>
+        </div>
+      </Section>
+
+      <Section id="trust" title="Trust model: who runs what, which key is where">
+        <dl className="divide-y divide-po-line" data-testid="trust-model">
+          <KeyValue label="Who runs it">One operator: the PayOnce team runs the API (a Render service) and the site (Vercel). There is no outside operator and no outside buyer yet.</KeyValue>
+          <KeyValue label="Keys">
+            One testnet seed, loaded in-process on the API host only. It derives the seller 1 owner, seller 2, the demo payer (which signs payments for both sellers) and the fee sponsor. It is never in the repo, the site or a response; the CI secret scan checks the tree and the history.
+          </KeyValue>
+          <KeyValue label="The co-signer">
+            {coSignerRunsAsSentence()} It decides, and the same process then signs, so on the EUDemo rail the gate is a policy we run, not a second party. A separate co-signer service with its own key exists in the repo (backend/src/cosigner) but is not what this site runs.
+          </KeyValue>
+          <KeyValue label="Vendor list">
+            Strict mode is on by default: an unlisted seller is refused on both rails. On the EUDemo rail the chain refuses too (-19). On the CCD rail this API refuses before signing; the chain refuses only after the buyer switches on its on-chain strict flag, which is an owner action on the registry and is still off.
+          </KeyValue>
+          <KeyValue label="What the chain enforces alone">
+            Pay once, only to the payee on chain, and only the exact amount (CCD rail, inside the contract&apos;s own transaction). Contract refusals carry a code (-5, -6, -19 and so on). The co-signer and API refusals do not: they are our policy, labelled as such.
+          </KeyValue>
+          <KeyValue label="Path to production">
+            Separate seeds and identities per role, a co-signer on its own host with its own key, the on-chain strict flag on, and a company identity for the seller. None of that is claimed here.
+          </KeyValue>
+        </dl>
+      </Section>
 
       <Section id="verify-it" title="Verify one payment yourself">
         <p className="text-[15px] text-po-grey">

@@ -1,0 +1,261 @@
+{
+  "title": "PayOnce owner proof: Verify & Access V1 (testnet)",
+  "network": "testnet",
+  "produced": "2026-11-27",
+  "holderAccount": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+  "behind": {
+    "sellerAgentToken": 1476,
+    "registry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+    "badgeCheck": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a"
+  },
+  "proves": [
+    "holder is 18 or older (dob in range, upper bound 20081128)",
+    "holder nationality is in the EU set (27 codes)"
+  ],
+  "anchors": {
+    "vra": "066618a0f8be6a8d869a921305caa67430a4e3d2c16ace2ccae46d5fe5918a73",
+    "vaa": "7c0b3b47bb51f8d4cbdec66a4efd29d6d7b0d5f86f7664dfec5a72b15e2d1c7a"
+  },
+  "requestNonceSha256OfText": "c74f6425878ef40d2cce4ae3c5e04a094abe1e471b38192aaea9518e74081e89",
+  "text": "PayOnce owner proof: the holder of account 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB (owner of CIS-8004 agent token 1476 on <12802,0>) is 18 or older and has EU nationality. Testnet identity provider, attribute values are test values.",
+  "verifierAccount": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+  "recheckAtProduction": {
+    "vaaAnchorVerified": true,
+    "vraAnchorVerified": true,
+    "presentationVerifiedWithNode": "success",
+    "vraInRecordMatches": true,
+    "connectionIdInProof": "payonce-owner:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "credentialIsAccountBased": true,
+    "holderAccount": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "statements": [
+      {
+        "type": "AttributeInRange",
+        "attributeTag": "dob",
+        "lower": "18000101",
+        "upper": "20081128"
+      },
+      {
+        "type": "AttributeInSet",
+        "attributeTag": "nationality",
+        "set": [
+          "AT",
+          "BE",
+          "BG",
+          "CY",
+          "CZ",
+          "DK",
+          "EE",
+          "FI",
+          "FR",
+          "DE",
+          "GR",
+          "HU",
+          "IE",
+          "IT",
+          "LV",
+          "LT",
+          "LU",
+          "MT",
+          "NL",
+          "PL",
+          "PT",
+          "RO",
+          "SK",
+          "SI",
+          "ES",
+          "SE",
+          "HR"
+        ]
+      }
+    ]
+  },
+  "honest": [
+    "Testnet identity provider (Concordium testnet IP 0). The attribute values behind the proof are test values, not a real person or company.",
+    "The verifier that anchored VRA and VAA is a PayOnce lab account; the owner and the verifier are the same operator. This shows the mechanism, not an independent KYC.",
+    "The proof is a zero-knowledge presentation: it reveals no date of birth and no nationality, only that the two statements hold.",
+    "The sellers share one testnet seed. Seller 2's owner (token 1506) has no proof: an attempt was made and the verifier-side check refused its credential, so only seller 1's owner is proven."
+  ],
+  "verifyCommand": "node backend/scripts/verify-owner-proof.mjs frontend/public/proofs/owner-proof.json",
+  "record": {
+    "request": {
+      "type": "ConcordiumVerificationRequestV1",
+      "context": {
+        "type": "ConcordiumUnfilledContextInformationV1",
+        "given": [
+          {
+            "label": "Nonce",
+            "context": "c74f6425878ef40d2cce4ae3c5e04a094abe1e471b38192aaea9518e74081e89"
+          },
+          {
+            "label": "ConnectionID",
+            "context": "payonce-owner:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+          },
+          {
+            "label": "ResourceID",
+            "context": "payonce-owner-proof"
+          },
+          {
+            "label": "ContextString",
+            "context": "PayOnce owner proof: the holder of account 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB (owner of CIS-8004 agent token 1476 on <12802,0>) is 18 or older and has EU nationality. Testnet identity provider, attribute values are test values."
+          }
+        ],
+        "requested": [
+          "BlockHash"
+        ]
+      },
+      "subjectClaims": [
+        {
+          "type": "identity",
+          "source": [
+            "accountCredential"
+          ],
+          "statements": [
+            {
+              "type": "AttributeInRange",
+              "attributeTag": "dob",
+              "lower": "18000101",
+              "upper": "20081128"
+            },
+            {
+              "type": "AttributeInSet",
+              "attributeTag": "nationality",
+              "set": [
+                "AT",
+                "BE",
+                "BG",
+                "CY",
+                "CZ",
+                "DK",
+                "EE",
+                "FI",
+                "FR",
+                "DE",
+                "GR",
+                "HU",
+                "IE",
+                "IT",
+                "LV",
+                "LT",
+                "LU",
+                "MT",
+                "NL",
+                "PL",
+                "PT",
+                "RO",
+                "SK",
+                "SI",
+                "ES",
+                "SE",
+                "HR"
+              ]
+            }
+          ],
+          "issuers": [
+            "did:ccd:testnet:idp:0"
+          ]
+        }
+      ],
+      "transactionRef": "066618a0f8be6a8d869a921305caa67430a4e3d2c16ace2ccae46d5fe5918a73"
+    },
+    "presentation": {
+      "type": [
+        "VerifiablePresentation",
+        "ConcordiumVerifiablePresentationV1"
+      ],
+      "presentationContext": {
+        "type": "ConcordiumContextInformationV1",
+        "given": [
+          {
+            "label": "Nonce",
+            "context": "c74f6425878ef40d2cce4ae3c5e04a094abe1e471b38192aaea9518e74081e89"
+          },
+          {
+            "label": "ConnectionID",
+            "context": "payonce-owner:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+          },
+          {
+            "label": "ResourceID",
+            "context": "payonce-owner-proof"
+          },
+          {
+            "label": "ContextString",
+            "context": "PayOnce owner proof: the holder of account 42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB (owner of CIS-8004 agent token 1476 on <12802,0>) is 18 or older and has EU nationality. Testnet identity provider, attribute values are test values."
+          }
+        ],
+        "requested": [
+          {
+            "label": "BlockHash",
+            "context": "20586ace157f0134e04ddc518f46621311344723212efa73b2da33249ee8a998"
+          }
+        ]
+      },
+      "verifiableCredential": [
+        {
+          "type": [
+            "VerifiableCredential",
+            "ConcordiumVerifiableCredentialV1",
+            "ConcordiumAccountBasedCredential"
+          ],
+          "credentialSubject": {
+            "id": "did:ccd:testnet:cred:b4450188819c59f17a0a0c729f25452622177924acaa85804b34750fb1701947458059110b7d34f4427a35ac8620447d",
+            "statement": [
+              {
+                "type": "AttributeInRange",
+                "attributeTag": "dob",
+                "lower": "18000101",
+                "upper": "20081128"
+              },
+              {
+                "type": "AttributeInSet",
+                "attributeTag": "nationality",
+                "set": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CY",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IE",
+                  "IT",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI",
+                  "SK"
+                ]
+              }
+            ]
+          },
+          "issuer": "did:ccd:testnet:idp:0",
+          "proof": {
+            "created": "2026-11-27T18:48:14.928Z",
+            "proofValue": "000000000000000202af9b2e6c80b1dd18d38e1b6469bf35453b81d514f5f278a6902ff4448eee5c16a87d1981f31bcb8d77797f88f8771619a96344a0e6fa2baedb5b71aae8c365653c5b48f37ed336e4e0dae9f55eebf55afe5cb264d2aaed17428a118dffdd634f876215088b9f46ac831a3c8d9022f31a7d9ca74bf208b67ef472a067f0329a80df0144c1c70c010032fbcb9e8f696ff185d7a5673242151f5b291e4d15be876b1cacd259da174560cd05858bc51e7c230f354013c33f576c18321ce65bac73265b4afe52abba669f59667c525f9b9ab43db238dee26b1b973ea7265fc59f89fb1b47e3b4800cc55433eb2da9dffc84cd114a1ce74acdfdb42e3f72c78a61ea371078ed5be43212c48f9518ac498d6ec7f66bdc503f216ef46aeaafee99d9b42c00000007a0f8caef27be0b2487e01c0207279f6bb3cb862346f27cee2feb8133f1bdd14f0716611825da00439d123cfb7d21178cad2d8b0ea8f48540b33c0a2661d21386d53f3dfa1b16d1b971f39ed470248627a94ad2279bd135c6c7110249bbec01c2aa45549486928191653cb47aa352e04c0aca1f33af4cdd5c8bb474df7a3fc8391f2be6500c7f80c9ea01f98e95fd7bce899301abcf081fa03dba4918436fa6aa99c25b889cbf023d54c3f0e7db11c618e9bd1bb45f9cc413851ec23fcb48c35489ea64a63a576e95330ddf46d5e44275b6ff880fc84025108c242c23e6058d09c8570c3770a8b5f58228dc7d0c5e7e46a313f96a36e252b7f107a5640e5020c13e1e83a797f4747a43460513e4e58b42a116566b3329f01b8947d13b56e76ea1b863db942ee7ba5dedb032163c1459445bf256ee278868d0558b08c5097366d58b8c134ab6e9119cd2de1c7fa010544984bd4998d2a84e5bea5c8f71f8bc8b67b0ff811628ccb1a604df396efd556538909c048f443832ed9928fb4f7c5a326480e6a7c548b993ec2a436b4f7c0969781a0c61793376f43d8afdd76d58f17c9034be7a906a4748769be4f028fc79d3f28609f1f822f07a6ef1725aa360c6a48a99fb51436e1d8526a7fbd8bd4fd18e1ec12791decb536744778ed990f7c9c4068cf17512f883f4b0d8fbc929e5ecbf21f46a653d9454c7ebd0c8133fe07d163c60b849a3a8628d0809fc8c3344e0f1709012a0862f652acdc271642bcf96b3125ab12ca1ff225708b4fb7aeedfc2cb52573a18fbb7770d04e2a8d485e317b35c84eda66f7f5ec4a5acf20e4056a1e82ed372c1b970351ca643d2eef0507af5e41e3f64705a840ef29ffa75f26a2efa0294517dae5a4f1a6708d19801577f235025d0b2825c5c025d54373ddf51139bfe48f4b32090a44656cb041d657311f5054f70939fa6798f253dd5ca0a33f40dff049eb95bfc0372f75eb51d1fe56753ec34615d68e1faca6d087ae7960387a7fc1033887e7140f06e53ef83af0f47e07a03888f7af5c4d9a50107524e313a4d4fcb5e8a0bb1beac4ab1b0de485d27906c14ba78aa04393d7d4410ffe11661564e8aab83b92db0b502633393b4e255772ec70c6a84d6234e5a2bca89548f63c194184fbc213de506886e4b9a5dfe6de4a4e98638e916e25942a194d4d56ed3c89d7cdd63a9652ff7801a17954484f1173d99c477b1e112f60543f1e0eb9eb3aa95e7b86ee13ec91e94225e4c9ddd842d7bdfc437ee531f954f46188dd5d4987de0d1e3c88b98c7ee7d0af1dcf0f15da232ff52a31d64168c51ab0b7299f667ec45a023888d1142e659a38dcdba74f6e234963cd998353cee075809efa9648ecfb8702cb59a4fa8ddfaeffa583f0ebdddd3520192e8d5d9cdb0d91310367411ac573fbb5f12dfcd1855ab0164e9b208e25b6100000005b5b8d070c9d2b00dded45d2d74528912b17dc5e51c637e439265129802b8f38ca1ff911631187e80de847212d3342f4ca3274c40ed960e911adf1bdecb44a1e768523c12357e2114b1a28a32d2b263dc3a5d8e81ed44673492b0f9e0a449af488ad06df1a549e22069bd2e4b8f68d5bc277168ab7d70d2a05aca84e66cc076876bebfd5a70c5055f720543cf09cff7e5818cab1faa3270e94ea5655e3bdf7c6ce9a615a7278ed42132be9beccc4c57612665b01141d148a34277742b767fd765a5d9df0ddd8907da973899b5a802dd7b83507d167face058a8e501680a91214e33616f99ac30441fd9330e775ceb03c2aef7173be38c6735be93a7a62ef675b4bc6a20555b3296097a3caaf0e8448cd5a9d7f767ff3d293efb878b1ade8bf6f5b1e4f633f7217036e814179549ff5dba25281b980f959b9bc88cda877ed819c68090a9d1dbaf9b4d35f6f5c2b9697b588f55d02c7e0cd75aa54509d116c914feceee11e2629c824114e050dddd79aa706adb7afade2be190cce39ca8cbd96b0f82929d3885bca9281b2c5f7816fb94c73df91bd7c88d54d8f6a74297ad514de7074abf6e481fc0e8c9571e53b0eba23d9592402a50aa2f3cb90e01b0adb04554c462ee399fc3650e1a3fcabde019f90380ec7d48069af10322834c43872b5c5d04754761824a54d3e241864d97839db76c957efb7d1075d8fd161399f2ab0c34595d05f2c7d243851b9a01e188916aa81f464d34ffff38c286755b504b502032",
+            "type": "ConcordiumZKProofV4"
+          }
+        }
+      ],
+      "proof": {
+        "created": "2026-11-27T18:48:14.928Z",
+        "proofValue": "",
+        "type": "ConcordiumWeakLinkingProofV1"
+      }
+    },
+    "id": "e1840678-f19c-4b92-9afd-ceac9f791323",
+    "version": 1,
+    "type": "ConcordiumVerificationAuditRecord"
+  }
+}

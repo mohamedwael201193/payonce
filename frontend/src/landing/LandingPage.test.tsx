@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BANNED_WORDS } from '../lib/copy'
 import LandingPage from './LandingPage'
-import { SNAPSHOT, verifierCommand } from './data'
+import { SNAPSHOT, headline, verifierCommand } from './data'
 import { sha256Hex } from './sha256'
 import { flipChar, hashWithPayee, tamperPayee } from './Tamper'
 import { faqItems } from './Closer'
@@ -34,7 +34,7 @@ describe('landing', () => {
     mount()
     const panel = screen.getByTestId('hero-panel')
     expect(within(panel).getByText(/Recorded snapshot, \d+ \w+ \d{4} \d\d:\d\d UTC/)).toBeInTheDocument()
-    expect(within(panel).getByText(String(SNAPSHOT.stats.payables_total))).toBeInTheDocument()
+    expect(within(panel).getByText(String(headline(SNAPSHOT.stats).total))).toBeInTheDocument()
   })
 
   it('points CTAs at the right routes', () => {

@@ -1,0 +1,141 @@
+{
+  "generated_at": "2026-11-26T05:06:31.368Z",
+  "network": "testnet",
+  "facilitator": "https://x402-facilitator.testnet.concordium.com",
+  "asset": "EUDemo",
+  "amount_base_units": "10000",
+  "amount_display": "0.01 EUDemo",
+  "steps": {
+    "health": {
+      "ok": true
+    },
+    "supported": {
+      "kinds": [
+        {
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+          "extra": {
+            "feePayer": "3U1m4EhpixbWB3d4qqNZkTzapzcWFjVobwkV1kEyLjiQFGGrS1"
+          }
+        }
+      ],
+      "signers": {
+        "ccd:*": [
+          "3U1m4EhpixbWB3d4qqNZkTzapzcWFjVobwkV1kEyLjiQFGGrS1"
+        ]
+      }
+    },
+    "verify": {
+      "isValid": true,
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "invalidReason": null,
+      "facilitator": "hosted",
+      "binding_checks": [
+        {
+          "name": "x402-9-checks",
+          "ok": true,
+          "detail": "scheme verify passed"
+        },
+        {
+          "name": "payable-exists",
+          "ok": true,
+          "detail": "status=Reserved asset=EUDemo amount=10000"
+        },
+        {
+          "name": "payable-status",
+          "ok": true,
+          "detail": "status=Reserved"
+        },
+        {
+          "name": "amount-is-stored",
+          "ok": true,
+          "detail": "amount=10000"
+        },
+        {
+          "name": "payee-is-stored",
+          "ok": true,
+          "detail": "payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg"
+        },
+        {
+          "name": "memo-is-payable-id",
+          "ok": true,
+          "detail": "memo payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97592 present"
+        },
+        {
+          "name": "memo-canonical",
+          "ok": true,
+          "detail": "memo=payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97592 canonical=true"
+        }
+      ]
+    },
+    "settle": {
+      "success": false,
+      "network": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+      "transaction": "3bf4d852ed62247a3e5c0473749198b833b190a16b84be5a20d19c9c8ef3de2b",
+      "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "errorReason": "finalization_failed: transaction not found.",
+      "errorMessage": null,
+      "readBack": null,
+      "facilitator": "hosted"
+    },
+    "settle_readback": {
+      "confirmed": true,
+      "status": "finalized",
+      "blockHash": "260ae600bd10e2cecf67c6f23461a97326ca26d69019205c76f4b47aa7e4c87e"
+    },
+    "settle_tx_on_chain": {
+      "status": "finalized",
+      "sender": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "type": "tokenUpdate",
+      "events": [
+        {
+          "tag": "TokenTransfer",
+          "tokenId": "EUDemo",
+          "from": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+          "to": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+          "amount": "10000"
+        }
+      ],
+      "cost_microccd": "0"
+    },
+    "keyless_verifier": {
+      "ok": true,
+      "summary": "ALL CHECKS PASS (14/14)",
+      "lines": [
+        "PASS registered seller=42jaZZgd…, id=97592",
+        "PASS doc sha256(doc)=f2fbcc30f21d8971…, stored=f2fbcc30f21d8971…",
+        "PASS agent token 1476 on <12802,0>: owner=42jaZZgd… (matches seller), status=Active",
+        "PASS registry_zero balance=0 microCCD",
+        "PASS status_paid Paid by 4MvdMEGC… at 2026-11-26T05:07:04.495Z",
+        "PASS tx_finalized status=finalized",
+        "PASS one_token_transfer TokenTransfer events=1",
+        "PASS token_eudemo tokenId=EUDemo",
+        "PASS from_payer from=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs, payer=4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+        "PASS to_payee to=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+        "PASS amount amount=10000, stored=10000",
+        "PASS memo memo=\"payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97592\", expected=\"payable:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB:97592\", canonical=true",
+        "PASS reservation_precedes_transfer reserved by 4MvdMEGC… at 2026-11-26T05:06:48.495Z, expires 2026-11-26T06:06:48.495Z",
+        "PASS paid_at_is_confirm_time view paid_at=2026-11-26T05:07:04.495Z, confirm block time=2026-11-26T05:07:04.495Z, PltConfirmed for payable 97592, transfer 3bf4d852ed62247a…",
+        "ALL CHECKS PASS (14/14)"
+      ]
+    }
+  },
+  "payable": {
+    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "id": 97592,
+    "payee": "4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg",
+    "payer": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+    "doc_sha256": "f2fbcc30f21d8971322ff3093e7a82e517007711fc87a29c509968f48fb0ab3c",
+    "register_tx": "cc19a3a1bfa2f389522426ef4f80fd1496cd46ba2fc65ac3adc1324348dde340",
+    "reserve_tx": "314ead1bf99162982a5d37f29cca711be0715d5fda16026a83bac64178b89042",
+    "confirm_tx": "a7be41de6ca6694fb6abdb3dc6a007ddd674c73f2e5ff51ffbab41ab3d678854",
+    "status_after": "Paid"
+  },
+  "ok": true,
+  "facilitator_settle_response_success": false,
+  "explorer": {
+    "settle_tx": "https://ccdexplorer.io/testnet/transaction/3bf4d852ed62247a3e5c0473749198b833b190a16b84be5a20d19c9c8ef3de2b",
+    "confirm_tx": "https://ccdexplorer.io/testnet/transaction/a7be41de6ca6694fb6abdb3dc6a007ddd674c73f2e5ff51ffbab41ab3d678854"
+  }
+}

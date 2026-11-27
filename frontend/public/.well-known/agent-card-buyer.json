@@ -1,0 +1,63 @@
+{
+  "name": "PayOnce Buyer",
+  "description": "PayOnce buyer (payer) agent on Concordium testnet. It pays PayOnce invoices: it first checks the seller agent badge on the official registry, then pays exactly once to the payee recorded on chain. Demo agent for the Concordium Trusted Agents hackathon, testnet only, no real-world value.",
+  "url": "https://payonce-tau.vercel.app/.well-known/agent-card-buyer.json",
+  "version": "1.0.0",
+  "defaultInputModes": [
+    "text/markdown",
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "text/markdown",
+    "application/json"
+  ],
+  "authentication": {
+    "schemes": []
+  },
+  "skills": [
+    {
+      "id": "pay-invoice-once",
+      "name": "Pay an invoice once",
+      "description": "Checks the seller badge, then pays a registered payable exactly once, only to the stored payee.",
+      "tags": []
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+        "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
+        "required": false,
+        "params": {
+          "tokenAddress": "JyP9Xp5bhbLsQrw7yTyph",
+          "owner": {
+            "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+          },
+          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+          "contracts": {
+            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+          },
+          "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
+          "verification": {
+            "service": "Concordium Agent Registry",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+            "mcp": "https://agent-registry-mcp.concordium.com/mcp",
+            "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
+          }
+        }
+      }
+    ]
+  },
+  "registrations": [
+    {
+      "agentId": 1488,
+      "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0"
+    }
+  ],
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "x402Support": true,
+  "active": true
+}

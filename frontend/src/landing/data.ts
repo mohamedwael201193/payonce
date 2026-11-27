@@ -59,6 +59,27 @@ export interface Snapshot {
 
 export const SNAPSHOT = snapshotJson as unknown as Snapshot
 
+/** The headline counts. Demo invoices lead; the automated test runs on the same registry are counted
+    apart and always named. Without a kind split (an old API or snapshot) the plain totals are used. */
+export interface Headline {
+  total: number
+  paid: number
+  pct: number
+  testTotal: number
+  testPaid: number
+  allTotal: number
+  split: boolean
+}
+export function headline(stats: Stats): Headline {
+  const k = stats.by_kind
+  if (!k) {
+    const pct = stats.payables_total ? Math.round((stats.paid_total / stats.payables_total) * 100) : 0
+    return { total: stats.payables_total, paid: stats.paid_total, pct, testTotal: 0, testPaid: 0, allTotal: stats.payables_total, split: false }
+  }
+  const pct = k.demo.total ? Math.round((k.demo.paid / k.demo.total) * 100) : 0
+  return { total: k.demo.total, paid: k.demo.paid, pct, testTotal: k.test_runs.total, testPaid: k.test_runs.paid, allTotal: stats.payables_total, split: true }
+}
+
 export const TX_URL = 'https://ccdexplorer.io/testnet/transaction/'
 export const txUrl = (hash: string) => `${TX_URL}${hash}`
 export const instanceUrl = (index: number, sub = 0) => `https://ccdexplorer.io/testnet/instance/${index}/${sub}`

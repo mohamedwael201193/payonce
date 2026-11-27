@@ -36,9 +36,10 @@ jobs:
   api:
     name: api tests
     runs-on: ubuntu-latest
-    env:
-      PAYONCE_DATA_DIR: ${{ runner.temp }}/payonce-data
     steps:
+      # `runner.*` is not available in a job-level `env:` (that made the whole workflow invalid, so GitHub
+      # started zero jobs). Set it from a step instead.
+      - run: echo "PAYONCE_DATA_DIR=$RUNNER_TEMP/payonce-data" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -50,14 +51,15 @@ jobs:
         run: >
           node --test test/unit.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
           test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
-          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs
+          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs
 
   backend:
     name: backend tests
     runs-on: ubuntu-latest
-    env:
-      PAYONCE_DATA_DIR: ${{ runner.temp }}/payonce-data
     steps:
+      # `runner.*` is not available in a job-level `env:` (that made the whole workflow invalid, so GitHub
+      # started zero jobs). Set it from a step instead.
+      - run: echo "PAYONCE_DATA_DIR=$RUNNER_TEMP/payonce-data" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:

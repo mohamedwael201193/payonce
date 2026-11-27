@@ -92,6 +92,14 @@ export async function getVendor(c, buyer, seller, blockHashHex = null) {
   return v2reg.parseVendorV2(await invoke(c, REGISTRY, 'get_vendor', param, blockHashHex));
 }
 
+/** The buyer's on-chain policy: strict = pay_ccd refuses a seller with no approval row (-19). One byte. */
+export async function getBuyerPolicy(c, buyer, blockHashHex = null) {
+  const { registryV1 } = await backend();
+  const raw = await invoke(c, REGISTRY, 'get_buyer_policy', registryV1.accountBytes(buyer), blockHashHex);
+  if (raw.length < 1) throw new Error('v2 buyer policy view is empty');
+  return { strict: raw[0] === 1 };
+}
+
 export async function getUsage(c, buyer, seller, periodIndex, blockHashHex = null) {
   const { registryV1 } = await backend();
   const param = Buffer.concat([registryV1.accountBytes(buyer), registryV1.accountBytes(seller), u64le(periodIndex)]);

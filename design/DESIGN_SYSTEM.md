@@ -168,7 +168,7 @@ Every number below is from the lab run, 24 Nov 2026 (PLAN P3 §16–17 / PAYABLE
 3. **Banned on screen:** "never pays a fake invoice", "never pays the wrong account", "escrow", "custody", "held" (say "reserved"), "stablecoin" (say "testnet demo token"), "mainnet", "production", "audited", "secure", "instant" (without a measured number), "fully on-chain", "Verified by Concordium".
 4. Reservation wording: "Reserved for this payment. The co-signer approved the reservation and the transfer." Never present "reserved by the co-signer" as a contract fact.
 5. Testnet everywhere: TESTNET badge in the header; EUDemo always "EUDemo (testnet demo token, not a euro stablecoin)"; fees are "testnet CCD".
-6. Seller: "Registered on a test CIS-8004 instance (official module, lab tokens)" — instance `<13144,0>`, NOT the official registry `<12802,0>`. "Verified by Concordium" only if `badge.official === true` (today never).
+6. Seller: (superseded in v10) the sellers and the payer are registered on the official registry `<12802,0>`. "Verified by Concordium" is printed only from a live badge-check that returns `badge_valid: true`.
 7. Seller identity: "Not verified. No company (LEI) or identity proof is attached to this seller."
 8. Payer: "Paid from the demo payer account (a lab account). You sign nothing."
 9. Refused txs still cost a fee — say so with the amount.

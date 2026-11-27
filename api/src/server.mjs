@@ -22,6 +22,7 @@ import { verifyBeforePay, verifyCcdV2, verifyPltV2 } from './verifier-v2.mjs';
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { createOrReturnJob, runJob, subscribeJob, unsubscribeJob, rejectInfo, rejectOf, feeOf } from './jobs.mjs';
 import { attackPayTwice, attackWrongAmount, attackUnlistedSeller } from './attacks.mjs';
+import { strictVendorListEnabled, onChainStrict } from './vendor-gate.mjs';
 import { buildReceiptFor, paymentTxsFor } from './receipts.mjs';
 import {
   docForPayable, docForPayableForSeller, generateLabDocument, storeDocument, recordedRunFor,
@@ -523,7 +524,7 @@ export function labelFor(view) {
 }
 
 // ---- config (reservation_secs + vendor list read live, cached 5 min) ----
-let configCache = { at: 0, reservationSecs: RESERVATION_SECS, vendorList: null };
+let configCache = { at: 0, reservationSecs: RESERVATION_SECS, vendorList: null, onChainStrict: null };
 async function liveConfig(c) {
   const now = Date.now();
   if (now - configCache.at < 300_000 && configCache.vendorList) return configCache;
@@ -545,6 +546,7 @@ async function liveConfig(c) {
     if (approval1) list.push({ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' });
     if (approval2) list.push({ seller: SELLER2_ADDRESS, label: 'Second seller account (PayOnce Seller 2)' });
     configCache.vendorList = list;
+    configCache.onChainStrict = await onChainStrict(c);
   } catch {
     // gRPC error: keep the previous list when there is one; otherwise
     // fail closed with an empty list (never claim a vendor the chain
@@ -602,6 +604,12 @@ async function handleConfig(req, res) {
       // API (the demo payer signs the payments for both).
       seller_writes: ['seller_1', 'seller_2'],
       vendor_list_enforced_by_co_signer: true,
+      // Strict vendor-list mode (default ON): an unlisted seller is refused on both rails. EUDemo: co-signer
+      // + contract (-19). CCD: this API refuses before signing (a policy key, not a chain revert); the
+      // on-chain strict flag (set_strict by the buyer) is separate contract state, reported live below.
+      vendor_list_strict_default: strictVendorListEnabled(),
+      ccd_rail_vendor_gate: strictVendorListEnabled() ? 'api_pre_sign' : 'off',
+      ccd_on_chain_strict: live.onChainStrict,
       named_payer_on_invoice: true,
       confirm_by: 'payer (the reserving payer)',
       header_expiry_bound: true,

@@ -1,22 +1,24 @@
 import { Count, Tag } from './bits'
-import { formatDay, formatStamp, type LandingData } from './data'
+import { formatDay, formatStamp, headline, type LandingData } from './data'
 
 /** Section 2: four counters from the live API (or the dated snapshot). */
 export function Strip({ data }: { data: LandingData }) {
   const { stats, source, at, snapshot } = data
-  const pct = stats.payables_total ? Math.round((stats.paid_total / stats.payables_total) * 100) : 0
+  const h = headline(stats)
   const v = snapshot.verify
   return (
     <section className="po-strip" aria-label="Testnet numbers">
       <div className="po-wrap">
         <ul className="po-strip__grid">
           <li>
-            <Count to={stats.payables_total} className="po-strip__n" />
-            <span className="po-strip__l">Payables on the testnet registry</span>
+            <Count to={h.total} className="po-strip__n" />
+            <span className="po-strip__l">
+              {h.split ? `Demo invoices on the testnet registry (${h.allTotal} payables in all)` : 'Payables on the testnet registry'}
+            </span>
           </li>
           <li>
-            <Count to={stats.paid_total} className="po-strip__n" />
-            <span className="po-strip__l">Paid exactly once, {pct}% of the total</span>
+            <Count to={h.paid} className="po-strip__n" />
+            <span className="po-strip__l">Paid exactly once, {h.pct}% of {h.split ? 'the demo invoices' : 'the total'}</span>
           </li>
           <li>
             <Count to={stats.refused_on_chain_since_deploy} className="po-strip__n" />
@@ -37,7 +39,7 @@ export function Strip({ data }: { data: LandingData }) {
         <p className="po-strip__note">
           {source === 'live' ? <Tag kind="live">Live, {formatStamp(at)}</Tag> : <Tag kind="recorded">Recorded snapshot, {formatStamp(at)}</Tag>}
           <span>
-            Testnet only. These counts include our own test runs and attack attempts, so they say nothing about real
+            Testnet only. {h.split ? `${h.testTotal} more payables on the registry are our own automated test runs (${h.testPaid} paid); they are counted apart. ` : 'These counts include our own test runs and attack attempts. '}No count here says anything about real
             usage. Refusals are counted from the API log, because a refused transaction leaves no chain state.
           </span>
         </p>

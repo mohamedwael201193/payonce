@@ -37,6 +37,7 @@ import { verifyBeforePay, verifyCcdV2, verifyPltV2, verifyPltTransferV2 } from '
 import { buildSnapshotV2 } from './snapshot-v2.mjs';
 import { appendEntry, ledgerForDecide, resolveTransfer } from './ledger.mjs';
 import { docForPayableForSeller } from './docs.mjs';
+import { checkVendorForCcd } from './vendor-gate.mjs';
 import { loadJobs, saveJob, saveReceipt, updateCounters, runningJobFor } from './store.mjs';
 import { REGISTRY, OWNER_ADDRESS, PAYER_ADDRESS, txUrl, fmtCcd, fmtEudemo, shortHash } from './config.mjs';
 
@@ -228,7 +229,12 @@ async function runCcd(job) {
       return await finishJob(job, 'refused', 'refused');
     }
     await setStep(job, 'check_status', 'ok', `Unpaid, due ${view.due}, doc ${byId.doc.status === 'ok' ? 'matches' : 'not supplied'}.`, { layer: 'chain' });
-    await setStep(job, 'check_agent', 'running', 'Checking the seller agent and the payer balance…');
+    await setStep(job, 'check_agent', 'running', 'Checking the seller agent, the vendor list and the payer balance…');
+    const vendor = await checkVendorForCcd(c, seller);
+    if (!vendor.allow) {
+      await setStep(job, 'check_agent', 'refused', `Vendor list (strict): ${vendor.reason}.`, { layer: 'co_signer' });
+      return await finishJob(job, 'refused', 'refused');
+    }
     await setStep(job, 'check_agent', 'ok', `Agent token ${view.agentToken} Active on <12802,0>; payer balance covers the payment.`, { layer: 'chain' });
 
     await setStep(job, 'submit', 'running', `Sending pay_ccd for ${fmtCcd(view.amount)} from the demo payer…`);

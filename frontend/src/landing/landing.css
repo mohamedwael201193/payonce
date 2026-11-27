@@ -1788,3 +1788,97 @@ html.lenis body {
     transition: none;
   }
 }
+
+/* ---- agent identity on the first screen (official registry badges) ---- */
+.po-ident {
+  width: min(960px, 100%);
+  margin-top: 26px;
+  text-align: left;
+}
+.po-ident__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.po-ident__item {
+  background: var(--po-card);
+  border: 1px solid var(--po-hair);
+  border-radius: var(--po-r-1);
+  padding: 12px 14px;
+  color: var(--po-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.po-ident__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.po-ident__name {
+  font-size: 14px;
+  color: var(--po-ink);
+  margin-right: auto;
+}
+.po-ident__btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--po-ink);
+  background: var(--po-ink);
+  color: var(--po-paper);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.po-ident__link {
+  font-size: 13px;
+  color: var(--po-accent-text);
+  text-decoration: underline;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+.po-ident__res {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--po-grey);
+  overflow-wrap: anywhere;
+}
+.po-ident__res--ok {
+  color: var(--po-ok);
+  font-weight: 600;
+}
+.po-ident__res--bad {
+  color: var(--po-bad);
+}
+.po-ident__note {
+  margin: 10px 0 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--po-white);
+  text-shadow: 0 1px 12px rgba(110, 20, 0, 0.35);
+}
+.po-ident__note a {
+  color: var(--po-white);
+  text-decoration: underline;
+}
+@media (max-width: 900px) {
+  .po-ident__list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.po-panel__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--po-grey);
+}

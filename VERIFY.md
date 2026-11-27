@@ -21,15 +21,25 @@ the commands below.
 - Balance: **0** after every step (asserted by the Rust tests and by the
   verifier). The contract never holds funds across transactions; each CCD
   payment is forwarded in the same transaction.
-- The seller agent is cross-checked against a CIS-8004 registry at
-  registration and at payment, failing closed. v1 uses our own testnet
-  instance `<13144,0>` (the official `<12802,0>` needs publicly hosted cards
-  — see §6).
+- The seller agent is cross-checked against the **official** CIS-8004
+  registry `<12802,0>` at registration and at payment, failing closed
+  (seller tokens 1476 and 1506; the payer agent is token 1488). The v1
+  registry was rehearsed against our own instance `<13144,0>`; the deployed
+  v2 uses the official one.
 
-Check it exists (read-only, no keys). The verifier is
-`backend/src/verifier/verify-payable.mjs` (12 CCD / 15 PLT checks, incl.
-the F10 binding — see `backend/BACKEND_REPORT.md` §2). Run it from
-`backend/` after `npm ci`:
+Check a payment on the **deployed v2** (read-only, no keys). The verifier
+is `api/src/verify-payable-v2.mjs`; run it from `api/` after `npm ci` in
+`backend/` and `api/`:
+
+```sh
+cd backend && npm ci && cd ../api && npm ci
+node src/verify-payable-v2.mjs 10 7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197 --doc ../backend/test/invoices/invoice-010-v2-ccd.txt
+# expected: ALL CHECKS PASS (10/10), incl. "agent token 1476 on <12802,0>: owner matches seller, status Active"
+```
+
+The older v1 verifier is `backend/src/verifier/verify-payable.mjs` (12 CCD /
+15 PLT checks, incl. the F10 binding — see `backend/BACKEND_REPORT.md` §2).
+It checks v1 payables. Run it from `backend/`:
 
 ```sh
 cd backend && npm ci
@@ -138,13 +148,17 @@ On the dashboard, five attacks each name the layer that refuses them:
 
 1. Pay the same payable twice → **Chain** refuses (-5).
 2. Pay a fraudster's payable (seller not on the buyer's vendor list) →
-   **Co-signer** refuses (live dry run: `no-approval` — the vendor list IS
-   enforced by the co-signer on v2). **Chain** refuses (-19) on the EUDemo
-   rail (`reserve_plt` always needs an approval row); on the CCD rail the
-   chain refuses (-19) **only in strict mode, which is off in this demo
-   run** — so on CCD the co-signer is the layer that stops it, not the
-   chain. No fraud payable exists on this registry to try live (no second
-   seller holds an Active agent token).
+   **Co-signer** refuses (live dry run: `no-approval`). Strict vendor-list
+   mode is on by default. **Chain** refuses (-19) on the EUDemo rail
+   (`reserve_plt` always needs an approval row). On the CCD rail the chain
+   refuses (-19) only when the buyer's on-chain strict flag (`set_strict`)
+   is on; that flag is still off, so on CCD this API refuses before it
+   signs (`vendor-gate`, a policy we run, not a chain revert). A CCD
+   payment sent from outside this API to an unlisted seller is not stopped
+   on chain until the flag is flipped (a buyer action on the registry,
+   reported, not done here). `GET /api/config` shows both
+   (`build.ccd_rail_vendor_gate`, `build.ccd_on_chain_strict`). No fraud
+   payable exists on this registry to try live.
 3. Confirm with a junk hash → **Chain** refuses (-12/-17).
 4. Pay after the reservation window → **Chain** refuses (-24).
 5. Agent key alone tries to move funds → **the node** rejects it.
@@ -194,10 +208,13 @@ On the dashboard, five attacks each name the layer that refuses them:
   this single build's `.wasm.v1` sha256 exactly, but the two-clean-builds
   check was not run. A verifiable build is blocked (no Docker on the
   build VM).
-- **No official registry badge yet.** The seller and buyer are not yet
-  registered on the official `<12802,0>` (that needs publicly hosted agent
-  cards). There is no "Verified by Concordium" label anywhere in this repo
-  or on the site.
+- **Badges.** The sellers (1476, 1506) and the payer (1488) are registered
+  on the official `<12802,0>` with agent cards hosted on the site
+  (`frontend/public/.well-known/`, served byte-stable; the card's SHA-256 is
+  the on-chain metadata hash). The site prints "Verified by Concordium" only
+  from a live call to the registry's badge-check that returns
+  `badge_valid: true` (see §7). Not done: a CIS-8 external-key binding (no
+  external key is held), and a company identity (no LEI).
 - **The euro rail is co-signer-bound.** Contracts on Concordium can move
   CCD only, never PLTs. On Rail B the guard precedes the payment (2-of-3
   node enforcement + deterministic co-signer over on-chain reservation
@@ -224,6 +241,45 @@ On the dashboard, five attacks each name the layer that refuses them:
   name/module doesn't match the on-chain instance + registry-scope the
   resolution (prefer the view's `txHash` when present) + re-verify on v2.1
   (payable 10 returns `d0f30224…`, verify 10/10, receipt 10/10).
+- **The accountable human is a testnet identity.** The owner proof (§7) is
+  from the Concordium testnet identity provider with test attribute values.
+  The verifier that anchored it is a PayOnce lab account, so owner and
+  verifier are one operator: it shows the mechanism, not an independent KYC.
+  Seller 2's owner has no proof (the verifier-side check refused its
+  credential).
+- **Trust model.** One testnet seed on the API host derives the owner, seller
+  2, the payer and the sponsor. The co-signer is a decision gate in the same
+  process. See `/app/judges#trust`.
+- **x402.** The hosted facilitator answered `/settle` with "not found" while
+  the chain had confirmed the transfer (§7).
 - **Ceiling.** The independent assessment of this idea family is ≈ 9.0 on
   the idea lens, set by the CCD-only atomicity above. This repo maximises
   within that ceiling and claims nothing beyond it.
+
+## 7. Identity, owner proof and x402 (checked live)
+
+```sh
+# Badges on the official registry (expected: "badge_valid":true, status Active, issues [])
+curl -s "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a?network=testnet"   # seller 1, token 1476
+curl -s "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Y9nGU4KaM7DBDXRgm?network=testnet"   # seller 2, token 1506
+curl -s "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Xp5bhbLsQrw7yTyph?network=testnet"   # payer, token 1488
+
+# Owner proof (Verify and Access V1, 18+ and EU), re-checked from the published record and the node
+cd backend && npm ci
+node scripts/verify-owner-proof.mjs https://payonce-tau.vercel.app/proofs/owner-proof.json
+# expected: ALL CHECKS PASS (8/8)
+
+# x402 settle through the hosted facilitator, payable 97592
+# expected: ALL RUNNABLE CHECKS PASS (13/14). The recorded run had the invoice file (14/14); that file was not kept,
+# so a fresh run reports the document check as "not run", never as passed.
+cd ../api && node src/verify-payable-v2.mjs 97592 3bf4d852ed62247a3e5c0473749198b833b190a16b84be5a20d19c9c8ef3de2b --reserve 314ead1bf99162982a5d37f29cca711be0715d5fda16026a83bac64178b89042 --confirm a7be41de6ca6694fb6abdb3dc6a007ddd674c73f2e5ff51ffbab41ab3d678854
+```
+
+- Owner proof anchors: VRA `066618a0f8be6a8d869a921305caa67430a4e3d2c16ace2ccae46d5fe5918a73`,
+  VAA `7c0b3b47bb51f8d4cbdec66a4efd29d6d7b0d5f86f7664dfec5a72b15e2d1c7a`
+  (record: `frontend/public/proofs/owner-proof.json`).
+- x402 receipt page: `/app/x402`; raw record
+  `backend/test/x402-hosted-settle-2026-11-26.json`. The hosted `/settle`
+  returned `finalization_failed: transaction not found` while the transfer
+  `3bf4d852…de2b` was already finalized; trust the transaction, not that
+  answer.

@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clouds } from './Clouds'
 import { EASE, Magnetic, Rise, Tag } from './bits'
-import { formatDay, formatStamp, type LandingData } from './data'
+import { formatDay, formatStamp, headline, type LandingData } from './data'
+import { inScope } from '../lib/dashboard'
 import { goTo } from './scroll'
+import { HeroIdentity } from './HeroIdentity'
 
 export const HERO_H1 = 'Every invoice,\npaid once.'
 export const HERO_LEAD = 'PayOnce checks each invoice against the chain before any money moves.'
@@ -38,15 +40,18 @@ function Gauge({ pct }: { pct: number }) {
 /** The floating product panel: real rows from the registry, tagged with where they came from. */
 export function HeroPanel({ data }: { data: LandingData }) {
   const { stats, invoices, source, at } = data
-  const pct = stats.payables_total ? Math.round((stats.paid_total / stats.payables_total) * 100) : 0
+  const h = headline(stats)
+  const pct = h.pct
+  // Demo invoices and anything ready to pay lead; the automated test runs are counted apart (see the note).
+  const shown = useMemo(() => invoices.filter((i) => inScope(i, 'default')), [invoices])
   const rows = useMemo(() => {
-    const byId = [...invoices].sort((a, b) => b.payable_id - a.payable_id)
+    const byId = [...shown].sort((a, b) => b.payable_id - a.payable_id)
     const paid = byId.filter((i) => i.status === 'paid').slice(0, 4)
     const open = byId.filter((i) => i.status === 'unpaid').slice(0, 2)
     return [paid[0], open[0], paid[1], paid[2], open[1], paid[3]].filter(Boolean)
-  }, [invoices])
-  const ccd = invoices.filter((i) => i.status === 'paid' && i.asset === 'ccd').length
-  const eud = invoices.filter((i) => i.status === 'paid' && i.asset === 'eudemo').length
+  }, [shown])
+  const ccd = shown.filter((i) => i.status === 'paid' && i.asset === 'ccd').length
+  const eud = shown.filter((i) => i.status === 'paid' && i.asset === 'eudemo').length
   const railMax = Math.max(1, ccd, eud)
 
   return (
@@ -65,13 +70,13 @@ export function HeroPanel({ data }: { data: LandingData }) {
         <div className="po-panel__main">
           <dl className="po-metrics">
             <div>
-              <dt>Payables</dt>
-              <dd>{stats.payables_total}</dd>
+              <dt>{h.split ? 'Demo invoices' : 'Payables'}</dt>
+              <dd>{h.total}</dd>
             </div>
             <div>
               <dt>Paid once</dt>
               <dd>
-                {stats.paid_total}
+                {h.paid}
                 <small>{pct}%</small>
               </dd>
             </div>
@@ -114,6 +119,11 @@ export function HeroPanel({ data }: { data: LandingData }) {
               ))}
             </tbody>
           </table>
+          {h.split ? (
+            <p className="po-panel__note" data-testid="hero-scope-note">
+              Demo invoices and ready-to-pay ones. {h.testTotal} automated test runs ({h.testPaid} paid) on the same registry are counted apart.
+            </p>
+          ) : null}
         </div>
         <aside className="po-panel__side" aria-label="Paid share and rails">
           <section className="po-card">
@@ -123,7 +133,7 @@ export function HeroPanel({ data }: { data: LandingData }) {
               <div className="po-gauge__num">{pct}%</div>
             </div>
             <p>
-              {stats.paid_total} of {stats.payables_total} payables
+              {h.paid} of {h.total} {h.split ? 'demo invoices' : 'payables'}
             </p>
           </section>
           <section className="po-card">
@@ -172,6 +182,7 @@ export function Hero({ data }: { data: LandingData }) {
     }
   }, [])
   const { stats, source, at } = data
+  const h = headline(stats)
   return (
     <section className="po-hero" id="top" aria-labelledby="po-h1">
       <div className="po-hero__sky">
@@ -217,10 +228,12 @@ export function Hero({ data }: { data: LandingData }) {
         >
           {source === 'live' ? <Tag kind="live" dark /> : <Tag kind="recorded" dark>Recorded snapshot</Tag>}
           <span>
-            Testnet: {stats.paid_total} of {stats.payables_total} payables paid once
+            Testnet: {h.paid} of {h.total} {h.split ? 'demo invoices' : 'payables'} paid once
+            {h.split ? `, ${h.testTotal} automated test runs counted apart` : ''}
             {source === 'snapshot' ? `, as of ${formatStamp(at)}` : ''}
           </span>
         </motion.p>
+        <HeroIdentity />
       </div>
       <motion.div className="po-hero__panel" style={{ y: still ? 0 : sink }}>
         <motion.div

@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useConfig } from '../../hooks/useApi'
-import { kindSummary, overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
+import { inScope, kindSummary, overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
 import { InvoiceList } from '../InvoiceList'
 import { StartHere } from '../StartHere'
 import { DataNotices } from '../DataNotices'
@@ -15,6 +15,7 @@ import { sellerName } from '../keys'
 import { Address } from '../Address'
 import { ButtonLink, ButtonRow, Card, EmptyState, Notice, PageHeader, Skeleton, SourceTag, StatusPill } from '../ui'
 import { useBadgeStatus } from '../badge'
+import { AgentBadges, OwnerProofLine } from '../AgentIdentity'
 
 function StatCard({
   label,
@@ -60,9 +61,12 @@ export function OverviewPage() {
 
   const [tab, setTab] = useState<'ready' | 'overdue' | 'paid'>('ready')
   const view = useMemo(() => {
-    const ready = readyToPay(items)
-    const overdue = overdueItems(items)
-    const paidList = paidItems(items)
+    // The list leads with demo invoices and anything ready to pay. The automated test runs sit behind
+    // Invoices > Show, and the totals above still count them.
+    const scoped = items.filter((i) => inScope(i, 'default'))
+    const ready = readyToPay(scoped)
+    const overdue = overdueItems(scoped)
+    const paidList = paidItems(scoped)
     const open = items.filter((i) => i.status !== 'paid')
     const byDue = [...open].sort((a, b) => a.due.localeCompare(b.due))
     return { paid: paidList.length, open: open.length, ready, overdueList: overdue, paidList, nextDue: ready[0] ?? byDue[0], overdue: overdue.length }
@@ -111,6 +115,21 @@ export function OverviewPage() {
 
       <StartHere items={items} />
 
+      <section aria-labelledby="identity-title" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 id="identity-title" className="text-2xl font-medium tracking-[-0.01em] text-po-ink">
+            Who is behind the agents
+          </h2>
+          <Link to="/app/judges#identity" className="inline-flex min-h-[44px] items-center font-medium text-po-accent-ink underline decoration-po-line-strong">
+            Owner proof and trust model
+          </Link>
+        </div>
+        <p className="max-w-[68ch] text-[15px] text-po-grey">
+          Each agent holds a token on the official Concordium agent registry. Press Check badge to ask the registry now. Testnet only.
+        </p>
+        <AgentBadges />
+      </section>
+
       <section aria-label="Numbers" className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label={kinds ? 'Demo invoices' : 'Payables listed'}
@@ -127,14 +146,14 @@ export function OverviewPage() {
           }
         />
         <StatCard
-          label="Paid once"
-          value={view.paid}
+          label={kinds ? 'Demo paid once' : 'Paid once'}
+          value={kinds ? kinds.demo.paid : view.paid}
           loading={loading}
           source={data.source}
           asOf={data.asOf}
           sub={
             kinds
-              ? `${view.paid} of ${items.length} payables are paid: ${kinds.demo.paid} of ${kinds.demo.total} demo, ${kinds.tests.paid} of ${kinds.tests.total} test runs`
+              ? `${kinds.demo.paid} of ${kinds.demo.total} demo invoices are paid. Counted apart: ${kinds.tests.paid} of ${kinds.tests.total} automated test runs.`
               : `${view.paid} of ${items.length} payables are paid`
           }
         />
@@ -219,6 +238,11 @@ export function OverviewPage() {
               ) : (
                 <InvoiceList items={preview} sellers={dir.sellers} />
               )}
+              {kinds ? (
+                <p className="mt-3 text-sm text-po-grey" data-testid="scope-line">
+                  Showing demo invoices and anything ready to pay. {kinds.tests.total} automated test runs ({kinds.tests.paid} paid) are on the same registry and counted in the totals above; open Invoices and choose Show, Automated test runs to see them.
+                </p>
+              ) : null}
               {activeTab.rows.length > preview.length ? (
                 <p className="mt-3 text-sm text-po-grey">
                   Showing {preview.length} of {activeTab.rows.length}. Open all invoices to filter and page through the rest.
@@ -315,6 +339,7 @@ function SellerCard({
           <p className="po-num text-2xl font-semibold text-po-ink">{loading ? '-' : paid}</p>
         </div>
       </div>
+      <OwnerProofLine seller={seller.seller} />
       <ButtonRow className="mt-auto">
         <ButtonLink to={`/app/invoices?seller=${encodeURIComponent(seller.seller)}`} variant="secondary" small>
           Its invoices

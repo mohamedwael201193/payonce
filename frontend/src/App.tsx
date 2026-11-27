@@ -8,6 +8,7 @@ import { InvoicesPage } from './app/pages/InvoicesPage'
 import { ReceiptPage } from './app/pages/ReceiptPage'
 import { BreakPage } from './app/pages/BreakPage'
 import { JudgesPage } from './app/pages/JudgesPage'
+import { X402Page } from './app/pages/X402Page'
 import { AgeProofPage } from './pages/AgeProofPage'
 
 // The landing lives in src/landing and is the only route outside the app
@@ -146,6 +147,7 @@ export function AppRoutes() {
         <Route path="break" element={<BreakPage />} />
         <Route path="age" element={<AgeProofPage />} />
         <Route path="judges" element={<JudgesPage />} />
+        <Route path="x402" element={<X402Page />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Route>
       <Route path="/dashboard" element={<LegacyDashboard />} />
