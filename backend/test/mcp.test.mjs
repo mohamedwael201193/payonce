@@ -298,7 +298,7 @@ test('ADV-1: pay_payable CCD verification binds registryIndex 13150, never unbou
 
 // ---- stdio smoke test: real server process over MCP ----
 
-test('stdio smoke: server lists all 4 tools and answers list_payables over MCP', async () => {
+test('stdio smoke: server lists all 4 tools and answers list_payables over MCP', { skip: !process.env.CONCORDIUM_WALLET_SEED_PHRASE && 'needs the wallet keys in the environment (the spawned server loads signers)' }, async () => {
   // The SDK's StdioClientTransport spawns the server with ONLY
   // HOME/LOGNAME/PATH/SHELL/TERM/USER (getDefaultEnvironment) — it strips
   // the proxy vars (https_proxy, NODE_EXTRA_CA_CERTS, SSL_CERT_FILE) this
