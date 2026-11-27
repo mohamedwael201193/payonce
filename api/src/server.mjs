@@ -258,7 +258,19 @@ let chainReaderOverride = null;
 export function __setChainReaderForTests(fn) {
   chainReaderOverride = fn;
 }
+// Paid and Voided are terminal on chain (a Paid payable never changes again), so a row
+// read in a terminal state is kept for the life of the process. This halves the reads of a
+// full scan, which the public node otherwise rate-limits (429 -> node_busy). Not used when
+// the test seam is set.
+const terminalRows = new Map();
 async function readPayableWithRetry(c, id, seller = SELLER, attempts = 3) {
+  const ck = `${seller}:${id}`;
+  if (!chainReaderOverride && terminalRows.has(ck)) return { view: terminalRows.get(ck), ok: true };
+  const out = await readPayableUncached(c, id, seller, attempts);
+  if (!chainReaderOverride && out.ok && out.view && (out.view.status === 'Paid' || out.view.status === 'Voided')) terminalRows.set(ck, out.view);
+  return out;
+}
+async function readPayableUncached(c, id, seller = SELLER, attempts = 3) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       // A null view is a successful read of an absent payable (never
