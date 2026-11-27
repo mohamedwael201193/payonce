@@ -32,7 +32,7 @@ More in [`VERIFY.md`](VERIFY.md): every claim maps to a transaction hash or a co
 - **Rail A (CCD):** the contract is the payment. `pay_ccd` forwards to the stored payee in the same transaction. A second payment, a wrong amount or an unknown id reverts with a code. The registry holds zero balance.
 - **Rail B (EUDemo):** the payer reserves the exact payable on chain, a co-signer gate decides, the EUDemo transfer carries the canonical memo `payable:<seller>:<id>`, and the payer confirms. The contract cannot see token transfers, so the verifier is the check to trust. On this rail a wrong payee is refused by the co-signer and flagged by the verifier. It is not a contract revert.
 - **Agents:** two seller agents (tokens 1476 and 1506) and the payer agent (token 1488) are registered on the official registry. The seller token is cross-checked by the contract at registration and at payment.
-- **Strict vendor list (default on):** an unlisted seller is refused on both rails. On EUDemo the chain refuses too (-19). On CCD the API refuses before it signs, because the contract's own strict flag (`set_strict`, a buyer action on the registry) is still off. See "Trust model" below.
+- **Strict vendor list (default on):** an unlisted seller is refused on both rails. On EUDemo the chain refuses too (-19). On CCD the buyer's on-chain strict flag is on (an unlisted seller reverts with -19) and the API also refuses before signing. See `VERIFY.md` section 5.
 
 ## Trust model, honestly
 

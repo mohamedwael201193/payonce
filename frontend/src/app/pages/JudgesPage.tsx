@@ -42,7 +42,7 @@ const CONSENT_TXS: Array<{ label: string; hash: string }> = [
 
 const KNOWN_LIMITS = [
   'Only the CCD route moves money inside the contract’s own transaction. The EUDemo route depends on the co-signer’s decision and on the node’s 2-of-3 rule. The contract cannot see PLT transfers.',
-  'Strict vendor-list mode is on by default. The vendor list is on chain, and an unlisted seller is refused on both rails. EUDemo: the co-signer refuses it and so does the chain (-19: reserve_plt always needs an approval row). CCD: the API refuses before it signs (a policy we run, not a chain revert), because the contract refuses an unlisted seller on chain only when the buyer has switched on its own strict flag (set_strict), and that flag is still off on the registry. Until it is switched on, a CCD payment to an unlisted seller sent from outside this API is not stopped on chain. You can see the co-signer’s rule on Break it.',
+  'Strict vendor-list mode is on by default. The vendor list is on chain, and an unlisted seller is refused on both rails. EUDemo: the co-signer refuses it and so does the chain (-19: reserve_plt always needs an approval row). CCD: the buyer's on-chain strict flag (set_strict) is now on, so the contract reverts a payment to an unlisted seller with -19 (recorded: revert tx e8e3d588…88b5), and the API also refuses before it signs. You can see the co-signer’s rule on Break it.',
   'On the EUDemo route the seller names the expected payer at registration, and only the reserving payer can confirm: a confirm from any other account reverts (-17). The contract still cannot see the PLT transfer itself, so the verifier, not the status, is the check to trust: it re-reads the transfer (payee, amount, memo) from the chain.',
   'Race: the co-signer co-signs only while at least 60 s of the reservation remain, and binds the transfer’s header expiry to the reservation expiry minus 60 s.',
   'Seller identity: the sellers and the payer hold Active agent tokens on the official registry <12802,0>, and the seller token is cross-checked by the contract at registration and at payment. The accountable human is a testnet identity: the owner of seller 1 has a published 18+ and EU proof from the testnet identity provider, with test attribute values. There is no LEI and no company proof: the seller is the owner’s own identity, not a company. Seller 2’s owner has no proof of its own.',
@@ -139,13 +139,13 @@ export function JudgesPage() {
             {coSignerRunsAsSentence()} It decides, and the same process then signs, so on the EUDemo rail the gate is a policy we run, not a second party. A separate co-signer service with its own key exists in the repo (backend/src/cosigner) but is not what this site runs.
           </KeyValue>
           <KeyValue label="Vendor list">
-            Strict mode is on by default: an unlisted seller is refused on both rails. On the EUDemo rail the chain refuses too (-19). On the CCD rail this API refuses before signing; the chain refuses only after the buyer switches on its on-chain strict flag, which is an owner action on the registry and is still off.
+            Strict mode is on by default: an unlisted seller is refused on both rails, by the chain on both (-19). The buyer's on-chain strict flag was switched on (testnet tx 0076d6f9…48d9), and the API also refuses before signing. A real unlisted-seller payment reverted with -19 (tx e8e3d588…88b5) and a payment to a listed seller still succeeded (tx adfc7de2…bc23).
           </KeyValue>
           <KeyValue label="What the chain enforces alone">
             Pay once, only to the payee on chain, and only the exact amount (CCD rail, inside the contract&apos;s own transaction). Contract refusals carry a code (-5, -6, -19 and so on). The co-signer and API refusals do not: they are our policy, labelled as such.
           </KeyValue>
           <KeyValue label="Path to production">
-            Separate seeds and identities per role, a co-signer on its own host with its own key, the on-chain strict flag on, and a company identity for the seller. None of that is claimed here.
+            Separate seeds and identities per role, a co-signer on its own host with its own key, a company identity for the seller. None of that is claimed here.
           </KeyValue>
         </dl>
       </Section>

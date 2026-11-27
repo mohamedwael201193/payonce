@@ -151,13 +151,19 @@ On the dashboard, five attacks each name the layer that refuses them:
    **Co-signer** refuses (live dry run: `no-approval`). Strict vendor-list
    mode is on by default. **Chain** refuses (-19) on the EUDemo rail
    (`reserve_plt` always needs an approval row). On the CCD rail the chain
-   refuses (-19) only when the buyer's on-chain strict flag (`set_strict`)
-   is on; that flag is still off, so on CCD this API refuses before it
-   signs (`vendor-gate`, a policy we run, not a chain revert). A CCD
-   payment sent from outside this API to an unlisted seller is not stopped
-   on chain until the flag is flipped (a buyer action on the registry,
-   reported, not done here). `GET /api/config` shows both
-   (`build.ccd_rail_vendor_gate`, `build.ccd_on_chain_strict`). No fraud
+   refuses (-19) when the buyer's on-chain strict flag (`set_strict`) is
+   on. It was switched on (testnet tx
+   `0076d6f9529aeafa89797682f4f43c8b56af330741536afac7176e27b99148d9`).
+   Live proof: with seller 2 temporarily revoked from the buyer's vendor
+   list (tx `5d62e9fe8549111cbf069c3306d97992e4162ad4becd149a644876c766acc236`),
+   `pay_ccd` for payable 5003 reverted with -19 (tx
+   `e8e3d588817c80f58d20589752bf72f61896f8430e95bd880f9b06c6647688b5`);
+   seller 2 was re-approved with the same caps (tx
+   `f18cf4f6dc799b0f445cc984e992a87515b4c331a302373412494ec7e3a2bffa`); and a
+   payment to listed seller 1 (payable 1461) still succeeded (tx
+   `adfc7de2f5d1834687324119a12206562787ef3a6b4cb5a1972f41ef29f5bc23`).
+   The API also refuses before signing (`vendor-gate`). `GET /api/config`
+   shows both (`build.ccd_rail_vendor_gate`, `build.ccd_on_chain_strict`). No fraud
    payable exists on this registry to try live.
 3. Confirm with a junk hash → **Chain** refuses (-12/-17).
 4. Pay after the reservation window → **Chain** refuses (-24).
