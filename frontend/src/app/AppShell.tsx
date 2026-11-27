@@ -75,7 +75,7 @@ function StatusCard({ collapsed }: { collapsed: boolean }) {
     )
   }
   return (
-    <div className="rounded-[16px] border border-po-line bg-po-surface p-4 text-sm">
+    <div className="rounded-[16px] border border-po-line bg-po-surface p-4 text-sm shadow-[var(--po-shadow-1)]">
       <p className="font-medium text-po-ink">Testnet only</p>
       <p className="mt-1 text-po-grey">{text}. Nothing here is real money.</p>
       <p className="mt-3 flex items-center gap-2 text-po-grey">
@@ -91,7 +91,7 @@ function Sidebar() {
   const collapsed = collapsedFlag === 'collapsed'
   const itemCls = (active: boolean) =>
     `relative flex min-h-[44px] items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium ${
-      active ? 'text-po-ink' : 'text-po-grey hover:text-po-ink'
+      active ? 'text-po-paper' : 'text-po-ink hover:bg-po-surface'
     } ${collapsed ? 'justify-center' : ''}`
   const renderItem = (item: NavItem) => {
     const active = activeFor(item, pathname)
@@ -108,7 +108,7 @@ function Sidebar() {
             <motion.span
               layoutId="po-pill-side"
               transition={PILL_SPRING}
-              className="absolute inset-0 rounded-[10px] bg-po-surface shadow-[var(--po-shadow-1)] ring-1 ring-po-line"
+              className="absolute inset-0 rounded-[10px] bg-po-ink shadow-[var(--po-shadow-1)]"
               data-testid="nav-pill"
             />
           ) : null}
@@ -120,8 +120,8 @@ function Sidebar() {
   }
   return (
     <aside
-      className="sticky top-0 flex h-screen shrink-0 flex-col border-r border-po-line px-3 py-5"
-      style={{ width: collapsed ? 76 : 256 }}
+      className="sticky top-0 flex h-screen shrink-0 flex-col border-r border-po-line-strong/40 px-3 py-5"
+      style={{ width: collapsed ? 76 : 256, background: 'var(--po-rail)' }}
       data-testid="app-sidebar"
     >
       <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-2'}`}>
@@ -134,7 +134,7 @@ function Sidebar() {
             type="button"
             onClick={() => setCollapsedFlag('collapsed')}
             aria-label="Collapse the sidebar"
-            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-po-grey hover:text-po-ink"
+            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-po-ink hover:bg-po-surface"
           >
             <ChevronsLeft className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -145,7 +145,7 @@ function Sidebar() {
           type="button"
           onClick={() => setCollapsedFlag(null)}
           aria-label="Expand the sidebar"
-          className="mx-auto mt-2 flex h-11 w-11 items-center justify-center rounded-[10px] text-po-grey hover:text-po-ink"
+          className="mx-auto mt-2 flex h-11 w-11 items-center justify-center rounded-[10px] text-po-ink hover:bg-po-surface"
         >
           <ChevronsRight className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -177,7 +177,7 @@ function MobileChrome() {
   const moreActive = MORE_ITEMS.some((i) => activeFor(i, pathname))
   return (
     <>
-      <header className="sticky top-0 z-30 flex min-h-[56px] items-center justify-between border-b border-po-line bg-po-paper px-4">
+      <header className="sticky top-0 z-30 flex min-h-[56px] items-center justify-between border-b border-po-line-strong/40 bg-po-surface px-4">
         <Link to="/" aria-label="PayOnce, back to the site" className="flex items-center gap-2.5">
           <LogoMark size={28} />
           <span className="text-[17px] font-medium tracking-[-0.01em] text-po-ink">PayOnce</span>
@@ -189,7 +189,7 @@ function MobileChrome() {
       </header>
       <nav
         aria-label="App"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-po-line bg-po-paper"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-po-line-strong/40 bg-po-surface"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto grid max-w-[560px] grid-cols-5">
@@ -201,14 +201,14 @@ function MobileChrome() {
                   to={item.to}
                   aria-current={active ? 'page' : undefined}
                   className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-xs font-medium ${
-                    active ? 'text-po-ink' : 'text-po-grey'
+                    active ? 'text-po-paper' : 'text-po-ink'
                   }`}
                 >
                   {active ? (
                     <motion.span
                       layoutId="po-pill-bottom"
                       transition={PILL_SPRING}
-                      className="absolute inset-x-2 inset-y-1.5 rounded-[10px] bg-po-surface ring-1 ring-po-line"
+                      className="absolute inset-x-2 inset-y-1.5 rounded-[10px] bg-po-ink"
                       data-testid="nav-pill"
                     />
                   ) : null}
@@ -225,7 +225,7 @@ function MobileChrome() {
               aria-haspopup="dialog"
               aria-expanded={more}
               className={`flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5 text-xs font-medium ${
-                moreActive || pathname.startsWith('/app/judges') ? 'text-po-ink' : 'text-po-grey'
+                moreActive || pathname.startsWith('/app/judges') ? 'font-bold text-po-ink' : 'text-po-ink'
               }`}
             >
               <MoreHorizontal className="h-5 w-5" aria-hidden="true" />

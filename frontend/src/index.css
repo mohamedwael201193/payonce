@@ -415,4 +415,6 @@ body {
   --color-po-bad-bg: var(--po-bad-bg);
   --color-po-warn: var(--po-warn);
   --color-po-warn-bg: var(--po-warn-bg);
+  --color-po-info: var(--po-info);
+  --color-po-info-bg: var(--po-info-bg);
 }

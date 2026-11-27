@@ -5,26 +5,38 @@ import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'r
 import { Link, type LinkProps } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
-import { truncHash } from '../lib/format'
 import { EXPLORER_TX } from '../lib/tokens'
 import type { Layer } from '../lib/types'
 import { useConfig } from '../hooks/useApi'
 import type { DataSource } from './hooks'
 import { recordedLabel } from './fees'
+import { Address } from './Address'
 
 // ---------- buttons ----------
 
-type Variant = 'primary' | 'ink' | 'ghost'
+export type Variant = 'primary' | 'secondary' | 'ink' | 'ghost' | 'danger'
+export type Size = 'sm' | 'md' | 'lg'
 const VARIANT_CLASS: Record<Variant, string> = {
   primary: 'po-btn po-btn-primary',
+  secondary: 'po-btn po-btn-secondary',
   ink: 'po-btn po-btn-ink',
   ghost: 'po-btn po-btn-ghost',
+  danger: 'po-btn po-btn-danger',
+}
+const SIZE_CLASS: Record<Size, string> = { sm: 'po-btn-sm', md: '', lg: 'po-btn-lg' }
+const btnClass = (variant: Variant, size: Size | undefined, small: boolean | undefined, extra = '') =>
+  [VARIANT_CLASS[variant], SIZE_CLASS[size ?? (small ? 'sm' : 'md')], extra].filter(Boolean).join(' ')
+
+/** Neighbouring buttons always sit in a group with a real gap. */
+export function ButtonRow({ children, stack, className = '' }: { children: ReactNode; stack?: boolean; className?: string }) {
+  return <div className={`po-btn-row ${stack ? 'po-btn-row--stack' : ''} ${className}`}>{children}</div>
 }
 
 export function Button({
   children,
   onClick,
-  variant = 'ghost',
+  variant = 'secondary',
+  size,
   disabled,
   disabledReason,
   busy,
@@ -33,6 +45,7 @@ export function Button({
   small,
   type = 'button',
 }: {
+  size?: Size
   children: ReactNode
   onClick?: () => void
   variant?: Variant
@@ -48,14 +61,14 @@ export function Button({
   const reasonId = id && disabledReason ? `${id}-reason` : undefined
   const off = Boolean(disabled || busy)
   return (
-    <div className={`inline-flex max-w-full flex-col items-start gap-1.5 ${className.includes('w-full') ? 'w-full' : ''}`}>
+    <div className={`inline-flex max-w-full flex-col items-start gap-2 ${className.includes('w-full') ? 'w-full' : ''}`}>
       <button
         id={id}
         type={type}
         onClick={off ? undefined : onClick}
         aria-disabled={off ? 'true' : undefined}
         aria-describedby={off && reasonId ? reasonId : undefined}
-        className={`${VARIANT_CLASS[variant]} ${small ? 'po-btn-sm' : ''} ${className}`}
+        className={btnClass(variant, size, small, className)}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
         {children}
@@ -72,13 +85,14 @@ export function Button({
 export function ButtonLink({
   to,
   children,
-  variant = 'ghost',
+  variant = 'secondary',
   small,
+  size,
   className = '',
   ...rest
-}: { variant?: Variant; small?: boolean; className?: string; children: ReactNode } & Omit<LinkProps, 'className'>) {
+}: { variant?: Variant; size?: Size; small?: boolean; className?: string; children: ReactNode } & Omit<LinkProps, 'className'>) {
   return (
-    <Link to={to} className={`${VARIANT_CLASS[variant]} ${small ? 'po-btn-sm' : ''} ${className}`} {...rest}>
+    <Link to={to} className={btnClass(variant, size, small, className)} {...rest}>
       {children}
     </Link>
   )
@@ -94,7 +108,7 @@ export function ExternalButtonLink({
   small?: boolean
 }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className={`${VARIANT_CLASS.ghost} ${small ? 'po-btn-sm' : ''}`}>
+    <a href={href} target="_blank" rel="noreferrer" className={btnClass('secondary', undefined, small)}>
       {children}
       <ExternalLink className="h-4 w-4" aria-hidden="true" />
     </a>
@@ -108,6 +122,7 @@ export function SourceTag({ source, asOf }: { source: DataSource; asOf?: string 
   if (source === 'live') {
     return (
       <span className="po-tag po-tag-live" title="Fetched from the live API on this visit">
+        <i className="po-live-dot" aria-hidden="true" />
         LIVE
       </span>
     )
@@ -136,27 +151,17 @@ const LAYER_NAME: Record<Layer, string> = {
 }
 
 export function LayerLabel({ layer }: { layer: Layer }) {
-  const tone =
-    layer === 'chain'
-      ? 'bg-po-bad-bg text-po-bad'
-      : layer === 'co_signer'
-        ? 'bg-po-warn-bg text-po-warn'
-        : 'bg-po-sunken text-po-ink'
+  const tone = layer === 'chain' ? 'po-chip-bad' : layer === 'co_signer' ? 'po-chip-warn' : 'po-chip-neutral'
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone}`}>
+    <span className={`po-chip ${tone}`}>
       {LAYER_NAME[layer] ?? layer}
     </span>
   )
 }
 
 export function StatusPill({ tone, children }: { tone: 'ok' | 'bad' | 'warn' | 'neutral'; children: ReactNode }) {
-  const cls = {
-    ok: 'bg-po-ok-bg text-po-ok',
-    bad: 'bg-po-bad-bg text-po-bad',
-    warn: 'bg-po-warn-bg text-po-warn',
-    neutral: 'bg-po-sunken text-po-ink',
-  }[tone]
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{children}</span>
+  const cls = { ok: 'po-chip-ok', bad: 'po-chip-bad', warn: 'po-chip-warn', neutral: 'po-chip-neutral' }[tone]
+  return <span className={`po-chip ${cls}`}>{children}</span>
 }
 
 // ---------- layout atoms ----------
@@ -173,10 +178,10 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="min-w-0">
-        <h1 className="text-[32px] leading-[1.1] font-medium tracking-[-0.02em] text-po-ink sm:text-[40px]">{title}</h1>
-        {lead ? <p className="mt-3 max-w-[60ch] text-[16px] text-po-grey">{lead}</p> : null}
+        <h1 className="text-[32px] leading-[1.08] font-semibold tracking-[-0.03em] text-po-ink sm:text-[44px]">{title}</h1>
+        {lead ? <p className="mt-3 max-w-[60ch] text-[17px] text-po-grey">{lead}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+      {actions ? <div className="po-btn-row">{actions}</div> : null}
     </header>
   )
 }
@@ -248,15 +253,16 @@ export function useExplorerBase(): string {
 export function ExplorerTx({ hash, base, label }: { hash: string; base?: string; label?: string }) {
   const fallback = useExplorerBase()
   const b = base ?? fallback
+  if (!label) return <Address value={hash} kind="tx" label="transaction hash" explorerBase={b} />
   return (
     <a
-      href={`${b}${hash}`}
+      href={b + hash}
       target="_blank"
       rel="noreferrer"
-      aria-label={`Open transaction ${hash} on the testnet explorer (new tab)`}
+      aria-label={"Open transaction " + hash + " on the testnet explorer (new tab)"}
       className="inline-flex min-h-[44px] items-center gap-1.5 py-1 font-mono text-[13px] text-po-accent-ink underline decoration-po-line-strong"
     >
-      {label ?? truncHash(hash)}
+      {label}
       <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     </a>
   )
@@ -277,7 +283,7 @@ export function CopyButton({ value, label, small = true }: { value: string; labe
           setCopied(false)
         }
       }}
-      className={`${VARIANT_CLASS.ghost} ${small ? 'po-btn-sm' : ''}`}
+      className={btnClass('secondary', undefined, small)}
     >
       {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
       {copied ? 'Copied' : `Copy ${label}`}
@@ -288,7 +294,7 @@ export function CopyButton({ value, label, small = true }: { value: string; labe
 export function KeyValue({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid gap-1 py-3 sm:grid-cols-[180px_1fr] sm:gap-4">
-      <dt className="text-sm text-po-grey">{label}</dt>
+      <dt className="text-sm font-medium text-po-grey">{label}</dt>
       <dd className="min-w-0 text-[15px] text-po-ink">{children}</dd>
     </div>
   )
