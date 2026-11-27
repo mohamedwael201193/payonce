@@ -162,3 +162,15 @@ export async function storedDocumentRecord(id) {
   await initStore();
   return impl().storedDocumentRecord(id);
 }
+
+// ---- last complete registry scan (cache-only serving of stats/invoices) ----
+// One document: { at: ms epoch, rows: [...] }. Only a COMPLETE scan is
+// ever saved, so a restart warms from a consistent snapshot, never a partial.
+export async function loadScan() {
+  await initStore();
+  return impl().loadScan();
+}
+export async function saveScan(scan) {
+  await initStore();
+  return impl().saveScan(scan);
+}

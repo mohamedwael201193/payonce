@@ -7,6 +7,8 @@ import {
   derivedStatus,
   donutSegments,
   filterInvoices,
+  inScope,
+  kindSummary,
   invoicesToCsv,
 } from './dashboard'
 import type { InvoiceItem, Stats } from './types'
@@ -133,5 +135,27 @@ describe('ready to pay', () => {
     expect(overdueItems(items, NOW).map((i) => i.payable_id)).toEqual([1])
     expect(paidItems(items).map((i) => i.payable_id)).toEqual([4])
     expect(defaultOrder(items, NOW).map((i) => i.payable_id)).toEqual([3, 2, 1, 4])
+  })
+})
+
+describe('demo vs automated test runs', () => {
+  const mk = (id: number, status: string, kind?: 'demo' | 'matrix' | 'lab', due = '2099-01-01T00:00:00Z'): InvoiceItem => ({
+    seller: 's', payable_id: id, asset: 'ccd', amount_display: '1', due, status, label: 'x', ...(kind ? { kind } : {}),
+  })
+  const rows = [mk(10, 'paid', 'demo'), mk(11, 'unpaid', 'demo'), mk(1000, 'unpaid', 'lab'), mk(1001, 'paid', 'lab'), mk(2, 'unpaid', 'matrix', '2020-01-01T00:00:00Z')]
+
+  it('default scope: demo rows and ready-to-pay rows; paid and overdue test runs sit behind the filter', () => {
+    expect(rows.filter((r) => inScope(r, 'default')).map((r) => r.payable_id)).toEqual([10, 11, 1000])
+    expect(rows.filter((r) => inScope(r, 'tests')).map((r) => r.payable_id)).toEqual([1000, 1001, 2])
+    expect(rows.filter((r) => inScope(r, 'all'))).toHaveLength(5)
+  })
+  it('rows without a kind (old API, recorded snapshot) are never filtered out', () => {
+    expect(inScope(mk(1, 'paid'), 'default')).toBe(true)
+    expect(inScope(mk(1, 'paid'), 'tests')).toBe(true)
+  })
+  it('kindSummary reports demo and test runs without hiding the tests from the total', () => {
+    const s = { payables_total: 5, paid_total: 2, refused_on_chain_since_deploy: 0, last_verifier_run_at: null, by_kind: { demo: { total: 2, paid: 1 }, matrix: { total: 1, paid: 0 }, lab: { total: 2, paid: 1 }, test_runs: { total: 3, paid: 1 } } }
+    expect(kindSummary(s)).toEqual({ demo: { total: 2, paid: 1 }, tests: { total: 3, paid: 1 }, total: 5, paid: 2 })
+    expect(kindSummary({ ...s, by_kind: undefined })).toBeNull()
   })
 })

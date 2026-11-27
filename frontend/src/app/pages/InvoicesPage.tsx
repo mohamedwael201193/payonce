@@ -4,12 +4,12 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import { defaultOrder, derivedStatus, filterInvoices, invoicesToCsv } from '../../lib/dashboard'
+import { defaultOrder, derivedStatus, filterInvoices, inScope, invoicesToCsv, kindSummary, type InvoiceScope } from '../../lib/dashboard'
 import { InvoiceList } from '../InvoiceList'
+import { DataNotices } from '../DataNotices'
 import { useAppData, useDocumentTitle, useSellers } from '../hooks'
 import { sellerName } from '../keys'
-import { recordedLabel } from '../fees'
-import { Button, ButtonLink, ButtonRow, EmptyState, Notice, PageHeader, Skeleton, SourceTag } from '../ui'
+import { Button, ButtonLink, ButtonRow, EmptyState, PageHeader, Skeleton, SourceTag } from '../ui'
 
 const SELECT = 'po-input'
 export const PAGE_SIZE = 25
@@ -24,6 +24,8 @@ export function InvoicesPage() {
   const seller = params.get('seller') ?? ''
   const status = params.get('status') ?? ''
   const rail = params.get('rail') ?? ''
+  const scopeParam = params.get('show')
+  const scope: InvoiceScope = scopeParam === 'tests' || scopeParam === 'all' ? scopeParam : 'default'
   const pageParam = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1)
 
   const set = (name: string, value: string) =>
@@ -39,12 +41,12 @@ export function InvoicesPage() {
     )
 
   const shown = useMemo(() => {
-    let rows = filterInvoices(data.items, q)
+    let rows = filterInvoices(data.items, q).filter((i) => inScope(i, scope))
     if (seller) rows = rows.filter((i) => i.seller === seller)
     if (rail) rows = rows.filter((i) => i.asset === rail)
     if (status) rows = rows.filter((i) => derivedStatus(i) === status)
     return defaultOrder(rows)
-  }, [data.items, q, seller, rail, status])
+  }, [data.items, q, seller, rail, status, scope])
   const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
   const page = Math.min(pageParam, pages)
   const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -65,7 +67,9 @@ export function InvoicesPage() {
   }
 
   const loading = data.source === 'loading'
-  const filtered = Boolean(q || seller || status || rail)
+  const filtered = Boolean(q || seller || status || rail || scope !== 'default')
+  const kinds = kindSummary(data.stats)
+  const inView = useMemo(() => data.items.filter((i) => inScope(i, scope)).length, [data.items, scope])
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,11 +85,9 @@ export function InvoicesPage() {
           </>
         }
       />
-      {data.source === 'recorded' ? (
-        <Notice tone="warn">The live API did not answer. This list is the recorded snapshot ({recordedLabel(data.asOf)}), not live.</Notice>
-      ) : null}
+      <DataNotices data={data} subject="rows" />
 
-      <form role="search" aria-label="Filter invoices" onSubmit={(e) => e.preventDefault()} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1.3fr]">
+      <form role="search" aria-label="Filter invoices" onSubmit={(e) => e.preventDefault()} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1.2fr_1fr_1fr_1.3fr]">
         <label className="flex flex-col gap-1.5 text-sm text-po-grey sm:col-span-2 lg:col-span-1">
           Search
           <input
@@ -95,6 +97,14 @@ export function InvoicesPage() {
             placeholder="Number, amount or name"
             className="po-input"
           />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm text-po-grey">
+          Show
+          <select value={scope} onChange={(e) => set('show', e.target.value === 'default' ? '' : e.target.value)} className={SELECT}>
+            <option value="default">Demo and ready to pay</option>
+            <option value="tests">Automated test runs</option>
+            <option value="all">Everything on the registry</option>
+          </select>
         </label>
         <label className="flex flex-col gap-1.5 text-sm text-po-grey">
           Seller
@@ -127,7 +137,7 @@ export function InvoicesPage() {
       </form>
 
       <p className="text-sm text-po-grey" aria-live="polite">
-        {loading ? 'Reading the registry' : `Showing ${shown.length ? (page - 1) * PAGE_SIZE + 1 : 0} to ${Math.min(page * PAGE_SIZE, shown.length)} of ${shown.length}${shown.length !== data.items.length ? ` matching (${data.items.length} in all)` : ''}. Ready to pay comes first.`}
+        {loading ? 'Reading the registry' : `Showing ${shown.length ? (page - 1) * PAGE_SIZE + 1 : 0} to ${Math.min(page * PAGE_SIZE, shown.length)} of ${shown.length}${shown.length !== inView ? ` matching (${inView} in this view, ${data.items.length} on the registry)` : data.items.length !== inView ? ` (${data.items.length} on the registry)` : ''}. Ready to pay comes first.${scope === 'default' && kinds ? ` This view leaves out paid and overdue rows from the ${kinds.tests.total} automated test runs (they are counted in the totals). Choose "Automated test runs" or "Everything" to see them.` : ''}`}
       </p>
 
       {loading ? (

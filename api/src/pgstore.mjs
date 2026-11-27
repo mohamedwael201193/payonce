@@ -60,6 +60,11 @@ export async function ensureSchema() {
       payload JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS payonce_scan (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS payonce_consents (
       seller TEXT NOT NULL,
       payable_id INTEGER NOT NULL,
@@ -363,4 +368,16 @@ export async function storeDocumentRecord(id, text) {
 export async function storedDocumentRecord(id) {
   const r = await getPool().query('SELECT content FROM payonce_documents WHERE payable_id = $1', [id]);
   return r.rows[0] ? Buffer.from(r.rows[0].content, 'utf8') : null;
+}
+
+// ---- last complete registry scan (single row) ----
+export async function loadScan() {
+  const r = await getPool().query('SELECT payload FROM payonce_scan WHERE id = 1');
+  return r.rows[0]?.payload ?? null;
+}
+export async function saveScan(scan) {
+  await getPool().query(
+    'INSERT INTO payonce_scan (id, payload, updated_at) VALUES (1, $1, now()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [scan],
+  );
 }

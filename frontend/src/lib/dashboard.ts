@@ -195,3 +195,33 @@ export function paidItems(items: InvoiceItem[]): InvoiceItem[] {
 export function defaultOrder(items: InvoiceItem[], nowMs = Date.now()): InvoiceItem[] {
   return [...readyToPay(items, nowMs), ...overdueItems(items, nowMs), ...paidItems(items)]
 }
+
+// ---- demo invoices vs automated test runs ----
+
+export interface KindSummary {
+  demo: { total: number; paid: number }
+  tests: { total: number; paid: number }
+  total: number
+  paid: number
+}
+
+/** Demo vs automated-test-run counts from the API's by_kind (the API owns the
+    rule). Null when the data has no kind split (old API, recorded snapshot):
+    callers then show the plain total and claim no split. Tests are always
+    INCLUDED in total; this never hides them. */
+export function kindSummary(stats: Stats | undefined): KindSummary | null {
+  const k = stats?.by_kind
+  if (!stats || !k) return null
+  return { demo: k.demo, tests: k.test_runs, total: stats.payables_total, paid: stats.paid_total }
+}
+
+export type InvoiceScope = 'default' | 'tests' | 'all'
+
+/** The Invoices page scope. Default: demo invoices plus anything ready to pay.
+    "tests": the automated test runs (lab + contract-matrix). "all": everything.
+    Rows with no kind (old API, recorded snapshot) are never filtered out. */
+export function inScope(item: InvoiceItem, scope: InvoiceScope, nowMs = Date.now()): boolean {
+  if (scope === 'all' || item.kind === undefined) return true
+  if (scope === 'tests') return item.kind !== 'demo'
+  return item.kind === 'demo' || derivedStatus(item, nowMs) === 'unpaid'
+}

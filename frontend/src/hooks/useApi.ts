@@ -65,7 +65,10 @@ export function useLiveSnapshot() {
         : undefined
       return fetchLiveSnapshot(prevSnapshot)
     },
-    refetchInterval: POLL_MS,
+    // Steady state: one poll per 30 s (the API answers from its cached
+    // complete scan, so a poll is cheap and the numbers only move when the
+    // chain did). Until the first answer lands (API warming up) poll fast.
+    refetchInterval: (query) => (query.state.data ? POLL_MS : 5_000),
     // Fix-back-10 MF-4, corrected fix-back-11 MF-2: retry: 0 —
     // fetchLiveSnapshot already retries in-loop (3 attempts with 1 s /
     // 2 s backoff). A react-query retry would run the WHOLE queryFn

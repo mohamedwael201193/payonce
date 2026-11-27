@@ -29,7 +29,7 @@ import {
 } from './docs.mjs';
 import {
   loadJobs, loadCounters, updateCounters,
-  hitWindow, leftInWindow, loadConsents, loadBuyerAgent,
+  hitWindow, leftInWindow, loadConsents, loadBuyerAgent, loadScan, saveScan,
 } from './store.mjs';
 import {
   buildConsentRecord, consentFor, consentForSeller, consentGateCheck, publicConsent, anchorConsentVra,
@@ -44,7 +44,7 @@ import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } fro
 import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
-import { listableRows, scanIsComplete, statsBody } from './listable.mjs';
+import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
@@ -253,7 +253,6 @@ function resolveWriteSeller(req, res, body = null) {
 // 20 s TTL) and dashed the dashboard for a poll. Scans are single-flighted
 // now, so the cache buys nothing and only hides fresh state.
 let scanInFlight = null;
-let lastCompleteScan = null;
 // Test seam (fix-back-7 S5): handler tests stub the chain reader —
 // production always reads the live gRPC client. The seam sits inside the
 // per-row retry, so the 503/fallback paths are exercised exactly as the
@@ -297,78 +296,142 @@ async function readPayableUncached(c, id, seller = SELLER, attempts = chainReade
   }
   return { view: null, ok: false };
 }
-// A complete scan is reused for 8 s (never with the test seam): the dashboard polls both
-// endpoints every 30 s from many clients, and a full scan is ~110 sequential node reads that
-// the public node answers with 429. 8 s is short enough that a state change shows at once.
-const SCAN_TTL_MS = 8000;
-async function scanSnapshot(c) {
-  if (!chainReaderOverride && lastCompleteScan && Date.now() - lastCompleteScan.at < SCAN_TTL_MS) {
-    return { rows: lastCompleteScan.rows, skipped: [], complete: true };
+// ---- cache-only serving (latency + no-flip fix, 2026-11-27) ----
+// A full scan is ~110-450 node reads at ~4 reads/s: tens of seconds to a
+// minute. Request handlers NEVER scan any more. A background loop scans,
+// and only a COMPLETE scan is ever promoted to `served` (and persisted to
+// the store, so a restart / cold start answers from the last complete
+// scan at once). /api/stats and /api/invoices both read the one `served`
+// object, so they always describe the SAME scan (same scan_id).
+const SCAN_INTERVAL_MS = Number(process.env.PAYONCE_SCAN_INTERVAL_MS ?? 15_000);
+const STALE_AFTER_MS = 5 * 60_000;
+let served = null; // { at: ms, rows }  last COMPLETE scan, the only thing handlers read
+let refreshState = { running: false, lastAttemptAt: null, lastOutcome: null };
+let persistScans = null; // null = persist unless the test seam is active
+export function __setScanPersistenceForTests(on) { persistScans = on === null ? null : Boolean(on); }
+
+function scanForJson(rows) {
+  return JSON.parse(JSON.stringify(rows, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+}
+/** Load the persisted last-complete scan into memory (boot warm-up). */
+export async function warmScanFromStore() {
+  try {
+    const saved = await loadScan();
+    if (saved && Array.isArray(saved.rows) && Number.isFinite(saved.at) && (!served || saved.at > served.at)) {
+      served = { at: saved.at, rows: saved.rows };
+    }
+  } catch (e) {
+    console.error('[scan] could not read the persisted scan:', e?.message ?? e);
   }
+  return served;
+}
+export function __resetScanForTests() { served = null; scanInFlight = null; }
+
+async function scanOnce(c) {
+  const rows = [];
+  const skipped = [];
+  for (const id of await knownIds()) {
+    const { view, ok } = await readPayableWithRetry(c, id);
+    if (ok) {
+      if (view) rows.push(view);
+    } else {
+      skipped.push(id);
+    }
+  }
+  // Frontier discovery: payables registered beyond the server's counter
+  // (a counter that regressed or never saw them) are still on chain. Probe
+  // upward from the highest known fresh id until three consecutive ids are
+  // absent, and fold what is found into the counters.
+  {
+    const ids = await knownIds();
+    const top = Math.max(FRESH_ID_START - 1, ...ids.filter((i) => i >= FRESH_ID_START));
+    const found = [];
+    let misses = 0;
+    for (let id = top + 1; misses < 3 && id <= top + 200; id += 1) {
+      const { view, ok } = await readPayableWithRetry(c, id);
+      if (!ok) { skipped.push(id); break; }
+      if (view) { rows.push(view); found.push(id); misses = 0; } else misses += 1;
+    }
+    if (found.length) await foldDiscoveredIds(found);
+  }
+  // Second seller: same retry + fail-closed treatment.
+  for (const id of await knownIds2()) {
+    const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
+    if (ok) {
+      if (view) rows.push(view);
+    } else {
+      skipped.push(id);
+    }
+  }
+  {
+    const ids2 = await knownIds2();
+    const top2 = Math.max(SELLER2_FRESH_ID_START - 1, ...ids2.filter((i) => i >= SELLER2_FRESH_ID_START));
+    const found2 = [];
+    let misses2 = 0;
+    for (let id = top2 + 1; misses2 < 3 && id <= top2 + 200; id += 1) {
+      const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
+      if (!ok) { skipped.push(id); break; }
+      if (view) { rows.push(view); found2.push(id); misses2 = 0; } else misses2 += 1;
+    }
+    if (found2.length) await foldDiscoveredIds(found2, 2);
+  }
+  return { rows, skipped, complete: scanIsComplete(skipped) };
+}
+
+/** Run ONE scan (single-flight). A complete scan replaces `served` and is
+    persisted; an incomplete one is discarded and `served` is untouched. */
+export async function refreshScan() {
   if (scanInFlight) return scanInFlight;
   scanInFlight = (async () => {
-    const rows = [];
-    const skipped = [];
-    for (const id of await knownIds()) {
-      const { view, ok } = await readPayableWithRetry(c, id);
-      if (ok) {
-        if (view) rows.push(view);
+    refreshState = { ...refreshState, running: true, lastAttemptAt: Date.now() };
+    try {
+      const c = chainReaderOverride ? null : await grpc();
+      const scan = await scanOnce(c);
+      if (scan.complete) {
+        served = { at: Date.now(), rows: scan.rows };
+        refreshState.lastOutcome = 'complete';
+        if (persistScans ?? !chainReaderOverride) {
+          try { await saveScan({ at: served.at, rows: scanForJson(served.rows) }); } catch (e) { console.error('[scan] persist failed:', e?.message ?? e); }
+        }
       } else {
-        skipped.push(id);
+        refreshState.lastOutcome = `incomplete (${scan.skipped.length} ids skipped)`;
       }
+      return scan;
+    } catch (e) {
+      refreshState.lastOutcome = `error: ${e?.message ?? e}`;
+      return { rows: [], skipped: [], complete: false };
+    } finally {
+      refreshState.running = false;
+      scanInFlight = null;
     }
-    // Frontier discovery: payables registered beyond the server's counter
-    // (a counter that regressed or never saw them) are still on chain. Probe
-    // upward from the highest known fresh id until three consecutive ids are
-    // absent, count what is found and fold it into the counters, so
-    // payables_total is derivable from the registry and not from a stored
-    // list that can fall behind.
-    {
-      const ids = await knownIds();
-      const top = Math.max(FRESH_ID_START - 1, ...ids.filter((i) => i >= FRESH_ID_START));
-      const found = [];
-      let misses = 0;
-      for (let id = top + 1; misses < 3 && id <= top + 200; id += 1) {
-        const { view, ok } = await readPayableWithRetry(c, id);
-        if (!ok) { skipped.push(id); break; }
-        if (view) { rows.push(view); found.push(id); misses = 0; } else misses += 1;
-      }
-      if (found.length) await foldDiscoveredIds(found);
-    }
-    // Second seller (main 86e2596 wiring): seller-2 rows are part of the
-    // served list, so they get the same retry + fail-closed treatment --
-    // a failed seller-2 read fails the scan, it never silently drops
-    // seller-2 rows the way main's scanPayables did.
-    for (const id of await knownIds2()) {
-      const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
-      if (ok) {
-        if (view) rows.push(view);
-      } else {
-        skipped.push(id);
-      }
-    }
-    // Seller 2 frontier: same discovery as seller 1, from its own id range.
-    {
-      const ids2 = await knownIds2();
-      const top2 = Math.max(SELLER2_FRESH_ID_START - 1, ...ids2.filter((i) => i >= SELLER2_FRESH_ID_START));
-      const found2 = [];
-      let misses2 = 0;
-      for (let id = top2 + 1; misses2 < 3 && id <= top2 + 200; id += 1) {
-        const { view, ok } = await readPayableWithRetry(c, id, SELLER2);
-        if (!ok) { skipped.push(id); break; }
-        if (view) { rows.push(view); found2.push(id); misses2 = 0; } else misses2 += 1;
-      }
-      if (found2.length) await foldDiscoveredIds(found2, 2);
-    }
-    const scan = { rows, skipped, complete: scanIsComplete(skipped) };
-    if (scan.complete) lastCompleteScan = { at: Date.now(), rows };
-    return scan;
   })();
-  try {
-    return await scanInFlight;
-  } finally {
-    scanInFlight = null;
-  }
+  return scanInFlight;
+}
+
+let scanLoopStarted = false;
+/** Boot: warm from the persisted copy, then scan forever in the background. */
+export async function startScanLoop() {
+  if (scanLoopStarted) return;
+  scanLoopStarted = true;
+  await warmScanFromStore();
+  const tick = async () => {
+    try { await refreshScan(); } catch { /* refreshScan never throws */ }
+    setTimeout(tick, SCAN_INTERVAL_MS).unref?.();
+  };
+  void tick();
+}
+/** Handlers call this: serves what exists, and (only when no loop runs and
+    the copy is old) kicks one background refresh. Never awaits a scan. */
+function servedScan() {
+  if (!scanLoopStarted && !chainReaderOverride && (!served || Date.now() - served.at > SCAN_INTERVAL_MS * 2)) void refreshScan();
+  return served;
+}
+function warmingUp(res) {
+  return apiError(res, 503, 'warming_up', 'server', 'The first complete read of the registry is still running (the public testnet node answers about 4 reads a second). Nothing is shown until it finishes: retry in a few seconds.', { retryable: true, retry_after_s: 10 });
+}
+function scanMeta(scan) {
+  const at = new Date(scan.at).toISOString();
+  return { generated_at: at, scanned_at: at, scan_id: String(scan.at), complete: true, stale: Date.now() - scan.at > STALE_AFTER_MS };
 }
 
 function amountDisplay(view) {
@@ -568,39 +631,23 @@ function sellerCounts(rows) {
 }
 
 async function handleStats(req, res) {
-  const c = await grpc();
-  const scan = await scanSnapshot(c);
+  const scan = servedScan();
+  if (!scan) return warmingUp(res);
   const counters = await loadCounters();
-  // Reconciled at source: the total counts the same listable rows the
-  // /api/invoices list shows (never the raw scanned rows).
   const refusals = await refusalLedger();
-  const common = {
+  const meta = scanMeta(scan);
+  const body = statsBody({
+    rows: scan.rows,
     refusedCount: refusals.length,
     lastVerifierRunAt: counters.lastVerifierRunAt,
-    generatedAt: new Date().toISOString(),
+    generatedAt: meta.generated_at,
+    scannedAt: meta.scanned_at,
+    stale: meta.stale,
     recordedRefusals: refusals.filter((r) => r.origin === 'recorded_evidence').length,
     liveRefusals: refusals.filter((r) => r.origin === 'live_this_server').length,
-  };
-  if (!scan.complete) {
-    // Fail closed (fix-back-6 B1): a partial scan is never served as
-    // totals. The last complete scan's stats stay the answer (labelled
-    // stale, with the time it was read); with no complete scan yet, 503
-    // node_busy (retryable) — the frontend keeps its last good snapshot
-    // instead of rendering shrunken numbers.
-    if (lastCompleteScan) {
-      const body = statsBody({
-        rows: lastCompleteScan.rows,
-        scannedAt: new Date(lastCompleteScan.at).toISOString(),
-        stale: true,
-        sellers: sellerCounts(lastCompleteScan.rows),
-        ...common,
-      });
-      return sendJson(res, 200, body);
-    }
-    return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. Nothing was counted from a partial scan — retry.', { retryable: true });
-  }
-  const body = statsBody({ rows: scan.rows, scannedAt: new Date(lastCompleteScan?.at ?? Date.now()).toISOString(), stale: false, sellers: sellerCounts(scan.rows), ...common });
-  sendJson(res, 200, body);
+    sellers: sellerCounts(scan.rows),
+  });
+  sendJson(res, 200, { ...body, scan_id: meta.scan_id, complete: true, served_at: new Date().toISOString(), by_kind: kindCounts(scan.rows) });
 }
 
 // GET /api/stats/refusals — the list behind refused_on_chain_since_deploy.
@@ -617,25 +664,13 @@ async function handleStatsRefusals(req, res) {
 }
 
 async function handleInvoices(req, res) {
-  const c = await grpc();
-  const scan = await scanSnapshot(c);
-  // Fail closed (fix-back-6 B1): a partial list is never served as 200 --
-  // the frontend keeps its last good snapshot on a retryable 503.
-  if (!scan.complete) {
-    return apiError(res, 503, 'node_busy', 'node', 'The testnet node did not answer for every payable just now. No partial list is served -- retry.', { retryable: true });
-  }
+  const scan = servedScan();
+  if (!scan) return warmingUp(res);
+  const meta = scanMeta(scan);
   const items = listableRows(scan.rows)
     .sort((a, b) => (a.seller === b.seller ? a.id - b.id : a.seller < b.seller ? -1 : 1))
-    .map((r) => ({
-      payable_id: r.id,
-      seller: r.seller,
-      asset: r.asset === 'CCD' ? 'ccd' : 'eudemo',
-      amount_display: amountDisplay(r),
-      due: r.due,
-      status: r.status,
-      label: labelFor(r),
-    }));
-  sendJson(res, 200, { items });
+    .map((r) => invoiceItem(r, { label: labelFor(r), amountDisplay: amountDisplay(r) }));
+  sendJson(res, 200, { items, ...meta, rows_scanned: scan.rows.length, by_kind: kindCounts(scan.rows) });
 }
 
 async function payableFacts(c, view, chainTimeMs) {
@@ -935,6 +970,7 @@ async function handleCreatePayable(req, res) {
   } catch (e) {
     return chainUnreachable(res, e);
   }
+  if (reg.ok && !chainReaderOverride) void refreshScan(); // show the new invoice at the next complete scan
   if (!reg.ok) {
     const info = reg.rejected;
     await updateCounters((counters2) => {
@@ -1001,7 +1037,7 @@ async function handlePay(req, res, id) {
     });
   }
   const { job, created } = await createOrReturnJob(id, rail, seller);
-  if (created) void runJob(job);
+  if (created) void Promise.resolve(runJob(job)).catch(() => {}).finally(() => { if (!chainReaderOverride) void refreshScan(); });
   sendJson(res, 200, {
     job_id: job.job_id, payable_id: job.payable_id, seller: job.seller ?? seller, rail: job.rail,
     steps: job.steps.map((s) => s.step),
@@ -1504,8 +1540,11 @@ const server = createServer(async (req, res) => {
 });
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  ready().then(() => {
+  // Warm the served scan from the persisted copy BEFORE listening, so the very
+  // first request already gets the last complete scan (no warming_up window).
+  ready().then(() => warmScanFromStore()).then(() => {
     server.listen(PORT, HOST, () => {
+      void startScanLoop();
       console.log(`payonce-api listening on http://${HOST}:${PORT} (registry <${REGISTRY.index},${REGISTRY.subindex}>, ${NETWORK})`);
     });
   }).catch((e) => {

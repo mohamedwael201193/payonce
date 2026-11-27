@@ -185,6 +185,19 @@ import { api } from './api'
 export interface LiveSnapshot {
   items: InvoiceItem[]
   stats: Stats
+  /** Id of the API scan both halves came from. Absent when the API predates scan ids. */
+  scanId?: string
+  /** When that scan finished (ISO). The "updated" time shown to the reader. */
+  generatedAt?: string
+}
+
+/** True when stats and list carry the SAME complete scan id: the API builds
+    both from one cached complete scan (api/src/server.mjs, cache-only
+    serving), so the pair is consistent by construction and needs none of the
+    shrink / per-id verification heuristics below (those exist for an API that
+    could serve a partial scan; this one cannot). */
+export function sameCompleteScan(stats: Stats, page: { scan_id?: string; complete?: boolean }): boolean {
+  return Boolean(stats.scan_id) && stats.scan_id === page.scan_id && stats.complete === true && page.complete === true
 }
 
 /** What the last accepted snapshot looked like — the shrink rule compares
@@ -453,6 +466,19 @@ export async function fetchLiveSnapshot(prev: PrevSnapshot = EMPTY_PREV, attempt
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const [items, stats] = await Promise.all([api.getInvoices(), api.getStats()])
+      const page = (items as InvoiceItem[] & { scanMeta?: { scan_id?: string; complete?: boolean } }).scanMeta ?? {}
+      // New API: one complete scan behind both answers. Same scan id means the
+      // pair is consistent and nothing about it is partial, so it is accepted
+      // as is. A different id just means a refresh landed between the two
+      // requests: fall through to the retry (one short pause, no heuristics).
+      if (sameCompleteScan(stats, page)) {
+        return { items, stats, scanId: stats.scan_id, generatedAt: stats.generated_at }
+      }
+      if (stats.scan_id && page.scan_id && stats.scan_id !== page.scan_id) {
+        lastReason = 'a new scan landed between the stats and the list request'
+        if (attempt < attempts - 1) await sleep(300)
+        continue
+      }
       const check = snapshotAccepts(items, stats, prev)
       if (check.ok) {
         // Fix-back-9 MF-1 (b): verify the dropped ids whenever ANY exist

@@ -3,17 +3,17 @@
 // cannot be read the page falls back to the recorded snapshot and says so.
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { RefreshCw } from 'lucide-react'
 import { useConfig } from '../../hooks/useApi'
-import { overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
+import { kindSummary, overdueItems, paidItems, readyToPay } from '../../lib/dashboard'
 import { InvoiceList } from '../InvoiceList'
 import { StartHere } from '../StartHere'
+import { DataNotices } from '../DataNotices'
 import { useAppData, useDocumentTitle, useSellers, type DataSource } from '../hooks'
 import { formatDay, recordedLabel } from '../fees'
 import { clockUtc } from '../format'
 import { sellerName } from '../keys'
 import { Address } from '../Address'
-import { Button, ButtonLink, ButtonRow, Card, EmptyState, Notice, PageHeader, Skeleton, SourceTag, StatusPill } from '../ui'
+import { ButtonLink, ButtonRow, Card, EmptyState, Notice, PageHeader, Skeleton, SourceTag, StatusPill } from '../ui'
 import { useBadgeStatus } from '../badge'
 
 function StatCard({
@@ -83,6 +83,7 @@ export function OverviewPage() {
   const voided = stats?.voided_total ?? 0
   const reserved = stats?.reserved_total ?? 0
   const lastRun = stats?.last_verifier_run_at
+  const kinds = kindSummary(stats)
 
   return (
     <div className="flex flex-col gap-8">
@@ -94,48 +95,35 @@ export function OverviewPage() {
             <SourceTag source={data.source} asOf={data.asOf} />
             <span className="text-sm text-po-grey">
               {data.source === 'live' && data.asOf
-                ? `Updated ${clockUtc(data.asOf)}, refreshes every 30 s`
-                : data.source === 'recorded'
-                  ? recordedLabel(data.asOf)
-                  : 'Reading the testnet'}
+                ? `Registry read at ${clockUtc(data.asOf)}, checked every 30 s`
+                : data.source === 'cached' && data.asOf
+                  ? `Saved from the scan at ${clockUtc(data.asOf)}`
+                  : data.source === 'recorded'
+                    ? recordedLabel(data.asOf)
+                    : 'Reading the testnet'}
             </span>
           </>
         }
       />
 
-      {data.source === 'recorded' ? (
-        <Notice
-          tone="warn"
-          action={
-            <Button small onClick={data.refetch}>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
-            </Button>
-          }
-        >
-          The live API did not answer, so these numbers are the recorded snapshot from {formatDay(data.asOf ?? '')}. They are
-          not live.
-        </Notice>
-      ) : null}
-      {data.stale ? (
-        <Notice tone="warn">
-          Could not refresh just now. Showing the last numbers read in this visit. The page retries every 30 s.
-        </Notice>
-      ) : null}
+      <DataNotices data={data} />
       {loading && data.slow ? <Notice>The testnet API is slow right now. Still reading.</Notice> : null}
 
       <StartHere items={items} />
 
       <section aria-label="Numbers" className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Payables listed"
-          value={items.length}
+          label={kinds ? 'Demo invoices' : 'Payables listed'}
+          value={kinds ? kinds.demo.total : items.length}
           loading={loading}
           source={data.source}
           asOf={data.asOf}
           sub={
-            voided + reserved > 0
-              ? `${voided} voided and ${reserved} reserved are on chain but not listed`
-              : 'All read from the test registry'
+            kinds
+              ? `Including ${kinds.tests.total} automated test runs on the same registry: ${kinds.total} payables in all${voided + reserved > 0 ? `. ${voided} voided and ${reserved} reserved are not listed.` : '.'}`
+              : voided + reserved > 0
+                ? `${voided} voided and ${reserved} reserved are on chain but not listed`
+                : 'All read from the test registry'
           }
         />
         <StatCard
@@ -144,7 +132,11 @@ export function OverviewPage() {
           loading={loading}
           source={data.source}
           asOf={data.asOf}
-          sub={`${view.paid} of ${items.length} payables are paid`}
+          sub={
+            kinds
+              ? `${view.paid} of ${items.length} payables are paid: ${kinds.demo.paid} of ${kinds.demo.total} demo, ${kinds.tests.paid} of ${kinds.tests.total} test runs`
+              : `${view.paid} of ${items.length} payables are paid`
+          }
         />
         <StatCard
           label="Open"

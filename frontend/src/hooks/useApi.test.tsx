@@ -173,11 +173,12 @@ describe('useLiveSnapshot retry (fix-back-10 MF-4)', () => {
       await vi.advanceTimersByTimeAsync(2000)
     })
     await flush()
-    // Attempt 3 fails and the query settles in error. Advance 5 s more:
+    // Attempt 3 fails and the query settles in error. Advance 4 s more
+    // (the empty-state poll, every 5 s, is a refetch not a retry):
     // a react-query retry (default delay ~1 s) would have started a
     // second queryFn by now — 6 more fetch calls — if retry were not 0.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000)
+      await vi.advanceTimersByTimeAsync(4000)
     })
     await flush()
     expect(result.current.isError).toBe(true)

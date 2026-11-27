@@ -90,6 +90,32 @@ export interface Stats {
   reserved_total?: number
   /** Where each figure comes from: kind is 'live', 'recorded' or 'server'. */
   sources?: Record<string, { kind: string; basis?: string }>
+  /** One id per complete registry scan on the API. Stats and the invoice list
+      carry the same id when they describe the same scan. Absent on an old API. */
+  scan_id?: string
+  /** True: this body is built from a COMPLETE scan (the API never serves partial ones). */
+  complete?: boolean
+  /** When the scan this body describes finished (not when it was requested). */
+  generated_at?: string
+  /** Demo invoices vs automated test runs, both counted in payables_total. */
+  by_kind?: KindCounts
+}
+
+export interface KindCounts {
+  demo: { total: number; paid: number }
+  matrix: { total: number; paid: number }
+  lab: { total: number; paid: number }
+  test_runs: { total: number; paid: number }
+  rule?: string
+}
+
+export type InvoiceKind = 'demo' | 'matrix' | 'lab'
+
+export interface InvoicePage {
+  items: InvoiceItem[]
+  scan_id?: string
+  complete?: boolean
+  generated_at?: string
 }
 
 export interface InvoiceItem {
@@ -100,6 +126,8 @@ export interface InvoiceItem {
   due: string
   status: string
   label: string
+  /** demo = curated demo invoice; matrix / lab = automated test runs. Absent on an old API. */
+  kind?: InvoiceKind
 }
 
 export interface PayableFacts {

@@ -11,6 +11,7 @@ import type {
   AttackResult,
   Health,
   InvoiceItem,
+  InvoicePage,
   JobSnapshot,
   JudgeFile,
   PayableFacts,
@@ -103,6 +104,18 @@ const statsSchema = z.object({
   voided_total: z.number().optional(),
   reserved_total: z.number().optional(),
   sources: z.record(z.object({ kind: z.string() }).passthrough()).optional(),
+  scan_id: z.string().optional(),
+  complete: z.boolean().optional(),
+  generated_at: z.string().optional(),
+  by_kind: z
+    .object({
+      demo: z.object({ total: z.number(), paid: z.number() }),
+      matrix: z.object({ total: z.number(), paid: z.number() }),
+      lab: z.object({ total: z.number(), paid: z.number() }),
+      test_runs: z.object({ total: z.number(), paid: z.number() }),
+      rule: z.string().optional(),
+    })
+    .optional(),
 })
 
 const invoiceItemSchema = z.object({
@@ -117,6 +130,14 @@ const invoiceItemSchema = z.object({
   // and rail links all see the same values against either source.
   status: z.string().transform((s) => s.toLowerCase()),
   label: z.string(),
+  kind: z.enum(['demo', 'matrix', 'lab']).optional(),
+})
+
+const invoicePageSchema = z.object({
+  items: z.array(invoiceItemSchema),
+  scan_id: z.string().optional(),
+  complete: z.boolean().optional(),
+  generated_at: z.string().optional(),
 })
 
 const payableSchema = z.object({
@@ -517,10 +538,18 @@ export const api = {
   getConfig: () => request<ApiConfig>('/api/config', configSchema),
   getHealth: () => request<Health>('/api/health', healthSchema),
   getStats: () => request<Stats>('/api/stats', statsSchema),
+  /** The listed rows. The array also carries a non-enumerable `scanMeta`
+      (scan_id, complete, generated_at) so a caller can tell that stats and
+      list describe the same scan; callers that only want rows ignore it. */
   getInvoices: () =>
-    request<{ items: InvoiceItem[] }>('/api/invoices', z.object({ items: z.array(invoiceItemSchema) })).then(
-      (r) => r.items,
-    ),
+    request<InvoicePage>('/api/invoices', invoicePageSchema).then((r) => {
+      const items: InvoiceItem[] = r.items
+      Object.defineProperty(items, 'scanMeta', {
+        value: { scan_id: r.scan_id, complete: r.complete, generated_at: r.generated_at },
+        enumerable: false,
+      })
+      return items
+    }),
   // Merge (design-merge onto main 86e2596): two call conventions
   // collide on the 2nd parameter -- main seller threading passes a
   // seller string, fix-back-9 per-id verification passes a

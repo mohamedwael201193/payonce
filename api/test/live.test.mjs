@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { server } from '../src/server.mjs';
+import { server, refreshScan } from '../src/server.mjs';
 import { DATA_DIR } from '../src/config.mjs';
 
 const SELLER1 = '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB';
@@ -20,7 +20,11 @@ const PORT = 17401;
 const BASE = `http://127.0.0.1:${PORT}`;
 const sha256 = (b) => createHash('sha256').update(b).digest('hex');
 
-before(() => new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve)));
+before(async () => {
+  await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
+  // stats/invoices are cache-only: run the first complete scan up front (what the boot loop does).
+  await refreshScan();
+}, { timeout: 300_000 });
 after(() => new Promise((resolve) => server.close(resolve)));
 
 async function get(path) {

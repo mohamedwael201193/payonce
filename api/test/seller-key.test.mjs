@@ -19,7 +19,7 @@ const { SELLER2_ADDRESS, OWNER_ADDRESS } = await import('../src/config.mjs')
 const { docForPayableForSeller, recordedRunFor, recordedPaymentTx, recordedPaymentTxForSeller } = await import('../src/docs.mjs')
 const { paymentTxsFor } = await import('../src/receipts.mjs')
 const server = await import('../src/server.mjs')
-const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, resolveWriteSeller, isNodeError, __setChainReaderForTests } = server
+const { handleGetPayable, handleDocument, handleInvoices, labelFor, rejectNonSeller1Write, resolveWriteSeller, isNodeError, __setChainReaderForTests, refreshScan } = server
 
 const S1 = OWNER_ADDRESS
 const S2 = SELLER2_ADDRESS
@@ -138,6 +138,7 @@ test('invoices list: rows carry their seller; the same bare id appears once per 
     return id === 1 ? view(S1, 1, 'Unpaid') : null
   })
   const res = fakeRes()
+  await refreshScan()
   await handleInvoices({}, res)
   assert.equal(res.captured.status, 200)
   const ones = res.captured.json.items.filter((i) => i.payable_id === 1)

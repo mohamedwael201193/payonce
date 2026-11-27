@@ -12,7 +12,7 @@ import { join } from 'node:path'
 process.env.PAYONCE_DATA_DIR = mkdtempSync(join(tmpdir(), 'payonce-stats-'))
 const { OWNER_ADDRESS: S1, SELLER2_ADDRESS: S2 } = await import('../src/config.mjs')
 const { statsBody } = await import('../src/listable.mjs')
-const { handleStats, handleStatsRefusals, handleInvoices, __setChainReaderForTests } = await import('../src/server.mjs')
+const { handleStats, handleStatsRefusals, handleInvoices, __setChainReaderForTests, refreshScan, __resetScanForTests } = await import('../src/server.mjs')
 const { recordedRefusals } = await import('../src/docs.mjs')
 
 const DUE = '2026-12-01T08:03:26.555Z'
@@ -39,6 +39,7 @@ test('legacy statsBody call (no provenance args) keeps the exact legacy shape', 
 })
 
 test('every counted number equals a recount of the listed rows (both sellers)', async () => {
+  await refreshScan()
   const sres = fakeRes(); await handleStats({}, sres)
   const ires = fakeRes(); await handleInvoices({}, ires)
   assert.equal(sres.captured.status, 200)
@@ -60,6 +61,7 @@ test('every counted number equals a recount of the listed rows (both sellers)', 
 })
 
 test('provenance: generated_at, scanned_at, stale and a source for every numeric field', async () => {
+  await refreshScan()
   const res = fakeRes(); await handleStats({}, res)
   const s = res.captured.json
   assert.ok(!Number.isNaN(Date.parse(s.generated_at)))
@@ -80,6 +82,7 @@ test('provenance: generated_at, scanned_at, stale and a source for every numeric
 })
 
 test('refused count is exactly the length of the listed hashes, each a 64-hex tx hash', async () => {
+  await refreshScan()
   const sres = fakeRes(); await handleStats({}, sres)
   const rres = fakeRes(); await handleStatsRefusals({}, rres)
   const s = sres.captured.json
@@ -93,16 +96,20 @@ test('refused count is exactly the length of the listed hashes, each a 64-hex tx
   assert.ok(r.items.every((i) => /^https:\/\//.test(i.explorer_url)))
 })
 
-test('an incomplete scan after a complete one serves the last scan labelled stale, with its read time', async () => {
+test('an incomplete refresh after a complete one keeps serving the last complete scan (same scan_id, same numbers)', async () => {
+  await refreshScan()
   const first = fakeRes(); await handleStats({}, first)
   __setChainReaderForTests(async (id, seller) => {
     if (id === 10) throw new Error('node busy')
     return ROWS[`${seller}:${id}`] ?? null
   })
+  const partial = await refreshScan()
+  assert.equal(partial.complete, false)
   const res = fakeRes(); await handleStats({}, res)
   const s = res.captured.json
   assert.equal(res.captured.status, 200)
-  assert.equal(s.stale, true)
+  assert.equal(s.complete, true)
+  assert.equal(s.scan_id, first.captured.json.scan_id, 'the partial scan was never promoted')
   assert.equal(s.payables_total, first.captured.json.payables_total)
   assert.ok(Date.parse(s.scanned_at) <= Date.parse(s.generated_at))
   __setChainReaderForTests(async (id, seller) => ROWS[`${seller}:${id}`] ?? null)

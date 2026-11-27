@@ -5,6 +5,8 @@
 // same render (the persistent 14-vs-13 off-by-one: payable 4 is Voided on
 // chain, so the old stats counted 14 scanned rows while the list showed 13).
 // Pure, zero dependencies, unit-tested in api/test/stats-reconcile.test.mjs.
+import { OWNER_ADDRESS, SELLER2_ADDRESS } from './config.mjs'
+
 export function listableRows(rows) {
   return rows.filter((r) => r.status === 'Unpaid' || r.status === 'Paid')
 }
@@ -74,5 +76,52 @@ export function statsBody({
         as_of: lastVerifierRunAt,
       },
     },
+  }
+}
+
+// ---- demo vs automated test runs (2026-11-27) ----
+// The chain has no "this was a test" flag, so the split is an explicit,
+// stable, id-based rule (it never depends on status, so a row does not
+// change bucket when it is paid and the numbers cannot jump):
+//   demo    the curated demo invoices: seller 1 ids 10, 11 and seller 2
+//           ids 1, 2 (the invoices the guided flow was built around)
+//   matrix  contract-matrix test payables: seller 1 ids 1..5
+//   lab     every other row: lab invoices registered by automated test
+//           runs ("Lab invoice (testnet, not a real invoice)")
+// matrix + lab together are the "automated test runs" and are ALWAYS
+// counted in the headline totals; the split is shown, never hidden.
+export const KIND_RULE = 'demo = seller 1 ids 10, 11 and seller 2 ids 1, 2; matrix = seller 1 ids 1-5 (contract-matrix tests); lab = every other row (automated test runs). Id-based, so a row never changes bucket when its status changes.'
+const DEMO_S1 = new Set([10, 11])
+const DEMO_S2 = new Set([1, 2])
+export function rowKind(r) {
+  const isS2 = r.seller === SELLER2_ADDRESS
+  if (isS2) return DEMO_S2.has(r.id) ? 'demo' : 'lab'
+  if (DEMO_S1.has(r.id)) return 'demo'
+  if (r.id >= 1 && r.id <= 5) return 'matrix'
+  return 'lab'
+}
+export function kindCounts(rows) {
+  const out = { demo: { total: 0, paid: 0 }, matrix: { total: 0, paid: 0 }, lab: { total: 0, paid: 0 } }
+  for (const r of listableRows(rows)) {
+    const k = out[rowKind(r)]
+    k.total += 1
+    if (r.status === 'Paid') k.paid += 1
+  }
+  return {
+    ...out,
+    test_runs: { total: out.matrix.total + out.lab.total, paid: out.matrix.paid + out.lab.paid },
+    rule: KIND_RULE,
+  }
+}
+export function invoiceItem(r, { label, amountDisplay }) {
+  return {
+    payable_id: r.id,
+    seller: r.seller,
+    asset: r.asset === 'CCD' ? 'ccd' : 'eudemo',
+    amount_display: amountDisplay,
+    due: r.due,
+    status: r.status,
+    label,
+    kind: rowKind(r),
   }
 }

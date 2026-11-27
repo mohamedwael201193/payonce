@@ -127,6 +127,13 @@ export function SourceTag({ source, asOf }: { source: DataSource; asOf?: string 
       </span>
     )
   }
+  if (source === 'cached') {
+    return (
+      <span className="po-tag po-tag-recorded" title="Saved in this browser from your last visit; the live read is on its way">
+        CACHED
+      </span>
+    )
+  }
   return (
     <span className="po-tag po-tag-recorded" title={recordedLabel(asOf)}>
       RECORDED

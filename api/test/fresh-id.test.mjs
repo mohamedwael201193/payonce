@@ -15,7 +15,7 @@ process.env.PAYONCE_DATA_DIR = mkdtempSync(join(tmpdir(), 'payonce-freshid-'))
 const { loadCounters, updateCounters } = await import('../src/store.mjs')
 const { allocateFreshId, registerWithFreshId, releaseFreshId } = await import('../src/fresh-id.mjs')
 const { OWNER_ADDRESS: S1, FRESH_ID_START } = await import('../src/config.mjs')
-const { handleStats, handleInvoices, __setChainReaderForTests } = await import('../src/server.mjs')
+const { handleStats, handleInvoices, __setChainReaderForTests, refreshScan } = await import('../src/server.mjs')
 
 const reset = (nextFreshId, freshIds = []) => updateCounters((c) => { c.nextFreshId = nextFreshId; c.freshIds = freshIds })
 
@@ -88,6 +88,7 @@ test('stats discover payables on chain beyond a regressed counter and fold them 
     return { id, seller: S1, status: id === 1052 ? 'Paid' : 'Unpaid', asset: 'CCD', amount: '500000', due: '2026-12-01T00:00:00.000Z' }
   })
   const res = { captured: {}, writeHead(s) { this.captured.status = s }, end(b) { this.captured.json = JSON.parse(b) } }
+  await refreshScan()
   await handleStats({}, res)
   assert.equal(res.captured.status, 200)
   assert.equal(res.captured.json.payables_total, live.size)

@@ -17,3 +17,4 @@ concordium-out/
 **/concordium-out
 .vercel
 .env*
+api/data/scan.json

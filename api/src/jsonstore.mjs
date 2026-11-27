@@ -185,3 +185,11 @@ export async function storedDocumentRecord(id) {
   const p = join(DOCS_DIR, `${id}.txt`);
   return existsSync(p) ? readFileSync(p) : null;
 }
+
+// ---- last complete registry scan ----
+export async function loadScan() {
+  return loadJson('scan.json', null);
+}
+export async function saveScan(scan) {
+  saveJson('scan.json', scan);
+}

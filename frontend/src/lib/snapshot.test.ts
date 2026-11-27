@@ -1047,3 +1047,52 @@ describe('fetchLiveSnapshot', () => {
     vi.restoreAllMocks()
   })
 })
+
+// Cache-only API (2026-11-27): stats + list carry the SAME complete scan id,
+// so the pair is accepted as is -- no shrink heuristics, no per-id reads.
+describe('fetchLiveSnapshot with scan ids (API serves one complete scan)', () => {
+  const withMeta = (items: InvoiceItem[], scan_id: string, complete = true) => {
+    const out = [...items]
+    Object.defineProperty(out, 'scanMeta', { value: { scan_id, complete }, enumerable: false })
+    return out
+  }
+  const scanStats = (total: number, paid: number, scan_id: string): Stats => ({ ...stats(total, paid, 1, 5), scan_id, complete: true, generated_at: '2026-11-27T10:00:00.000Z' })
+
+  it('same scan id: accepted at once, even with a huge change vs the previous snapshot (no verification calls)', async () => {
+    const { api } = await import('./api')
+    const verify = vi.spyOn(api, 'getPayable')
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => withMeta(Array.from({ length: 424 }, (_, i) => item(i + 1, i < 187 ? 'paid' : 'unpaid')), 's9'))
+    vi.spyOn(api, 'getStats').mockImplementation(async () => scanStats(424, 187, 's9'))
+    const snap = await fetchLiveSnapshot(prev(53, 1, 5, 33))
+    expect(snap.items).toHaveLength(424)
+    expect(snap.scanId).toBe('s9')
+    expect(snap.generatedAt).toBe('2026-11-27T10:00:00.000Z')
+    expect(verify).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+  })
+
+  it('different scan ids (a refresh landed between the two requests): refetched, then accepted when they match', async () => {
+    const { api } = await import('./api')
+    let n = 0
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => {
+      n += 1
+      return withMeta([item(1, 'paid'), item(2, 'unpaid')], n === 1 ? 'a' : 'b')
+    })
+    vi.spyOn(api, 'getStats').mockImplementation(async () => scanStats(2, 1, 'b'))
+    const snap = await fetchLiveSnapshot(undefined)
+    expect(n).toBe(2)
+    expect(snap.scanId).toBe('b')
+    expect(snap.items).toHaveLength(2)
+    vi.restoreAllMocks()
+  })
+
+  it('no scan ids (old API): the legacy agreement rules still apply', async () => {
+    const { api } = await import('./api')
+    vi.spyOn(api, 'getInvoices').mockImplementation(async () => [item(1, 'paid')])
+    vi.spyOn(api, 'getStats').mockImplementation(async () => stats(1, 1))
+    const snap = await fetchLiveSnapshot(undefined)
+    expect(snap.items).toHaveLength(1)
+    expect(snap.scanId).toBeUndefined()
+    vi.restoreAllMocks()
+  })
+})
