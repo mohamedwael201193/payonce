@@ -105,7 +105,7 @@ describe('AgentPage', () => {
     expect(within(decisions[0]).getByTestId('agent-paid')).toHaveTextContent('Paid 0.500000 CCD on the CCD rail')
     expect(within(decisions[0]).getByText(/Run the verifier yourself/)).toBeInTheDocument()
     expect(within(decisions[1]).getByTestId('agent-refusal')).toHaveTextContent('Nothing was sent')
-    expect(within(decisions[1]).getByText(/changed after it was registered/)).toBeInTheDocument()
+    expect(within(decisions[1]).getAllByText(/changed after it was registered/).length).toBeGreaterThan(0)
     expect(within(decisions[1]).getByText(/Hostile: edited invoice/)).toBeInTheDocument()
   })
 
