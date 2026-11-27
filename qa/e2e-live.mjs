@@ -346,7 +346,7 @@ async function main() {
   for (const key of Object.keys(paid)) {
     const p = paid[key];
     const [sk, rail] = key.split(':');
-    const again = await POST(`/api/payables/${p.id}/pay`, { rail, doc_sha256: p.docHash, seller: p.sellerAddr }, { retries: 0 });
+    const again = await POST(`/api/payables/${p.id}/pay`, { rail, doc_sha256: p.docHash, seller: p.sellerAddr }, { retries: 3 });
     check(again.status === 409 && again.json?.error?.code === 'already_paid', sk, rail, 'double pay: the API refuses (already_paid)', `HTTP 409 ${again.json?.error?.message?.slice(0, 80)}`, `HTTP ${again.status} ${again.json?.error?.code}`);
     if (sk !== 'seller1') continue; // attack sends are seller-1 only
     if (state.attacksLeft < 1) { row(sk, rail, 'double pay: second payment sent to the chain', 'SKIP', 'attack-send budget (3/hour/IP) is empty'); continue; }
