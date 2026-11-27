@@ -30,7 +30,7 @@ export function matrixDocBytes(id) {
 
 /** Deterministic lab invoice text for a fresh payable (same shape as the
  *  v2 happy-path invoice files). The hash of THESE bytes is registered. */
-export function generateLabDocument({ id, asset, amount, payee, seller, due }) {
+export function generateLabDocument({ id, asset, amount, payee, seller, due, ageGate = null }) {
   const amountLine = asset === 'CCD'
     ? `Amount: ${(Number(amount) / 1e6).toFixed(6)} CCD (${amount} microCCD)`
     : `Amount: ${(Number(amount) / 1e6).toFixed(2)} EUDemo (${amount} base units, 6 decimals)`;
@@ -40,6 +40,7 @@ export function generateLabDocument({ id, asset, amount, payee, seller, due }) {
     `Payee: ${payee}`,
     amountLine,
     `Due: ${new Date(Number(due)).toISOString()}`,
+    ...(ageGate ? [`Age restriction: ${Number(ageGate)}+ (age-restricted goods: the buyer must present a V&A 18+ proof before this invoice is paid)`] : []),
     'Test only — Concordium testnet, no real goods or services.',
     '',
   ].join('\n');
@@ -86,9 +87,12 @@ async function regenerateLabDocument(seller, id) {
     const { grpc, getPayableOrNull } = await import('./chain-v2.mjs');
     const view = await getPayableOrNull(await grpc(), seller, id);
     if (!view) return null;
-    const text = generateLabDocument({ id, asset: view.asset, amount: view.amount, payee: view.payee, seller, due: view.dueMs });
-    const bytes = Buffer.from(text, 'utf8');
-    return sha256Hex(bytes) === view.docHash.toLowerCase() ? bytes : null;
+    for (const ageGate of [null, 18]) {
+      const text = generateLabDocument({ id, asset: view.asset, amount: view.amount, payee: view.payee, seller, due: view.dueMs, ageGate });
+      const bytes = Buffer.from(text, 'utf8');
+      if (sha256Hex(bytes) === view.docHash.toLowerCase()) return bytes;
+    }
+    return null;
   } catch { return null; }
 }
 

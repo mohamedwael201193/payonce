@@ -146,7 +146,14 @@ export async function merchantCheckBuyer({ grpcClient, tokenId, expectedOwner = 
   }
   let agent = null;
   try {
-    agent = await agentOf(grpcClient, tokenId);
+    // The public node answers 429 under load: a busy node is retried (3 tries), only a real answer decides.
+    for (let attempt = 0; ; attempt += 1) {
+      try { agent = await agentOf(grpcClient, tokenId); break; } catch (e) {
+        const busy = /RESOURCE_EXHAUSTED|UNAVAILABLE|HTTP status code (429|502|503|504)|ECONNRESET|ETIMEDOUT|DEADLINE/i.test(String(e?.message ?? e)) || [8, 14, 4].includes(Number(e?.code));
+        if (!busy || attempt >= 2) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
   } catch (e) {
     push('exists', 'Buyer agent exists on the official CIS-8004 registry', 'fail', `agentOf read failed: ${String(e?.message ?? e).slice(0, 200)}`);
     return { verdict: 'refuse', tokenId, expectedOwner, checks, evidence: { via: 'merchantCheckBuyer' } };
@@ -175,6 +182,13 @@ export async function merchantCheckBuyer({ grpcClient, tokenId, expectedOwner = 
     push('mcp_agent_of', 'MCP agent_of agrees (owner + Active)', mcpOwnerOk && mcpActiveOk ? 'ok' : 'fail', `mcp owner=${mcpAgent.owner_account?.slice(0, 8) ?? '?'}…, status=${mcpAgent.status}, token_address=${mcpAgent.token_address ?? 'none'}`);
   } else {
     push('mcp_agent_of', 'MCP agent_of agrees (owner + Active)', 'not_run', `MCP call failed: ${mcpError ?? 'no payload'}`);
+  }
+  // agentWallet must be the account that actually pays (the registry's own field, read through the MCP).
+  if (mcpAgent && typeof mcpAgent === 'object') {
+    const walletOk = mcpAgent.agent_wallet === expectedOwner;
+    push('agent_wallet', 'agentWallet equals the paying account', walletOk ? 'ok' : 'fail', `agentWallet=${mcpAgent.agent_wallet ?? 'none'}, paying account=${expectedOwner}`);
+  } else {
+    push('agent_wallet', 'agentWallet equals the paying account', 'not_run', `MCP agent_of not available (${mcpError ?? 'no payload'}); Active + owner from the chain read still apply`);
   }
   // Full badge check only when the agent has a published card/URI.
   // Every CIS-8004 token gets a token_address, but the badge checks

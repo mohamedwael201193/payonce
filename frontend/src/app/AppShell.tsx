@@ -17,6 +17,7 @@ import {
   UserCheck,
   Wallet,
   ArrowUpRight,
+  Bot,
 } from 'lucide-react'
 import { LogoMark } from '../components/Logo'
 import { useHealth } from '../hooks/useApi'
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/app', label: 'Overview', icon: LayoutGrid, match: '/app', exact: true },
   { to: '/app/pay', label: 'Pay', icon: Wallet, match: '/app/pay' },
   { to: '/app/invoices', label: 'Invoices', icon: FileText, match: '/app/invoices' },
+  { to: '/app/agent', label: 'Agent pays', icon: Bot, match: '/app/agent' },
   { to: '/app/break', label: 'Break it', icon: ShieldAlert, match: '/app/break' },
   { to: '/app/judges', label: 'Judges', icon: Scale, match: '/app/judges' },
 ]
@@ -174,7 +176,9 @@ function MobileChrome() {
   const { pathname } = useLocation()
   const [more, setMore] = useState(false)
   const data = useAppData()
-  const moreActive = MORE_ITEMS.some((i) => activeFor(i, pathname))
+  // On a phone the tab bar keeps four tasks; Agent pays and Judges live in the More sheet.
+  const MOBILE_MORE = [NAV_ITEMS.find((i) => i.to === '/app/judges')!, NAV_ITEMS.find((i) => i.to === '/app/agent')!, ...MORE_ITEMS]
+  const moreActive = MOBILE_MORE.some((i) => activeFor(i, pathname))
   return (
     <>
       <header className="sticky top-0 z-30 flex min-h-[56px] items-center justify-between border-b border-po-line-strong/40 bg-po-surface px-4">
@@ -193,7 +197,7 @@ function MobileChrome() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto grid max-w-[560px] grid-cols-5">
-          {NAV_ITEMS.filter((i) => i.to !== '/app/judges').map((item) => {
+          {NAV_ITEMS.filter((i) => i.to !== '/app/judges' && i.to !== '/app/agent').map((item) => {
             const active = activeFor(item, pathname)
             return (
               <li key={item.to}>
@@ -237,7 +241,7 @@ function MobileChrome() {
       <Sheet open={more} onClose={() => setMore(false)} title="More" initialFocusId="more-first">
         <h2 className="text-xl font-medium text-po-ink">More</h2>
         <ul className="mt-4 flex flex-col gap-1">
-          {[NAV_ITEMS.find((i) => i.to === '/app/judges')!, ...MORE_ITEMS].map((item, i) => (
+          {MOBILE_MORE.map((item, i) => (
             <li key={item.to}>
               <Link
                 id={i === 0 ? 'more-first' : undefined}

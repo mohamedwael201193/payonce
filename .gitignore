@@ -18,3 +18,4 @@ concordium-out/
 .vercel
 .env*
 api/data/scan.json
+api/data-local-*/

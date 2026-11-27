@@ -37,6 +37,9 @@ export const CIS8004_OFFICIAL = {
 };
 export const RESERVATION_SECS = Number(env.PAYONCE_RESERVATION_SECS ?? 3600);
 export const CO_SIGNER_MARGIN_SECS = 60;
+// The buyer agent (the demo payer's own CIS-8004 token on the official registry <12802,0>): owner and
+// agentWallet are both the payer account. Registered 2026-11-24 (V8 §4); no agent card is published for it.
+export const BUYER_TOKEN_ID = Number(env.PAYONCE_BUYER_TOKEN ?? 1488);
 export const OWNER_TOKEN = Number(env.PAYONCE_OWNER_TOKEN ?? 1476);
 
 // Second seller (live 2026-11-25): identity 0 counter 0 of the same seed,

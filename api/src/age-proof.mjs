@@ -186,8 +186,8 @@ export function provesAdult(request, nowMs = Date.now()) {
 // filed a proof for that payer. That shortcut is REMOVED: an account DID
 // is never trusted on its own, and an account address is accepted only
 // as the result of resolving a credential DID on chain.
-const DID_CRED_RE = /^did:ccd:[a-z]+:cred:([0-9a-fA-F]{64})$/;
-const HEX64_RE = /^[0-9a-fA-F]{64}$/;
+const DID_CRED_RE = /^did:ccd:[a-z]+:cred:([0-9a-fA-F]{96}|[0-9a-fA-F]{64})$/;
+const HEX64_RE = /^(?:[0-9a-fA-F]{96}|[0-9a-fA-F]{64})$/;
 
 /**
  * Extract the holder from a V1 presentation.
@@ -266,8 +266,8 @@ export function clearAgeProofs() {
 }
 
 /** Gate decision for handlePay: null = pass, otherwise the 409 payload. */
-export function ageGateCheck(view, payer, nowMs = Date.now()) {
-  if (!isAgeGated(view)) return null;
+export function ageGateCheck(view, payer, nowMs = Date.now(), { forceGated = false } = {}) {
+  if (!forceGated && !isAgeGated(view)) return null;
   if (findFreshAgeProof(payer, view.id, nowMs)) return null;
   return {
     status: 409,
@@ -275,7 +275,7 @@ export function ageGateCheck(view, payer, nowMs = Date.now()) {
     layer: 'app',
     message: `Payable ${view.id} is ${view.asset === 'CCD'
       ? `${(Number(view.amount) / 1e6).toFixed(6)} CCD`
-      : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`} — payments of 1 CCD or 1.00 EUDemo or more need a fresh (within 10 minutes) verified 18+ age proof for the payer. Verify first at /verify-age?payable=${view.id}, then pay within 10 minutes.`,
+      : `${(Number(view.amount) / 1e6).toFixed(2)} EUDemo`} — payments of 1 CCD or 1.00 EUDemo or more, and invoices that state an age restriction, need a fresh (within 10 minutes) verified 18+ age proof for the payer. Verify first at /verify-age?payable=${view.id}, then pay within 10 minutes.`,
     verify_url: `/verify-age?payable=${view.id}`,
     payable_id: view.id,
   };

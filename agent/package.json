@@ -1,0 +1,13 @@
+{
+  "name": "payonce-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PayOnce agent track: an MCP server (list_payables, check_payable, pay_payable, receipt) and an autonomous invoice-paying agent. Testnet only. No third-party dependencies.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "mcp": "node mcp-server/server.mjs",
+    "run": "node run.mjs"
+  }
+}

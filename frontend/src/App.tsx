@@ -7,6 +7,7 @@ import { PayPage } from './app/pages/PayPage'
 import { InvoicesPage } from './app/pages/InvoicesPage'
 import { ReceiptPage } from './app/pages/ReceiptPage'
 import { BreakPage } from './app/pages/BreakPage'
+import { AgentPage } from './app/pages/AgentPage'
 import { JudgesPage } from './app/pages/JudgesPage'
 import { X402Page } from './app/pages/X402Page'
 import { AgeProofPage } from './pages/AgeProofPage'
@@ -145,6 +146,7 @@ export function AppRoutes() {
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="receipt/*" element={<ReceiptPage />} />
         <Route path="break" element={<BreakPage />} />
+        <Route path="agent" element={<AgentPage />} />
         <Route path="age" element={<AgeProofPage />} />
         <Route path="judges" element={<JudgesPage />} />
         <Route path="x402" element={<X402Page />} />

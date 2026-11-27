@@ -37,7 +37,7 @@ import {
   verifyConsentVra, approveConsentHeadless, isConsentExpired, isAboveAskMeThreshold,
   ASK_ME_THRESHOLD_BASE, CONSENT_VALIDITY_SECS, CONSENT_DOMAIN, LAB_CONSENT_ANCHORS,
   LAB_VA_ANCHORS, verifyV1PresentationWithNode, anchorConsentVaa,
-  extractPresentationNonce, assertPresentationNonceMatches,
+  extractPresentationNonce, assertPresentationNonceMatches, vClient,
 } from './consent.mjs';
 import { mcpToolsList, mcpCheckBadge, mcpAgentOf, mcpAgentsByOwner, MCP_URL } from './mcp-client.mjs';
 import { checkBalances, topUpPayer, BALANCE_OK_MICROCCD } from './balance-watch.mjs';
@@ -46,16 +46,18 @@ import { registerBuyerAgent, merchantCheckBuyer, buyerAgent, BUYER_ACCOUNT } fro
 import { requestCis8Binding, CIS8_CONTRACT, CIS8_SELLER_TOKEN, externalKeyFromEnv } from './cis8.mjs';
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
+import { ageRequirement } from './age-requirement.mjs';
+import { runAgeProofV1 } from './age-v1.mjs';
 import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoKeySet } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
 import {
-  createAgeProofHandlers, ageGateCheck,
+  createAgeProofHandlers, ageGateCheck, findFreshAgeProof,
 } from './age-proof.mjs';
 import {
   REGISTRY, CIS8004_OFFICIAL, RESERVATION_SECS, CO_SIGNER_MARGIN_SECS,
-  OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO,
+  OWNER_TOKEN, OWNER_ADDRESS, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO, BUYER_TOKEN_ID,
   SELLER2_ADDRESS, SELLER2_TOKEN, SELLER2_BADGE, SELLER2_AGENT_CARD_URL, SELLER2_FRESH_ID_START,
   FRESH_CCD_MICRO, FRESH_EUDEMO_BASE, FRESH_DUE_HOURS, FRESH_ID_START,
   LIMITS, PORT, HOST, NETWORK, EXPLORER_TX, EXPLORER_INSTANCE,
@@ -189,8 +191,8 @@ function clientIp(req) {
 // payer; an unresolvable holder files nothing (fail closed).
 async function resolveHolderAccount(credIdHex) {
   try {
-    const c = await grpc();
-    const info = await c.getAccountInfo(CredentialRegistrationId.fromHexString(credIdHex));
+    // The api's own SDK copy and client (vClient): the backend's client rejects the api copy's id classes.
+    const info = await vClient().getAccountInfo(CredentialRegistrationId.fromHexString(credIdHex));
     const j = JSON.parse(JSON.stringify(info, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
     const address = j?.accountAddress;
     return typeof address === 'string' && address ? address : null;
@@ -528,6 +530,7 @@ let configCache = { at: 0, reservationSecs: RESERVATION_SECS, vendorList: null, 
 async function liveConfig(c) {
   const now = Date.now();
   if (now - configCache.at < 300_000 && configCache.vendorList) return configCache;
+  let vendorReadOk = false;
   try {
     const cfg = await getChainConfig(c);
     configCache.reservationSecs = cfg.reservation_secs;
@@ -546,6 +549,7 @@ async function liveConfig(c) {
     if (approval1) list.push({ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' });
     if (approval2) list.push({ seller: SELLER2_ADDRESS, label: 'Second seller account (PayOnce Seller 2)' });
     configCache.vendorList = list;
+    vendorReadOk = true;
     configCache.onChainStrict = await onChainStrict(c);
   } catch {
     // gRPC error: keep the previous list when there is one; otherwise
@@ -554,7 +558,8 @@ async function liveConfig(c) {
     // unconditionally — that behaviour is gone, see CHANGES.md.
     if (!configCache.vendorList) configCache.vendorList = [];
   }
-  configCache.at = now;
+  // A failed vendor read (public node 429) is retried in 10 s, not cached for 5 minutes as an empty list.
+  configCache.at = vendorReadOk ? now : now - 290_000;
   return configCache;
 }
 
@@ -632,7 +637,7 @@ async function handleConfig(req, res) {
       va_anchors: { vra: LAB_VA_ANCHORS.vra, vaa: LAB_VA_ANCHORS.vaa },
     },
     mcp: { url: MCP_URL, network: 'testnet', tools: 41, note: 'network=testnet is passed on every call; the server default is mainnet' },
-    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: null, status: 'not_registered' },
+    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: BUYER_TOKEN_ID, status: 'registered', registry: '<12802,0>', note: 'CIS-8004 token on the official registry; owner and agentWallet are the paying account; no agent card is published for it.' },
     fee_peg: { per_transaction_eur: 0.01, basis: 'Concordium fee peg (W1 §1.2): €0.01 per transaction; see the fee table on the judge page' },
     balance_watch: { ok_threshold_micro_ccd: BALANCE_OK_MICROCCD.toString(), accounts: ['payer (seller B)', 'sponsor (owner)', 'EUDemo wallet'] },
     as_of: new Date().toISOString(),
@@ -1004,6 +1009,9 @@ async function handleCreatePayable(req, res) {
   const isS2 = seller === SELLER2;
   const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
   if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
+  // Optional age gate (L2): the registered invoice document states "Age restriction: 18+", bound to the chain by its hash.
+  const ageGate = body.age_gate === undefined || body.age_gate === null ? null : Number(body.age_gate) === 18 ? 18 : undefined;
+  if (ageGate === undefined) return badRequest(res, 'age_gate, when given, must be 18.');
   const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
   if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
   const budget = await hitWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour);
@@ -1026,7 +1034,7 @@ async function handleCreatePayable(req, res) {
     // of the payable that already owns that id.
     reg = await registerWithFreshId(async (id) => {
       const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
-      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller, due: dueMs });
+      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller, due: dueMs, ageGate });
       const docHash = createHash('sha256').update(Buffer.from(docText, 'utf8')).digest('hex');
       const sent = await sendUpdate(c, {
         from: sellerSigner, receiveName: 'register_payable',
@@ -1124,11 +1132,22 @@ async function handlePay(req, res, id) {
   // (<=10 min) verified 18+ presentation for the payer on file for this
   // payable — filed only via POST /api/age-proof/verify, never trusted
   // from a client claim. Below the threshold age proof is optional.
-  const gate = ageGateCheck(view, PAYER_ADDRESS);
+  // L2: an invoice whose registered document states "Age restriction: 18+" is gated the same way,
+  // whatever its amount. The statement is bound to the chain by the document hash.
+  const ageReq = ageRequirement(view, chainReaderOverride ? null : await docForPayableForSeller(seller, id).catch(() => null));
+  const gate = ageGateCheck(view, PAYER_ADDRESS, Date.now(), { forceGated: ageReq.docGated });
   if (gate) {
     return apiError(res, gate.status, gate.code, gate.layer, gate.message, {
       verify_url: gate.verify_url, payable_id: gate.payable_id,
     });
+  }
+  // L2: the seller side verifies the BUYER agent at pay time (Active on the official registry, owner and
+  // agentWallet equal to the paying account). A refusal here is on evidence; an unreachable MCP only
+  // turns the agentWallet row into "not_run" (the chain read of Active + owner still applies).
+  const buyerGate = await buyerAgentGate(c);
+  if (buyerGate && buyerGate.verdict === 'refuse') {
+    const bad = buyerGate.checks.filter((x) => x.status === 'fail').map((x) => `${x.id}: ${x.detail}`).join('; ');
+    return apiError(res, 409, 'buyer_agent_unverified', 'app', `The seller side refuses this payer: the buyer agent (token ${buyerGate.tokenId}) did not verify (${bad}). Nothing was sent.`, { payable_id: id });
   }
   if (await payerNeedsRefill(res)) return;
   const { job, created } = await createOrReturnJob(id, rail, seller);
@@ -1137,6 +1156,76 @@ async function handlePay(req, res, id) {
     job_id: job.job_id, payable_id: job.payable_id, seller: job.seller ?? seller, rail: job.rail,
     steps: job.steps.map((s) => s.step),
   });
+}
+
+// Seller-side check of the buyer agent, cached 60 s (the registry MCP is slow and rate-limited).
+let buyerGateCache = null;
+async function buyerAgentGate(c) {
+  if (chainReaderOverride) return null; // test seam: no chain, no gate
+  if (buyerGateCache && Date.now() - buyerGateCache.at < (buyerGateCache.value.verdict === 'pass' ? 60_000 : 10_000)) return buyerGateCache.value;
+  const rec = await buyerAgent();
+  const tokenId = rec?.tokenId ?? BUYER_TOKEN_ID;
+  let value;
+  try {
+    value = await merchantCheckBuyer({ grpcClient: c, tokenId, expectedOwner: PAYER_ADDRESS });
+  } catch (e) {
+    return null; // never block on our own failure to run the check
+  }
+  // Operator knob for a window in which the buyer's agent card is not reachable yet: the card-based
+  // badge row becomes a warning, the on-chain rows (exists, Active, owner, agentWallet) stay hard.
+  if (ENV.PAYONCE_BUYER_BADGE_REQUIRED === '0' && value.verdict === 'refuse') {
+    const rest = value.checks.filter((x) => x.status === 'fail' && x.id !== 'badge');
+    if (rest.length === 0) value = { ...value, verdict: 'pass', checks: value.checks.map((x) => (x.id === 'badge' && x.status === 'fail' ? { ...x, status: 'warn', detail: `${x.detail} (not required on this server: PAYONCE_BUYER_BADGE_REQUIRED=0)` } : x)) };
+  }
+  buyerGateCache = { at: Date.now(), value };
+  return value;
+}
+
+// Everything that can stop or hold a payment, in one read-only answer (used by the agent's check_payable).
+async function handleGates(req, res, id) {
+  const seller = resolveSellerStrict(req, res);
+  if (!seller) return;
+  const c = await grpc();
+  const view = await retryNode(() => getPayableOrNull(c, seller, id));
+  if (!view) return notFound(res, `No payable ${id} is on the test registry <${REGISTRY.index},${REGISTRY.subindex}>.`);
+  const doc = await docForPayableForSeller(seller, id).catch(() => null);
+  const ageReq = ageRequirement(view, doc);
+  const consentRecord = await consentForSeller(seller, id);
+  const above = isAboveAskMeThreshold(view);
+  const consent = consentRecord
+    ? { ...publicConsent(consentRecord), anchor_verified: consentRecord.vraTx ? (await verifyConsentVra({ grpcClient: c, record: consentRecord })).ok : false }
+    : { payable_id: id, status: above ? 'required' : 'not_required', above_threshold: above };
+  const buyer = await buyerAgentGate(c);
+  sendJson(res, 200, {
+    payable_id: id, seller,
+    consent,
+    age_gate: { required: ageReq.required, reason: ageReq.reason, source: ageReq.source, min_age: ageReq.min_age, proof_on_file: ageReq.required ? Boolean(findFreshAgeProof(PAYER_ADDRESS, id)) : null, payer: PAYER_ADDRESS,
+      enforced_by: 'the API server and the verifier. On the CCD rail the contract cannot verify a zero-knowledge proof; on the EUDemo rail the co-signer gate sits behind the same check.' },
+    buyer_agent: buyer ?? { verdict: 'not_run', tokenId: BUYER_TOKEN_ID, checks: [] },
+    checked_at: new Date().toISOString(),
+  });
+}
+
+// L2: the full V&A V1 age proof for one payable (VRA anchored by the seller side, presentation from the scoped
+// prover, node verification, holder bound to the payer, VAA anchored). Files the proof the pay gate looks for.
+async function handleAgeProofV1(req, res) {
+  const ip = clientIp(req);
+  const body = await readBody(req).catch(() => ({}));
+  const payableId = Number(body.payable_id);
+  if (!Number.isInteger(payableId) || payableId < 1) return badRequest(res, 'age-proof/v1 needs { payable_id }.');
+  if (body.payer && body.payer !== PAYER_ADDRESS) return badRequest(res, 'The proof is filed for the paying account of this deployment only.');
+  const budget = await hitWindow(`agev1:${ip}`, 3_600_000, 6);
+  if (!budget.allowed) return apiError(res, 429, 'budget_exhausted', 'app', 'The demo budget for age proofs is used up for this hour (6/hour): each one anchors two small transactions.', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  const c = await grpc();
+  let out;
+  try {
+    out = await runAgeProofV1({ waitTx: (h) => waitFinalized(c, h), signers, payableId, payer: PAYER_ADDRESS, resolveHolderAccount });
+  } catch (e) {
+    return sendFailure(res, e);
+  }
+  if (out.ok) return sendJson(res, 200, out);
+  if (out.step === 'prover' && /prover_unavailable/.test(out.error ?? '')) return apiError(res, 503, 'prover_unavailable', 'server', 'The age-proof prover is not reachable on this host. Age-gated payments stay refused. Nothing was filed.', { retryable: true, steps: out.steps });
+  return sendJson(res, out.refused ? 403 : 400, out);
 }
 
 async function handleGetJob(req, res, jobId) {
@@ -1581,6 +1670,33 @@ async function handleCis8Request(req, res) {
 }
 
 // ---- router ----
+// The agent surface lives in agent/ (a sibling of api/ in the repo). It is imported lazily so that a deploy
+// layout without that folder still serves every other route; the agent routes then answer 503.
+let agentApiPromise = null;
+function agentApiLazy() {
+  if (!agentApiPromise) {
+    agentApiPromise = import('./agent-api.mjs').then(({ createAgentApi }) => createAgentApi({
+      port: PORT,
+      deps: {
+        sendJson, apiError, readBody, hitWindow, clientIp,
+        payerNeedsRefillQuiet: async () => {
+          if (chainReaderOverride) return false;
+          try {
+            const info = await getAccount(await grpc(), PAYER_ADDRESS);
+            return BigInt(microCcdOf(info.accountAvailableBalance ?? info.accountAmount)) < FEE_HEADROOM_MICROCCD;
+          } catch { return false; }
+        },
+      },
+    })).catch((e) => { agentApiPromise = null; throw e; });
+  }
+  return agentApiPromise;
+}
+const agentRoute = (name) => async (req, res) => {
+  let api;
+  try { api = await agentApiLazy(); } catch (e) { return apiError(res, 503, 'agent_surface_unavailable', 'server', 'The agent surface is not available in this deployment.'); }
+  return api[name](req, res);
+};
+
 const routes = [
   ['GET', /^\/$/, async (req, res) => sendJson(res, 200, {
     service: 'payonce-api', network: NETWORK,
@@ -1597,6 +1713,12 @@ const routes = [
   ['POST', /^\/api\/payables\/(\d+)\/verify$/, (req, res, m) => handleVerify(req, res, Number(m[1]))],
   ['POST', /^\/api\/payables$/, handleCreatePayable],
   ['POST', /^\/api\/payables\/(\d+)\/pay$/, (req, res, m) => handlePay(req, res, Number(m[1]))],
+  ['GET', /^\/api\/payables\/(\d+)\/gates$/, (req, res, m) => handleGates(req, res, Number(m[1]))],
+  ['POST', /^\/mcp$/, agentRoute('handleMcpPost')],
+  ['GET', /^\/mcp$/, agentRoute('handleMcpGet')],
+  ['GET', /^\/api\/agent\/latest$/, agentRoute('handleLatest')],
+  ['GET', /^\/api\/agent\/status$/, agentRoute('handleStatus')],
+  ['POST', /^\/api\/agent\/run$/, agentRoute('handleRun')],
   ['GET', /^\/api\/jobs\/([^/]+)$/, (req, res, m) => handleGetJob(req, res, decodeURIComponent(m[1]))],
   ['GET', /^\/api\/jobs\/([^/]+)\/events$/, (req, res, m) => handleJobEvents(req, res, decodeURIComponent(m[1]))],
   ['GET', /^\/api\/tx\/([^/]+)\/status$/, (req, res, m) => handleTxStatus(req, res, m[1])],
@@ -1609,6 +1731,7 @@ const routes = [
   ['GET', /^\/api\/judges\/files\/([^/]+)$/, (req, res, m) => handleJudgeFiles(req, res, decodeURIComponent(m[1]))],
   ['GET', /^\/api\/age-proof\/health$/, (req, res) => ageProof.handleHealth(req, res)],
   ['POST', /^\/api\/age-proof\/policy-check$/, (req, res) => ageProof.handlePolicyCheck(req, res)],
+  ['POST', /^\/api\/age-proof\/v1$/, handleAgeProofV1],
   ['POST', /^\/api\/age-proof\/verify$/, (req, res) => ageProof.handleVerify(req, res)],
   ['POST', /^\/api\/age-proof\/verify-presentation$/, (req, res) => ageProof.handleVerifyPresentation(req, res)],
   ['POST', /^\/api\/consent\/request$/, handleConsentRequest],
@@ -1634,7 +1757,7 @@ const server = createServer(async (req, res) => {
   }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Accept');
   if (req.method === 'OPTIONS') return res.writeHead(204).end();
   try {
     const url = new URL(req.url, 'http://127.0.0.1');
