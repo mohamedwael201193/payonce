@@ -83,8 +83,12 @@ function ready() {
   if (!readyPromise) {
     readyPromise = (async () => {
       await initStore();
-      const summary = await reconcile();
-      console.log(`[startup] reconcile: ${summary.line}`);
+      if (process.env.PAYONCE_SKIP_RECONCILE === '1') {
+        console.log('[startup] reconcile skipped (PAYONCE_SKIP_RECONCILE=1, local testing)');
+      } else {
+        const summary = await reconcile();
+        console.log(`[startup] reconcile: ${summary.line}`);
+      }
     })();
   }
   return readyPromise;
@@ -283,7 +287,14 @@ async function readPayableUncached(c, id, seller = SELLER, attempts = 3) {
   }
   return { view: null, ok: false };
 }
+// A complete scan is reused for 8 s (never with the test seam): the dashboard polls both
+// endpoints every 30 s from many clients, and a full scan is ~110 sequential node reads that
+// the public node answers with 429. 8 s is short enough that a state change shows at once.
+const SCAN_TTL_MS = 8000;
 async function scanSnapshot(c) {
+  if (!chainReaderOverride && lastCompleteScan && Date.now() - lastCompleteScan.at < SCAN_TTL_MS) {
+    return { rows: lastCompleteScan.rows, skipped: [], complete: true };
+  }
   if (scanInFlight) return scanInFlight;
   scanInFlight = (async () => {
     const rows = [];
