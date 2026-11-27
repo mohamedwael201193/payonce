@@ -1,0 +1,110 @@
+PayOnce live E2E against http://127.0.0.1:7411
+started 2026-11-27T02:56:57.565Z; wallet keys: loaded in-process (never printed)
+PASS           api/- GET /api/config - matches the frontend schema
+PASS           api/- GET /api/health - chain reachable; payer ok, wallet_eudemo ok, co_signer ok; budget {"new_invoices_left_this_hour":30,"attack_sends_left_this_hour":30}
+PASS           api/- GET /api/stats - payables 197, paid 98, refused 15
+PASS           api/- GET /api/invoices - 197 rows from 2 sellers
+PASS           api/- stats == recount of /api/invoices - payables_total and paid_total equal the listed rows
+PASS           api/- stats provenance - generated_at 2026-11-27T02:57:56.957Z; payables_total=live, paid_total=live, voided_total=live, reserved_total=live, refused_on_chain_since_deploy=recorded, last_verifier_run_at=server
+PASS           api/- GET /api/stats/refusals - count 15 equals refused_on_chain_since_deploy
+PASS           api/- every counted refusal re-reads as rejected on chain - 15/15 via /api/tx/:hash/status
+PASS           api/- sellers 1476 / 1506 configured - S1 42jaZZgd...zmRjNB token 1476; S2 3ARQvcVD...a2uExr token 1506
+INFO           api/- seller write support (config.build.seller_writes) - ["seller_1","seller_2"]
+PASS           api/- GET /api/judges/files - 9 files with sha256
+PASS           seller1/ccd create invoice via POST /api/payables (register_payable on chain) - payable 1459
+                 register_tx: 583c2ac15906ac62a3ee8b12e974764ec83a63f0fa0cecbd09dd4a6d5b4aaafd
+PASS           seller1/ccd list (GET /api/invoices) - payable 1459 listed Unpaid, 0.500000 CCD
+PASS           seller1/ccd payable facts - unpaid; 0.500000 CCD; seller 42jaZZgd...zmRjNB
+PASS           seller1/ccd document hash - sha256(GET document) == on-chain doc hash cebd7429...23f85e
+PASS           seller1/ccd verify before_pay - verdict ready, 6/9 checks
+PASS           seller1/ccd pay (POST /api/payables/:id/pay) - job job_1459_ccd_ad4efec2; steps check_status > check_agent > submit > wait_finality > read_back > verify
+PASS           seller1/ccd confirm (job: chain steps finalised, verifier run) - state succeeded/paid; check_status:ok check_agent:ok submit:ok wait_finality:ok read_back:ok verify:ok
+                 submit: 6ad26ca7f4bd56f13a2ff70f2a36f7a15840fcd1d96f765c20d07369b206f911
+PASS           seller1/ccd receipt (GET /api/receipts/:id) - legs Payment; verifier 10/10
+                 Payment: 6ad26ca7f4bd56f13a2ff70f2a36f7a15840fcd1d96f765c20d07369b206f911
+PASS           seller1/ccd verify after_pay (API) - verdict paid, 10/10
+PASS           seller1/ccd independent keyless verifier - ALL CHECKS PASS (10/10)
+PASS           seller1/eudemo create invoice via POST /api/payables (register_payable on chain) - payable 1460
+                 register_tx: 15870dac10afd60cadfbe1edb3d84d113e8cd0e55e1ddbe95b10f1c0c47d38b9
+PASS           seller1/eudemo list (GET /api/invoices) - payable 1460 listed Unpaid, 0.01 EUDemo
+PASS           seller1/eudemo payable facts - unpaid; 0.01 EUDemo; seller 42jaZZgd...zmRjNB
+PASS           seller1/eudemo document hash - sha256(GET document) == on-chain doc hash 18dee0e9...2b5e0f
+PASS           seller1/eudemo verify before_pay - verdict ready, 6/9 checks
+PASS           seller1/eudemo pay (POST /api/payables/:id/pay) - job job_1460_eudemo_ddafb6a3; steps check_wallet > reserve > co_sign_decide > submit_transfer > wait_finality > confirm > verify
+PASS           seller1/eudemo confirm (job: chain steps finalised, verifier run) - state succeeded/paid; check_wallet:ok reserve:ok co_sign_decide:ok submit_transfer:ok wait_finality:ok confirm:ok verify:ok
+                 reserve: 89d2957f4d5c12a40030794b47a4738b028123b6adf4fcc9bdbfd46018087734
+                 submit_transfer: 2cf7f40a91d316ed7b909f045afefd9d78f804443b2c515f7d8abf42e92f9d5c
+                 confirm: a6923a45e6983bf021c30cd6cbabc6ae096a2469df6d068912a3e57fab056911
+PASS           seller1/eudemo receipt (GET /api/receipts/:id) - legs Reservation+Transfer+Confirm; verifier 15/15
+                 Reservation: 89d2957f4d5c12a40030794b47a4738b028123b6adf4fcc9bdbfd46018087734
+                 Transfer: 2cf7f40a91d316ed7b909f045afefd9d78f804443b2c515f7d8abf42e92f9d5c
+                 Confirm: a6923a45e6983bf021c30cd6cbabc6ae096a2469df6d068912a3e57fab056911
+PASS           seller1/eudemo verify after_pay (API) - verdict paid, 14/14
+PASS           seller1/eudemo independent keyless verifier - ALL CHECKS PASS (14/14)
+PASS           seller2/ccd create invoice via POST /api/payables (register_payable on chain) - payable 5008
+                 register_tx: d8049a361b2bb5285b697c0435a2fde7c416b6dfb6d3e2e198cbdfd9700503f3
+PASS           seller2/ccd list (GET /api/invoices) - payable 5008 listed Unpaid, 0.500000 CCD
+PASS           seller2/ccd payable facts - unpaid; 0.500000 CCD; seller 3ARQvcVD...a2uExr
+PASS           seller2/ccd document hash - sha256(GET document) == on-chain doc hash 13abe342...3947b9
+PASS           seller2/ccd verify before_pay - verdict ready, 6/9 checks
+PASS           seller2/ccd pay (POST /api/payables/:id/pay) - job job_5008_ccd_4dd7ba2f; steps check_status > check_agent > submit > wait_finality > read_back > verify
+PASS           seller2/ccd confirm (job: chain steps finalised, verifier run) - state succeeded/paid; check_status:ok check_agent:ok submit:ok wait_finality:ok read_back:ok verify:ok
+                 submit: c38429a1ab7601e7d8c936f0002823451f23225453a45fa4dc3b95edf27f655a
+PASS           seller2/ccd receipt (GET /api/receipts/:id) - legs Payment; verifier 10/10
+                 Payment: c38429a1ab7601e7d8c936f0002823451f23225453a45fa4dc3b95edf27f655a
+PASS           seller2/ccd verify after_pay (API) - verdict paid, 10/10
+PASS           seller2/ccd independent keyless verifier - ALL CHECKS PASS (10/10)
+PASS           seller2/eudemo create invoice via POST /api/payables (register_payable on chain) - payable 5009
+                 register_tx: 72ad9221e48ef1683a4876ba31a1dbfbd1b744a8146a2ee0b6ef4fd96b453e8e
+PASS           seller2/eudemo list (GET /api/invoices) - payable 5009 listed Unpaid, 0.01 EUDemo
+PASS           seller2/eudemo payable facts - unpaid; 0.01 EUDemo; seller 3ARQvcVD...a2uExr
+PASS           seller2/eudemo document hash - sha256(GET document) == on-chain doc hash 758e90f5...6f4246
+PASS           seller2/eudemo verify before_pay - verdict ready, 6/9 checks
+PASS           seller2/eudemo pay (POST /api/payables/:id/pay) - job job_5009_eudemo_1ebc64f7; steps check_wallet > reserve > co_sign_decide > submit_transfer > wait_finality > confirm > verify
+PASS           seller2/eudemo confirm (job: chain steps finalised, verifier run) - state succeeded/paid; check_wallet:ok reserve:ok co_sign_decide:ok submit_transfer:ok wait_finality:ok confirm:ok verify:ok
+                 reserve: 76bd7e40a12a9750c1bc31b41473e854b3199fa80de5d6522b5c497c545fd55a
+                 submit_transfer: 7518009719c53f2dffd9043b055fb8b84baf8ae57e691ea9d32c219531c1c253
+                 confirm: 04fd7f000af5a7c532cd1518d0738221bf54678a52bc346be77839d64bc504da
+PASS           seller2/eudemo receipt (GET /api/receipts/:id) - legs Reservation+Transfer+Confirm; verifier 15/15
+                 Reservation: 76bd7e40a12a9750c1bc31b41473e854b3199fa80de5d6522b5c497c545fd55a
+                 Transfer: 7518009719c53f2dffd9043b055fb8b84baf8ae57e691ea9d32c219531c1c253
+                 Confirm: 04fd7f000af5a7c532cd1518d0738221bf54678a52bc346be77839d64bc504da
+PASS           seller2/eudemo verify after_pay (API) - verdict paid, 14/14
+PASS           seller2/eudemo independent keyless verifier - ALL CHECKS PASS (14/14)
+PASS           seller1/ccd double pay: the API refuses (already_paid) - HTTP 409 Payable 1459 is already Paid by 4MvdMEGC… at 2026-11-27T03:00:52.936Z.
+PASS           seller1/ccd double pay: on-chain reject of a real second payment - WrongStatus (-5), fee 5.513265 testnet CCD
+                 rejected_tx: d4225f4cd8dca2494bebc09294a1feb686dbd57d0a4f5bda359dc4fa7359c6b5
+PASS           seller1/eudemo double pay: the API refuses (already_paid) - HTTP 409 Payable 1460 is already Paid by 4MvdMEGC… at 2026-11-27T03:03:00.936Z.
+PASS           seller1/eudemo double pay: on-chain reject of a real second payment - NotUnpaid (-16), fee 5.584353 testnet CCD
+                 rejected_tx: 037d0e73b190f47f1d8b19e4b91ff50b5e0cfc14ca89f13fc9df1226877bf68b
+PASS           seller2/ccd double pay: the API refuses (already_paid) - HTTP 409 Payable 5008 is already Paid by 4MvdMEGC… at 2026-11-27T03:04:48.936Z.
+PASS           seller2/eudemo double pay: the API refuses (already_paid) - HTTP 409 Payable 5009 is already Paid by 4MvdMEGC… at 2026-11-27T03:06:56.936Z.
+PASS           seller1/ccd wrong amount: on-chain reject of amount+1 - WrongAmount (-6)
+                 register_tx: 176719334cd09db696692c74a64bfd32b91e68063d60f725e75cb1a892f016ba
+                 rejected_tx: df793b12df76a45af13eefaec09794ff3161ab89f24bf75d1781d74f3733788c
+PASS           seller1/ccd tamper: verify blocks a forged document - verdict blocked (doc)
+PASS           seller1/ccd tamper: pay refuses a forged document - HTTP 409 doc_mismatch, nothing sent
+PASS           seller1/ccd tamper: payable still unpaid - unpaid after every refused attempt
+PASS           seller1/- fraud payable: co-signer REFUSES an unlisted seller (live dry run, no-approval) - REFUSE no-approval; vendor list read live: 2 sellers
+PASS           seller1/eudemo wrong payee: the co-signer REFUSES the transfer to the wrong recipient - REFUSE (wrong-recipient); dry run on the really Reserved payable, nothing sent
+INFO           seller1/eudemo wrong payee: gate bypassed (payer key used directly) - the registry accepted confirm_plt (accepted); status Paid. A registry contract cannot read a PLT transfer, so on Rail B the wrong-payee guard is the co-signer plus the after-pay verifier, not a contract revert.
+                 register_tx: 1eb31de54b1ed793c475b83a6951370b0cbf3998604bf12140d71490c6582660
+                 reserve_tx: e4332caae2193b06c568548e368257f2905b353c3caa92ee237583e655dd4ef5
+                 wrong_transfer_tx: 5197c61ef0d0568b868784c943a63c3dcbdc229aacc2cb7d22c04ef27bf1f29a
+                 confirm_tx: 9d66bb2724ee58c8c37108581d8630f49d0ce2c14367eb6db709ff9c3f0655ee
+PASS           seller1/eudemo wrong payee: the after-pay verifier (API) flags it - verdict blocked; failed checks: to_payee, reservation_precedes_transfer, paid_at_is_confirm_time
+PASS           seller1/eudemo wrong payee: the independent keyless verifier flags it - FAIL to_payee to=42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB, payee=4Vtd6WnC487iKJBh1wL6GkCicrgyhKWcbZMjaX33eJSzTqj1Tg | CHECKS FAILED (13/14 pass)
+PASS           seller1/eudemo stranger confirm: on-chain reject (NotPayer) - NotPayer (-17) for a confirm from 3ARQvcVD...a2uExr
+                 register_tx: cdd242b360a31fd4736d1b2fef719a9996ee90822002df406c1c83dbfda83c3e
+                 reserve_tx: f9e444ce6b0c7a697f6b80dc721284b3b6d372768f63de939c9f7d55adade137
+                 transfer_tx: ad250328698b99a575b86c8a99c95caa66861ef73b17e7b8a916d4cab30d0bb6
+                 rejected_confirm_tx: 7af7f927b318aa74590c0c71de20a754f50db37b6b01e143eff3b7ce5baa11a4
+PASS           seller1/eudemo stranger confirm: payable still Reserved - status Reserved
+PASS           seller1/eudemo stranger confirm: the reserving payer then confirms -> Paid - accepted; status Paid
+                 confirm_tx: 3b65746a0c0179fd638ff414abe3f24520337b97266ad6e0e74dece78463edf0
+PASS           seller1/eudemo fraud payable: a stranger cannot register under the seller agent token - chain rejected the registration: AgentOwnerMismatch (-10)
+                 rejected_register_tx: 0e5cbd5fdc72322406340ff9513dc1b1b3860b2accb1d0a79789e06b04896f50
+
+=== SUMMARY ===
+{"PASS":68,"INFO":2}
+results written to qa/out/e2e-local-run.json
