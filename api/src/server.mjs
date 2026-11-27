@@ -1429,6 +1429,7 @@ const routes = [
   ['GET', /^\/api\/config$/, handleConfig],
   ['GET', /^\/api\/health$/, handleHealth],
   ['GET', /^\/api\/stats$/, handleStats],
+  ['GET', /^\/api\/stats\/refusals$/, handleStatsRefusals],
   ['GET', /^\/api\/invoices$/, handleInvoices],
   ['GET', /^\/api\/payables\/(\d+)$/, (req, res, m) => handleGetPayable(req, res, Number(m[1]))],
   ['GET', /^\/api\/payables\/(\d+)\/document$/, (req, res, m) => handleDocument(req, res, Number(m[1]))],

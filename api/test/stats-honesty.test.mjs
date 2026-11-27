@@ -109,3 +109,9 @@ test('an incomplete scan after a complete one serves the last scan labelled stal
 })
 
 test('cleanup: the chain stub is removed', () => { __setChainReaderForTests(null) })
+
+test('the refusals list is wired into the route table', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8')
+  assert.ok(src.includes("['GET', /^\/api\/stats\/refusals$/, handleStatsRefusals]"))
+})
