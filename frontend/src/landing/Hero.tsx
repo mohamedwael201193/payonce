@@ -1,5 +1,5 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clouds } from './Clouds'
 import { EASE, Magnetic, Rise, Tag } from './bits'
@@ -150,7 +150,27 @@ export function HeroPanel({ data }: { data: LandingData }) {
 export function Hero({ data }: { data: LandingData }) {
   const { scrollY } = useScroll()
   const sink = useTransform(scrollY, [0, 700], [0, 56])
-  const still = useReducedMotion()
+  const reduced = useReducedMotion()
+  // The page shell already painted this hero as plain HTML (index.html). Mount
+  // in the final state so nothing jumps, then fade the shell away.
+  const [booted] = useState(() => typeof document !== 'undefined' && !!document.getElementById('po-boot'))
+  const still = reduced || booted
+  useEffect(() => {
+    const boot = document.getElementById('po-boot')
+    if (!boot) return
+    let t = 0
+    const r = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        boot.style.opacity = '0'
+        boot.style.pointerEvents = 'none'
+        t = window.setTimeout(() => boot.remove(), 400)
+      }),
+    )
+    return () => {
+      cancelAnimationFrame(r)
+      window.clearTimeout(t)
+    }
+  }, [])
   const { stats, source, at } = data
   return (
     <section className="po-hero" id="top" aria-labelledby="po-h1">
@@ -158,7 +178,7 @@ export function Hero({ data }: { data: LandingData }) {
         <Clouds mode="back" bank={470} className="po-hero__cv" />
       </div>
       <div className="po-hero__copy">
-        <Rise as="h1" text={HERO_H1} className="po-h1" onLoad delay={0.15} />
+        <Rise as="h1" text={HERO_H1} className="po-h1" onLoad instant={booted} delay={0.15} />
         <motion.p
           className="po-lead"
           initial={still ? false : { opacity: 0, y: 14 }}

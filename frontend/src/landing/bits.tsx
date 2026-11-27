@@ -66,6 +66,7 @@ export function Rise({
   className,
   delay = 0,
   onLoad,
+  instant,
 }: {
   text: string
   as?: 'h1' | 'h2' | 'h3'
@@ -73,6 +74,8 @@ export function Rise({
   delay?: number
   /** true: play on mount (hero). false: play when scrolled into view. */
   onLoad?: boolean
+  /** true: already painted by the first-paint hero, so start in the final state. */
+  instant?: boolean
 }) {
   const still = useReducedMotion()
   const El = motion[as]
@@ -81,7 +84,7 @@ export function Rise({
   return (
     <El
       className={className}
-      initial={still ? 'show' : 'hide'}
+      initial={still || instant ? 'show' : 'hide'}
       {...(onLoad ? { animate: 'show' } : { whileInView: 'show', viewport: { once: true, amount: 0.4 } })}
       aria-label={text.replace(/\n/g, ' ')}
     >
