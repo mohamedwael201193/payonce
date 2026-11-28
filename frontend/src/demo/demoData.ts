@@ -1,7 +1,8 @@
 // /demo data: one run, six screens. The page never invents values: it shows
-// whatever a DemoRun holds. Source order: (1) GET /api/demo/run, a fresh real
-// run produced by the API (not shipped yet), (2) the bundled RECORDED_RUN, a
-// real earlier run on registry v2. Whichever one is on screen is labelled.
+// whatever a DemoRun holds. Source order: (1) GET /api/demo/run, a live run
+// (under an hour old), (2) the last real run from the API, named by its age,
+// (3) the bundled RECORDED_RUN, a real earlier run on registry v2, only when
+// the API cannot answer. Whichever one is on screen is labelled.
 import { timedFetch, API_BASE } from '../lib/api'
 
 export interface DemoTx {
@@ -11,9 +12,15 @@ export interface DemoRefusal extends DemoTx {
   code: number
   name: string
 }
+/** live: produced by the API within the last hour. recent: a real run from the API, older than that (named by its age).
+    replay: the bundled recording, shown only when the API cannot give a run. */
+export type RunSource = 'live' | 'recent' | 'replay'
 export interface DemoRun {
-  /** true only when the API produced this run just now */
+  /** true only when the API produced this run within the last hour */
   live: boolean
+  source?: RunSource
+  /** seconds since the API produced the run (live and recent runs only) */
+  ageSecs?: number
   /** One line shown under the stage: what the visitor is looking at. */
   label: string
   invoice: { amount: string; due: string | null }
@@ -30,6 +37,7 @@ export const txUrl = (h: string) => `${EXPLORER}${h}`
     The impostor check is the same app-layer check the Run-it page runs on a forged invoice (no transaction). */
 export const RECORDED_RUN: DemoRun = {
   live: false,
+  source: 'replay',
   label: 'Replay of a recorded run on registry v2, 24 Nov 2026. Testnet.',
   invoice: { amount: '0.5 CCD', due: '2026-12-26' },
   good: {
@@ -53,16 +61,58 @@ const HASH = /^[0-9a-f]{64}$/i
 const isRefusal = (r: unknown): r is DemoRefusal =>
   !!r && typeof (r as DemoRefusal).code === 'number' && typeof (r as DemoRefusal).name === 'string' && HASH.test((r as DemoRefusal).hash)
 
-/** Accepts only a complete run that is under an hour old. Anything else falls back to the recording. */
+function complete(r: Partial<DemoRun>): boolean {
+  if (!r || typeof r.label !== 'string') return false
+  if (!r.invoice || !r.good || !Array.isArray(r.good.ticks) || !r.paid || !HASH.test(r.paid.hash)) return false
+  if (!r.impostor || typeof r.impostor.account !== 'string' || !isRefusal(r.again)) return false
+  if (r.impostor.refusal != null && !isRefusal(r.impostor.refusal)) return false
+  return true
+}
+
+/** Accepts only a complete run that is under an hour old. */
 export function parseLiveRun(raw: unknown, now = Date.now()): DemoRun | null {
   const r = raw as Partial<DemoRun> & { generated_at?: string }
-  if (!r || r.live !== true || typeof r.label !== 'string') return null
+  if (!r || r.live !== true) return null
   const at = r.generated_at ? Date.parse(r.generated_at) : NaN
   if (!Number.isFinite(at) || now - at > 3_600_000) return null
-  if (!r.invoice || !r.good || !Array.isArray(r.good.ticks) || !r.paid || !HASH.test(r.paid.hash)) return null
-  if (!r.impostor || typeof r.impostor.account !== 'string' || !isRefusal(r.again)) return null
-  if (r.impostor.refusal != null && !isRefusal(r.impostor.refusal)) return null
-  return r as DemoRun
+  if (!complete(r)) return null
+  return { ...(r as DemoRun), live: true, source: 'live', ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
+}
+
+/** A complete real run from the API that is over an hour old but under a day: shown with its age, never as live. */
+export const RECENT_MAX_MS = 24 * 3_600_000
+export function parseRecentRun(raw: unknown, now = Date.now()): DemoRun | null {
+  const r = raw as Partial<DemoRun> & { generated_at?: string }
+  if (!r) return null
+  const at = r.generated_at ? Date.parse(r.generated_at) : NaN
+  if (!Number.isFinite(at) || now - at > RECENT_MAX_MS || !complete(r)) return null
+  return { ...(r as DemoRun), live: false, source: 'recent', ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
+}
+
+export interface DemoProgressStep { key: string; label: string; hash: string }
+export interface DemoFeed {
+  run: DemoRun
+  /** the API is producing a fresh run right now */
+  refreshing: boolean
+  /** transactions of that fresh run, in the order they landed */
+  progress: DemoProgressStep[]
+}
+
+export function parseProgress(raw: unknown): DemoProgressStep[] {
+  const steps = (raw as { steps?: unknown })?.steps
+  if (!Array.isArray(steps)) return []
+  return steps.filter((x): x is DemoProgressStep => !!x && typeof x.label === 'string' && typeof x.key === 'string' && HASH.test(String(x.hash)))
+    .map((x) => ({ key: x.key, label: x.label, hash: x.hash.toLowerCase() }))
+}
+
+/** "just now", "12 min ago", "3 h ago", "2 days ago". */
+export function ago(secs: number | undefined): string {
+  if (secs == null || !Number.isFinite(secs)) return ''
+  if (secs < 90) return 'just now'
+  const m = Math.round(secs / 60)
+  if (m < 90) return `${m} min ago`
+  const h = Math.round(secs / 3600)
+  return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`
 }
 
 /** The run's sentence counts shared characters of the real impostor; the diagram under it may show a different,
@@ -87,18 +137,34 @@ function deadline(ms: number, signal?: AbortSignal): Promise<never> {
   })
 }
 
-export async function loadDemoRun(signal?: AbortSignal, timeoutMs = DEMO_LOAD_MS): Promise<DemoRun> {
+/** The run to show, whether the API is making a fresh one, and the hashes of that one as they land.
+    Order: a live run, else the last real run (with its age), else the labelled recording. */
+export async function loadDemoFeed(signal?: AbortSignal, timeoutMs = DEMO_LOAD_MS): Promise<DemoFeed> {
   try {
     const res = await Promise.race([
       timedFetch(`${API_BASE}/api/demo/run`, signal ? { signal } : undefined),
       deadline(timeoutMs, signal),
     ])
     if (res.ok) {
-      const live = parseLiveRun(await res.json())
-      if (live) return live
+      const raw = await res.json()
+      const refreshing = (raw as { refreshing?: unknown })?.refreshing === true
+      const progress = refreshing ? parseProgress((raw as { progress?: unknown }).progress) : []
+      const run = parseLiveRun(raw) ?? parseRecentRun(raw)
+      if (run) return { run, refreshing, progress }
+      return { run: RECORDED_RUN, refreshing, progress }
     }
   } catch {
-    /* timeout, abort, or no live run: labelled replay */
+    /* timeout, abort, or API busy: labelled replay */
   }
-  return RECORDED_RUN
+  return { run: RECORDED_RUN, refreshing: false, progress: [] }
+}
+
+export async function loadDemoRun(signal?: AbortSignal, timeoutMs = DEMO_LOAD_MS): Promise<DemoRun> {
+  return (await loadDemoFeed(signal, timeoutMs)).run
+}
+
+/** Ask for the demo run early (landing page) so the API wakes up and, if the last run is old, starts a fresh one before the visitor opens /demo. Never throws. */
+export function warmDemoRun(): void {
+  if (typeof fetch !== 'function') return
+  void loadDemoFeed(undefined, 15_000).catch(() => {})
 }

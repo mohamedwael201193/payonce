@@ -19,12 +19,12 @@ export class SellerError extends Error { constructor(status, code, message) { su
  * Returns { status, headers, body }.
  */
 export function createX402Seller(deps) {
-  const { facilitator, check, payTo, feePayer, amountMicro = PRICE_MICRO, record = async () => {}, now = Date.now } = deps;
+  const { facilitator, check, payTo, feePayer, amountMicro = PRICE_MICRO, record = async () => {}, now = Date.now, gate = null } = deps;
   const seen = deps.seen ?? new Set();
 
   const requirements = () => ({ scheme: 'exact', network: TESTNET_CAIP2, amount: String(amountMicro), asset: 'CCD', payTo, maxTimeoutSeconds: 300, extra: { feePayer } });
   const paymentRequired = (url, error) => {
-    const body = { x402Version: X402_VERSION, error, resource: { url, description: 'PayOnce check_payee: does this Concordium account belong to the name you were told to pay? MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED.', mimeType: 'application/json' }, accepts: [requirements()] };
+    const body = { x402Version: X402_VERSION, error, ...(gate ? { buyerGate: { mode: gate.mode, headers: ['X-Buyer-Agent', 'X-Buyer-Mandate'], note: gate.mode === 'required' ? 'Agents only: the paying account must be an Active registry agent with a valid badge (agentWallet = payer) presenting its signed, anchored spend mandate. See /api/mandate.' : 'Optional: present X-Buyer-Agent and X-Buyer-Mandate to be reported as a verified buyer.' } } : {}), resource: { url, description: 'PayOnce check_payee: does this Concordium account belong to the name you were told to pay? MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED.', mimeType: 'application/json' }, accepts: [requirements()] };
     return { status: 402, headers: { 'PAYMENT-REQUIRED': b64(body) }, body };
   };
 
@@ -51,13 +51,20 @@ export function createX402Seller(deps) {
 
     const v = await facilitator.verify(payload, req);
     if (!v?.isValid) return paymentRequired(url, `Payment not valid: ${v?.invalidReason ?? 'unknown'}`);
+    // The merchant verifies the buyer BEFORE settlement: a refusal here costs the buyer nothing.
+    let buyer = null;
+    if (gate) {
+      const g = await gate.check({ headers, payer: v.payer ?? null, amount_micro: req.amount });
+      buyer = g.buyer;
+      if (!g.ok) return { status: 403, headers: {}, body: { error: { code: 'buyer_not_verified', layer: 'app', message: 'This resource sells only to verified buyer agents. Nothing was charged.', retryable: false }, nothing_charged: true, buyer } };
+    }
     const s = await facilitator.settle(payload, req);
     if (!s?.success || !s?.transaction) return paymentRequired(url, `Payment not settled: ${s?.errorReason ?? 'unknown'}`);
     if (seen.has(s.transaction)) return paymentRequired(url, 'This payment was already used.');
     seen.add(s.transaction);
-    await record({ at: new Date(now()).toISOString(), payee, name, verdict: result.verdict, tx_hash: s.transaction, payer: s.payer ?? v.payer ?? null, amount_micro: req.amount });
+    await record({ at: new Date(now()).toISOString(), payee, name, verdict: result.verdict, tx_hash: s.transaction, payer: s.payer ?? v.payer ?? null, amount_micro: req.amount, ...(buyer ? { buyer_verified: buyer.verified, buyer_agent: buyer.agent?.token ?? null, buyer_mandate: buyer.mandate?.hash ?? null, gate_mode: buyer.mode } : {}) });
     const settlement = { success: true, transaction: s.transaction, network: TESTNET_CAIP2, payer: s.payer ?? v.payer ?? null };
-    return { status: 200, headers: { 'PAYMENT-RESPONSE': b64(settlement) }, body: { ...result, epc_verdict: String(result.verdict).toLowerCase(), paid: { amount_ccd: '0.01', tx_hash: s.transaction, explorer_url: `https://ccdexplorer.io/testnet/transaction/${s.transaction}` } } };
+    return { status: 200, headers: { 'PAYMENT-RESPONSE': b64(settlement) }, body: { ...result, epc_verdict: String(result.verdict).toLowerCase(), paid: { amount_ccd: '0.01', tx_hash: s.transaction, explorer_url: `https://ccdexplorer.io/testnet/transaction/${s.transaction}` }, ...(buyer ? { buyer } : {}) } };
   }
   return { handle, requirements };
 }

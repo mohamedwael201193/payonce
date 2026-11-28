@@ -177,6 +177,8 @@ const lock = await kvGet('demo_run', 'lock');
 if (lock?.until_ms > Date.now() && process.env.DEMO_IGNORE_LOCK !== '1') { console.log(`another demo run holds the lock until ${new Date(lock.until_ms).toISOString()}`); process.exit(3); }
 await kvPut('demo_run', 'lock', { until_ms: Date.now() + 12 * 60_000, pid: process.pid, started_at: log.started_at });
 let step = 'setup';
+// shown live on /demo: hashes are written as they land
+const progress = (k, h) => { if (k) log.txs[k] = h; return kvPut('demo_run', 'progress', { started_at: log.started_at, at: new Date().toISOString(), step, txs: { ...log.txs } }).catch(() => {}); };
 process.on('uncaughtException', async (e) => { await fail(e); });
 process.on('unhandledRejection', async (e) => { await fail(e); });
 async function fail(e) {
@@ -193,13 +195,13 @@ let rec = await getPayeeRecord(c, SELLER.address, SELLER.address);
 if (!rec) {
   await kvPut('vop_standin', SELLER.address, STANDIN);
   const identity = { kind: 1, idp_index: 0, legal_name_hash: legalNameHash(NAME), country: 'DK', proof_anchor: sha256Hex(canonicalJson(STANDIN)), anchor_tx: null };
-  log.txs.bind = (await send(SELLER, 'propose_payee', serProposePayee({ payee: SELLER.address, agent_token: OWNER_TOKEN, identity }))).hash;
+  await progress('bind', (await send(SELLER, 'propose_payee', serProposePayee({ payee: SELLER.address, agent_token: OWNER_TOKEN, identity }))).hash);
   rec = await getPayeeRecord(c, SELLER.address, SELLER.address);
 }
 while (Date.now() < rec.mature_at_ms + 3000) await sleep(5000);
 let chk = await vop.check({ seller: SELLER.address, payee: SELLER.address, legal_name: NAME, buyer: BUYER.address });
 if (!chk.buyer_ack?.current) {
-  log.txs.ack = (await sponsored(BUYER, 'acknowledge_payee', Buffer.from(chk.acknowledge.parameter, 'hex'))).hash;
+  await progress('ack', (await sponsored(BUYER, 'acknowledge_payee', Buffer.from(chk.acknowledge.parameter, 'hex'))).hash);
   chk = await vop.check({ seller: SELLER.address, payee: SELLER.address, legal_name: NAME, buyer: BUYER.address });
 }
 if (!chk.payable || !chk.buyer_ack?.current) throw new Error(`setup: not payable (${chk.verdict}, ack ${J(chk.buyer_ack)})`);
@@ -210,25 +212,28 @@ step = 'invoice';
 const id = Number((await kvGet('demo_run', 'next_id'))?.n ?? 100);
 await kvPut('demo_run', 'next_id', { n: id + 2 });
 const AMOUNT = 500_000n; const due = Date.now() + 7 * 864e5;
-log.txs.register = (await send(SELLER, 'register_payable', serRegisterPayable({ payable_id: id, payee: SELLER.address, amount: AMOUNT, asset: 'CCD', due_ms: due, doc_hash: sha256Hex(`payonce demo invoice ${id} ${NAME} ${Date.now()}`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }))).hash;
+await progress('register', (await send(SELLER, 'register_payable', serRegisterPayable({ payable_id: id, payee: SELLER.address, amount: AMOUNT, asset: 'CCD', due_ms: due, doc_hash: sha256Hex(`payonce demo invoice ${id} ${NAME} ${Date.now()}`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }))).hash);
 // ---- 2 pay once (sponsored fee) ----
 const paid = await sponsored(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id }), AMOUNT);
+await progress('pay', paid.hash);
 // ---- 3 pay again: the chain refuses ----
 const again = await send(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id }), { amount: AMOUNT, energy: 6000n, expectReject: true });
+await progress('pay_again', again.hash);
 step = 'impostor_account';
 // ---- 4 impostor ----
 const imp = process.env.DEMO_FRESH_IMPOSTOR === '1' ? await freshAccount() : await lookalikeAccount();
 step = 'impostor_bind';
 const impStandin = { account: imp.address, legal_name: NAME, country: 'DK', label: 'IMPOSTOR: claims the seller name; no proof' };
 const impIdentity = { kind: 1, idp_index: 0, legal_name_hash: legalNameHash(NAME), country: 'DK', proof_anchor: sha256Hex(canonicalJson(impStandin)), anchor_tx: null };
-log.txs.impostor_propose = (await send(SELLER, 'propose_payee', serProposePayee({ payee: imp.address, agent_token: OWNER_TOKEN, identity: impIdentity }))).hash;
+await progress('impostor_propose', (await send(SELLER, 'propose_payee', serProposePayee({ payee: imp.address, agent_token: OWNER_TOKEN, identity: impIdentity }))).hash);
 const impRec = await getPayeeRecord(c, SELLER.address, imp.address);
-log.txs.impostor_accept = (await sponsored(imp, 'accept_payee', serAcceptPayee({ seller: SELLER.address, version: impRec.version, proof_anchor: impIdentity.proof_anchor }))).hash;
+await progress('impostor_accept', (await sponsored(imp, 'accept_payee', serAcceptPayee({ seller: SELLER.address, version: impRec.version, proof_anchor: impIdentity.proof_anchor }))).hash);
 log.impostor_ccd_micro = String(await ccdMicro(imp.address));
 step = 'impostor_check';
 const impCheck = await vop.check({ seller: SELLER.address, payee: imp.address, legal_name: NAME, buyer: BUYER.address });
-log.txs.impostor_register = (await send(SELLER, 'register_payable', serRegisterPayable({ payable_id: id + 1, payee: imp.address, amount: AMOUNT, asset: 'CCD', due_ms: due, doc_hash: sha256Hex(`payonce demo impostor invoice ${id + 1} ${Date.now()}`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }))).hash;
+await progress('impostor_register', (await send(SELLER, 'register_payable', serRegisterPayable({ payable_id: id + 1, payee: imp.address, amount: AMOUNT, asset: 'CCD', due_ms: due, doc_hash: sha256Hex(`payonce demo impostor invoice ${id + 1} ${Date.now()}`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }))).hash);
 const impPay = await send(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id + 1 }), { amount: AMOUNT, energy: 6000n, expectReject: true });
+await progress('impostor_pay', impPay.hash);
 
 const verdictWord = { MATCH: 'Match', CLOSE_MATCH: 'Close match', NO_MATCH: 'No match', UNVERIFIED: 'Verification not possible' };
 const run = {

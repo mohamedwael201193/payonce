@@ -50,7 +50,7 @@ const NODE_RETRY = /429|RESOURCE_EXHAUSTED|UNAVAILABLE|ETIMEDOUT|ECONNRESET/i;
 export async function resolveTxStatus(txHash, { fromNode, fromExplorer = explorerTxStatus } = {}) {
   let last;
   for (let i = 0; i < 4; i++) {
-    try { const s = await fromNode(txHash); return { status: s.status, dataHex: s.dataHex ?? null, source: 'node' }; }
+    try { const s = await fromNode(txHash); return { status: s.status, dataHex: s.dataHex ?? null, sender: s.sender ?? null, source: 'node' }; }
     catch (e) { last = e; if (!NODE_RETRY.test(String(e?.message ?? e))) throw e; await new Promise((r) => setTimeout(r, 1200 * (i + 1))); }
   }
   try { return await fromExplorer(txHash); }

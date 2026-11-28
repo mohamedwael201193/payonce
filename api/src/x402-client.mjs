@@ -180,19 +180,32 @@ export function createX402Client(deps) {
     if (!p.requires_payment || !p._requirement) return strip(p);
     const d = decide(p._check, { approved: approved === true });
     if (d.action !== 'pay') return { ...strip(p), decision: d, paid: false, note: d.action === 'ask_human' ? 'Nothing was paid. A person must approve this seller, account and amount.' : 'Nothing was paid.' };
-    const payload = await deps.buildPayload({ requirement: p._requirement, resource: p._resource });
+    // The buyer's own signed spend mandate decides next. A person's "yes" never lifts it.
+    let auth = null;
+    if (deps.mandate) {
+      auth = await deps.mandate.authorize({ amount_micro: p._requirement.amount, pay_to: p.pay_to ?? p._requirement.payTo, purpose: p.url });
+      if (!auth.ok) {
+        const rec = { at: new Date(now()).toISOString(), url: p.url, name: p.name, pay_to: p._requirement.payTo, amount_ccd: microToCcd(p._requirement.amount), outcome: 'refused_by_mandate', mandate_code: auth.code, mandate: auth.mandate ?? null, paid: false };
+        await deps.record?.(rec);
+        return { ...strip(p), decision: { outcome: d.outcome, action: 'refuse', human_can_override: false, why: auth.reason, code: auth.code }, paid: false, refused_by: 'spend_mandate', mandate: auth.mandate ?? null, note: 'Nothing was signed and nothing was sent: the spend mandate refused this purchase.' };
+      }
+    }
+    let payload;
+    try { payload = await deps.buildPayload({ requirement: p._requirement, resource: p._resource }); }
+    catch (e) { if (auth?.reservation) await deps.mandate.settle(auth.reservation, { released: true }); throw e; }
     const header = Buffer.from(JSON.stringify(payload)).toString('base64');
     const u = await assertPublicUrl(url, { resolve: deps.resolve });
     // The signed transaction is sent once. A retry of an unknown outcome would double-pay: never retry here.
-    const second = await call(u, { method: p.method, body, headers: { 'payment-signature': header } });
+    const second = await call(u, { method: p.method, body, headers: { 'payment-signature': header, ...(auth?.headers ?? {}) } });
     let settlement = null;
     const ph = second.res.headers?.get?.('payment-response');
     if (ph) { try { settlement = b64json(ph); } catch { settlement = null; } }
     const tx = settlement?.transaction ?? settlement?.txHash ?? settlement?.transactionHash ?? null;
     const delivered = second.res.status >= 200 && second.res.status < 300;
     const rec = { at: new Date(now()).toISOString(), url: p.url, name: p.name, pay_to: p.pay_to, amount_ccd: p.selected.amount_ccd, outcome: d.outcome, verdict: p.check?.verdict ?? null, evidence_hash: p.check?.evidence_hash ?? null, approved_by_human: approved === true && d.human_can_override, http_status: second.res.status, tx_hash: tx, delivered, buyer };
+    if (auth?.reservation) await deps.mandate.settle(auth.reservation, { tx_hash: tx, released: !tx && second.res.status === 402 });
     await deps.record?.(rec);
-    return { ...strip(p), decision: d, paid: delivered || Boolean(tx), settlement, tx_hash: tx, explorer_url: tx ? `https://ccdexplorer.io/testnet/transaction/${tx}` : null, http_status: second.res.status, delivered, response_preview: second.bodyText.slice(0, 1500), record: rec };
+    return { ...strip(p), ...(auth ? { mandate: auth.mandate } : {}), decision: d, paid: delivered || Boolean(tx), settlement, tx_hash: tx, explorer_url: tx ? `https://ccdexplorer.io/testnet/transaction/${tx}` : null, http_status: second.res.status, delivered, response_preview: second.bodyText.slice(0, 1500), record: rec };
   }
 
   const publicProbe = async (args) => { const { _requirement, _resource, _check, ...rest } = await probe(args); return rest; };

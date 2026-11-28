@@ -27,6 +27,7 @@
 //   POST /api/relay/submit      { transaction }                   sender-signed -> sponsor co-signs -> submit once
 //   GET  /api/check-payee?seller=&payee=&legal_name=               alias of /api/vop/check (+ epc_verdict lower case)
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
+import { progressFor } from './demo-progress.mjs';
 import { VerifiablePresentationV1, AccountAddress as AccountAddressV, getEmbeddedModuleSchema, getUpdateContractParameterSchema, ContractName, EntrypointName } from '@concordium/web-sdk';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -53,6 +54,11 @@ import { kvGet, kvPut, kvList } from './store.mjs';
 import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
 import { createA2A } from './a2a.mjs';
 import { createX402Seller, SellerError, TESTNET_CAIP2 as X402_CAIP2 } from './x402-seller.mjs';
+import { createMandates, MandateError } from './mandate.mjs';
+import { createBuyerGate } from './buyer-gate.mjs';
+import { mandateDeps } from './mandate-wiring.mjs';
+import { merchantCheckBuyer } from './buyer-agent.mjs';
+import { grpc as chainGrpc } from './chain-v2.mjs';
 import { createPayeeCards } from './payee-card.mjs';
 import { badgeKind, badgeSvg } from './badge-svg.mjs';
 import { checkMainnet } from './vop-mainnet.mjs';
@@ -205,12 +211,17 @@ export const X402_SELLERS = [
 
 async function buildPayload({ requirement, resource }) {
   const mod = await import(pathToFileURL(`${BACKEND_DIR}src/facilitator/client.mjs`).href);
-  const { seller2 } = await signers();
-  const base = await mod.buildCcdPaymentPayload({ buyer: seller2, requirements: requirement });
+  const { sellerB } = await signers(); // 4MvdME…, the account of buyer agent #1488 (its spend mandate is signed by this key)
+  const base = await mod.buildCcdPaymentPayload({ buyer: sellerB, requirements: requirement });
   return { x402Version: base.x402Version, resource: resource ?? undefined, accepted: requirement, payload: base.payload };
 }
 
+let mandatesP = null;
+export const mandates = () => (mandatesP ??= mandateDeps().then(createMandates).catch((e) => { mandatesP = null; throw e; }));
+const lazyMandate = { authorize: async (a) => (await mandates()).authorize(a), settle: async (...a) => (await mandates()).settle(...a) };
+
 export const x402 = createX402Client({
+  mandate: lazyMandate,
   checkPayee: (i) => runCheck(i),
   buildPayload,
   record: async (rec) => { await kvPut('x402_purchase', `${rec.at}-${rec.tx_hash ?? 'none'}`.slice(0, 120), rec); },
@@ -256,9 +267,10 @@ async function demoRun() {
       refreshing = true;
     }
   }
+  const progress = refreshing ? progressFor({ lock, progress: await kvGet('demo_run', 'progress') }) : null;
   const last_error = lastError && (!latest?.generated_at || Date.parse(lastError.at) > Date.parse(latest.generated_at)) ? { at: lastError.at, step: lastError.step, error: lastError.error } : undefined;
-  if (!latest) return { live: false, refreshing, label: refreshing ? 'No fresh run yet; one is being produced (about 3 minutes).' : 'No fresh run available right now.', last_error, demo_book: DEMO_BOOK };
-  return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, age_secs: Math.round(age / 1000), last_error, demo_book: DEMO_BOOK };
+  if (!latest) return { live: false, refreshing, progress, label: refreshing ? 'No fresh run yet; one is being produced (about 3 minutes).' : 'No fresh run available right now.', last_error, demo_book: DEMO_BOOK };
+  return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, progress, age_secs: Math.round(age / 1000), last_error, demo_book: DEMO_BOOK };
 }
 
 /** network=mainnet -> identity-only mainnet mode; anything else -> the testnet v3 check. */
@@ -280,10 +292,20 @@ const ownFacilitator = () => (facilitatorP ??= (async () => {
   return { verify: (p, r) => f.scheme.verify(p, r), settle: (p, r) => f.scheme.settle(p, r) };
 })().catch((e) => { facilitatorP = null; throw e; }));
 const sellerBase = () => process.env.PAYONCE_PUBLIC_API ?? 'https://payonce-api-n98a.onrender.com';
+// The merchant verifies the buyer (Concordium workshop pattern): registry agent + signed, anchored spend mandate.
+const buyerGate = (mode) => createBuyerGate({ mode, mandates: { verifyForSale: async (a) => (await mandates()).verifyForSale(a) }, checkBuyer: async ({ tokenId, payer }) => merchantCheckBuyer({ grpcClient: await chainGrpc(), tokenId, expectedOwner: payer }) });
 export const x402Seller = createX402Seller({
   facilitator: { verify: async (p, r) => (await ownFacilitator()).verify(p, r), settle: async (p, r) => (await ownFacilitator()).settle(p, r) },
-  check: (i) => runCheck(i), payTo: OWNER_ADDRESS, feePayer: OWNER_ADDRESS, seen: sellerSeen,
+  check: (i) => runCheck(i), payTo: OWNER_ADDRESS, feePayer: OWNER_ADDRESS, seen: sellerSeen, gate: buyerGate('optional'),
   resourceUrl: (q) => `${sellerBase()}/api/x402/check-payee?${new URLSearchParams({ payee: String(q.payee ?? ''), name: String(q.name ?? q.legal_name ?? '') })}`,
+  record: async (rec) => { await kvPut('x402_sale', `${rec.at}-${rec.tx_hash}`.slice(0, 120), rec); },
+});
+
+// The agents-only twin: same product, but the merchant verifies the buyer first (registry agent + signed, anchored spend mandate).
+export const x402SellerAgents = createX402Seller({
+  facilitator: { verify: async (p, r) => (await ownFacilitator()).verify(p, r), settle: async (p, r) => (await ownFacilitator()).settle(p, r) },
+  check: (i) => runCheck(i), payTo: OWNER_ADDRESS, feePayer: OWNER_ADDRESS, seen: sellerSeen, gate: buyerGate('required'),
+  resourceUrl: (q) => `${sellerBase()}/api/x402/agent-check-payee?${new URLSearchParams({ payee: String(q.payee ?? ''), name: String(q.name ?? q.legal_name ?? '') })}`,
   record: async (rec) => { await kvPut('x402_sale', `${rec.at}-${rec.tx_hash}`.slice(0, 120), rec); },
 });
 
@@ -311,7 +333,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof AnchorError) return apiError(res, e.status, e.code, 'app', e.message, { retryable: e.retryable === true, ...(e.retry_after_s ? { retry_after_s: e.retry_after_s } : {}), ...(e.evidence_hash ? { evidence_hash: e.evidence_hash } : {}) });
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
-      if (e instanceof DashError || e instanceof ApprovalError || e instanceof AgeError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
+      if (e instanceof DashError || e instanceof ApprovalError || e instanceof AgeError || e instanceof MandateError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
     }
@@ -337,6 +359,21 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     if (!w.allowed) throw new VopError(429, 'rate_limited', 'Too many requests, slow down.');
   };
   const qs = (req) => Object.fromEntries(new URL(req.url, 'http://x').searchParams);
+  async function sellRoute(seller, req, res) {
+        try {
+          const paid = Boolean(req.headers['payment-signature'] ?? req.headers['x-payment']);
+          await limited('x402:sell', 30)(req);
+          if (paid) { const d = await hitWindow('x402sell:day', 86_400_000, 40); if (!d.allowed) throw new VopError(429, 'rate_limited', 'PayOnce sells a small number of sponsored checks per day on testnet. Try again tomorrow, or use the free /api/check-payee.'); }
+          const r = await seller.handle({ query: qs(req), headers: req.headers });
+          for (const [k, v] of Object.entries(r.headers)) res.setHeader(k, v);
+          res.setHeader('Access-Control-Expose-Headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
+          return sendJson(res, r.status, toPlain(r.body));
+        } catch (e) {
+          if (e instanceof SellerError) return apiError(res, e.status, e.code, 'app', e.message);
+          if (e instanceof VopError) return apiError(res, e.status, e.code, 'app', e.message);
+          return apiError(res, 502, 'x402_seller_upstream', 'node', `Could not complete the paid check (${String(e?.message ?? e).slice(0, 200)}). Nothing is charged unless a payment settled.`, { retryable: true });
+        }
+      }
   const relayLimited = async (req) => {
     const w = await hitWindow(`relay:${clientIp(req)}`, 60_000, 12);
     if (!w.allowed) throw new RelayError(429, 'rate_limited', 'Too many relay requests, slow down.');
@@ -397,21 +434,14 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       }
     }],
     ['GET', /^\/a2a$/, wrap(async () => ({ protocol: 'A2A JSON-RPC 2.0', method: 'message/send', card: 'https://payonce-tau.vercel.app/.well-known/agent.json', example: { jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: { kind: 'message', role: 'user', messageId: 'm1', parts: [{ kind: 'data', data: { payee: '<account>', name: '<payee name on the invoice>' } }] } } }, note: 'Free and read-only. Nothing is paid.' }))],
-    ['GET', /^\/api\/x402\/check-payee$/, async (req, res) => {
-      try {
-        const paid = Boolean(req.headers['payment-signature'] ?? req.headers['x-payment']);
-        await limited('x402:sell', 30)(req);
-        if (paid) { const d = await hitWindow('x402sell:day', 86_400_000, 40); if (!d.allowed) throw new VopError(429, 'rate_limited', 'PayOnce sells a small number of sponsored checks per day on testnet. Try again tomorrow, or use the free /api/check-payee.'); }
-        const r = await x402Seller.handle({ query: qs(req), headers: req.headers });
-        for (const [k, v] of Object.entries(r.headers)) res.setHeader(k, v);
-        res.setHeader('Access-Control-Expose-Headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
-        return sendJson(res, r.status, toPlain(r.body));
-      } catch (e) {
-        if (e instanceof SellerError) return apiError(res, e.status, e.code, 'app', e.message);
-        if (e instanceof VopError) return apiError(res, e.status, e.code, 'app', e.message);
-        return apiError(res, 502, 'x402_seller_upstream', 'node', `Could not complete the paid check (${String(e?.message ?? e).slice(0, 200)}). Nothing is charged unless a payment settled.`, { retryable: true });
-      }
-    }],
+    ['GET', /^\/api\/x402\/check-payee$/, (req, res) => sellRoute(x402Seller, req, res)],
+    ['GET', /^\/api\/x402\/agent-check-payee$/, (req, res) => sellRoute(x402SellerAgents, req, res)],
+    // ---- spend mandate of the reference buyer agent (#1488): signed by its account, anchored by it, enforced, verifiable ----
+    ['GET', /^\/api\/mandate$/, wrap(async () => { const m = await (await mandates()).get('current'); return m ?? { mandate: null, note: 'No mandate yet: POST /api/mandate/bootstrap creates the one fixed mandate for the reference buyer.' }; })],
+    ['GET', /^\/api\/mandate\/([0-9a-f]{64})$/, wrap(async (req, res, m) => { const v = await (await mandates()).get(m[1]); if (!v) throw new MandateError(404, 'not_found', 'No such mandate.'); return v; })],
+    ['GET', /^\/api\/mandate\/([0-9a-f]{64})\/spend$/, wrap(async (req, res, m) => { const svc = await mandates(); const v = await svc.get(m[1]); if (!v) throw new MandateError(404, 'not_found', 'No such mandate.'); return { mandate: v.hash, total_micro: v.total_micro, per_purchase_micro: v.per_purchase_micro, spent_micro: v.spent_micro, remaining_micro: v.remaining_micro, spends: await svc.spends(m[1]) }; })],
+    ['POST', /^\/api\/mandate\/bootstrap$/, wrap(async (req) => { await limited('mandate:boot', 6)(req); return (await mandates()).bootstrap(); })],
+    ['POST', /^\/api\/mandate\/register$/, wrap(async (req) => { await limited('mandate:reg', 6)(req); return (await mandates()).register(await readBody(req, 8192)); })],
     ['GET', /^\/api\/x402\/sales$/, wrap(async () => { const rows = (await kvList('x402_sale')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, price_ccd: '0.01', pay_to: OWNER_ADDRESS, sales: rows }; })],
     ['GET', /^\/api\/x402\/purchases$/, wrap(async () => { const rows = (await kvList('x402_purchase')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, purchases: rows }; })],
     ['POST', /^\/api\/invoices\/parse$/, wrap(async (req) => { await limited('invoice:parse', 30)(req); const b = await readBody(req, 64 * 1024); return parseInvoice(b?.text); })],

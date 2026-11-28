@@ -1,13 +1,13 @@
 // /demo: the whole idea in six screens and about a minute. One button per
 // screen, a few words each. The run comes from loadDemoRun(): a fresh real
 // run when the API has one, otherwise a labelled replay of a recorded run.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { VerdictMark } from '../app/run/Visuals'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
-import { RECORDED_RUN, impostorHeadline, loadDemoRun, txUrl, type DemoRun } from './demoData'
+import { RECORDED_RUN, ago, impostorHeadline, loadDemoFeed, txUrl, type DemoProgressStep, type DemoRun } from './demoData'
 import { PayeeDiff } from '../dash/motion'
 import { lookalike, sharedEnds } from '../dash/lookalike'
 import { OfficialBadges } from '../app/OfficialBadges'
@@ -49,22 +49,79 @@ function Ticks({ items, delay = 0.25 }: { items: string[]; delay?: number }) {
   )
 }
 
+/** Poll the API while it produces a fresh run: new hashes appear as they land, then the run itself replaces the older one. */
+const POLL_MS = 4_000
+const POLL_MAX = 90 // about 6 minutes: a run takes about 3
+
+export function DemoStatus({ run, ready, refreshing, progress }: { run: DemoRun; ready: boolean; refreshing: boolean; progress: DemoProgressStep[] }) {
+  if (!ready) return <p className="dm-status dm-status--wait" data-testid="demo-status">Looking for a live run…</p>
+  const src = run.source ?? (run.live ? 'live' : 'replay')
+  const when = ago(run.ageSecs)
+  return (
+    <div className={`dm-status dm-status--${src}`} data-testid="demo-status">
+      <p className="dm-status__line" role="status">
+        <span className="dm-status__dot" aria-hidden />
+        {src === 'live' ? <><b>Live</b> · real transactions on the test network, {when}</> : null}
+        {src === 'recent' ? <><b>Last run</b> · real transactions on the test network, {when}{refreshing ? '. A fresh run is landing now.' : '.'}</> : null}
+        {src === 'replay' ? <><b>Replay</b> · a recording of an earlier run. {refreshing ? 'A live run is being made now.' : 'A live run is not available right now (the API is busy or its daily run limit is reached).'}</> : null}
+      </p>
+      {refreshing ? (
+        <div className="dm-progress" data-testid="demo-progress" aria-label="Transactions of the fresh run">
+          <small>Fresh run, hashes as they land</small>
+          {progress.length ? (
+            <ul>
+              {progress.map((t) => (
+                <li key={t.key}><a href={txUrl(t.hash)} target="_blank" rel="noreferrer">{t.label} <code>{midTruncate(t.hash, 4, 4)}</code> <i aria-hidden>↗</i></a></li>
+              ))}
+            </ul>
+          ) : <em>Starting… the first transaction lands in about 20 seconds.</em>}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function DemoPage() {
   useDocumentTitle('Demo')
   const [i, setI] = useState(0)
   const [run, setRun] = useState<DemoRun>(RECORDED_RUN)
   const [ready, setReady] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [progress, setProgress] = useState<DemoProgressStep[]>([])
+  const iRef = useRef(0)
   const [diffAcct, setDiffAcct] = useState<{ asked: string; illustration: boolean } | null>(null)
   const still = useReducedMotion()
 
   useEffect(() => {
     const ac = new AbortController()
-    void loadDemoRun(ac.signal).then((r) => {
+    let timer: number | undefined
+    let polls = 0
+    let shownAt: string | undefined
+    const apply = (f: Awaited<ReturnType<typeof loadDemoFeed>>, first: boolean) => {
       if (ac.signal.aborted) return
-      setRun(r)
-      setReady(true)
+      setRefreshing(f.refreshing)
+      setProgress(f.progress)
+      // Never swap the run under a visitor who has started it; the first screen may change.
+      if (first || iRef.current === 0) {
+        const key = f.run.source === 'replay' ? 'replay' : `${f.run.source}:${f.run.paid.hash}`
+        if (first || key !== shownAt) setRun(f.run)
+        shownAt = key
+      }
+      if (first) setReady(true)
+    }
+    const poll = () => {
+      timer = window.setTimeout(async () => {
+        polls += 1
+        const f = await loadDemoFeed(ac.signal, 8_000)
+        apply(f, false)
+        if (f.refreshing && polls < POLL_MAX && !ac.signal.aborted) poll()
+      }, POLL_MS)
+    }
+    void loadDemoFeed(ac.signal).then((f) => {
+      apply(f, true)
+      if (f.refreshing) poll()
     })
-    return () => ac.abort()
+    return () => { ac.abort(); window.clearTimeout(timer) }
   }, [])
 
   // Lookalike search is a CPU loop: never run it on the first screens or it freezes the "Run it" click.
@@ -79,6 +136,7 @@ export function DemoPage() {
     return () => clearTimeout(id)
   }, [i, run.good.account, run.impostor.account])
 
+  useEffect(() => { iRef.current = i }, [i])
   const next = () => setI((n) => Math.min(n + 1, SCREENS.length - 1))
   const imp = run.impostor
 
@@ -87,6 +145,7 @@ export function DemoPage() {
     case 0:
       body = (
         <>
+          <DemoStatus run={run} ready={ready} refreshing={refreshing} progress={progress} />
           <h1 className="dm-h">Same invoice. Different account. Which one should your AI pay?</h1>
           {ready ? (
             <>
@@ -192,14 +251,16 @@ export function DemoPage() {
         </AnimatePresence>
       </main>
       <footer className="dm-foot" data-testid="demo-label">
-        <span className={`dm-pill ${run.live ? 'is-live' : ''}`}>{ready ? (run.live ? 'Live run' : 'Replay') : 'Loading'}</span>
+        <span className={`dm-pill ${run.live ? 'is-live' : ''}`}>{ready ? (run.live ? 'Live run' : run.source === 'recent' ? 'Last run' : 'Replay') : 'Loading'}</span>
         {ready
-          ? (run.live ? 'A real payment on the test network, from today. The name on the invoice is a practice name.' : 'A recorded payment on the test network. The name on the invoice is a practice name.')
-          : 'Fetching a fresh run. If that takes too long, a recorded run will play instead.'}
+          ? (run.live ? `Real payments on the test network, ${ago(run.ageSecs)}. The name on the invoice is a practice name.`
+            : run.source === 'recent' ? `Real payments on the test network, ${ago(run.ageSecs)}. The name on the invoice is a practice name.`
+            : 'A recorded payment on the test network. The name on the invoice is a practice name.')
+          : 'Looking for a live run. If it takes too long, a recording will play instead.'}
         {ready ? (
           <details className="dm-details">
             <summary>Details</summary>
-            <p>{run.label} Testnet names are mock identities.</p>
+            <p>{run.source === 'recent' ? run.label.replace(/^Fresh run/, 'Run') : run.label} Testnet names are mock identities.</p>
           </details>
         ) : null}
       </footer>

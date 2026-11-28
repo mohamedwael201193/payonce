@@ -8,6 +8,7 @@ import { Nav } from './Nav'
 import { Proof } from './Proof'
 import { Story } from './Story'
 import { Tamper } from './Tamper'
+import { warmDemoRun } from '../demo/demoData'
 import { setLenis } from './scroll'
 import { useLandingData, type Snapshot } from './data'
 import './landing.css'
@@ -35,6 +36,7 @@ function useLenis() {
 export default function LandingPage({ snapshot }: { snapshot?: Snapshot }) {
   const data = useLandingData(snapshot)
   useLenis()
+  useEffect(() => { warmDemoRun() }, [])
   return (
     <MotionConfig reducedMotion="user">
       <div className="po" data-testid="landing">
