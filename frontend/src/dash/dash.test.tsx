@@ -139,7 +139,7 @@ describe('/p/<account>', () => {
   })
 })
 
-import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx } from './DashPage'
+import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx, checksOf } from './DashPage'
 
 const TXH = 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701'
 const ACC = '4ANkHiBERTZUsU3HHy99hrQQbzrGJLzqBdkoqmW9pXFtb89MEL'
@@ -189,6 +189,19 @@ describe('accept_payee progress (QA R3c)', () => {
     expect(screen.getByTestId('bound-label')).toHaveTextContent(/Bound/)
   })
 
+  it('shows the Match caption only once after the hold', async () => {
+    const why = 'Match: the payee account belongs to the verified person "Elin Berglund".'
+    route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() - 1000).toISOString(), tx_hash: TXH }), {
+      verdict: 'MATCH', payable: true, verified_name: 'Elin Berglund', identity_kind: 'person', standin: false, reasons: [why],
+      checks: [{ id: 'payee_book_bound', ok: true, detail: '' }, { id: 'cooling_off_over', ok: true, detail: '' }, { id: 'legal_name', ok: true, detail: '' }, { id: 'book_name_matches_invoice', ok: true, detail: '' }],
+      subject: { contract: '<13173,0>', seller: S, payee: ACC, invoice_name: 'Elin Berglund', book: { status: 'Bound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '',
+    })
+    wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
+    await screen.findByTestId('verdict')
+    expect(screen.getAllByText(/Match: the payee account belongs/)).toHaveLength(1)
+  })
+
+
   it('Bound and hold over: runs the real check and shows green Match only when payable', async () => {
     route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() - 1000).toISOString() }), {
       verdict: 'MATCH', payable: true, verified_name: 'Elin Berglund', identity_kind: 'person', standin: true, reasons: [],
@@ -198,5 +211,39 @@ describe('accept_payee progress (QA R3c)', () => {
     wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
     const v = await screen.findByTestId('verdict')
     expect(v).toHaveAttribute('data-verdict', 'MATCH')
+  })
+})
+
+
+const chk = (id: string, ok: boolean, detail = '') => ({ id, ok, detail })
+const baseCheck = {
+  payable: false, verified_name: 'Elin Berglund', identity_kind: 'person' as const, standin: false, reasons: [],
+  subject: { contract: '<13173,0>', seller: S, payee: A, invoice_name: 'Elin Berglun', book: { status: 'Bound' }, proof_anchor: null },
+  evidence_hash: 'e', checked_at: '',
+}
+
+describe('checksOf', () => {
+  it('dedupes Name matches the invoice and fails it on Close match even if legal_name is ok', () => {
+    const rows = checksOf({
+      ...baseCheck, verdict: 'CLOSE_MATCH',
+      checks: [
+        chk('payee_book_bound', true),
+        chk('cooling_off_over', true),
+        chk('book_name_matches_invoice', false, 'hash vs invoice'),
+        chk('legal_name', true, 'invoice "Elin Berglun" vs proven "Elin Berglund" (CLOSE_MATCH, similarity 0.923)'),
+        chk('book_name_matches_proof', true),
+      ],
+    })
+    const name = rows.filter((r) => r.text === 'Name matches the invoice')
+    expect(name).toHaveLength(1)
+    expect(name[0].ok).toBe(false)
+  })
+  it('a Match keeps a single passing Name matches the invoice row', () => {
+    const rows = checksOf({
+      ...baseCheck, verdict: 'MATCH', payable: true, subject: { ...baseCheck.subject, invoice_name: 'Elin Berglund' },
+      checks: [chk('book_name_matches_invoice', true), chk('legal_name', true), chk('proof_valid', true), chk('proof_valid', true)],
+    })
+    expect(rows.filter((r) => r.text === 'Name matches the invoice')).toEqual([{ ok: true, text: 'Name matches the invoice' }])
+    expect(rows.filter((r) => r.text === 'Name proven by the payee')).toHaveLength(1)
   })
 })

@@ -269,3 +269,12 @@
 .ds-verdict__why { max-width: 28rem; }
 .ds-ticks--skeleton { min-height: 240px; width: min(100%, 22rem); }
 .ds-ticks--skeleton li { height: 20px; border-radius: 6px; background: var(--po-sunken); opacity: .7; }
+
+/* The stamp is rotated -6deg (outline too). Padding keeps it from covering the caption under it, including at 390px. */
+.ds-stamp-slot { box-sizing: border-box; display: flex; justify-content: flex-start; padding: 22px 28px 28px 18px; overflow: visible; }
+.ds-verdict__stamp { align-items: start; }
+@media (max-width: 420px) {
+  .ds-verdict { align-items: flex-start; }
+  .ds-stamp-slot { padding: 24px 32px 32px 16px; }
+  .ds-verdict__why { padding-top: 2px; }
+}

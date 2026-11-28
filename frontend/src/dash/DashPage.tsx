@@ -140,10 +140,7 @@ export function BindProgress({ account, name, txHash }: { account: string; name:
           <HoldRing endsAt={st!.hold_ends_at!} totalSecs={st!.hold_secs || 90} />
         </>
       ) : checkQ.data ? (
-        <>
-          <VerdictBlock check={checkQ.data} />
-          {reasonFor(checkQ.data) ? <p className="ds-note">{reasonFor(checkQ.data)}</p> : null}
-        </>
+        <VerdictBlock check={checkQ.data} />
       ) : (
         <p className="ds-note" role="status">The hold is over. Running the check…</p>
       )}
@@ -151,7 +148,11 @@ export function BindProgress({ account, name, txHash }: { account: string; name:
   )
 }
 
-function checksOf(c: CheckPayee) {
+/** Invoice-name checks share one label. legal_name can be ok on a Close match while
+    book_name_matches_invoice fails, which used to paint the same row twice (pass + fail). */
+const NAME_VS_INVOICE = new Set(['name_match', 'legal_name', 'book_name_matches_invoice'])
+
+export function checksOf(c: CheckPayee) {
   const plain: Record<string, string> = {
     account_exists: 'Account exists',
     account_identity: 'Backed by an identity',
@@ -167,7 +168,33 @@ function checksOf(c: CheckPayee) {
     proof_issuer: 'The proof is from an identity provider',
     book_name_matches_proof: 'The book name matches the proof',
   }
-  return c.checks.map((x) => ({ ok: x.ok, text: plain[x.id] ?? x.detail }))
+  const rows: { ok: boolean; text: string }[] = []
+  const seen = new Map<string, number>()
+  const push = (ok: boolean, text: string) => {
+    const i = seen.get(text)
+    if (i == null) { seen.set(text, rows.length); rows.push({ ok, text }); return }
+    rows[i].ok = rows[i].ok && ok
+  }
+  let nameOk: boolean | null = null
+  for (const x of c.checks) {
+    if (NAME_VS_INVOICE.has(x.id)) {
+      // Close match is not a pass on "Name matches the invoice"
+      const exact = x.ok && c.verdict === 'MATCH'
+      nameOk = nameOk == null ? exact : nameOk && exact
+      continue
+    }
+    push(x.ok, plain[x.id] ?? x.detail)
+  }
+  if (nameOk != null) {
+    const i = rows.findIndex((r) => r.text === 'Name matches the invoice')
+    const row = { ok: nameOk, text: 'Name matches the invoice' }
+    if (i < 0) {
+      const after = rows.findIndex((r) => r.text === 'Hold finished')
+      if (after >= 0) rows.splice(after + 1, 0, row)
+      else rows.push(row)
+    } else rows[i].ok = rows[i].ok && nameOk
+  }
+  return rows
 }
 
 export function stampFor(check: CheckPayee): { verdict: CheckPayee['verdict']; word?: string; tone?: 'ok' | 'warn' | 'bad'; sub?: string; shown: string } {
@@ -201,7 +228,9 @@ export function VerdictBlock({ check }: { check: CheckPayee }) {
   return (
     <div className="ds-verdict" data-testid="verdict" data-verdict={st.shown}>
       <div className="ds-verdict__stamp">
-        <Stamp verdict={st.verdict} word={st.word} tone={st.tone} sub={st.sub} />
+        <div className="ds-stamp-slot">
+          <Stamp verdict={st.verdict} word={st.word} tone={st.tone} sub={st.sub} />
+        </div>
         {why ? <p className="ds-note ds-verdict__why">{why}</p> : null}
       </div>
       <CheckTicks items={checksOf(check)} />
