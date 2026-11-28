@@ -50,10 +50,20 @@ jobs:
       - run: npm ci --prefix api
       - name: Unit + handler + seller-key + stats + fresh-id tests (offline, stubbed chain)
         working-directory: api
+        shell: bash
         run: >
-          node --test test/unit.test.mjs test/mandate-gate.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
+          node --test test/ci-count.test.mjs test/unit.test.mjs test/mandate-gate.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
           test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
-          test/vop-mainnet-census.test.mjs test/census-verify.test.mjs test/vop-anchor.test.mjs test/status.test.mjs test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs test/registry-cards.test.mjs test/dash.test.mjs test/ledger-approvals.test.mjs test/vop-attacks.test.mjs test/wallet-age.test.mjs test/x402-client.test.mjs test/x402-seller.test.mjs test/a2a.test.mjs test/payee-card.test.mjs test/node-retry.test.mjs test/invoice-parse.test.mjs
+          test/vop-mainnet-census.test.mjs test/census-verify.test.mjs test/vop-anchor.test.mjs test/status.test.mjs test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs test/registry-cards.test.mjs test/dash.test.mjs test/ledger-approvals.test.mjs test/vop-attacks.test.mjs test/wallet-age.test.mjs test/x402-client.test.mjs test/x402-seller.test.mjs test/a2a.test.mjs test/payee-card.test.mjs test/node-retry.test.mjs test/invoice-parse.test.mjs 2>&1 | tee ../api-test.log
+      - name: count (parsed from the runner summary)
+        if: always()
+        run: node qa/ci/count-tests.mjs api node api-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: counts-api
+          path: counts/
+          if-no-files-found: ignore
 
   agent:
     name: agent + check_payee package tests
@@ -64,9 +74,22 @@ jobs:
         with:
           node-version: 22
       - name: Agent guard, tools, MCP core (offline)
-        run: node --test agent/test/*.test.mjs
+        shell: bash
+        run: node --test agent/test/*.test.mjs 2>&1 | tee agent-test.log
       - name: check-payee npm package and payonce-mcp bridge (offline)
-        run: node --test packages/check-payee/test/*.test.mjs packages/payonce-mcp/test/*.test.mjs
+        shell: bash
+        run: node --test packages/check-payee/test/*.test.mjs packages/payonce-mcp/test/*.test.mjs 2>&1 | tee packages-test.log
+      - name: count
+        if: always()
+        run: |
+          node qa/ci/count-tests.mjs agent node agent-test.log
+          node qa/ci/count-tests.mjs packages node packages-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: counts-agent
+          path: counts/
+          if-no-files-found: ignore
 
   backend:
     name: backend tests
@@ -85,11 +108,24 @@ jobs:
       # retry covers a rate-limited (429) read.
       - name: Backend tests (no keys)
         working-directory: backend
+        shell: bash
         run: |
           files=$(ls test/*.test.mjs | grep -v -E 'easypost\.test|/facilitator\.test')
-          node --test $files || { echo "retrying once (public node rate limit)"; node --test $files; }
+          { node --test $files || { echo "retrying once (public node rate limit)"; node --test $files; }; } 2>&1 | tee ../backend-test.log
       - name: Co-signer decision table
-        run: node --test contracts/cosigner/test/decide.test.mjs
+        shell: bash
+        run: node --test contracts/cosigner/test/decide.test.mjs 2>&1 | tee cosigner-test.log
+      - name: count
+        if: always()
+        run: |
+          node qa/ci/count-tests.mjs backend node backend-test.log
+          node qa/ci/count-tests.mjs cosigner node cosigner-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: counts-backend
+          path: counts/
+          if-no-files-found: ignore
 
   frontend:
     name: frontend tests + build
@@ -101,8 +137,19 @@ jobs:
           node-version: 22
       - run: npm ci
         working-directory: frontend
-      - run: npm test
+      - name: frontend tests
+        run: npm test 2>&1 | tee ../frontend-test.log
+        shell: bash
         working-directory: frontend
+      - name: count
+        if: always()
+        run: node qa/ci/count-tests.mjs frontend vitest frontend-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: counts-frontend
+          path: counts/
+          if-no-files-found: ignore
       - run: npm run build
         working-directory: frontend
 
@@ -118,14 +165,40 @@ jobs:
         with:
           toolchain: "1.85.0"
           targets: wasm32-unknown-unknown, wasm32v1-none
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-concordium
+          key: cargo-concordium-5.0.0
       - name: Install cargo-concordium 5.0.0
-        run: cargo install cargo-concordium --version 5.0.0 --locked
+        run: command -v cargo-concordium || cargo install cargo-concordium --version 5.0.0 --locked
       - name: v2 registry tests
-        run: cargo concordium test --out out/payable_registry_v2.wasm.v1
+        shell: bash
+        run: cargo concordium test --out out/payable_registry_v2.wasm.v1 2>&1 | tee ../../contracts-v2.log
         working-directory: contracts/payable_registry_v2
       - name: v2.1 registry tests
-        run: cargo concordium test --out out/payable_registry_v2_1.wasm.v1
+        shell: bash
+        run: cargo concordium test --out out/payable_registry_v2_1.wasm.v1 2>&1 | tee ../../contracts-v2_1.log
         working-directory: contracts/payable_registry_v2_1
+      - name: v3 registry tests (the deployed contract)
+        shell: bash
+        run: cargo concordium test --out out/payable_registry_v3.wasm.v1 2>&1 | tee ../../contracts-v3.log
+        working-directory: contracts/payable_registry_v3
+      - uses: actions/setup-node@v4
+        if: always()
+        with:
+          node-version: 22
+      - name: count
+        if: always()
+        run: |
+          node qa/ci/count-tests.mjs contracts-v2 cargo contracts-v2.log
+          node qa/ci/count-tests.mjs contracts-v2_1 cargo contracts-v2_1.log
+          node qa/ci/count-tests.mjs contracts-v3 cargo contracts-v3.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: counts-contracts
+          path: counts/
+          if-no-files-found: ignore
 
   verify-v3-module:
     name: v3 module == committed verifiable build (source archive, hash, node bytes, both books)
@@ -161,3 +234,35 @@ jobs:
       - name: verify-build (rebuilds the committed archive in docker.io/concordium/verifiable-sc-wasm32v1:1)
         working-directory: contracts/payable_registry_v3
         run: cargo concordium verify-build --module verifiable/payable_registry_v3.wasm.v1 --source verifiable/payable_registry_v3.wasm.v1.tar
+
+  test-count:
+    name: publish the CI test count (status/tests.json + badge endpoint)
+    needs: [api, agent, backend, frontend, contracts]
+    # Only a fully green run publishes a number; a partial run never lowers or inflates it.
+    if: ${{ github.event_name == 'push' && needs.api.result == 'success' && needs.agent.result == 'success' && needs.backend.result == 'success' && needs.frontend.result == 'success' && needs.contracts.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: test-count
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: counts-*
+          path: counts
+          merge-multiple: true
+      - name: sum the per-suite counts
+        run: node qa/ci/aggregate-tests.mjs counts "$GITHUB_SHA" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: commit (only when the number or the suites changed)
+        run: |
+          git config user.name  "mohamedwael201193"
+          git config user.email "72895329+mohamedwael201193@users.noreply.github.com"
+          git add status/tests.json status/tests-badge.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "status: CI test count $(node -p "const a=require('./status/tests.json');a.passing+'/'+a.total") [skip render] [skip ci]"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep $((i*5)); done
