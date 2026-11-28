@@ -48,7 +48,7 @@ import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { initStore } from './db.mjs';
 import { ageRequirement } from './age-requirement.mjs';
 import { runAgeProofV1 } from './age-v1.mjs';
-import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoKeySet } from './listable.mjs';
+import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoKeySet, statsHeadline } from './listable.mjs';
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
@@ -761,7 +761,8 @@ async function handleStats(req, res) {
     liveRefusals: refusals.filter((r) => r.origin === 'live_this_server').length,
     sellers: sellerCounts(scan.rows),
   });
-  sendJson(res, 200, { ...body, scan_id: meta.scan_id, complete: true, served_at: new Date().toISOString(), by_kind: kindCounts(scan.rows, demoKeySet(counters.demoIds)) });
+  const byKind = kindCounts(scan.rows, demoKeySet(counters.demoIds));
+  sendJson(res, 200, { headline: statsHeadline(byKind, body), ...body, scan_id: meta.scan_id, complete: true, served_at: new Date().toISOString(), by_kind: byKind });
 }
 
 // GET /api/stats/refusals — the list behind refused_on_chain_since_deploy.

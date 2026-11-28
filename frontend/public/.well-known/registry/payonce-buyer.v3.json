@@ -1,0 +1,101 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "PayOnce Buyer",
+  "description": "PayOnce buyer (payer) agent. Before every payment (invoice, x402 service or /p/<account> payment link) it calls check_payee and the official badge check on the seller agent. It pays once with pay_ccd on the PayOnce payable book payable_registry_v3 at <13172,0> (testnet; a 90-second demo copy runs at <13173,0>) only on MATCH; it never pays on NO_MATCH and asks its human on CLOSE_MATCH or UNVERIFIED. Its agentWallet is the account that actually pays, bound by that account's own signature. Testnet only, no real-world value. Payee names on testnet are self-asserted mock identities; PayOnce labels its own stand-ins as such.",
+  "version": "3.0.0",
+  "active": true,
+  "documentationUrl": "https://github.com/mohamedwael201193/payonce/blob/main/docs/REGISTRY.md",
+  "provider": {
+    "organization": "PayOnce",
+    "url": "https://payonce-tau.vercel.app"
+  },
+  "x402Support": true,
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+        "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
+        "required": false,
+        "params": {
+          "tokenAddress": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9Xp5bhbLsQrw7yTyph",
+          "owner": {
+            "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs"
+          },
+          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+          "contracts": {
+            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+          },
+          "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
+          "verification": {
+            "service": "Concordium Agent Registry",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9Xp5bhbLsQrw7yTyph",
+            "mcp": "https://agent-registry-mcp.concordium.com/mcp",
+            "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
+          }
+        }
+      }
+    ]
+  },
+  "supportedInterfaces": [
+    {
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0",
+      "url": "https://payonce-api-n98a.onrender.com"
+    }
+  ],
+  "services": [
+    {
+      "name": "A2A",
+      "version": "1.0",
+      "endpoint": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json"
+    },
+    {
+      "name": "PayOnce API",
+      "version": "1.0",
+      "endpoint": "https://payonce-api-n98a.onrender.com"
+    },
+    {
+      "name": "MCP",
+      "version": "2025-06-18",
+      "endpoint": "https://payonce-api-n98a.onrender.com/mcp"
+    }
+  ],
+  "skills": [
+    {
+      "id": "pay-invoice-once",
+      "name": "Pay an invoice exactly once",
+      "tags": [
+        "payment",
+        "ccd",
+        "x402"
+      ],
+      "description": "check_payee, then pay_ccd once; the contract refuses a second payment and a payee that is not bound or not matured."
+    },
+    {
+      "id": "check-payee",
+      "name": "Check a payee before paying",
+      "tags": [
+        "verification-of-payee",
+        "payments",
+        "concordium",
+        "x402"
+      ],
+      "description": "Verification of Payee: compare the name an invoice, x402 offer or payment link gave with the proven legal name behind the account that would be paid. Answers MATCH (pay once), CLOSE_MATCH (a person decides), NO_MATCH (pay nothing) or UNVERIFIED (verification not possible: a person decides)."
+    }
+  ],
+  "registrations": [
+    {
+      "agentId": 1488,
+      "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0"
+    }
+  ]
+}

@@ -122,6 +122,13 @@ test('complete scan: stats and invoices answer from cache, same scan_id, reconci
   // Demo vs automated test runs are both reported, never hidden.
   assert.equal(stats.json.by_kind.demo.total + stats.json.by_kind.test_runs.total, stats.json.payables_total)
   assert.deepEqual(invoices.json.items.map((i) => i.kind), ['matrix', 'matrix', 'matrix', 'demo', 'demo'])
+  // The headline quotes the demo kind only and names the test runs it leaves out.
+  assert.equal(stats.json.headline.basis, 'demo_kind_only')
+  assert.equal(stats.json.headline.payables, stats.json.by_kind.demo.total)
+  assert.equal(stats.json.headline.paid, stats.json.by_kind.demo.paid)
+  assert.equal(stats.json.headline.excluded_test_runs.payables, stats.json.by_kind.test_runs.total)
+  assert.equal(stats.json.headline.all_rows.payables, stats.json.payables_total)
+  assert.equal(stats.json.headline.outside_users_counted, false)
 })
 
 test('cache-only: a chain change is NOT visible until a refresh promotes a new complete scan', async () => {

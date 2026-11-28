@@ -124,6 +124,24 @@ export function kindCounts(rows, demoKeys = demoKeySet()) {
     rule: KIND_RULE,
   }
 }
+/** The numbers to quote. /api/stats' top-level payables_total / paid_total count EVERY row on the
+    registry, and most rows are PayOnce's own automated test runs (lab + matrix). The headline counts the
+    demo kind only (curated demo, judge-seeded and app-registered invoices) and always names what it
+    excludes. Every row is PayOnce's own: no outside user is counted here. */
+export function statsHeadline(byKind, totals) {
+  const d = byKind.demo, t = byKind.test_runs
+  return {
+    basis: 'demo_kind_only',
+    label: 'Invoices made through the app and the demo (test runs excluded)',
+    payables: d.total,
+    paid: d.paid,
+    excluded_test_runs: { payables: t.total, paid: t.paid },
+    all_rows: { payables: totals.payables_total, paid: totals.paid_total },
+    test_run_share_pct: totals.payables_total ? Math.round((t.total / totals.payables_total) * 100) : 0,
+    outside_users_counted: false,
+    note: 'Quote headline.payables / headline.paid. The top-level payables_total and paid_total include the automated test runs. All rows are PayOnce\'s own; outside users are not counted separately yet.',
+  }
+}
 export function invoiceItem(r, { label, amountDisplay, demoKeys }) {
   return {
     payable_id: r.id,
