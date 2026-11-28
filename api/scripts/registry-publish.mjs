@@ -105,10 +105,10 @@ if (PHASE === 'pin') {
     if (!okLayout) { out.steps.push({ token: p.token, skipped: 'canonical bytes layout mismatch' }); continue; }
     const sig = (await byAddr[p.wallet].sign(bytes))[0][0];
     const b = await mcp('build_set_agent_wallet', { token_id: p.token, new_wallet: p.wallet, deadline_unix_ms: deadline, signature_hex: sig, sender: p.owner });
-    await kvPut('registry_publish', 'pin_latest', out);
+    await kvPut('registry_publish', 'pin_latest', JSON.parse(J(out)));
     out.steps.push({ token: p.token, step: 'setAgentWallet', wallet: p.wallet, nonce_before: 0, ...(await call(p.owner, b.receive_name, b.parameter_hex, `setAgentWallet ${p.token}`)) });
   }
-  await kvPut('registry_publish', 'pin_latest', out);
+  await kvPut('registry_publish', 'pin_latest', JSON.parse(J(out)));
 }
 
 // Always: read-only state (wallets, nonces, EUDemo).
