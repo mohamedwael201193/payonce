@@ -9,10 +9,11 @@ import {
 } from '@concordium/web-sdk';
 import { createOpenSellers, OpenError, isAddress } from './open-sellers.mjs';
 import { payableVerdict } from './ecosystem-verify.mjs';
+import { createWalletDesk } from './wallet-desk.mjs';
 import { kvGet, kvPut, kvPutIfAbsent, kvList, kvDelete, hitWindow as storeHitWindow } from './store.mjs';
 import {
   grpc, getPayableOrNull, getVendor, agentOf as chainAgentOf, sendUpdate, waitFinalized, signers, chainNow,
-  getTx, getBlockTime, getRegistryBalance,
+  getTx, getBlockTime, getRegistryBalance, getAccount, microCcdOf,
 } from './chain-v2.mjs';
 import { backend } from './backend.mjs';
 import { mcpCallTool, mcpToolJson, mcpCheckBadge, mcpAgentOf } from './mcp-client.mjs';
@@ -25,6 +26,9 @@ const hex = (b) => Buffer.from(b).toString('hex');
 
 // ---- schemas the wallet needs to serialize parameters ----
 let registrySchemaB64 = null;
+const registrySchemas = new Map();
+/** Parameter schema (base64) of a registry entrypoint, read from the committed module; null when unavailable. */
+export function registryParamSchema(entrypoint) { return registrySchemas.get(entrypoint) ?? null; }
 export async function initSchemas() {
   try {
     const p = fileURLToPath(new URL(`../../contracts/${REGISTRY.name}/${REGISTRY.name}.wasm.v1`, import.meta.url));
@@ -32,11 +36,14 @@ export async function initSchemas() {
     const src = versionedModuleSourceFromBuffer(readFileSync(p));
     const schema = await getEmbeddedModuleSchema(src);
     if (!schema) return null;
-    const param = getUpdateContractParameterSchema(Buffer.from(schema.buffer), ContractName.fromString(REGISTRY.name), EntrypointName.fromString('register_payable'), schema.version);
-    registrySchemaB64 = Buffer.from(param).toString('base64');
+    for (const ep of ['register_payable', 'pay_ccd']) {
+      const param = getUpdateContractParameterSchema(Buffer.from(schema.buffer), ContractName.fromString(REGISTRY.name), EntrypointName.fromString(ep), schema.version);
+      registrySchemas.set(ep, Buffer.from(param).toString('base64'));
+    }
+    registrySchemaB64 = registrySchemas.get('register_payable');
     return registrySchemaB64;
   } catch (e) {
-    console.error('[open] register_payable schema unavailable:', e?.message ?? e);
+    console.error('[open] registry schemas unavailable:', e?.message ?? e);
     return null;
   }
 }
@@ -182,6 +189,40 @@ export async function verifyAnyPayable({ seller, id, docSha256 = null, buyer = n
 }
 
 // ---- routes ----
+// ---- the own-wallet desk (balance, starter CCD, an invoice addressed to the visitor, the pay_ccd transaction) ----
+let visitorInvoiceCreator = null;
+export function setVisitorInvoiceCreator(fn) { visitorInvoiceCreator = fn; }
+export const desk = createWalletDesk({
+  kv: { get: kvGet, put: kvPut, putIfAbsent: kvPutIfAbsent, list: kvList, delete: kvDelete },
+  hitWindow: storeHitWindow,
+  internalAccounts: [PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO, OWNER_ADDRESS, SELLER2_ADDRESS],
+  registry: REGISTRY,
+  get schemas() { return { payCcd: registryParamSchema('pay_ccd') }; },
+  chain: {
+    async balanceMicro(addr) {
+      const c = await grpc();
+      try {
+        const info = await getAccount(c, addr);
+        return BigInt(microCcdOf(info.accountAvailableBalance ?? info.accountAmount));
+      } catch (e) {
+        if (/not found|NOT_FOUND|account or block not found/i.test(String(e?.message ?? e))) return null;
+        throw e;
+      }
+    },
+    async sendTransfer(to, micro) {
+      const c = await grpc();
+      const sig = await signers();
+      const { v2send } = await backend();
+      return v2send.sendSimpleTransfer(c, { from: sig.owner, to, amountMicroCcd: micro });
+    },
+    async registerInvoiceFor(payer) {
+      if (!visitorInvoiceCreator) throw new OpenError(503, 'not_ready', 'The server is still starting. Try again in a moment.');
+      return visitorInvoiceCreator(payer);
+    },
+    async getPayable(seller, id) { return getPayableOrNull(await grpc(), seller, id); },
+  },
+});
+
 export function openRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   const wrap = (fn) => async (req, res, m) => {
     try {
@@ -199,6 +240,10 @@ export function openRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }
   const q = (req, k) => new URL(req.url, 'http://x').searchParams.get(k);
   return [
     ['GET', /^\/api\/open\/config$/, wrap(() => open.config())],
+    ['GET', /^\/api\/wallet\/account\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('wallet:acct', 30)(req); return desk.account(m[1]); })],
+    ['POST', /^\/api\/wallet\/faucet$/, wrap(async (req) => { await limited('wallet:faucet', 3)(req); const b = await readBody(req); return desk.faucet(b.account, clientIp(req)); })],
+    ['POST', /^\/api\/wallet\/invoice$/, wrap(async (req) => { await limited('wallet:invoice', 4)(req); const b = await readBody(req); return desk.invoiceFor(b.payer, clientIp(req)); })],
+    ['GET', /^\/api\/wallet\/pay-tx$/, wrap(async (req) => { await limited('wallet:paytx', 30)(req); return desk.payTransaction(q(req, 'seller'), q(req, 'id'), q(req, 'account')); })],
     ['GET', /^\/api\/open\/sellers$/, wrap(async () => { await open.load(); return { sellers: open.allListed().map((s) => ({ account: s.account, agent_token: s.agent_token, badge: s.badge, listed_at: s.listed_at, listing_tx: s.listing_tx, invoices: (s.invoices ?? []).length })) }; })],
     ['GET', /^\/api\/open\/sellers\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('open:status', 30)(req); return open.status(m[1]); })],
     ['POST', /^\/api\/open\/agent-card$/, wrap(async (req) => { await limited('open:card', 6)(req); return open.startAgent(await readBody(req)); })],

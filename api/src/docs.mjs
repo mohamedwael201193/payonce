@@ -30,7 +30,7 @@ export function matrixDocBytes(id) {
 
 /** Deterministic lab invoice text for a fresh payable (same shape as the
  *  v2 happy-path invoice files). The hash of THESE bytes is registered. */
-export function generateLabDocument({ id, asset, amount, payee, seller, due, ageGate = null }) {
+export function generateLabDocument({ id, asset, amount, payee, seller, due, ageGate = null, expectedPayer = null }) {
   const amountLine = asset === 'CCD'
     ? `Amount: ${(Number(amount) / 1e6).toFixed(6)} CCD (${amount} microCCD)`
     : `Amount: ${(Number(amount) / 1e6).toFixed(2)} EUDemo (${amount} base units, 6 decimals)`;
@@ -40,6 +40,8 @@ export function generateLabDocument({ id, asset, amount, payee, seller, due, age
     `Payee: ${payee}`,
     amountLine,
     `Due: ${new Date(Number(due)).toISOString()}`,
+    // Only a visitor's own-wallet invoice names its payer here; the classic lab layout stays byte-identical.
+    ...(expectedPayer ? [`Expected payer: ${expectedPayer} (only this account can pay this invoice)`] : []),
     ...(ageGate ? [`Age restriction: ${Number(ageGate)}+ (age-restricted goods: the buyer must present a V&A 18+ proof before this invoice is paid)`] : []),
     'Test only — Concordium testnet, no real goods or services.',
     '',

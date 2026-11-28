@@ -52,7 +52,8 @@ import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoK
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
-import { open as openSellers, openRoutes, initSchemas as initOpenSchemas, setOpenRowRefresher } from './open-wiring.mjs';
+import { open as openSellers, openRoutes, initSchemas as initOpenSchemas, setOpenRowRefresher, setVisitorInvoiceCreator } from './open-wiring.mjs';
+import { OpenError } from './open-sellers.mjs';
 import { setOpenDocResolver } from './docs.mjs';
 import {
   createAgeProofHandlers, ageGateCheck, findFreshAgeProof,
@@ -1024,23 +1025,10 @@ async function handleVerify(req, res, id) {
   });
 }
 
-async function handleCreatePayable(req, res) {
-  const ip = clientIp(req);
-  const body = await readBody(req).catch(() => ({}));
-  const seller = resolveWriteSeller(req, res, body);
-  if (!seller) return;
+/** Register a fresh lab payable for seller 1 or seller 2 (the server holds their keys). `expected` is the only
+ *  account the registry lets pay it: the demo payer B by default, or a visitor's own wallet account. */
+async function registerLabPayable({ seller, asset, ageGate = null, expected = PAYER_ADDRESS }) {
   const isS2 = seller === SELLER2;
-  const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
-  if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
-  // Optional age gate (L2): the registered invoice document states "Age restriction: 18+", bound to the chain by its hash.
-  const ageGate = body.age_gate === undefined || body.age_gate === null ? null : Number(body.age_gate) === 18 ? 18 : undefined;
-  if (ageGate === undefined) return badRequest(res, 'age_gate, when given, must be 18.');
-  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
-  if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
-  const budget = await hitWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour);
-  if (!budget.allowed) {
-    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo’s budget for new invoices is used up for this hour. Use a lab invoice.', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
-  }
   const c = await grpc();
   const { v2enc } = await backend();
   const amount = asset === 'ccd' ? FRESH_CCD_MICRO : FRESH_EUDEMO_BASE;
@@ -1048,22 +1036,22 @@ async function handleCreatePayable(req, res) {
   const payee = isS2 ? SELLER2_ADDRESS : asset === 'ccd' ? PAYEE_CCD : PAYEE_EUDEMO;
   const sig = await signers();
   const sellerSigner = isS2 ? sig.seller2 : sig.owner;
-  if (!sellerSigner) return apiError(res, 503, 'seller_key_unavailable', 'server', 'This server holds no signing key for that seller, so it cannot register an invoice for it. Nothing was sent.', { retryable: false });
+  if (!sellerSigner) throw Object.assign(new Error('This server holds no signing key for that seller, so it cannot register an invoice for it. Nothing was sent.'), { code: 'seller_key_unavailable' });
   let reg;
-  try {
+  {
     // The id is allocated atomically and a chain Duplicate (-2) moves on to
     // the next id (see fresh-id.mjs). The document is stored only AFTER the
     // registration succeeded, so a duplicate never overwrites the document
     // of the payable that already owns that id.
     reg = await registerWithFreshId(async (id) => {
       const dueMs = Date.now() + FRESH_DUE_HOURS * 3_600_000;
-      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller, due: dueMs, ageGate });
+      const docText = generateLabDocument({ id, asset: asset === 'ccd' ? 'CCD' : 'EUDemo', amount: amount.toString(), payee, seller, due: dueMs, ageGate, expectedPayer: expected === PAYER_ADDRESS ? null : expected });
       const docHash = createHash('sha256').update(Buffer.from(docText, 'utf8')).digest('hex');
       const sent = await sendUpdate(c, {
         from: sellerSigner, receiveName: 'register_payable',
         parameterHex: v2enc.encodeV2RegisterPayable({
           id, payee, amount: amount.toString(), asset: asset === 'ccd' ? 'CCD' : 'EUDemo',
-          dueMs, docHashHex: docHash, token: isS2 ? SELLER2_TOKEN : OWNER_TOKEN, expected: PAYER_ADDRESS, legal: null,
+          dueMs, docHashHex: docHash, token: isS2 ? SELLER2_TOKEN : OWNER_TOKEN, expected, legal: null,
         }),
         maxEnergy: 6000n,
       });
@@ -1084,7 +1072,45 @@ async function handleCreatePayable(req, res) {
         return { free: id, existing };
       },
     });
+  }
+  return reg;
+}
+
+/** A visitor's own-wallet invoice: seller 1 registers 0.5 CCD to the lab payee, payable only by `payer`. */
+async function createVisitorInvoice(payer) {
+  const reg = await registerLabPayable({ seller: SELLER, asset: 'ccd', expected: payer });
+  if (!reg.ok) {
+    const info = reg.rejected;
+    throw new OpenError(409, 'chain_refused', `The chain refused the registration (${info?.code} ${info?.name}).`, { reject: info, tx_hash: reg.txHash, explorer_url: txUrl(reg.txHash) });
+  }
+  await storeDocument(reg.id, reg.docText);
+  if (!chainReaderOverride) { await upsertServedRow(SELLER, reg.id); void refreshScan(); }
+  await updateCounters((c2) => { c2.visitorIds = [...(c2.visitorIds ?? []), { seller: SELLER, id: reg.id, payer }]; });
+  return { seller: SELLER, payable_id: reg.id, tx_hash: reg.txHash, explorer_url: txUrl(reg.txHash), fee_testnet_ccd: feeOf(reg.status) ?? '0', due: new Date(reg.dueMs).toISOString() };
+}
+
+async function handleCreatePayable(req, res) {
+  const ip = clientIp(req);
+  const body = await readBody(req).catch(() => ({}));
+  const seller = resolveWriteSeller(req, res, body);
+  if (!seller) return;
+  const isS2 = seller === SELLER2;
+  const asset = body.asset === 'eudemo' ? 'eudemo' : body.asset === 'ccd' ? 'ccd' : null;
+  if (!asset) return badRequest(res, 'asset must be "ccd" or "eudemo".');
+  // Optional age gate (L2): the registered invoice document states "Age restriction: 18+", bound to the chain by its hash.
+  const ageGate = body.age_gate === undefined || body.age_gate === null ? null : Number(body.age_gate) === 18 ? 18 : undefined;
+  if (ageGate === undefined) return badRequest(res, 'age_gate, when given, must be 18.');
+  const attempt = await hitWindow(`att:${ip}`, 60_000, LIMITS.attemptsPerMinutePerIp);
+  if (!attempt.allowed) return rateLimited(res, Math.ceil(attempt.resetMs / 1000));
+  const budget = await hitWindow(`inv:${ip}`, 3_600_000, LIMITS.newInvoicesPerHour);
+  if (!budget.allowed) {
+    return apiError(res, 429, 'budget_exhausted', 'app', 'The demo’s budget for new invoices is used up for this hour. Use a lab invoice.', { retryable: true, retry_after_s: Math.ceil(budget.resetMs / 1000) });
+  }
+  let reg;
+  try {
+    reg = await registerLabPayable({ seller, asset, ageGate });
   } catch (e) {
+    if (e?.code === 'seller_key_unavailable') return apiError(res, 503, 'seller_key_unavailable', 'server', e.message, { retryable: false });
     return sendFailure(res, e);
   }
   if (reg.ok && !chainReaderOverride) {
@@ -1802,7 +1828,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // Warm the served scan from the persisted copy BEFORE listening, so the very
   // first request already gets the last complete scan (no warming_up window).
   ready().then(() => openSellers.load()).then(() => initOpenSchemas()).then(() => warmScanFromStore()).then(() => {
-    setOpenRowRefresher((seller, id) => upsertServedRow(seller, id));
+    setVisitorInvoiceCreator(createVisitorInvoice); setOpenRowRefresher((seller, id) => upsertServedRow(seller, id));
     setOpenDocResolver((seller, id) => openSellers.documentFor(seller, id), (seller) => openSellers.isListedSync(seller));
     server.listen(PORT, HOST, () => {
       void startScanLoop();

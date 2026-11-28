@@ -51,7 +51,7 @@ jobs:
         run: >
           node --test test/unit.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
           test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
-          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs
+          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs
 
   backend:
     name: backend tests
