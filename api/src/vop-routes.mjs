@@ -214,11 +214,13 @@ const statusFn = createStatus({ loadCensus, testnetNode: nodeProbe(async () => v
 const sellerSeen = new Set();
 let facilitatorP = null;
 const ownFacilitator = () => (facilitatorP ??= (async () => {
-  const [{ ExactConcordiumScheme }, sdk] = await Promise.all([import('@x402/concordium/exact/facilitator'), import('@x402/concordium')]);
+  // @x402/concordium is a dependency of backend/, so the facilitator is built there (same module as the PayOnce Rail A facilitator).
+  const { BACKEND_DIR } = await import('./backend.mjs');
+  const { pathToFileURL } = await import('node:url');
+  const { createFacilitator } = await import(pathToFileURL(`${BACKEND_DIR}src/facilitator/scheme.mjs`).href);
   const { owner } = await signers();
-  const [host, port] = sdk.parseGrpcUrl(sdk.getConcordiumGrpcUrl(X402_CAIP2));
-  const scheme = new ExactConcordiumScheme({ signer: sdk.toConcordiumFacilitatorSigner(owner.address, owner.signer, { host, port, useTls: true, network: X402_CAIP2 }), requireFinalization: true, finalizationTimeoutMs: 60_000, maxExpiryOffsetSeconds: 600 });
-  return { verify: (p, r) => scheme.verify(p, r), settle: (p, r) => scheme.settle(p, r) };
+  const f = createFacilitator({ sponsorAddress: owner.address, sponsorSigner: owner.signer });
+  return { verify: (p, r) => f.scheme.verify(p, r), settle: (p, r) => f.scheme.settle(p, r) };
 })().catch((e) => { facilitatorP = null; throw e; }));
 const sellerBase = () => process.env.PAYONCE_PUBLIC_API ?? 'https://payonce-api-n98a.onrender.com';
 export const x402Seller = createX402Seller({
