@@ -576,3 +576,33 @@ test('gate: fresh proof on file passes; stale proof (>10 min) does not', () => {
   assert.equal(ageGateCheck({ id: 1008, amount: '1000000', asset: 'CCD' }, '4Payer', nowMs)?.code, 'age_proof_required');
   clearAgeProofs();
 });
+
+// ---- hosted prover: URL resolution + bearer token ----
+test('resolveProverUrl prefers PAYONCE_PROVER_URL, trims slashes, falls back to loopback', async () => {
+  const { resolveProverUrl, proverAuthHeaders } = await import('../src/age-proof.mjs');
+  assert.equal(resolveProverUrl({ PAYONCE_PROVER_URL: 'https://p.example/', PROVER_URL: 'http://x' }), 'https://p.example');
+  assert.equal(resolveProverUrl({ PROVER_URL: 'http://x:1' }), 'http://x:1');
+  assert.equal(resolveProverUrl({}), 'http://127.0.0.1:8788');
+  assert.deepEqual(proverAuthHeaders({ a: '1' }, { PAYONCE_PROVER_TOKEN: 'tok' }), { a: '1', authorization: 'Bearer tok' });
+  assert.deepEqual(proverAuthHeaders({ a: '1' }, {}), { a: '1' });
+});
+
+test('prover calls carry the bearer token and a 401 from the prover fails closed', async () => {
+  const seen = [];
+  process.env.PAYONCE_PROVER_TOKEN = 'unit-test-token-0000000000000000';
+  try {
+    const h = createAgeProofHandlers(makeDeps({
+      fetchImpl: async (url, options) => { seen.push([String(url), options?.headers?.authorization]); return new Response('{}', { status: 401 }); },
+    }));
+    const res = fakeRes();
+    await h.handlePolicyCheck(reqWith({ request: baseRequest([dob18()]) }), res);
+    assert.equal(res.status, 503);
+    assert.equal(res.body.error.code, 'prover_unavailable');
+    assert.equal(seen[0][1], 'Bearer unit-test-token-0000000000000000');
+    const hres = fakeRes();
+    await h.handleHealth(reqWith({}), hres);
+    assert.equal(hres.body.prover_available, false);
+  } finally {
+    delete process.env.PAYONCE_PROVER_TOKEN;
+  }
+});

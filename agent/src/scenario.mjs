@@ -16,7 +16,7 @@ export const HONESTY = [
   'Testnet only. Every transaction hash in this record is a Concordium testnet transaction; nothing here is real money.',
   'The inbox emails are seed data (fixtures written for this demo). The payables they point at are real rows on the PayOnce registry, and the payments are real testnet transactions.',
   'Payments go through the PayOnce API: the payer account signs under the vendor list, the per-payable mandate and the co-signer gate. On the EUDemo rail a refusal is the co-signer deciding off-chain (deterministic policy run by the operator), not a chain revert. On the CCD rail the contract itself reverts a second payment.',
-  'The 18+ age gate is enforced by the server and the verifier (the CCD contract cannot verify a zero-knowledge proof). The proof, when present, is a V&A V1 presentation from the paying account\'s credential, produced by the scoped prover that holds only the dob and nationality openings.',
+  'The 18+ age gate is enforced by the server and the verifier (the CCD contract cannot verify a zero-knowledge proof). The proof, when present, is a V&A V1 presentation from the paying account\'s credential, produced by the scoped prover, a separate service from the API that holds only the dob and nationality openings (a stand-in for Concordium\'s coming Agent IDP).',
   'The seller is an identity-backed account with an Active CIS-8004 token on the official registry <12802,0>. There is no company or LEI proof.',
   'The buyer agent (token 1488) has no published agent card, so the full 15-check badge cannot run for it; the seller-side gate is Active + owner + agentWallet equal to the paying account.',
 ];
@@ -34,7 +34,7 @@ export function apiAgeProofProvider({ client }) {
   return async ({ id }) => {
     let health;
     try { health = await client.ageProofHealth(); } catch (e) { return { ok: false, error: `age-proof health failed: ${safeError(e)}` }; }
-    if (!health?.prover_available) return { ok: false, error: 'prover_unavailable: no scoped prover (the holder of the dob and nationality openings) is reachable from this API host', http: 503 };
+    if (!health?.prover_available) return { ok: false, error: 'prover_unavailable: the scoped prover (a separate service holding the dob and nationality openings) is not reachable from this API', http: 503 };
     const r = await client.ageProofV1({ payableId: id });
     const b = r.body ?? {};
     if (r.status === 200 && b.ok && b.binding === 'bound') {

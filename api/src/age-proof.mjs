@@ -1,11 +1,13 @@
 // PayOnce API — V&A (age proof) wiring, G8 (testnet only).
 //
-// Proxies the scoped prover sidecar (services/prover.mjs) and the official
-// Concordium testnet Web3 ID verifier. The prover is a loopback-only sidecar
-// that holds ONLY the dob + nationality openings of one credential
-// (prover-C3.private.json, a secret file on the API host — never committed,
-// never in this repo). Until that sidecar is provisioned on the host, every
-// route below fails closed with 503 `prover_unavailable` — EXCEPT
+// Proxies the scoped prover and the official Concordium testnet Web3 ID
+// verifier. The prover (prover/ in this repo) is a SEPARATE service that holds
+// ONLY the dob + nationality openings of one credential, as its own env vars;
+// this API process holds no identity data. The API reaches it at
+// PAYONCE_PROVER_URL with the bearer PAYONCE_PROVER_TOKEN (local dev can still
+// use services/prover.mjs on 127.0.0.1:8788, no token). When the prover is not
+// configured or not reachable, every route below fails closed with 503
+// `prover_unavailable` and never fakes a proof — EXCEPT
 // POST /api/age-proof/verify-presentation (F2a), which takes a
 // client-supplied presentation straight to the official verifier and needs
 // no prover at all.
@@ -39,6 +41,17 @@
 // 64 KiB, same as the prover. Node built-ins only.
 
 export const PROVER_URL_DEFAULT = 'http://127.0.0.1:8788';
+/** The prover base URL: PAYONCE_PROVER_URL (hosted), PROVER_URL (legacy local), else the loopback default. */
+export function resolveProverUrl(env = process.env) {
+  return String(env.PAYONCE_PROVER_URL || env.PROVER_URL || PROVER_URL_DEFAULT).replace(/\/+$/, '');
+}
+/** Headers for a prover call. The bearer token comes only from the environment and is never logged. */
+export function proverAuthHeaders(extra = {}, env = process.env) {
+  const t = env.PAYONCE_PROVER_TOKEN;
+  return t ? { ...extra, authorization: `Bearer ${t}` } : { ...extra };
+}
+// A free-tier prover host sleeps when idle: the first call after a pause can take about a minute to wake.
+const PROVER_TIMEOUT_MS = 90_000;
 export const VERIFIER_URL =
   'https://web3id-verifier.testnet.concordium.com/v0/verify';
 export const AGE_PROOF_MAX_BODY = 64 * 1024;
@@ -283,13 +296,13 @@ export function ageGateCheck(view, payer, nowMs = Date.now(), { forceGated = fal
 }
 
 // ---- prover / verifier transport ----------------------------------------
-async function proverFetch(fetchImpl, proverUrl, path, body, timeoutMs = 10_000) {
+async function proverFetch(fetchImpl, proverUrl, path, body, timeoutMs = PROVER_TIMEOUT_MS) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     return await fetchImpl(`${proverUrl}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: proverAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
@@ -298,11 +311,11 @@ async function proverFetch(fetchImpl, proverUrl, path, body, timeoutMs = 10_000)
   }
 }
 
-async function proverHealthFetch(fetchImpl, proverUrl, timeoutMs = 5_000) {
+async function proverHealthFetch(fetchImpl, proverUrl, timeoutMs = PROVER_TIMEOUT_MS) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await fetchImpl(`${proverUrl}/health`, { signal: ctrl.signal });
+    return await fetchImpl(`${proverUrl}/health`, { headers: proverAuthHeaders(), signal: ctrl.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -325,7 +338,7 @@ async function verifierFetch(fetchImpl, verifierUrl, presentation, timeoutMs = 3
 
 function proverDown(deps, res) {
   return deps.apiError(res, 503, 'prover_unavailable', 'server',
-    'The age-proof prover is not reachable on this host. The prover sidecar has not been provisioned yet — age verification is unavailable, and age-gated payments stay refused. Nothing was sent.',
+    'The age-proof prover (a separate service that holds only the dob and nationality openings) is not reachable or not configured for this API. Age verification is unavailable, and age-gated payments stay refused. Nothing was sent.',
     { retryable: true });
 }
 
@@ -337,7 +350,7 @@ function proverUnavailableStatus(deps, res) {
     service: 'payonce-age-proof',
     prover_available: false,
     error: { code: 'prover_unavailable', layer: 'server', retryable: true,
-      message: 'The age-proof prover is not reachable on this host. The prover sidecar has not been provisioned yet — age verification is unavailable, and age-gated payments stay refused. Nothing was sent.' },
+      message: 'The age-proof prover (a separate service that holds only the dob and nationality openings) is not reachable or not configured for this API. Age verification is unavailable, and age-gated payments stay refused. Nothing was sent.' },
   });
 }
 
@@ -354,7 +367,7 @@ function proverUnavailableStatus(deps, res) {
  * so the envelope and the 64 KiB cap match every other route.
  */
 export function createAgeProofHandlers(deps) {
-  const proverUrl = deps.proverUrl ?? process.env.PROVER_URL ?? PROVER_URL_DEFAULT;
+  const proverUrl = deps.proverUrl ?? resolveProverUrl();
   const verifierUrl = deps.verifierUrl ?? VERIFIER_URL;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
@@ -534,7 +547,7 @@ export function createAgeProofHandlers(deps) {
    * F2a — verify-only path for a CLIENT-SUPPLIED presentation.
    * POST /api/age-proof/verify-presentation, body { presentation }.
    * The presentation goes STRAIGHT to the official testnet verifier —
-   * no prover call, so this works while the sidecar is unprovisioned, and
+   * no prover call, so this works while the prover is unavailable, and
    * a tampered presentation returns the REAL live 400 from the verifier
    * through the API (the leg /verify cannot provide: it generates its own
    * presentation and ignores any client-supplied one). Verification ONLY:

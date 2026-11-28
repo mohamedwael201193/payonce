@@ -12,7 +12,7 @@
 // rejection is a TAMPERED presentation (official verifier, HTTP 400) plus
 // forbidden shapes (prover policy, HTTP 403). No test with an under-18
 // person has ever been run — this page never claims one. Until the prover
-// sidecar is provisioned on the API host, the page shows the honest
+// service is unreachable or not configured, the page shows the honest
 // "prover not provisioned yet" state instead of pretending to be live.
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -137,13 +137,11 @@ export function AgeProofPage() {
   // are dead buttons under live-looking copy. Each demo section carries
   // its own visible "Demo unavailable" banner (the status card above is
   // not enough: a judge scrolling straight to a demo would never see it).
-  // The sidecar file (prover-C3.private.json) is provisioned only on the
-  // OLD API host, and the material is not in this workspace — so this page
-  // fix, not a provisioning, is what this commit can do. No deploy, no
-  // invented secret.
+  // The prover is a separate service (not the API process). When the API
+  // cannot reach it, the demos below are unavailable and say so.
   const demoUnavailable = !health.isLoading && !issuerDid
   const demoUnavailableReason = proverDown
-    ? 'The prover is not provisioned on this API host yet, so this demo cannot run. The anchored run above is the proof that already happened.'
+    ? 'The prover service is not reachable or not configured for this API, so this demo cannot run. The anchored run above is the proof that already happened.'
     : 'The prover did not answer, so this demo cannot run right now.'
 
   async function tryForbidden() {
@@ -206,10 +204,10 @@ export function AgeProofPage() {
             <div>
               <h2 className="text-lg font-medium text-po-ink">Prover not provisioned yet</h2>
               <p className="mt-2 text-po-grey">
-                The age-proof prover runs as a loopback sidecar on the API host, and its secret sidecar
-                file has not been provisioned there yet. Until it is, this page shows the design and the
-                anchored run — it does not pretend to verify live. Age-gated payments (1 CCD or 1.00
-                EUDemo and up) stay refused in the meantime.
+                The age-proof prover is a separate service, and this API cannot reach it or is not
+                configured with it. Until it answers, this page shows the design and the anchored run —
+                it does not pretend to verify live. Age-gated payments (1 CCD or 1.00 EUDemo and up)
+                stay refused in the meantime.
               </p>
             </div>
           ) : health.isError ? (
@@ -234,6 +232,13 @@ export function AgeProofPage() {
               <p className="mt-4 text-sm text-po-grey">Refused, always: {health.data?.prover.refuses.join('; ')}.</p>
             </div>
           )}
+          <p className="mt-4 border-t border-po-line pt-4 text-sm text-po-grey" data-testid="prover-honesty">
+            How this is deployed: the prover is its own service, separate from the PayOnce API. It holds
+            only the dob and nationality openings of one testnet credential, as that service's own
+            environment variables. The API process holds no identity data and calls the prover with a
+            bearer token. The prover refuses every reveal and every other attribute. It is a stand-in for
+            Concordium's coming Agent IDP, not a replacement for it.
+          </p>
         </section>
 
         {/* Anchored run. */}

@@ -49,6 +49,7 @@ More in [`VERIFY.md`](VERIFY.md): every claim maps to a transaction hash or a co
 - `backend/` holds the verifier modules, the co-signer decision table, the x402 facilitator code and recorded evidence (`backend/test/`), and `backend/scripts/verify-owner-proof.mjs`.
 - `frontend/` is the site and app (React, Vite, TypeScript). Public proofs live in `frontend/public/proofs/` and `frontend/public/evidence/`; agent cards in `frontend/public/.well-known/`.
 - `qa/` has the live end-to-end run, the attack suite and the secret scanner. `clicktest/` is the headless click test.
+- `prover/` is the scoped prover, deployed as its own Render web service (`payonce-prover`). It holds only the dob and nationality openings of the paying credential, as that service's env vars (`PROVER_OPENINGS_JSON`), and answers only age 18/21 range proofs and EU nationality/residence membership; every reveal or other shape gets 403. The API holds no identity data: it calls the prover with `PAYONCE_PROVER_URL` + bearer `PAYONCE_PROVER_TOKEN`. It is a stand-in for Concordium's coming Agent IDP. Test with `npm test --prefix prover`.
 - `services/` is the original v1 co-signer and prover (kept for the record).
 
 ## Build and test

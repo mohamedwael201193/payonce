@@ -1,0 +1,16 @@
+{
+  "name": "payonce-prover",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PayOnce scoped prover: a separate service holding only the dob + nationality openings of one testnet credential. Stand-in for Concordium's coming Agent IDP. Testnet only.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/prover.test.mjs"
+  },
+  "dependencies": {
+    "@concordium/web-sdk": "12.0.3",
+    "@grpc/grpc-js": "^1.14.7"
+  }
+}

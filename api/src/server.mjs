@@ -177,9 +177,9 @@ function clientIp(req) {
 }
 
 // ---- V&A age proof (G8): prover proxy + pay-flow gate. The prover is a
-// loopback sidecar on the API host (PROVER_URL, default 127.0.0.1:8788);
-// until its secret sidecar file is provisioned, every age-proof route
-// fails closed with 503 prover_unavailable and age-gated pays stay 409 —
+// separate service (PAYONCE_PROVER_URL + bearer PAYONCE_PROVER_TOKEN; local
+// dev falls back to 127.0.0.1:8788); the API holds no identity data. When the
+// prover is missing or unreachable, every age-proof route fails closed with 503 prover_unavailable and age-gated pays stay 409 —
 // except POST /api/age-proof/verify-presentation (F2a), which needs no
 // prover: it sends a client-supplied presentation straight to the official
 // verifier for verification only (nothing filed, gate untouched).
@@ -1224,7 +1224,7 @@ async function handleAgeProofV1(req, res) {
     return sendFailure(res, e);
   }
   if (out.ok) return sendJson(res, 200, out);
-  if (out.step === 'prover' && /prover_unavailable/.test(out.error ?? '')) return apiError(res, 503, 'prover_unavailable', 'server', 'The age-proof prover is not reachable on this host. Age-gated payments stay refused. Nothing was filed.', { retryable: true, steps: out.steps });
+  if (out.step === 'prover' && /prover_unavailable/.test(out.error ?? '')) return apiError(res, 503, 'prover_unavailable', 'server', 'The age-proof prover (a separate service) is not reachable or not configured. Age-gated payments stay refused. Nothing was filed.', { retryable: true, steps: out.steps });
   return sendJson(res, out.refused ? 403 : 400, out);
 }
 

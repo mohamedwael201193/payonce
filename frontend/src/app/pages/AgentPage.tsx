@@ -157,6 +157,11 @@ function DecisionCard({ d, index, explorer }: { d: AgentDecision; index: number;
                 : `No proof could be produced: ${d.age_proof.reason ?? 'unavailable'}. The invoice stayed unpaid.`
               : 'A proof is required before this invoice is paid.'}
           </p>
+          <p className="mt-1 text-xs text-po-grey" data-testid="agent-age-honesty">
+            The proof comes from a separate prover service that holds only the dob and nationality openings
+            of the paying account's credential; the API holds no identity data. It is a stand-in for
+            Concordium's coming Agent IDP.
+          </p>
           {d.age_proof?.ok && (d.age_proof.vra_tx || d.age_proof.vaa_tx) ? (
             <dl className="mt-1 divide-y divide-po-line">
               {d.age_proof.vra_tx ? (

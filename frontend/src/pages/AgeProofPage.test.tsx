@@ -1,7 +1,7 @@
 // AgeProofPage — mocked API responses shaped exactly like the real ones:
 // the 403 REVEAL_REFUSED from the prover policy, the 200 valid:true and
 // the 400 valid:false from the official verifier, and the 503
-// prover_unavailable when the sidecar is not provisioned.
+// prover_unavailable when the prover is not reachable.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -243,7 +243,7 @@ describe('AgeProofPage', () => {
     await waitFor(() => expect(screen.getByText('Prover not provisioned yet')).toBeInTheDocument(), {
       timeout: 5000,
     })
-    expect(screen.getAllByText(/Demo unavailable — The prover is not provisioned on this API host yet/)).toHaveLength(2)
+    expect(screen.getAllByText(/Demo unavailable — The prover service is not reachable or not configured for this API/)).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Reveal the first name' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
   })

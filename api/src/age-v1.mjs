@@ -3,7 +3,7 @@
 //   POST /api/age-proof/v1   { payable_id, payer? }
 //
 // The SELLER side issues the request: it anchors a Verification Request (VRA) on chain (age >= 18 and EU
-// nationality, nothing else) signed by the owner account. The BUYER side answers: the scoped prover (which holds
+// nationality, nothing else) signed by the owner account. The BUYER side answers: the scoped prover (a separate service holding
 // only the dob and nationality openings of the paying account's credential) builds the V1 presentation from that
 // anchor. The server verifies the presentation against the node, resolves the credential to its account, anchors
 // the audit record (VAA), and files the proof for that payer and payable ONLY if the holder account equals the
@@ -17,7 +17,7 @@ import {
   VerificationRequestV1, VerificationAuditRecordV1, VerifiablePresentationV1, IdentityProviderDID, AccountAddress,
 } from '@concordium/web-sdk';
 import { vClient, verifyV1PresentationWithNode, assertContextsMatch, CONSENT_DOMAIN } from './consent.mjs';
-import { resolvePresentationHolder, provesAdult, recordVerifiedAgeProof, deriveProvenStatements, PROVER_URL_DEFAULT } from './age-proof.mjs';
+import { resolvePresentationHolder, provesAdult, recordVerifiedAgeProof, deriveProvenStatements, resolveProverUrl, proverAuthHeaders } from './age-proof.mjs';
 
 const toJsonSafe = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 /** The public node answers 429 under load; nothing was accepted when it does, so a bounded retry is safe. */
@@ -38,9 +38,11 @@ const hashOf = (ref) => (ref?.toString?.() ?? String(ref ?? '')).toLowerCase();
 /**
  * @returns {Promise<object>} { ok, ... } - never throws for an expected failure; every failure names its step.
  */
-export async function runAgeProofV1({ waitTx, signers, payableId, payer, resolveHolderAccount, proverUrl = PROVER_URL_DEFAULT, fetchImpl = fetch, now = Date.now }) {
+export async function runAgeProofV1({ waitTx, signers, payableId, payer, resolveHolderAccount, proverUrl = resolveProverUrl(), fetchImpl = fetch, now = Date.now }) {
   const steps = [];
   const step = (name, ok, detail) => steps.push({ step: name, ok, detail });
+  // Wake a sleeping free-tier prover while the request anchors (fire and forget, no auth, no data).
+  fetchImpl(`${proverUrl}/healthz`, { signal: AbortSignal.timeout(90_000) }).catch(() => {});
   const { owner } = await signers();
   const sender = AccountAddress.fromBase58(owner.address);
 
@@ -68,8 +70,9 @@ export async function runAgeProofV1({ waitTx, signers, payableId, payer, resolve
   // 2. The buyer side answers through the scoped prover (policy check, then proof).
   let presJson;
   try {
-    const r = await fetchImpl(`${proverUrl}/presentation`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ request: reqJson }), signal: AbortSignal.timeout(60_000) });
+    const r = await fetchImpl(`${proverUrl}/presentation`, { method: 'POST', headers: proverAuthHeaders({ 'content-type': 'application/json' }), body: JSON.stringify({ request: reqJson }), signal: AbortSignal.timeout(120_000) });
     const body = await r.json().catch(() => ({}));
+    if (r.status === 401 || r.status === 429) return { ok: false, step: 'prover', error: `prover_unavailable: the scoped prover answered HTTP ${r.status} (token or rate limit)`, vra_tx: vraTx, steps };
     if (r.status === 403) return { ok: false, step: 'prover', refused: true, rule: body.rule ?? null, error: `the scoped prover refused the request (${body.rule ?? 'policy'})`, vra_tx: vraTx, steps };
     if (!r.ok || !body.presentation) return { ok: false, step: 'prover', error: `the prover could not build a presentation (HTTP ${r.status})`, vra_tx: vraTx, steps };
     presJson = body.presentation;

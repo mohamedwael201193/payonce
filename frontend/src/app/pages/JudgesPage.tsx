@@ -51,7 +51,7 @@ const KNOWN_LIMITS = [
   'Refused transactions still cost a fee. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
   'Testnet only. EUDemo is a testnet demo token. Invoices are lab documents.',
-  'Age proof is a separate flow. Payments of 1 CCD or 1.00 EUDemo and up refuse until the owner approves a hash-bound question (the consent anchor), and the age proof needs the prover sidecar on the API host.',
+  'Age proof is a separate flow. Payments of 1 CCD or 1.00 EUDemo and up refuse until the owner approves a hash-bound question (the consent anchor), and the age proof needs the separate prover service (holding only the dob and nationality openings, a stand-in for Concordium\'s coming Agent IDP).',
 ]
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
