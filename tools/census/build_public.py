@@ -23,7 +23,7 @@ for n in ["mainnet","testnet"]:
 if os.path.exists("vop_testnet_results.json"):
     vt=json.load(open("vop_testnet_results.json"))
     out["check_payee_live_on_testnet_payees"]={"accounts_checked":len(vt),"verdicts":dict(collections.Counter(x["verdict"] for x in vt)),
-        "note":"invoice name used = the agent card name; MATCH needs a payee-book binding with a proven legal name, which no account outside PayOnce has"}
+        "note":"invoice name used = the agent card name; UNVERIFIED means no name proof exists yet for the account; a MATCH needs a name proof plus a payee-signed binding, which no account outside PayOnce has published yet"}
 if os.path.exists("vop_mainnet_results.json"):
     vm=json.load(open("vop_mainnet_results.json"))
     out["check_payee_live_on_mainnet_payees"]={"mode":"identity_only","accounts_checked":len(vm),"agents_covered":sum(x["agents"] for x in vm),
@@ -34,6 +34,7 @@ if os.path.exists("vop_mainnet_results.json"):
 if os.path.exists("x402_vop_results.json"):
     xv=json.load(open("x402_vop_results.json"))
     out["x402_sellers"]={"concordium_endpoints_checked":len(xv),"rows":[{k:x[k] for k in ("endpoint","network","payTo","amount","asset","registry_agents_for_payTo","owner_ne_payTo","payTo_idp","payTo_business_id","check_payee_verdict")} for x in xv],
+        "unverified_means":"no name proof exists yet for this payTo account (nobody has published one). It is not a statement about the seller's honesty, and every Concordium seller we found is in the same position.",
         "payTo_not_in_registry":sum(1 for x in xv if not x["payTo_is_registry_owner_or_wallet"]),
         "payTo_with_business_identity":sum(1 for x in xv if x["payTo_business_id"])}
     xs=json.load(open("x402_sellers.json"))
@@ -79,6 +80,7 @@ out["wording"]={
    "payee_not_set":"No agentWallet on the token (payee falls back to the owner)."},
  "sources":"Registry lists and badge checks: Concordium's hosted agent-registry MCP/REST. Account identity providers: the public CCDExplorer account page (the census host cannot reach a node's gRPC port); the live check_payee reads the node directly. Cards: the agent_uri of each token, fetched once per run.",
  "sample_verification":SV,
+ "x402_sellers_wording":"For x402 sellers say: no name proof exists yet for its payTo account. Do not say the seller is unsafe, dishonest or fraudulent: UNVERIFIED is the answer for every Concordium seller found, including well-run ones.",
  "does_not_claim":["that any agent is fraudulent","that a business identity belongs to the company named on an invoice","that accounts outside the registry or x402 sellers we did not probe behave the same","a count of all Concordium agents: only registered, listed tokens"]}
 json.dump(out,open("census_public.json","w"),indent=1)
 print(json.dumps(out,indent=1)[:3500])

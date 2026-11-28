@@ -1,6 +1,6 @@
 {
  "schema": "payonce-vop-census/v1",
- "generated_at_utc": "2026-11-28T08:07:05Z",
+ "generated_at_utc": "2026-11-28T08:19:05Z",
  "method": "tools/census/METHOD.md",
  "vop_rule": "badge valid (official check) AND agentWallet set AND payee account holds a business identity (Global FinReg)",
  "networks": {
@@ -50,7 +50,7 @@
   "verdicts": {
    "UNVERIFIED": 248
   },
-  "note": "invoice name used = the agent card name; MATCH needs a payee-book binding with a proven legal name, which no account outside PayOnce has"
+  "note": "invoice name used = the agent card name; UNVERIFIED means no name proof exists yet for the account; a MATCH needs a name proof plus a payee-signed binding, which no account outside PayOnce has published yet"
  },
  "check_payee_live_on_mainnet_payees": {
   "mode": "identity_only",
@@ -134,6 +134,7 @@
     "check_payee_verdict": "UNVERIFIED"
    }
   ],
+  "unverified_means": "no name proof exists yet for this payTo account (nobody has published one). It is not a statement about the seller's honesty, and every Concordium seller we found is in the same position.",
   "payTo_not_in_registry": 1,
   "payTo_with_business_identity": 0,
   "endpoints_probed": 17,
@@ -194,6 +195,7 @@
   },
   "sources": "Registry lists and badge checks: Concordium's hosted agent-registry MCP/REST. Account identity providers: the public CCDExplorer account page (the census host cannot reach a node's gRPC port); the live check_payee reads the node directly. Cards: the agent_uri of each token, fetched once per run.",
   "sample_verification": "Identity attribution verified on chain for a sample: mainnet: 26 of 26 accounts agree (all 1 business-identity accounts included); testnet: 35 of 35 accounts agree (all 10 business-identity accounts included). Each account's credentials were re-read from a Concordium node (getAccountInfo) on 2026-11-28 by api. This verifies the identity-provider attribution for those accounts only, not badges, cards or every account in the census.",
+  "x402_sellers_wording": "For x402 sellers say: no name proof exists yet for its payTo account. Do not say the seller is unsafe, dishonest or fraudulent: UNVERIFIED is the answer for every Concordium seller found, including well-run ones.",
   "does_not_claim": [
    "that any agent is fraudulent",
    "that a business identity belongs to the company named on an invoice",

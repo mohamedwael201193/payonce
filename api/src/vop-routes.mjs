@@ -7,6 +7,7 @@
 //   GET  /api/vop/check?network=mainnet&payee=&name=              mainnet mode: identity-only (never MATCH, never payable), see vop-mainnet.mjs
 //   GET  /api/census/verify                                       re-reads a sample of census accounts from a node (read-only, cached 30 min, 6/min/IP)
 //   POST /api/vop/anchor {payee,name}  GET /api/vop/anchor/<evidence_hash>   verdict receipt: the evidence_hash anchored by registerData (testnet, 3/h/IP, 60/day), see vop-anchor.mjs
+//   GET  /api/status                                              public status: api, census freshness, badge continuity, registry, nodes (cached 60 s)
 //   GET  /api/census                                              VoP census of the Agent Registry (census_public.json shape)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
@@ -40,6 +41,8 @@ import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
 import { loadAndVerify } from './census-verify.mjs';
 import { createAnchorService, AnchorError } from './vop-anchor.mjs';
+import { createStatus } from './status.mjs';
+import { mainnetGrpc } from './vop-mainnet.mjs';
 import { BACKEND_DIR } from './backend.mjs';
 import { retryingReads } from './node-retry.mjs';
 import { parseInvoice, ParseError } from './invoice-parse.mjs';
@@ -202,6 +205,9 @@ async function demoRun() {
 const isMainnet = (v) => String(v ?? '').toLowerCase() === 'mainnet';
 const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : isDemoBook(input?.book) ? vopDemo.check(input) : vop.check(input));
 
+const nodeProbe = (getClient) => async () => { const c = await getClient(); const s = await c.getConsensusStatus(); return { detail: `finalized height ${String(s.lastFinalizedBlockHeight)}` }; };
+const statusFn = createStatus({ loadCensus, testnetNode: nodeProbe(async () => vClient()), mainnetNode: nodeProbe(async () => mainnetGrpc()) });
+
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
   let anchorP = null;
@@ -256,6 +262,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     })],
     ['GET', /^\/api\/census$/, wrap(async (req) => { await limited('census', 60)(req); return loadCensus(); })],
     ['GET', /^\/api\/census\/verify$/, wrap(async (req) => { await limited('census:verify', 6)(req); return loadAndVerify({ readLocal: (f) => readFileSync(new URL(`../../tools/census/${f}`, import.meta.url), 'utf8') }); })],
+    ['GET', /^\/api\/status$/, wrap(async (req) => { await limited('status', 60)(req); return statusFn(); })],
     // ---- verdict receipts: the evidence_hash anchored on chain (testnet registerData) ----
     ['POST', /^\/api\/vop\/anchor$/, wrap(async (req) => { await limited('vop:anchor:req', 12)(req); const b = await readBody(req); const svc = await anchorSvc(); return svc.anchor({ seller: b.seller ?? b.payee, payee: b.payee, legal_name: b.legal_name ?? b.name, country: b.country, network: b.network }, { ip: clientIp(req) }); })],
     ['GET', /^\/api\/vop\/anchor\/([0-9a-fA-F]{64})$/, wrap(async (req, res, m) => { await limited('vop:anchor:get', 60)(req); return (await anchorSvc()).get(m[1]); })],

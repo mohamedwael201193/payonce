@@ -1,0 +1,33 @@
+# check_payee action against another team's live x402 seller (Oracle Scout). It depends on a third party's uptime, so it runs on a
+# schedule (and by hand), never on every push; a red run here is reported, not blocking.
+name: probe-rival-seller
+on:
+  schedule:
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check-payee-action:
+    name: check_payee action vs a rival team's live x402 seller
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: vop
+        uses: ./packages/check-payee-action
+        with:
+          url: https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k
+          name: Oracle Scout
+          fail-on: no_match
+      - name: The honest answer for an account with no name proof is "verification not possible"
+        run: |
+          test "${{ steps.vop.outputs.outcome }}" = "not_possible"
+          test "${{ steps.vop.outputs.action }}" = "ask_human"
+      - name: The same check fails the step with the default policy (nothing but a match passes)
+        id: strict
+        uses: ./packages/check-payee-action
+        continue-on-error: true
+        with:
+          url: https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k
+          name: Oracle Scout
+      - run: test "${{ steps.strict.outcome }}" = "failure"

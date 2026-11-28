@@ -1,5 +1,7 @@
 # PayOnce
 
+[![CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml) [![status monitor](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml) [![census](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml)
+
 **An AI agent checks who it is paying (Match / No match) before any money moves, and pays each invoice exactly once.**
 Concordium testnet only. No mainnet, no real money. Built for the Encode Club × Concordium Trusted Agents Hackathon.
 

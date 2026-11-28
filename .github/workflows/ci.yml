@@ -12,9 +12,11 @@ on:
 permissions:
   contents: read
 
+# Every push to main gets its own group, so a later push never cancels an earlier main run (HEAD must show a real result).
+# Only superseded pull-request runs are cancelled.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   secret-scan:
@@ -65,32 +67,6 @@ jobs:
         run: node --test agent/test/*.test.mjs
       - name: check-payee npm package and payonce-mcp bridge (offline)
         run: node --test packages/check-payee/test/*.test.mjs packages/payonce-mcp/test/*.test.mjs
-
-  check-payee-action:
-    name: check_payee action vs a rival team's live x402 seller
-    runs-on: ubuntu-latest
-    # Depends on another team's live seller and the public testnet node, so a red here is reported, not blocking.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - id: vop
-        uses: ./packages/check-payee-action
-        with:
-          url: https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k
-          name: Oracle Scout
-          fail-on: no_match
-      - name: The honest answer for an account with no name proof is "verification not possible"
-        run: |
-          test "${{ steps.vop.outputs.outcome }}" = "not_possible"
-          test "${{ steps.vop.outputs.action }}" = "ask_human"
-      - name: The same check fails the step with the default policy (nothing but a match passes)
-        id: strict
-        uses: ./packages/check-payee-action
-        continue-on-error: true
-        with:
-          url: https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k
-          name: Oracle Scout
-      - run: test "${{ steps.strict.outcome }}" = "failure"
 
   backend:
     name: backend tests

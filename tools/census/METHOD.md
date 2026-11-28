@@ -37,6 +37,7 @@ invoice identity which no other agent has). We also report the looser counts so 
   `payee_equals_owner_default` is mostly the default and is **not** evidence that a developer chose to separate a payee.
 - `distinct_owners` counts accounts, not people or companies: one company can hold many accounts.
 - Population: tokens returned by `list_agents` for each network at run time (mainnet 5,501 / testnet 1,553 on 28 Nov 2026). It is not "all Concordium agents".
+- **Rival / outside x402 sellers:** say "no name proof exists yet for its `payTo` account". UNVERIFIED is not a finding about the seller (it is the answer for every Concordium seller found, including well-run ones). Never "unsafe", "dishonest", "fraudulent".
 - Scope of "x402 sellers": Concordium-network `accepts` entries found in live 402 challenges of endpoints reachable from agent cards or `x402_field_urls.txt` (GET/POST, never paid).
   It is a lower bound on live sellers (cards that do not advertise the endpoint are missed) and a handful, so quote counts, not percentages.
 - Testnet business IDs are weak evidence (the testnet Global FinReg issuer auto-approves). Mainnet business IDs are real KYB; mainnet figures are the ones to headline.
