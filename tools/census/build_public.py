@@ -53,6 +53,17 @@ for n in ["mainnet","testnet"]:
 if chg:
     prev=json.load(open("prev_census_public.json")).get("generated_at_utc") if os.path.exists("prev_census_public.json") else None
     out["changes_since_previous_run"]={"previous_generated_at_utc":prev,"networks":chg,"meaning":"payee = agentWallet, or the owner when unset. A changed payee on an existing token is the on-chain form of 'our bank details changed'."}
+# Sample verification (census_verification.json: a node re-read of a sample; written by verify-sample.mjs or GET /api/census/verify)
+SV="Identity-provider attribution comes from CCDExplorer's public page. It has not been re-read from a node in this run: say 'read from CCDExplorer', not 'verified on chain'. Run tools/census/verify-sample.mjs from a machine with gRPC access."
+if os.path.exists("census_verification.json"):
+    cv=json.load(open("census_verification.json")); nv=cv["networks"]
+    parts=[f"{n}: {nv[n]['agree']} of {nv[n]['agree']+nv[n]['mismatch']} accounts agree (all {nv[n]['business_accounts_in_census']} business-identity accounts included)" for n in ("mainnet","testnet")]
+    out["verification"]={k:cv[k] for k in ("schema","verified_at_utc","run_by","census_generated_at_utc","all_agree","scope")}
+    out["verification"]["networks"]={n:{k:nv[n][k] for k in ("accounts_in_census","business_accounts_in_census","business_accounts_checked","sample_size","agree","mismatch","node_errors","census_unattributed","agreement_rate")} for n in nv}
+    out["verification"]["file"]="tools/census/census_verification.json"
+    SV=("Identity attribution verified on chain for a sample: "+"; ".join(parts)+f". Each account's credentials were re-read from a Concordium node (getAccountInfo) on {cv['verified_at_utc'][:10]} by {cv['run_by']}. "
+        "This verifies the identity-provider attribution for those accounts only, not badges, cards or every account in the census." if cv["all_agree"] else
+        "Sample verification found disagreement or node errors: "+"; ".join(f"{n} {nv[n]['mismatch']} mismatches, {nv[n]['node_errors']} node errors" for n in nv)+". Do not say 'verified on chain'; see tools/census/census_verification.json.")
 # Precise wording (the page must use these, not paraphrase): numbers are computed from this same file.
 m,t=out["networks"]["mainnet"],out["networks"]["testnet"]
 out["wording"]={
@@ -67,7 +78,7 @@ out["wording"]={
    "payee_equals_owner_default":"agentWallet is set and equals the owner. The registry defaults agentWallet to the owner on registration, so this is mostly the default, not a deliberate choice of a payee.",
    "payee_not_set":"No agentWallet on the token (payee falls back to the owner)."},
  "sources":"Registry lists and badge checks: Concordium's hosted agent-registry MCP/REST. Account identity providers: the public CCDExplorer account page (the census host cannot reach a node's gRPC port); the live check_payee reads the node directly. Cards: the agent_uri of each token, fetched once per run.",
- "sample_verification":"Provider attribution comes from a web scrape of CCDExplorer, so a sample is re-checked against a node. Run: node tools/census/verify-sample.mjs (needs a reachable gRPC node, default grpc.mainnet.concordium.software:20000 and grpc.testnet.concordium.com:20000); it re-reads getAccountInfo for a seeded random sample of 25 accounts per network plus every business-identity account, compares the identity-provider index with census_*.csv and prints the agreement rate. Result is recorded in the handoff once run from a machine with gRPC access.",
+ "sample_verification":SV,
  "does_not_claim":["that any agent is fraudulent","that a business identity belongs to the company named on an invoice","that accounts outside the registry or x402 sellers we did not probe behave the same","a count of all Concordium agents: only registered, listed tokens"]}
 json.dump(out,open("census_public.json","w"),indent=1)
 print(json.dumps(out,indent=1)[:3500])

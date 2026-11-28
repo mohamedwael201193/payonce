@@ -315,16 +315,16 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
   }[verdict] ?? 'unknown verdict: pay nothing.');
   tools.push({
     name: 'check_payee',
-    description: 'Verification of Payee for an AI agent about to pay. Given the account the money would go to and the name the invoice or instruction gave, answers MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED (verification not possible), from the account\'s on-chain identity and zero-knowledge name proof. Pay only on MATCH. A person decides on CLOSE_MATCH and UNVERIFIED. Never pay on NO_MATCH. Concordium testnet; testnet names are self-asserted mock identities.',
-    inputSchema: { type: 'object', properties: { payee: { type: 'string', description: 'Concordium account that would receive the payment' }, legal_name: { type: 'string', description: 'the payee name the invoice or the user gave' }, seller: { type: 'string', description: 'optional: whose payee book to read (default: the payee itself)' }, country: { type: 'string' } }, required: ['payee', 'legal_name'], additionalProperties: false },
+    description: 'Verification of Payee for an AI agent about to pay. Given the account the money would go to and the name the invoice or instruction gave, answers MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED (verification not possible), from the account\'s on-chain identity and zero-knowledge name proof. Pay only on MATCH. A person decides on CLOSE_MATCH and UNVERIFIED. Never pay on NO_MATCH. Default Concordium testnet (testnet names are self-asserted mock identities). Set network=mainnet for a read-only identity check of a mainnet account: it names the identity provider but is never MATCH and never payable.',
+    inputSchema: { type: 'object', properties: { network: { type: 'string', enum: ['testnet', 'mainnet'], description: 'testnet (default): full check with payee book and name proof. mainnet: read-only identity check; never MATCH, never payable (no mainnet payee book yet)' }, payee: { type: 'string', description: 'Concordium account that would receive the payment' }, legal_name: { type: 'string', description: 'the payee name the invoice or the user gave' }, seller: { type: 'string', description: 'optional: whose payee book to read (default: the payee itself)' }, country: { type: 'string' } }, required: ['payee', 'legal_name'], additionalProperties: false },
     async handler(args = {}) {
-      const r = (await client.request('GET', `/api/check-payee?${q({ payee: args.payee, seller: args.seller ?? args.payee, legal_name: args.legal_name, country: args.country })}`)).body;
+      const r = (await client.request('GET', `/api/check-payee?${q({ network: args.network === 'mainnet' ? 'mainnet' : undefined, payee: args.payee, seller: args.seller ?? args.payee, legal_name: args.legal_name, country: args.country })}`)).body;
       return { ...r, epc_verdict: String(r.verdict).toLowerCase(), agent_advice: adviceFor(r.verdict) };
     },
   });
   tools.push({
     name: 'check_x402_seller',
-    description: 'Read an x402 seller\'s 402 payment request WITHOUT paying, then run check_payee on its payTo. Returns the price, payTo, verdict and what the agent may do. Nothing is sent.',
+    description: 'Read an x402 seller\'s 402 payment request WITHOUT paying, then run check_payee on its payTo (a Concordium mainnet payTo gets the read-only identity check automatically). Returns the price, payTo, verdict and what the agent may do. Nothing is sent.',
     inputSchema: { type: 'object', properties: { url: { type: 'string', description: 'https URL of the paid resource' }, name: { type: 'string', description: 'who you meant to pay' }, method: { type: 'string', enum: ['GET', 'POST'] } }, required: ['url', 'name'], additionalProperties: false },
     async handler(args = {}) { return (await client.request('GET', `/api/x402/probe?${q({ url: args.url, name: args.name, method: args.method })}`)).body; },
   });

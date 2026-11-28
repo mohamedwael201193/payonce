@@ -62,3 +62,17 @@ test('census: serves github copy with freshness; falls back to bundled; flags st
   assert.equal(fb.served.source, 'bundled'); assert.equal(fb.served.stale, true);
   _resetCensusCache();
 });
+
+// ---- x402 probe of a mainnet payTo + the tool network flag ----
+import { createX402Client } from '../src/x402-client.mjs';
+test('x402 probe: a mainnet payTo gets the read-only identity check and is never payable', async () => {
+  const body = { x402Version: 1, accepts: [{ scheme: 'exact', network: 'ccd:9dd9ca4d19e9393877d2c44b70f89acb', asset: 'CCD', amount: '1000000', payTo: PAYEE }] };
+  let seen = null;
+  const c = createX402Client({ fetch: async () => ({ status: 402, headers: new Map(), text: async () => JSON.stringify(body), body: null }), resolve: async () => [{ address: '93.184.216.34' }],
+    checkPayee: async (i) => { seen = i; return { verdict: 'UNVERIFIED', payable: false, identity_kind: 'business', reasons: ['x'], checks: [], evidence_hash: 'h' }; }, buildPayload: async () => { throw new Error('must not pay'); } });
+  const r = await c.probe({ url: 'https://seller.example/x', name: 'Acme' });
+  assert.equal(seen.network, 'mainnet'); assert.equal(r.network, 'mainnet'); assert.equal(r.check.verdict, 'UNVERIFIED');
+  assert.equal(r.decision.action, 'ask_human'); assert.equal(r.paid, false); assert.equal(r.selected, null);
+  const b = await c.buy({ url: 'https://seller.example/x', name: 'Acme', approved: true });
+  assert.equal(b.paid, false);
+});

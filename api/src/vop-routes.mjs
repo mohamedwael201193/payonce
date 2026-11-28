@@ -5,6 +5,8 @@
 //   GET  /api/vop/payee?seller=&payee=                            the raw payee-book record
 //   GET  /api/vop/payable?seller=&id=                             a v3 payable (payee + payee_version from chain)
 //   GET  /api/vop/check?network=mainnet&payee=&name=              mainnet mode: identity-only (never MATCH, never payable), see vop-mainnet.mjs
+//   GET  /api/census/verify                                       re-reads a sample of census accounts from a node (read-only, cached 30 min, 6/min/IP)
+//   POST /api/vop/anchor {payee,name}  GET /api/vop/anchor/<evidence_hash>   verdict receipt: the evidence_hash anchored by registerData (testnet, 3/h/IP, 60/day), see vop-anchor.mjs
 //   GET  /api/census                                              VoP census of the Agent Registry (census_public.json shape)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
@@ -29,6 +31,8 @@ import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
 import { createPayeeCards } from './payee-card.mjs';
 import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
+import { loadAndVerify } from './census-verify.mjs';
+import { createAnchorService, AnchorError } from './vop-anchor.mjs';
 import { BACKEND_DIR } from './backend.mjs';
 import { retryingReads } from './node-retry.mjs';
 import { parseInvoice, ParseError } from './invoice-parse.mjs';
@@ -104,7 +108,7 @@ async function buildPayload({ requirement, resource }) {
 }
 
 export const x402 = createX402Client({
-  checkPayee: (i) => vop.check(i),
+  checkPayee: (i) => runCheck(i),
   buildPayload,
   record: async (rec) => { await kvPut('x402_purchase', `${rec.at}-${rec.tx_hash ?? 'none'}`.slice(0, 120), rec); },
 });
@@ -157,12 +161,15 @@ const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : v
 
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
+  let anchorP = null;
+  const anchorSvc = () => (anchorP ??= import('./vop-anchor-wiring.mjs').then(({ anchorDeps }) => createAnchorService({ check: (i) => runCheck(i), ...anchorDeps(hitWindow) })).catch((e) => { anchorP = null; throw e; }));
   const wrap = (fn) => async (req, res, m) => {
     try {
       return sendJson(res, 200, toPlain(await fn(req, res, m)));
     } catch (e) {
       if (e instanceof ParseError) return apiError(res, 400, e.code, 'app', e.message);
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
+      if (e instanceof AnchorError) return apiError(res, e.status, e.code, 'app', e.message, { retryable: e.retryable === true, ...(e.retry_after_s ? { retry_after_s: e.retry_after_s } : {}), ...(e.evidence_hash ? { evidence_hash: e.evidence_hash } : {}) });
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
@@ -203,6 +210,10 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       return { contract: v3Label(), payable: await getPayableV3(vClient(), q.seller, q.id) };
     })],
     ['GET', /^\/api\/census$/, wrap(async (req) => { await limited('census', 60)(req); return loadCensus(); })],
+    ['GET', /^\/api\/census\/verify$/, wrap(async (req) => { await limited('census:verify', 6)(req); return loadAndVerify({ readLocal: (f) => readFileSync(new URL(`../../tools/census/${f}`, import.meta.url), 'utf8') }); })],
+    // ---- verdict receipts: the evidence_hash anchored on chain (testnet registerData) ----
+    ['POST', /^\/api\/vop\/anchor$/, wrap(async (req) => { await limited('vop:anchor:req', 12)(req); const b = await readBody(req); const svc = await anchorSvc(); return svc.anchor({ seller: b.seller ?? b.payee, payee: b.payee, legal_name: b.legal_name ?? b.name, country: b.country, network: b.network }, { ip: clientIp(req) }); })],
+    ['GET', /^\/api\/vop\/anchor\/([0-9a-fA-F]{64})$/, wrap(async (req, res, m) => { await limited('vop:anchor:get', 60)(req); return (await anchorSvc()).get(m[1]); })],
     // ---- x402 buyer with check_payee on every payTo ----
     ['GET', /^\/api\/x402\/sellers$/, wrap(async () => ({ sellers: X402_SELLERS, policy: { network: 'Concordium testnet', max_ccd_per_purchase: '2.5', asset: 'CCD', payer: 'PayOnce reference buyer agent (labelled; a person approves anything that is not a Match)', outcomes: ['match: pay once', 'close_match: a person decides', 'no_match: pay nothing', 'not_possible: a person decides'] } }))],
     ['GET', /^\/api\/x402\/probe$/, wrap(async (req) => { await limited('x402:probe', 12)(req); const q = qs(req); return x402.probe({ url: q.url, method: q.method, name: q.name }); })],

@@ -22,6 +22,7 @@ export class X402Error extends Error {
 
 export const X402_POLICY = Object.freeze({
   testnetNetworks: ['ccd:4221332d34e1694168c2a0c0b3fd0f27', 'ccd:4221332d34e1694168c2a0c0b3fd0f273809612cb13d000d5c2e00e85f50f796'],
+  mainnetNetworks: ['ccd:9dd9ca4d19e9393877d2c44b70f89acb', 'ccd:9dd9ca4d19e9393877d2c44b70f89acb8b2a4ce4ff0ec3db9aca48b3f0e0f5ad'],
   maxAmountMicro: 2_500_000n, // 2.5 CCD per purchase, testnet only
   maxBodyBytes: 256 * 1024,
   timeoutMs: 20_000,
@@ -159,6 +160,15 @@ export function createX402Client(deps) {
     const shown = pr.accepts[0];
     const payTo = (requirement ?? shown)?.payTo;
     const base = { ...out, requires_payment: true, x402_version: pr.version, resource: pr.resource, accepts: pr.accepts.map((a) => ({ scheme: a.scheme, network: a.network, asset: a.asset, amount: a.amount, amount_ccd: /^\d+$/.test(a.amount) ? microToCcd(a.amount) : null, pay_to: a.payTo })), pay_to: payTo ?? null };
+    if (!requirement) {
+      // A Concordium MAINNET payTo: PayOnce never pays on mainnet, but the receiving account can still be checked (identity-only).
+      const mn = pr.accepts.find((a) => String(a.network).startsWith('ccd:9dd9ca4d') && /^[1-9A-HJ-NP-Za-km-z]{50}$/.test(String(a.payTo ?? '')));
+      if (mn) {
+        const mcheck = await deps.checkPayee({ network: 'mainnet', payee: mn.payTo, legal_name: claimed });
+        const d = decide({ verdict: mcheck.verdict, payable: false });
+        return { ...base, network: 'mainnet', selected: null, check: summarize(mcheck), decision: { ...d, action: d.outcome === OUTCOME.NO_MATCH ? 'refuse' : 'ask_human', human_can_override: false, why: `Mainnet payTo: read-only identity check (${mcheck.verdict}). PayOnce does not pay on mainnet, so nothing can be sent from here. ${d.why}` } };
+      }
+    }
     if (!requirement) return { ...base, check: null, decision: { outcome: OUTCOME.NOT_POSSIBLE, action: 'refuse', human_can_override: false, why: `PayOnce cannot pay this request: ${reasons.join('; ') || 'no usable payment option'}.` } };
     const check = await deps.checkPayee({ seller: payTo, payee: payTo, legal_name: claimed });
     return { ...base, selected: { amount: requirement.amount, amount_ccd: microToCcd(requirement.amount), pay_to: payTo, network: requirement.network }, check: summarize(check), decision: decide(check), _requirement: requirement, _resource: pr.resource, _check: check };

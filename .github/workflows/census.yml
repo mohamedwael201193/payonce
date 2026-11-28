@@ -29,6 +29,18 @@ jobs:
         env:
           FULL: ${{ inputs.full && '1' || '0' }}
         run: ./refresh.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix api
+      # Re-read a sample of accounts from a Concordium node and compare with the fresh CSVs. Writes census_verification.json (also on a
+      # mismatch, so a disagreement is published, not hidden); the step is allowed to fail so a node outage cannot block the census.
+      - name: Verify a sample against a node
+        continue-on-error: true
+        run: node tools/census/verify-sample.mjs --run-by github-actions
+      - name: Rebuild census_public.json with the verification result
+        working-directory: tools/census
+        run: python3 build_public.py > /dev/null
       - name: Sanity-check the output before committing
         working-directory: tools/census
         run: |

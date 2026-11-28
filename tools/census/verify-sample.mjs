@@ -1,39 +1,22 @@
 #!/usr/bin/env node
-// Sample verification of the census identity attribution against a node (read-only).
-// The census attributes each account's identity provider from CCDExplorer's public page (the census host cannot reach gRPC).
-// This re-reads getAccountInfo from a node for a seeded random sample (+ every business-identity account) and reports agreement.
-// Needs: tools/census/census_*.csv and the api deps (run from the repo: cd api && npm ci). Usage: node tools/census/verify-sample.mjs [--n 25] [--seed 7]
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+// Sample verification of the census identity attribution against a Concordium node (read-only).
+// Re-reads getAccountInfo for every business-identity account + a seeded random sample, compares with census_*.csv,
+// writes census_verification.json and exits 1 on any mismatch or node error. Same code as GET /api/census/verify.
+// Needs: gRPC reachability (:20000) and `npm ci --prefix api`.   node tools/census/verify-sample.mjs [--n 25] [--seed 7] [--out file] [--run-by github-actions]
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { parseCsv, runVerification } from '../../api/src/census-verify.mjs';
 const here = fileURLToPath(new URL('.', import.meta.url));
-const require = createRequire(new URL('../../api/package.json', import.meta.url));
-const { ConcordiumGRPCNodeClient } = await import(require.resolve('@concordium/web-sdk/nodejs'));
-const { AccountAddress } = await import(require.resolve('@concordium/web-sdk'));
-const { credentials } = await import(require.resolve('@grpc/grpc-js'));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const N = Number(arg('--n', 25)); let seed = Number(arg('--seed', 7));
-const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
-const HOSTS = { mainnet: 'grpc.mainnet.concordium.software', testnet: 'grpc.testnet.concordium.com' };
-const IDP = { mainnet: { 1: 'Notabene', 2: 'Digital Trust Solutions', 3: 'Global FinReg' }, testnet: { 0: 'Concordium testnet IP', 3: 'Digital Trust Solutions TestNet', 4: 'Global FinReg Testnet', 5: 'Dataspike' } };
-const csv = (f) => { const [h, ...r] = readFileSync(here + f, 'utf8').trim().split('\n'); const k = h.split(','); return r.map((l) => Object.fromEntries(l.split(',').map((v, i) => [k[i], v]))); };
-let bad = 0;
-for (const net of ['mainnet', 'testnet']) {
-  const rows = csv(`census_${net}.csv`); const m = new Map();
-  for (const r of rows) { const p = r.agent_wallet || r.owner_account; m.set(p, r.agent_wallet ? r.payee_idp : r.owner_idp); m.set(r.owner_account, r.owner_idp); }
-  const all = [...m.keys()]; const biz = all.filter((a) => /Global FinReg/.test(m.get(a)));
-  const sample = new Set(biz); while (sample.size < Math.min(all.length, biz.length + N)) sample.add(all[Math.floor(rnd() * all.length)]);
-  const c = new ConcordiumGRPCNodeClient(HOSTS[net], 20000, credentials.createSsl());
-  let ok = 0, n = 0, bizOk = 0, errs = 0;
-  for (const a of sample) {
-    try {
-      const info = await c.getAccountInfo(AccountAddress.fromBase58(a));
-      const got = [...new Set(Object.values(info.accountCredentials).map((x) => IDP[net][x.value.contents.ipIdentity] ?? `idp ${x.value.contents.ipIdentity}`))].sort().join('|');
-      const want = String(m.get(a)).split('|').sort().join('|'); n++;
-      if (got === want) { ok++; if (biz.includes(a)) bizOk++; } else console.log(`MISMATCH ${net} ${a}: census=${want} node=${got}`);
-    } catch (e) { errs++; console.log(`ERR ${net} ${a}: ${String(e.message).slice(0, 80)}`); }
-  }
-  console.log(`${net}: ${ok}/${n} identity-provider attributions agree with the node (business-identity accounts ${bizOk}/${biz.length}); ${errs} node errors`);
-  if (ok !== n || errs) bad = 1;
+const rowsByNet = { mainnet: parseCsv(readFileSync(here + 'census_mainnet.csv', 'utf8')), testnet: parseCsv(readFileSync(here + 'census_testnet.csv', 'utf8')) };
+let gen = null; try { gen = JSON.parse(readFileSync(here + 'census_public.json', 'utf8')).generated_at_utc; } catch { /* none */ }
+const d = new Date(); const defSeed = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+const res = await runVerification({ rowsByNet, censusGeneratedAt: gen, n: Number(arg('--n', 25)), seed: Number(arg('--seed', defSeed)), runBy: arg('--run-by', 'cli') });
+for (const [net, x] of Object.entries(res.networks)) {
+  console.log(`${net}: ${x.agree}/${x.agree + x.mismatch} attributions agree with the node (business-identity accounts ${x.business_agree}/${x.business_accounts_in_census}); ${x.node_errors} node errors, ${x.census_unattributed} unattributed`);
+  for (const a of x.accounts.filter((r) => r.result === 'mismatch')) console.log(`  MISMATCH ${a.account}: census=${a.census.join('|')} node=${a.node.join('|')}`);
 }
-process.exit(bad);
+const out = arg('--out', here + 'census_verification.json');
+writeFileSync(out, JSON.stringify(res, null, 1) + '\n');
+console.log(`all_agree=${res.all_agree}  wrote ${out}`);
+process.exit(res.all_agree ? 0 : 1);

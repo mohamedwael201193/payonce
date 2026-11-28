@@ -17,6 +17,9 @@ inputs:
   payee:
     description: A Concordium account address to check (instead of url)
     default: ""
+  network:
+    description: testnet (default, full check) or mainnet (read-only identity check of a mainnet account; never a match, nothing can be paid). With `url`, a mainnet payTo is detected from the 402 automatically.
+    default: testnet
   name:
     description: Who you meant to pay (the name on the invoice or in your instructions)
     required: true
@@ -56,6 +59,7 @@ runs:
         C_METHOD: ${{ inputs.method }}
         C_BODY: ${{ inputs.body }}
         C_PAYEE: ${{ inputs.payee }}
+        C_NETWORK: ${{ inputs.network }}
         C_NAME: ${{ inputs.name }}
         C_FAIL: ${{ inputs.fail-on }}
         C_API: ${{ inputs.api }}

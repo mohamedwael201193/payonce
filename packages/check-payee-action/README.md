@@ -27,3 +27,8 @@ jobs:
 Outcomes: **match** (pay once), **close_match** (a person decides), **no_match** (pay nothing), **not_possible** (a person decides).
 The repo's own CI runs this action against another team's live seller (Oracle Scout). That seller's account has no name proof, so the
 honest answer is `not_possible`, and the CI step asserts exactly that.
+
+## `network: mainnet`
+`network: mainnet` with `payee:` runs a **read-only identity check** of a Concordium mainnet account (default is `testnet`, the full check).
+It names the identity provider and never returns a match (there is no mainnet payee book yet), so with the default `fail-on` the step fails unless you
+set `fail-on: no_match` (fail only on accounts that do not exist). With `url:`, a mainnet `payTo` in the 402 is detected automatically.
