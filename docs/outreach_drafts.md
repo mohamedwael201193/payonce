@@ -63,5 +63,5 @@ The task listed five sellers but named four; the fifth is not identified here (c
 ## Notes for momo
 - Do not paste the 24-word phrases or any keys anywhere. None of these messages needs them.
 - The "second identity / friend company" asks (Global FinReg) are in docs/FRIENDS_BECOME_A_PAYEE.md, not here.
-- The npm package is **not** published yet. The drafts therefore point to the repo path, not `npx payonce-check-payee`. If you publish first, change the CLI lines.
+- The npm packages `payonce-check-payee` and `payonce-mcp` are **staged** (28 Nov) and go live when you approve them on npmjs.com (2FA). Until then the drafts point to the repo path, not `npx payonce-check-payee`. If you publish first, change the CLI lines.
 - If a team replies and proves a name, re-run the check and quote the new verdict (Match) with the evidence hash.

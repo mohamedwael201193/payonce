@@ -4,22 +4,94 @@
   "url": "https://payonce-api-n98a.onrender.com/mcp",
   "documentationUrl": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee",
   "version": "1.0.0",
-  "provider": { "organization": "PayOnce", "url": "https://payonce-tau.vercel.app" },
-  "defaultInputModes": ["application/json"],
-  "defaultOutputModes": ["application/json"],
-  "capabilities": { "streaming": false, "pushNotifications": false },
-  "authentication": { "schemes": [] },
+  "provider": {
+    "organization": "PayOnce",
+    "url": "https://payonce-tau.vercel.app"
+  },
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "authentication": {
+    "schemes": []
+  },
   "interfaces": [
-    { "type": "mcp", "transport": "streamable-http", "url": "https://payonce-api-n98a.onrender.com/mcp", "tools": ["check_payee", "check_x402_seller", "get_payee_card", "check_payable", "list_payables", "receipt"] },
-    { "type": "http", "url": "https://payonce-api-n98a.onrender.com/api/check-payee?payee={account}&legal_name={name}", "method": "GET" },
-    { "type": "http", "url": "https://payonce-api-n98a.onrender.com/api/x402/probe", "method": "POST" },
-    { "type": "cli", "command": "npx payonce-check-payee <account> --name \"<payee name>\"", "note": "prepared in the public repo, not yet published to npm" },
-    { "type": "github-action", "uses": "mohamedwael201193/payonce/packages/check-payee-action@main" }
+    {
+      "type": "mcp",
+      "transport": "streamable-http",
+      "url": "https://payonce-api-n98a.onrender.com/mcp",
+      "tools": [
+        "check_payee",
+        "check_x402_seller",
+        "get_payee_card",
+        "check_payable",
+        "list_payables",
+        "receipt"
+      ]
+    },
+    {
+      "type": "http",
+      "url": "https://payonce-api-n98a.onrender.com/api/check-payee?payee={account}&legal_name={name}",
+      "method": "GET"
+    },
+    {
+      "type": "http",
+      "url": "https://payonce-api-n98a.onrender.com/api/x402/probe",
+      "method": "POST"
+    },
+    {
+      "type": "cli",
+      "command": "npx payonce-check-payee <account> --name \"<payee name>\"",
+      "note": "npm release payonce-check-payee@0.1.0 is staged on npm and goes live when the maintainer approves it (2FA). Until then run it from the repo: node packages/check-payee/bin/cli.mjs"
+    },
+    {
+      "type": "github-action",
+      "uses": "mohamedwael201193/payonce/packages/check-payee-action@main"
+    },
+    {
+      "type": "mcp-stdio",
+      "command": "npx -y payonce-mcp",
+      "note": "stdio bridge to the hosted /mcp; staged on npm, live after maintainer approval; source in packages/payonce-mcp"
+    }
   ],
   "skills": [
-    { "id": "check-payee", "name": "Check a payee before paying", "description": "Compare the name an invoice or instruction gave with the proven legal name of the account that would be paid.", "tags": ["payments", "verification-of-payee", "concordium", "x402"], "examples": ["Check 3okVZT… as Acme ApS before paying"] },
-    { "id": "check-x402-seller", "name": "Check an x402 seller without paying", "description": "Read the seller's 402, then run check_payee on its payTo.", "tags": ["x402", "agents"] },
-    { "id": "payee-card", "name": "Public payee card", "description": "The proven name, bound status and hold of a Concordium account (the /p/<account> link).", "tags": ["identity"] }
+    {
+      "id": "check-payee",
+      "name": "Check a payee before paying",
+      "description": "Compare the name an invoice or instruction gave with the proven legal name of the account that would be paid.",
+      "tags": [
+        "payments",
+        "verification-of-payee",
+        "concordium",
+        "x402"
+      ],
+      "examples": [
+        "Check 3okVZT… as Acme ApS before paying"
+      ]
+    },
+    {
+      "id": "check-x402-seller",
+      "name": "Check an x402 seller without paying",
+      "description": "Read the seller's 402, then run check_payee on its payTo.",
+      "tags": [
+        "x402",
+        "agents"
+      ]
+    },
+    {
+      "id": "payee-card",
+      "name": "Public payee card",
+      "description": "The proven name, bound status and hold of a Concordium account (the /p/<account> link).",
+      "tags": [
+        "identity"
+      ]
+    }
   ],
   "rules": {
     "match": "pay once, to this account only",

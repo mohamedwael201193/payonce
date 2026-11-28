@@ -3,7 +3,7 @@
 **Verification of Payee for AI agents on Concordium.** Before an agent pays an account, ask who the account really is.
 Zero dependencies. It never signs and never pays.
 
-> Status: prepared in the public repo, **not published to npm yet**. Run it from a clone: `node packages/check-payee/bin/cli.mjs …`.
+> Install: `npx payonce-check-payee …` or `npm i payonce-check-payee`. MCP: `npx -y payonce-mcp`.
 > Concordium **testnet**. Testnet names are self-asserted mock identities. The chain does not verify the zero-knowledge proof; a keyless verifier does.
 
 ## Four outcomes
@@ -21,13 +21,13 @@ An agent pays only the account whose proven name matches the name it was told to
 
 ```sh
 # an account and the name on the invoice
-check-payee 3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ --name "Acme ApS"
+npx payonce-check-payee 3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ --name "Acme ApS"
 
 # an x402 seller: read its 402 for free, then check its payTo (nothing is paid)
-check-payee x402 https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k --name "Oracle Scout"
+npx payonce-check-payee x402 https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k --name "Oracle Scout"
 
 # the public payee card (the /p/<account> link)
-check-payee card 3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ
+npx payonce-check-payee card 3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ
 ```
 
 `--json` prints the full result. `--api <url>` or `CHECK_PAYEE_API` points at another API (default: the hosted PayOnce API).
@@ -42,6 +42,8 @@ if (r.action === 'pay') { /* MATCH: pay once */ } else if (r.action === 'ask_hum
 ```
 
 ## MCP
+
+Local stdio: `npx -y payonce-mcp` (a bridge to the hosted server, read-only).
 
 The hosted MCP server (Streamable HTTP, read-only) at `https://payonce-api-n98a.onrender.com/mcp` lists `check_payee`,
 `check_x402_seller` and `get_payee_card` next to the invoice tools. Add it to any MCP client by URL.

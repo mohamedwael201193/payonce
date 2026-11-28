@@ -63,8 +63,8 @@ jobs:
           node-version: 22
       - name: Agent guard, tools, MCP core (offline)
         run: node --test agent/test/*.test.mjs
-      - name: check-payee npm package (offline)
-        run: node --test packages/check-payee/test/*.test.mjs
+      - name: check-payee npm package and payonce-mcp bridge (offline)
+        run: node --test packages/check-payee/test/*.test.mjs packages/payonce-mcp/test/*.test.mjs
 
   check-payee-action:
     name: check_payee action vs a rival team's live x402 seller
