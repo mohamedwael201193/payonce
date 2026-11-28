@@ -2071,3 +2071,11 @@ html.lenis body {
 .po-stamp--warn { color: #8a5a00; }
 @media (max-width: 980px) { .po-path { grid-template-columns: repeat(2, minmax(0, 1fr)); } .po-try { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .po-path { grid-template-columns: minmax(0, 1fr); } .po-try__verdict { flex-direction: column; align-items: flex-start; } }
+@media (max-width: 560px) {
+  .po-path { gap: 8px; }
+  .po-path li { padding: 12px 14px; align-items: center; }
+  .po-path p { display: none; }
+  .po-path h3 { margin: 0; }
+  .po-path h3 em { display: inline; margin-left: 6px; }
+  .po-path li > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; width: 100%; }
+}
