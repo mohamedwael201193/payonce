@@ -19,6 +19,7 @@ import { V3, v3Label, getPayeeRecord, getPayableV3, invokeV3, serProposePayee, s
 import { createRelayer } from '../src/relayer.mjs';
 import { OWNER_TOKEN } from '../src/config.mjs';
 import { createHash } from 'node:crypto';
+import { hashCandidates, returnedHash } from '../src/tx-hash.mjs';
 
 if (String(V3.index) !== '13173') { console.log('refusing: fixtures go on the demo book <13173,0> only (set PAYONCE_V3_INDEX=13173)'); process.exit(1); }
 const J = (o) => JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
@@ -38,7 +39,10 @@ if (X.address !== EXPECT_X) { console.log('refusing: identity 1 cred 48 is not t
 const xb = Buffer.from(AccountAddress.fromBase58(X.address).decodedAddress);
 const Y = AccountAddress.fromBuffer(Buffer.concat([xb.subarray(0, 29), Buffer.from([0, 0, 1])])).address;
 const OLD_INVOICE = 123;
-const out = { book: v3Label(), X: X.address, Y, steps: [] };
+const out = { book: v3Label(), X: X.address, Y, steps: [], hash_check: [] };
+// f1 was sent on the first run (28 Nov 10:42:09 Cairo) and stored under the SDK's pre-send hash 000496c4..., which the
+// node does not know (tx-hash.mjs). Its node hash, read back from wallet-proxy, is accepted only if the chain confirms it.
+const KNOWN = { f1_repropose_x: '9ea8268ba410911e041f5bf898088415db2cfc1ce92fd950d5eb5464b6f8bfbc' };
 
 async function outcome(h) {
   try {
@@ -57,16 +61,26 @@ async function settle(h, ms = 120_000) {
 async function tracked(key, build) {
   const prev = await kvGet(NS, key);
   if (prev?.hash) {
-    const o = await settle(prev.hash, 60_000);
-    if (o.state === 'finalized') { out.steps.push({ key, hash: prev.hash, ...o, reused: true }); if (!o.ok) throw new Error(`${key} was rejected ${o.reject} (${prev.hash})`); return prev.hash; }
-    throw new Error(`${key}: earlier tx ${prev.hash} has status ${o.state}; not sending again`);
+    for (const h of [...new Set([prev.hash, ...(prev.candidates ?? []), ...(KNOWN[key] ? [KNOWN[key]] : [])])]) {
+      const o = await settle(h, 20_000);
+      if (o.state === 'finalized') {
+        await kvPut(NS, key, { ...prev, hash: h, state: 'finalized', ok: o.ok, reject: o.reject ?? null });
+        out.steps.push({ key, hash: h, ...o, reused: true });
+        if (!o.ok) throw new Error(`${key} was rejected ${o.reject} (${h})`);
+        return h;
+      }
+    }
+    throw new Error(`${key}: earlier tx ${prev.hash} is not finalized under any known hash; not sending again`);
   }
   const { tx, send } = await build();
-  const hash = Buffer.from(Transaction.getAccountTransactionHash(tx)).toString("hex");
-  await kvPut(NS, key, { hash, state: 'sent', at: new Date().toISOString() });
-  await send(tx);
+  const candidates = hashCandidates(tx);
+  await kvPut(NS, key, { hash: candidates[0], candidates, state: 'sent', at: new Date().toISOString() });
+  const got = returnedHash(await send(tx));
+  const hash = got ?? candidates[0];
+  out.hash_check.push({ key, version: tx.version, node: got, block_item_hash_matches: got === candidates[0], sdk_hash_matches: got === candidates[candidates.length - 1] });
+  await kvPut(NS, key, { hash, candidates, state: 'sent', at: new Date().toISOString() });
   const o = await settle(hash);
-  await kvPut(NS, key, { hash, state: o.state, ok: o.ok ?? null, reject: o.reject ?? null, at: new Date().toISOString() });
+  await kvPut(NS, key, { hash, candidates, state: o.state, ok: o.ok ?? null, reject: o.reject ?? null, at: new Date().toISOString() });
   out.steps.push({ key, hash, ...o });
   if (o.state !== 'finalized') throw new Error(`${key}: ${hash} not finalized yet (${o.state}); not sending again`);
   if (!o.ok) throw new Error(`${key} rejected ${o.reject} (${hash})`);

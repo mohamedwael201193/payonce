@@ -28,15 +28,18 @@ function fakeChain(opts = {}) {
     sent, signed, payees, payables, outcomes,
     submitError: null, notSentOnce: false, pendingForever: false,
     async sign(role, entrypoint, paramHex, amount, energy) {
-      const hash = (++n).toString(16).padStart(64, '0');
+      const pre = (++n).toString(16).padStart(64, '0');
+      // c.nodeHash: the node's hash differs from the pre-send hash (the real SDK v0 case, tx-hash.mjs); it is the alt candidate
+      const hash = c.nodeHash ? `a${pre.slice(1)}` : pre;
       signed.push({ hash, role, entrypoint });
       return {
-        hash, expiry_ms: Date.now() + 300_000,
+        hash: pre, alt: c.nodeHash ? [hash] : [], expiry_ms: Date.now() + 300_000,
         submit: async () => {
           if (c.notSentOnce) { c.notSentOnce = false; throw new Error('duplicate nonce'); }
           sent.push({ hash, role, entrypoint, paramHex, amount });
           outcomes.set(hash, (opts.effect ?? defaultEffect)(c, { role, entrypoint, paramHex, amount }));
           if (c.submitError) { const e = c.submitError; c.submitError = null; throw e; }
+          return hash;
         },
       };
     },
@@ -127,6 +130,30 @@ test('op ledger: unknown submit result is never resent; a later call looks the h
   await kv.put('dash_op', 'k2', { state: 'sent', hash: '9'.repeat(64), expiry_ms: Date.now() + 1000 });
   await assert.rejects(d._op('k2', 'seller', () => chain.sign('seller', 'x', '00', 0n, 4000n)), (e) => e.code === 'op_pending' && e.extra.tx_hash === '9'.repeat(64));
   assert.equal(chain.signed.length, 1);
+});
+
+test('op ledger: the node-returned hash wins; with an unknown send every stored candidate is looked up', async () => {
+  const { d, chain, kv } = setup();
+  chain.nodeHash = true;
+  const r = await d._op('h1', 'seller', () => chain.sign('seller', 'propose_payee', '00', 0n, 4000n));
+  assert.equal(r.hash, chain.sent[0].hash); assert.match(r.hash, /^a/); assert.equal(r.ok, true);
+  chain.submitError = new Error('socket hang up');
+  await d._op('h2', 'seller', () => chain.sign('seller', 'propose_payee', '00', 0n, 4000n)).catch(() => {});
+  const st = await kv.get('dash_op', 'h2');
+  await kv.put('dash_op', 'h2', { ...st, state: 'sent' });
+  const r2 = await d._op('h2', 'seller', () => chain.sign('seller', 'propose_payee', '00', 0n, 4000n));
+  assert.equal(r2.hash, chain.sent[1].hash, 'found under the alt candidate'); assert.equal(chain.signed.length, 2, 'never re-signed');
+});
+
+test('tx-hash: candidates are the block-item hash and the sdk hash; the node answer is normalised', async () => {
+  const { hashCandidates, returnedHash } = await import('../src/tx-hash.mjs');
+  const { Transaction, AccountAddress, CcdAmount, TransactionExpiry, SequenceNumber, buildBasicAccountSigner } = await import('@concordium/web-sdk');
+  const tx = Transaction.transfer({ amount: CcdAmount.fromMicroCcd(1n), toAddress: AccountAddress.fromBase58(PAYER) })
+    .addMetadata({ sender: AccountAddress.fromBase58(SELLER), nonce: SequenceNumber.create(1), expiry: TransactionExpiry.futureMinutes(5) }).build();
+  const fin = await Transaction.signAndFinalize(tx, buildBasicAccountSigner('1'.repeat(64)));
+  const c = hashCandidates(fin);
+  assert.equal(c.length, 2); c.forEach((h) => assert.match(h, /^[0-9a-f]{64}$/));
+  assert.equal(returnedHash('AB'.repeat(32)), 'ab'.repeat(32)); assert.equal(returnedHash({ toString: () => 'c'.repeat(64) }), 'c'.repeat(64));
 });
 
 test('op ledger: a node refusal before acceptance (duplicate nonce) is re-signed once', async () => {

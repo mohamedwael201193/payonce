@@ -19,6 +19,7 @@ import {
   SequenceNumber, TransactionExpiry, AccountTransactionType, Cbor, CborMemo, TokenAmount, CborAccountAddress, TokenId,
 } from '@concordium/web-sdk';
 import { V3, getPayableV3 } from './vop-chain.mjs';
+import { hashCandidates, returnedHash } from './tx-hash.mjs';
 
 export const RELAY_LIMITS = Object.freeze({
   maxContractEnergy: 30_000n,
@@ -256,13 +257,14 @@ export function createRelayer(deps) {
     await sponsorFloor(c, sp.address);
     const sponsored = await Transaction.sponsor(tx, sp.signer);
     const finalized = Transaction.finalize(sponsored);
-    const hash = Buffer.from(Transaction.getAccountTransactionHash(finalized)).toString('hex');
-    // One submission. If the node call fails, the hash is still returned so
-    // the caller checks its status; the relayer never resubmits.
+    const candidates = hashCandidates(finalized);
+    let hash = candidates[0];
+    // One submission. If the node call fails, the candidate hashes are returned so
+    // the caller checks their status; the relayer never resubmits.
     try {
-      await c.sendTransaction(finalized);
+      hash = returnedHash(await c.sendTransaction(finalized)) ?? hash;
     } catch (e) {
-      return { submitted: 'unknown', tx_hash: hash, sender, sponsor: sp.address, error: String(e?.message ?? e).slice(0, 200), note: 'Status unknown: check the hash; do not resubmit.' };
+      return { submitted: 'unknown', tx_hash: hash, tx_hash_candidates: candidates, sender, sponsor: sp.address, error: String(e?.message ?? e).slice(0, 200), note: 'Status unknown: check these hashes; do not resubmit.' };
     }
     return { submitted: true, tx_hash: hash, sender, sponsor: sp.address, kind: facts.kind, entrypoint: facts.entrypoint ?? null, sender_paid_ccd: (facts.amount ?? 0n).toString() };
   }

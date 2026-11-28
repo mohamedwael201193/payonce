@@ -3,6 +3,7 @@ import {
   AccountAddress, ContractAddress, ReceiveName, Parameter, CcdAmount, Energy, TransactionExpiry, Transaction, Payload, TransactionHash,
 } from '@concordium/web-sdk';
 import { getPayeeRecord, getPayableV3, getConfigV3 } from './vop-chain.mjs';
+import { hashCandidates, returnedHash } from './tx-hash.mjs';
 
 const J = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 function outcomeOf(summary) {
@@ -28,8 +29,8 @@ export function createDashChain(deps) {
         receiveName: ReceiveName.fromString(`${book.name}.${entrypoint}`), message: Parameter.fromHexString(paramHex),
       }), Energy.create(BigInt(energy))).addMetadata({ sender: AccountAddress.fromBase58(s.address), nonce: next.nonce, expiry }).build();
       const fin = await Transaction.signAndFinalize(tx, s.signer);
-      const hash = Buffer.from(Transaction.getAccountTransactionHash(fin)).toString('hex');
-      return { hash, expiry_ms: Number(expiry.expiryEpochSeconds) * 1000, submit: () => c.sendTransaction(fin) };
+      const [hash, ...alt] = hashCandidates(fin);
+      return { hash, alt, expiry_ms: Number(expiry.expiryEpochSeconds) * 1000, submit: async () => returnedHash(await c.sendTransaction(fin)) };
     },
     async status(hash) {
       try {

@@ -92,23 +92,31 @@ export function createDashboard(deps) {
       const prev = await kv.get('dash_op', key);
       if (prev?.state === 'final') return prev;
       if (prev?.hash && prev.state === 'sent') {
-        const st = await chain.status(prev.hash);
-        if (st.state === 'finalized') { const done = { ...prev, state: 'final', ok: st.ok, reject: st.reject ?? null }; await kv.put('dash_op', key, done); return done; }
-        if (st.state === 'pending' || now() < Number(prev.expiry_ms ?? 0) + 60_000) { if (onSent) await onSent(prev.hash); return settle(key, prev, prev.hash); }
+        // every candidate hash stored before the send is looked up (tx-hash.mjs)
+        let st = { state: 'absent' }; let found = prev.hash;
+        for (const h of [prev.hash, ...(prev.alt ?? [])]) { const s = await chain.status(h); if (s.state !== 'absent') { st = s; found = h; break; } }
+        const p2 = found === prev.hash ? prev : { ...prev, hash: found, alt: [prev.hash, ...(prev.alt ?? [])].filter((h) => h !== found) };
+        if (st.state === 'finalized') { const done = { ...p2, state: 'final', ok: st.ok, reject: st.reject ?? null }; await kv.put('dash_op', key, done); return done; }
+        if (st.state === 'pending' || st.state === 'unknown' || now() < Number(prev.expiry_ms ?? 0) + 60_000) { if (p2 !== prev) await kv.put('dash_op', key, p2); if (onSent) await onSent(p2.hash); return settle(key, p2, p2.hash); }
         // absent from the chain after its expiry: it never executed, so a new submission cannot double-execute
       }
       for (let attempt = 0; ; attempt++) {
         const tx = await build();
-        const rec = { state: 'sent', hash: tx.hash, expiry_ms: tx.expiry_ms, role, at: iso(now()) };
+        let rec = { state: 'sent', hash: tx.hash, alt: tx.alt ?? [], expiry_ms: tx.expiry_ms, role, at: iso(now()) };
         await kv.put('dash_op', key, rec);
-        if (onSent) await onSent(tx.hash);
         try {
-          await tx.submit();
+          const got = await tx.submit();
+          // the node's own hash wins (the SDK's pre-send hash can differ, see tx-hash.mjs)
+          if (typeof got === 'string' && /^[0-9a-f]{64}$/.test(got) && got !== rec.hash) {
+            rec = { ...rec, hash: got, alt: [rec.hash, ...rec.alt].filter((h) => h !== got) };
+            await kv.put('dash_op', key, rec);
+          }
         } catch (e) {
           if (chain.notSent(e) && attempt < 2) { await kv.put('dash_op', key, { ...rec, state: 'not_sent', error: String(e?.message ?? e).slice(0, 160) }); continue; }
-          // status unknown: never resend; the hash is looked up below and on every later call
+          // status unknown: never resend; every candidate hash is looked up on every later call
         }
-        return settle(key, rec, tx.hash);
+        if (onSent) await onSent(rec.hash);
+        return settle(key, rec, rec.hash);
       }
     });
   }
