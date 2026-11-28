@@ -1,0 +1,139 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "PayOnce check_payee",
+  "description": "Verification of Payee for AI agents on Concordium. Before an agent pays, ask who the account really is: MATCH (pay once), CLOSE_MATCH (a person decides), NO_MATCH (pay nothing) or UNVERIFIED (verification not possible: a person decides). Reads any x402 seller's payTo for free. Free to call: REST, hosted MCP, `npx payonce-check-payee`, `npx payonce-mcp`, and a GitHub Action. The chain does not verify names; check_payee does, from a zero-knowledge presentation checked with the node. Testnet only, no real-world value. Payee names on testnet are self-asserted mock identities; PayOnce labels its own stand-ins as such. Install: `npx payonce-check-payee <account> --name \"Acme ApS\"` (exit 0 match, 1 no match, 2 close match, 3 not possible); `npx -y payonce-mcp` or `claude mcp add --transport http payonce https://payonce-api-n98a.onrender.com/mcp`. Packages: payonce-check-payee@0.1.2 and payonce-mcp@0.1.2. Official MCP Registry: io.github.mohamedwael201193/payonce-check-payee 0.1.2.",
+  "version": "3.0.0",
+  "active": true,
+  "documentationUrl": "https://github.com/mohamedwael201193/payonce/blob/main/docs/REGISTRY.md",
+  "provider": {
+    "organization": "PayOnce",
+    "url": "https://payonce-tau.vercel.app"
+  },
+  "x402Support": true,
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+        "description": "Verified by Concordium badge — on-chain agent identity in a CIS-8004 registry",
+        "required": false,
+        "params": {
+          "tokenAddress": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9UE8M6sTcxSaorAr8W",
+          "owner": {
+            "account": "ccd:4221332d34e1694168c2a0c0b3fd0f27:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+          },
+          "agentWallet": "ccd:4221332d34e1694168c2a0c0b3fd0f27:42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+          "contracts": {
+            "cis8004": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0",
+            "cis8": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12801.0"
+          },
+          "verify": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status=Active + card SHA-256 == metadata_hash.",
+          "verification": {
+            "service": "Concordium Agent Registry",
+            "verifyUrl": "https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9UE8M6sTcxSaorAr8W",
+            "mcp": "https://agent-registry-mcp.concordium.com/mcp",
+            "docs": "https://docs.concordium.com/en/mainnet/technical-reference/agent-registry/concordium-badge.html"
+          }
+        }
+      }
+    ]
+  },
+  "supportedInterfaces": [
+    {
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0",
+      "url": "https://payonce-api-n98a.onrender.com"
+    }
+  ],
+  "services": [
+    {
+      "name": "A2A",
+      "version": "1.0",
+      "endpoint": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v2.json"
+    },
+    {
+      "name": "PayOnce API",
+      "version": "1.0",
+      "endpoint": "https://payonce-api-n98a.onrender.com"
+    },
+    {
+      "name": "MCP",
+      "version": "2025-06-18",
+      "endpoint": "https://payonce-api-n98a.onrender.com/mcp"
+    },
+    {
+      "name": "REST check_payee",
+      "version": "1.0",
+      "endpoint": "https://payonce-api-n98a.onrender.com/api/check-payee"
+    },
+    {
+      "name": "npm payonce-check-payee",
+      "version": "0.1.2",
+      "endpoint": "https://www.npmjs.com/package/payonce-check-payee"
+    },
+    {
+      "name": "npm payonce-mcp",
+      "version": "0.1.2",
+      "endpoint": "https://www.npmjs.com/package/payonce-mcp"
+    },
+    {
+      "name": "MCP Registry (io.github.mohamedwael201193/payonce-check-payee)",
+      "version": "0.1.2",
+      "endpoint": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.mohamedwael201193%2Fpayonce-check-payee/versions/latest"
+    },
+    {
+      "name": "Package source (check-payee)",
+      "version": "0.1.2",
+      "endpoint": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee"
+    },
+    {
+      "name": "GitHub Action",
+      "version": "1",
+      "endpoint": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee-action"
+    }
+  ],
+  "skills": [
+    {
+      "id": "check-payee",
+      "name": "Check a payee before paying",
+      "tags": [
+        "verification-of-payee",
+        "payments",
+        "concordium",
+        "x402"
+      ],
+      "description": "Verification of Payee: compare the name an invoice, x402 offer or payment link gave with the proven legal name behind the account that would be paid. Answers MATCH (pay once), CLOSE_MATCH (a person decides), NO_MATCH (pay nothing) or UNVERIFIED (verification not possible: a person decides)."
+    },
+    {
+      "id": "check-x402-seller",
+      "name": "Check an x402 seller without paying",
+      "tags": [
+        "x402",
+        "verification-of-payee"
+      ],
+      "description": "Read a seller's 402 offer, then run check_payee on its payTo account."
+    },
+    {
+      "id": "payee-card",
+      "name": "Payee card",
+      "tags": [
+        "payee",
+        "concordium"
+      ],
+      "description": "GET /api/p/<account>: who an account is, what it bound, and whether it is payable today."
+    }
+  ],
+  "registrations": [
+    {
+      "agentId": 1554,
+      "agentRegistry": "ccd:4221332d34e1694168c2a0c0b3fd0f27:12802.0"
+    }
+  ]
+}

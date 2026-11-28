@@ -76,7 +76,8 @@ if (PHASE === 'register') {
 }
 
 // PLAN: token -> card file (served on our domain) and the wallet that will sign its own binding.
-const PLAN = JSON.parse(process.env.REG_PLAN ?? '[]'); // [{token, owner, wallet, file, sha256}]
+const PLAN = JSON.parse(process.env.REG_PLAN || 'null')
+  ?? JSON.parse(await import('node:fs/promises').then((fs) => fs.readFile(new URL('../../tools/registry/plan.json', import.meta.url), 'utf8'))); // [{token, owner, wallet, file, sha256}]
 if (PHASE === 'pin') {
   out.steps = [];
   for (const p of PLAN) {

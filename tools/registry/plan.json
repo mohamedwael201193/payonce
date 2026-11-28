@@ -4,35 +4,35 @@
     "token_address": "JyP9XawpXHMjTN5ocrA5a",
     "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
     "wallet": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-    "file": "payonce-seller.v3.json",
-    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v3.json",
-    "sha256": "e057593405962beb4bfe62422d84ea36a066dcaf6de4401e992ce9a72e9a9187"
+    "file": "payonce-seller.v4.json",
+    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v4.json",
+    "sha256": "6da6ad836f090388d2da63ddb34f5fde2674e3cbabf0d78bb8e3306e05bebc8e"
   },
   {
     "token": 1488,
     "token_address": "JyP9Xp5bhbLsQrw7yTyph",
     "owner": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
     "wallet": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
-    "file": "payonce-buyer.v3.json",
-    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json",
-    "sha256": "0b1dffb57bf40d4f23ad3ed9cf4e32a97ff7fc7901ce62e3218facb14e7da8aa"
+    "file": "payonce-buyer.v4.json",
+    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v4.json",
+    "sha256": "ca7ece8addef3329b6a5e6be83f77fc1a72274bc5db92cd51335eb3daab92048"
   },
   {
     "token": 1506,
     "token_address": "JyP9Y9nGU4KaM7DBDXRgm",
     "owner": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
     "wallet": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
-    "file": "payonce-seller2.v3.json",
-    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v3.json",
-    "sha256": "97f647d17438a2ae81e1acc225b00c29bc1ef70c61516348a88f277abf76ebf3"
+    "file": "payonce-seller2.v4.json",
+    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v4.json",
+    "sha256": "40309dd51abe4687286eb9ed86663dc27bdfcd4fc21f9d5d4be58ff558b0ccbd"
   },
   {
     "token": 1554,
     "token_address": "JyP9UE8M6sTcxSaorAr8W",
     "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
     "wallet": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-    "file": "payonce-check-payee.v1.json",
-    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v1.json",
-    "sha256": "550a0f6c3caa302b7b08cf12cbbb77bda10703b31755976ae9aa63c00981e707"
+    "file": "payonce-check-payee.v2.json",
+    "uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v2.json",
+    "sha256": "3c73b9d42afa44f3855811cff935ace33e06ccf44914fb4a6efce552835be976"
   }
 ]
