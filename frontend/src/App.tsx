@@ -19,6 +19,7 @@ const X402Page = page(() => import('./app/pages/X402Page'), 'X402Page')
 const ProofPage = page(() => import('./app/pages/ProofPage'), 'ProofPage')
 const NotFoundPage = page(() => import('./app/pages/ProofPage'), 'NotFoundPage')
 const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
+const DemoPage = page(() => import('./demo/DemoPage'), 'DemoPage')
 const SellPage = page(() => import('./app/pages/SellPage'), 'SellPage')
 
 // The landing lives in src/landing and is the only route outside the app
@@ -152,6 +153,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingRoute />} />
+      <Route path="/demo" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#0e1219' }} aria-busy="true" />}><DemoPage /></Suspense>} />
       <Route path="/app" element={<AppShell />}>
         <Route index element={<RunPage />} />
         <Route path="receipt/*" element={<ReceiptPage />} />

@@ -50,6 +50,7 @@ describe('landing', () => {
     mount()
     const hrefs = (name: RegExp) => screen.getAllByRole('link', { name }).map((a) => a.getAttribute('href'))
     expect(new Set(hrefs(/^Run it on a real invoice/))).toEqual(new Set(['/app']))
+    expect(hrefs(/^Watch it run in 60 seconds$/)).toEqual(['/demo'])
     expect(hrefs(/^Watch the agent check$/)).toContain('/app/proof/agent')
     expect(hrefs(/^See how it works$/)).toEqual(['#how'])
     expect(hrefs(/judges/i).every((h) => h === '/app/proof/judges')).toBe(true)

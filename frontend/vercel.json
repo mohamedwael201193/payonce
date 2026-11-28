@@ -13,6 +13,10 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "rewrites": [
     {
+      "source": "/demo",
+      "destination": "/index.html"
+    },
+    {
       "source": "/app",
       "destination": "/index.html"
     },

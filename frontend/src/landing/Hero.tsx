@@ -66,8 +66,8 @@ export function Hero(_props: { data: LandingData }) {
           transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
         >
           <Magnetic>
-            <Link to="/app" className="po-btn po-btn--light">
-              Run it on a real invoice
+            <Link to="/demo" className="po-btn po-btn--light">
+              Watch it run in 60 seconds
               <Arrow />
             </Link>
           </Magnetic>
