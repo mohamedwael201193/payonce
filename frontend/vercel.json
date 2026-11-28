@@ -13,8 +13,107 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "rewrites": [
     {
-      "destination": "/index.html",
-      "source": "/((?!.well-known/).*)"
+      "source": "/app",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/receipt/:rest*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/agent",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/break",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/judges",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/age",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/proof/x402",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard/pay",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/receipt/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/verify-age",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/app/pay/:path*",
+      "destination": "/app",
+      "permanent": true
+    },
+    {
+      "source": "/app/invoices",
+      "destination": "/app",
+      "permanent": true
+    },
+    {
+      "source": "/app/agent",
+      "destination": "/app/proof/agent",
+      "permanent": true
+    },
+    {
+      "source": "/app/break",
+      "destination": "/app/proof/break",
+      "permanent": true
+    },
+    {
+      "source": "/app/judges",
+      "destination": "/app/proof/judges",
+      "permanent": true
+    },
+    {
+      "source": "/app/age",
+      "destination": "/app/proof/age",
+      "permanent": true
+    },
+    {
+      "source": "/app/x402",
+      "destination": "/app/proof/x402",
+      "permanent": true
+    },
+    {
+      "source": "/judges",
+      "destination": "/app/proof/judges",
+      "permanent": true
+    },
+    {
+      "source": "/app/receipt",
+      "destination": "/app",
+      "permanent": false
     }
   ]
 }

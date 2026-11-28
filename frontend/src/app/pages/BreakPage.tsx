@@ -1,4 +1,4 @@
-// Break it: five attacks, each labelled with the layer that stops it
+// Try to fool it: five attacks, each labelled with the layer that stops it
 // (Chain, Policy gate or App) and whether the result came from a real call,
 // a recorded run, or is an illustration. Nothing here prints a refusal that
 // was not returned by the API or computed in your browser.
@@ -96,7 +96,7 @@ function Attack({
 const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError ? e.body.message : fallback)
 
 export function BreakPage() {
-  useDocumentTitle('Break it - PayOnce')
+  useDocumentTitle('Try to fool it - PayOnce')
   const data = useAppData()
   const dir = useSellers()
   const config = useConfig()
@@ -255,7 +255,7 @@ export function BreakPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Break it"
+        title="Try to fool it"
         lead="Five ways to pay the wrong thing. Each one names the layer that stops it, and says whether the result is a real call, a recorded run, or an illustration."
       />
       <Notice>

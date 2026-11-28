@@ -55,20 +55,12 @@ function Marquee({ items, reverse, label }: { items: Item[]; reverse?: boolean; 
         {items.map((it) => (
           <Chip key={it.key} it={it} />
         ))}
-        {items.map((it) => (
-          <li key={`d-${it.key}`} aria-hidden className="po-marq__dup">
-            <a href={txUrl(it.hash)} target="_blank" rel="noreferrer" tabIndex={-1} className={`po-hashchip po-hashchip--${it.kind}`}>
-              <span>{it.label}</span>
-              <b className="po-mono">{shortHash(it.hash)}</b>
-            </a>
-          </li>
-        ))}
       </ul>
     </div>
   )
 }
 
-/** Section 6: proof wall. Two opposing marquees of real transaction hashes, linked to the explorer. */
+/** Section 6: proof wall. Two rows of real transaction hashes, linked to the explorer. */
 export function Proof({ snapshot }: { snapshot: Snapshot }) {
   const { a, b } = useMemo(() => proofItems(snapshot), [snapshot])
   const reg = snapshot.config?.registry

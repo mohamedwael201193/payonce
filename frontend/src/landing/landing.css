@@ -1382,36 +1382,19 @@ html.lenis body {
   margin-top: 22px;
 }
 .po-proof__marq {
-  margin-top: 56px;
+  margin: 56px auto 0;
+  max-width: 1200px;
+  padding: 0 clamp(20px, 4vw, 56px);
   display: grid;
   gap: 14px;
-  overflow: hidden;
-}
-.po-marq {
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
 .po-marq__track {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  width: max-content;
-  animation: po-marq 70s linear infinite;
-}
-.po-marq.is-rev .po-marq__track {
-  animation-direction: reverse;
-  animation-duration: 84s;
-}
-.po-marq:hover .po-marq__track {
-  animation-play-state: paused;
-}
-@keyframes po-marq {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .po-hashchip {
   display: flex;
@@ -1774,20 +1757,8 @@ html.lenis body {
   }
 }
 
-/* Reduced motion: marquees become wrapped grids, pulses stop, final states show. */
+/* Reduced motion: pulses stop, final states show. */
 @media (prefers-reduced-motion: reduce) {
-  .po-marq {
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-  .po-marq__track {
-    animation: none;
-    flex-wrap: wrap;
-    width: auto;
-  }
-  .po-marq__dup {
-    display: none;
-  }
   .po-dot {
     animation: none;
   }

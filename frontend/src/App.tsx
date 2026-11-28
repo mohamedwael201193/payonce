@@ -179,7 +179,9 @@ export function AppRoutes() {
       <Route path="/receipt" element={<Navigate to="/app" replace />} />
       <Route path="/receipt/:payableId" element={<LegacyReceipt />} />
       <Route path="/verify-age" element={<LegacyAge />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<AppShell />}>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
     </Routes>
   )
 }

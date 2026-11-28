@@ -141,7 +141,7 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
               </span>
               <span className="po-inbox__why">
                 {r.why}
-                {r.amount && r.outcome === 'paid' ? ` · ${r.amount}` : ''}
+                {r.amount && r.outcome === 'paid' ? ` · ${r.amount.replace('EUDemo', 'EUDemo (testnet euro token)')}` : ''}
               </span>
               {r.href ? (
                 <Link className="po-inbox__link" to={r.href}>

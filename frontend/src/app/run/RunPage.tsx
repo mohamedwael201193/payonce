@@ -4,7 +4,7 @@
 // Every value shown comes from a live API call made on this visit; nothing is typed by hand.
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { sha256Hex } from '../../landing/sha256'
 import type { JobSnapshot, VerifyResponse } from '../../lib/types'
@@ -12,7 +12,7 @@ import { AGENTS, badgeCheckUrl } from '../identity'
 import { midTruncate } from '../Address'
 import { useDocumentTitle } from '../hooks'
 import { STEPS, forgePayee, tidy, toVerdict, type StepIndex, type Verdict } from './flow'
-import { PaymentPath, VerdictMark } from './Visuals'
+import { VerdictMark } from './Visuals'
 import { WalletProvider, useWallet } from '../../wallet/WalletContext'
 import { walletApi, waitForTx, WalletApiError } from '../../wallet/api'
 import { walletErrorText, type UpdateTx } from '../../wallet/types'
@@ -82,6 +82,32 @@ function RunFlow() {
   const [review, setReview] = useState(false)
   const alive = useRef(true)
   useEffect(() => () => void (alive.current = false), [])
+  // The invoice lives in the URL (?invoice=<id>&seller=<account>): a refresh or a shared link comes back to it,
+  // and an invoice that is already paid goes straight to its receipt.
+  const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
+  const restored = useRef(false)
+  useEffect(() => {
+    if (restored.current) return
+    restored.current = true
+    const id = Number(params.get('invoice'))
+    const seller = params.get('seller')
+    if (!Number.isInteger(id) || id < 1 || !seller) return
+    setInvoice({ s: 'busy', note: 'Loading your invoice from the chain.' })
+    setStep(1)
+    void (async () => {
+      try {
+        const facts = await api.getPayable(id, seller)
+        if (facts.status.kind === 'paid') { navigate(`/app/receipt/${encodeURIComponent(seller)}/${id}`, { replace: true }); return }
+        const doc = await api.getDocument(id, seller)
+        if (!alive.current) return
+        setInvoice({ s: 'done', v: { id, seller: facts.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx: null, doc } })
+      } catch (e) {
+        if (alive.current) setInvoice({ s: 'error', msg: `That invoice link could not be loaded. ${errText(e)}` })
+      }
+    })()
+  }, [params, navigate])
+  const remember = (v: Invoice) => setParams({ invoice: String(v.id), seller: v.seller }, { replace: true })
 
   const inv = invoice.s === 'done' ? invoice.v : null
   const verdict = check.s === 'done' ? check.v : null
@@ -118,13 +144,15 @@ function RunFlow() {
 
   async function getInvoice() {
     if (mine) return getWalletInvoice()
-    setInvoice({ s: 'busy', note: 'Registering a new invoice on Concordium testnet. About 10 seconds.' })
+    setInvoice({ s: 'busy', note: 'Registering a new invoice on Concordium testnet. This usually takes 30 to 60 seconds.' })
     try {
       const created = await api.createPayable('ccd')
       const facts = await api.getPayable(created.payable_id, AGENTS[0].owner)
       const doc = await api.getDocument(created.payable_id, facts.seller)
       if (!alive.current) return
-      setInvoice({ s: 'done', v: { id: created.payable_id, seller: facts.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx: created.tx_hash, doc } })
+      const v = { id: created.payable_id, seller: facts.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx: created.tx_hash, doc }
+      setInvoice({ s: 'done', v })
+      remember(v)
     } catch (e) {
       // New invoices are rate limited. Fall back to an open demo invoice that is already on chain.
       try {
@@ -134,7 +162,9 @@ function RunFlow() {
         const facts = await api.getPayable(open.payable_id, open.seller)
         const doc = await api.getDocument(open.payable_id, open.seller)
         if (!alive.current) return
-        setInvoice({ s: 'done', v: { id: open.payable_id, seller: open.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx: null, doc } })
+        const v = { id: open.payable_id, seller: open.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx: null, doc }
+        setInvoice({ s: 'done', v })
+        remember(v)
       } catch {
         if (alive.current) setInvoice({ s: 'error', msg: errText(e) })
       }
@@ -205,12 +235,16 @@ function RunFlow() {
     }
   }
 
+  const paying = useRef(false)
   async function approveAndPay() {
-    if (!inv) return
-    if (mine) return walletPay()
+    if (!inv || paying.current) return
+    paying.current = true
+    if (mine) {
+      try { return await walletPay() } finally { paying.current = false }
+    }
     setReview(false)
     setStep(3)
-    setPay({ s: 'busy', note: 'Sending the payment. The chain takes about 10 seconds to finalise it.' })
+    setPay({ s: 'busy', note: 'Sending the payment. The chain usually needs 10 to 30 seconds to finalise it.' })
     try {
       const job = await api.pay(inv.id, 'ccd', sha256Hex(inv.doc), inv.seller)
       let snap = await api.getJob(job.job_id)
@@ -232,6 +266,8 @@ function RunFlow() {
       }
     } catch (e) {
       if (alive.current) setPay({ s: 'error', msg: errText(e) })
+    } finally {
+      paying.current = false
     }
   }
 
@@ -241,17 +277,17 @@ function RunFlow() {
     setAgain({ s: 'busy', note: 'Sending a second payment for the same invoice to the chain.' })
     try {
       const r = await api.attack('pay_twice', inv.id, undefined, inv.seller)
-      if (alive.current) setAgain({ s: 'done', v: { plain: r.reject?.plain ?? r.plain, tx: r.tx_hash ?? null } })
+      if (alive.current) setAgain({ s: 'done', v: { plain: 'The chain refused it: this invoice is already paid. Nothing moved.', tx: r.tx_hash ?? null } })
     } catch (e) {
       if (alive.current) setAgain({ s: 'error', msg: errText(e) })
     }
   }
 
   function restart() {
+    setParams({}, { replace: true })
     setStep(0); setInvoice({ s: 'idle' }); setFake(false); setCheck({ s: 'idle' }); setPay({ s: 'idle' }); setAgain({ s: 'idle' }); setWalletTx(null)
   }
 
-  const progress: 0 | 1 | 2 = step >= 4 ? 2 : verdict ? 1 : 0
   const blocked = verdict?.kind === 'no_match'
 
   return (
@@ -263,14 +299,14 @@ function RunFlow() {
 
       <ol className="rn-steps" aria-label="Steps">
         {STEPS.map((label, i) => (
-          <li key={label} className={i < step ? 'is-done' : i === step ? 'is-now' : ''} aria-current={i === step ? 'step' : undefined}>
+          <li key={label} className={blocked && i === 2 ? 'is-bad' : i < step ? 'is-done' : i === step ? 'is-now' : ''} aria-current={i === step ? 'step' : undefined}>
             <span className="rn-steps__n">{i + 1}</span>
             <span className="rn-steps__l">{label}</span>
           </li>
         ))}
       </ol>
 
-      <PaymentPath progress={progress} blocked={blocked} payer={mine && acct ? 'You' : 'Payer'} payee={inv ? short(inv.payee) : 'Payee'} />
+      <p className="rn-stepnow" aria-hidden>Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
 
       <Card k={`${step}-${check.s}-${verdict?.kind ?? ''}`}>
         {step === 0 && (
@@ -386,7 +422,7 @@ function RunFlow() {
               {again.s === 'error' && <Failed msg={again.msg} retry={payAgain} />}
               {again.s === 'done' && (
                 <p className="rn-p rn-refused">
-                  Refused. {again.v.plain}{' '}
+                  {again.v.plain} A refused attempt costs a small testnet fee.{' '}
                   {again.v.tx && <a className="rn-a" href={EXPLORER + again.v.tx} target="_blank" rel="noreferrer">The rejected transaction</a>}
                 </p>
               )}
@@ -442,12 +478,6 @@ function VerdictView({ v, onPay, onRestart, onReal, receipt }: { v: Verdict; onP
           <li key={r.text} className={r.ok ? 'is-ok' : 'is-bad'}>{r.text}</li>
         ))}
       </ul>
-      {ok && (
-        <p className="rn-note">
-          Some invoices need one more identity check: an age-restricted one is only paid after an 18+ proof from a Concordium identity.{' '}
-          <Link className="rn-a" to="/app/proof/age">See that check</Link>
-        </p>
-      )}
       <div className="rn-actions">
         {ok && <button className="rn-btn" onClick={onPay} autoFocus>Approve and pay</button>}
         {v.kind === 'no_match' && <button className="rn-btn" onClick={onReal} autoFocus>Check the real invoice</button>}
@@ -460,6 +490,9 @@ function VerdictView({ v, onPay, onRestart, onReal, receipt }: { v: Verdict; onP
 
 function ReviewSheet({ inv, from, onCancel, onConfirm }: { inv: Invoice; from?: React.ReactNode; onCancel: () => void; onConfirm: () => void }) {
   const btn = useRef<HTMLButtonElement>(null)
+  const openedAt = useRef(Date.now())
+  // A double-click on "Approve and pay" lands its second click on the scrim: ignore clicks in the first half second.
+  const safeCancel = () => { if (Date.now() - openedAt.current > 500) onCancel() }
   useEffect(() => {
     btn.current?.focus()
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onCancel()
@@ -467,7 +500,7 @@ function ReviewSheet({ inv, from, onCancel, onConfirm }: { inv: Invoice; from?: 
     return () => window.removeEventListener('keydown', k)
   }, [onCancel])
   return (
-    <div className="rn-scrim" onClick={onCancel}>
+    <div className="rn-scrim" onClick={safeCancel}>
       <div className="rn-sheet" role="dialog" aria-modal="true" aria-labelledby="rn-sheet-h" onClick={(e) => e.stopPropagation()}>
         <h2 className="rn-h2" id="rn-sheet-h">Pay {inv.amount}?</h2>
         <dl className="rn-kv">

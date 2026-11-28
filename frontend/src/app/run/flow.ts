@@ -46,7 +46,8 @@ export function toVerdict(v: Pick<VerifyResponse, 'verdict' | 'checks' | 'blocke
   const first = failed[0] ?? v.blocked_reason ?? ''
   const headline = PLAIN[first]?.fail ?? 'One of the checks failed, so nothing is sent.'
   const rest = ['agent', 'doc', 'status', 'due'].filter((id) => id !== first)
-  return { kind: 'no_match', headline, reasons: reasonsFor([first, ...rest]).slice(0, 4) }
+  // The headline already says the failed check; the list shows the other checks, so nothing is said twice.
+  return { kind: 'no_match', headline, reasons: reasonsFor(rest).slice(0, 3) }
 }
 
 /** The fake: the same invoice text with the payee line pointed at another account. */

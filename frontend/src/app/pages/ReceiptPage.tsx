@@ -9,7 +9,7 @@ import { usePayable } from '../../hooks/useApi'
 import { ApiError } from '../../lib/types'
 import { ReceiptView } from '../ReceiptView'
 import { markMilestone, useDocumentTitle, useSellers } from '../hooks'
-import { parseKeyPath, payPath, resolveSeller, sellerName, type PayableKey } from '../keys'
+import { parseKeyPath, resolveSeller, sellerName, type PayableKey } from '../keys'
 import { ANY_SELLER, AnySeller } from '../AnySeller'
 import { receiptPath } from '../keys'
 import { ButtonLink, EmptyState, Notice, PageHeader, Skeleton } from '../ui'
@@ -22,7 +22,7 @@ export function ReceiptPage() {
   const key: PayableKey | null = parsed && seller ? { seller, id: parsed.id } : null
   useDocumentTitle(parsed ? `Receipt ${parsed.id} - PayOnce` : 'Receipt - PayOnce')
 
-  const payable = usePayable(key?.id ?? null, key?.seller)
+  const payable = usePayable(key?.id ?? null, key?.seller, true)
   const receipt = useReceipt(key?.id ?? null, key?.seller)
   const paid = payable.data?.status.kind === 'paid'
 
@@ -40,11 +40,11 @@ export function ReceiptPage() {
         title="This receipt link is incomplete"
         action={
           <ButtonLink to="/app" variant="primary">
-            Open the invoices
+            Run it on an invoice
           </ButtonLink>
         }
       >
-        A receipt link names a seller and a payable number, like /app/receipt/1/10. Pick a paid invoice from the list.
+        A receipt link names a seller and an invoice number, like /app/receipt/1/10. Pay an invoice and its receipt link appears.
       </EmptyState>
     )
   } else if (parsed.sellerParam === ANY_SELLER) {
@@ -76,12 +76,12 @@ export function ReceiptPage() {
       <EmptyState
         title="Not paid yet"
         action={
-          <ButtonLink to={payPath(key)} variant="primary">
+          <ButtonLink to={`/app?invoice=${key!.id}&seller=${encodeURIComponent(key!.seller)}`} variant="primary">
             Pay this invoice
           </ButtonLink>
         }
       >
-        Payable {payable.data.payable_id} from {sellerLine} can be paid once. Its receipt appears here after the payment.
+        Invoice {payable.data.payable_id} from {sellerLine} can be paid once. This page keeps checking the chain, and its receipt appears here when the payment lands.
       </EmptyState>
     )
   } else if (receipt.isLoading) {
@@ -107,7 +107,7 @@ export function ReceiptPage() {
     <div className="flex flex-col gap-6">
       <nav aria-label="Breadcrumb">
         <Link to="/app" className="inline-flex min-h-[44px] items-center text-[15px] text-po-grey underline decoration-po-line-strong">
-          All invoices
+          Run it
         </Link>
       </nav>
       <PageHeader title={title} lead={sellerLine ? `${sellerLine}. Read from the testnet.` : undefined} />

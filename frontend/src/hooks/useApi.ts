@@ -110,12 +110,15 @@ export function useInvoices() {
   }
 }
 
-export function usePayable(id: number | null, seller?: string) {
+/** poll: keep re-reading (every 4 s, at most 15 times) while the payable is not Paid yet, for a receipt opened right after paying. */
+export function usePayable(id: number | null, seller?: string, poll = false) {
   return useQuery({
     queryKey: ['payable', id, seller ?? null],
     queryFn: () => api.getPayable(id as number, seller),
     enabled: id !== null,
     retry: 1,
+    refetchOnMount: poll ? 'always' : true,
+    refetchInterval: poll ? (q) => (q.state.data && q.state.data.status.kind !== 'paid' && q.state.dataUpdateCount < 15 ? 4000 : false) : false,
   })
 }
 

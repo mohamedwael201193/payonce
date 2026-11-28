@@ -51,7 +51,10 @@ export function ReceiptView({
         <h2 id={`receipt-${keyOf.id}-title`} className="text-2xl font-medium tracking-[-0.01em] text-po-ink">
           Paid once
         </h2>
-        <StatusPill tone="ok">Testnet receipt</StatusPill>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusPill tone="ok">Testnet receipt</StatusPill>
+          <CopyButton value={typeof window !== 'undefined' ? window.location.href : ''} label="link to this receipt" />
+        </div>
       </div>
 
       <dl className="divide-y divide-po-line">
@@ -65,6 +68,22 @@ export function ReceiptView({
         <KeyValue label="Paid from">{receipt.payer_label}</KeyValue>
         {facts?.status.kind === 'paid' ? <KeyValue label="Paid at">{formatPaidAt(facts.status.paid_at)}</KeyValue> : null}
       </dl>
+
+      <ol className="flex flex-col gap-0 border-l-2 border-po-line pl-5" aria-label="What happened, in order" data-testid="receipt-timeline">
+        <TimelineItem title="Registered on chain" when={null}>
+          The seller fixed the payee, the amount and the invoice fingerprint in the contract.
+        </TimelineItem>
+        <TimelineItem title="Checked before paying" when={null}>
+          The agent compared the invoice with the chain: payee, fingerprint, status, due date.
+        </TimelineItem>
+        <TimelineItem title="Paid once" when={facts?.status.kind === 'paid' ? formatPaidAt(facts.status.paid_at) : null} done>
+          {tidyAmount(receipt.amount_display)} went to the registered payee.{' '}
+          {receipt.txs[0] ? <ExplorerTx hash={receipt.txs[0].tx_hash} base={explorer} /> : null}
+        </TimelineItem>
+        <TimelineItem title="Any second payment is refused" when={null} last>
+          The contract now marks this invoice Paid, so another payment reverts. The checks below re-read the chain right now.
+        </TimelineItem>
+      </ol>
 
       <div>
         <h3 className="text-lg font-medium text-po-ink">Transactions</h3>
@@ -106,7 +125,10 @@ export function ReceiptView({
               <p className="text-[15px] text-po-ink" data-testid="verifier-line">
                 {COPY.verifierLine(result.passed, result.total, formatUtcTime(result.checked_at))}
               </p>
-              <CheckRows result={result} />
+              <details>
+                <summary className="cursor-pointer text-[15px] text-po-grey">Show every check</summary>
+                <div className="mt-3"><CheckRows result={result} /></div>
+              </details>
             </>
           ) : null}
         </div>
@@ -141,4 +163,17 @@ function formatPaidAt(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)} UTC`
+}
+
+function TimelineItem({ title, when, children, done, last }: { title: string; when: string | null; children: React.ReactNode; done?: boolean; last?: boolean }) {
+  return (
+    <li className={`relative ${last ? '' : 'pb-5'}`}>
+      <span aria-hidden className={`absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 ${done ? 'border-po-ok bg-po-ok' : 'border-po-line-strong bg-po-surface'}`} />
+      <p className="text-[17px] font-medium text-po-ink">
+        {title}
+        {when ? <span className="ml-2 text-[15px] font-normal text-po-grey">{when}</span> : null}
+      </p>
+      <p className="text-[15px] text-po-grey">{children}</p>
+    </li>
+  )
 }

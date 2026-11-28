@@ -192,7 +192,6 @@ describe('legacy redirects', () => {
     [`/app/pay/${S1}/2`, '/app'],
     ['/app/invoices', '/app'],
     ['/app/x402', '/app/proof/x402'],
-    ['/nope', '/'],
   ]
   for (const [from, to] of cases) {
     it(`${from} -> ${to}`, async () => {
@@ -205,6 +204,12 @@ describe('legacy redirects', () => {
     renderAt('/app/nope')
     expect(await screen.findByTestId('not-found')).toBeInTheDocument()
     expect(where()).toBe('/app/nope')
+  })
+
+  it('an unknown top-level address shows not-found at the same URL', async () => {
+    renderAt('/nope')
+    expect(await screen.findByTestId('not-found')).toBeInTheDocument()
+    expect(where()).toBe('/nope')
   })
 
   it('legacyPayTarget maps every tab once', () => {
@@ -283,7 +288,7 @@ node src/verify-payable-v2.mjs 1 ${'ef'.repeat(32)} --seller ${S2} --doc invoice
   it('an unpaid receipt link says so and sends you to the flow', async () => {
     renderAt(`/app/receipt/${S1}/2`)
     const link = await screen.findByRole('link', { name: 'Pay this invoice' })
-    expect(link).toHaveAttribute('href', '/app')
+    expect(link.getAttribute('href')).toMatch(/^\/app\?invoice=2&seller=/)
   })
 })
 

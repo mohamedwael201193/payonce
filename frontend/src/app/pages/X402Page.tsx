@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Address } from '../Address'
 import { useDocumentTitle } from '../hooks'
 import { verifierCommand } from '../verifier'
-import { Card, CopyButton, ExplorerTx, KeyValue, Notice, PageHeader, Skeleton, StatusPill } from '../ui'
+import { Card, CopyButton, ExplorerTx, KeyValue, Notice, PageHeader, StatusPill } from '../ui'
 
 interface Settle {
   generated_at: string
@@ -57,7 +57,7 @@ export function X402Page() {
       />
 
       {q.isLoading ? (
-        <Skeleton className="h-[260px] w-full" />
+        <p className="text-[17px] text-po-grey" role="status">Loading the recorded x402 run…</p>
       ) : q.isError || !d ? (
         <Notice tone="warn">The recorded settle file could not be loaded from this site.</Notice>
       ) : (
