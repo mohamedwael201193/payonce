@@ -310,7 +310,7 @@ export function AgentPage() {
                 </KeyValue>
               ) : null}
               <KeyValue label="Run">
-                {clockUtc(run.started_at)} to {clockUtc(run.finished_at)} UTC
+                {clockUtc(run.started_at)} to {clockUtc(run.finished_at)}
               </KeyValue>
             </dl>
           </section>
