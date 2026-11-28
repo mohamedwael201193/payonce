@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { RunPage } from './app/run/RunPage'
+import { dashEnabled } from './dash/flag'
 
 // Code splitting: the shell and the Run-it flow (the /app screen) ship in the
 // main chunk; every other page is its own chunk, fetched on first visit. The
@@ -20,6 +21,8 @@ const ProofPage = page(() => import('./app/pages/ProofPage'), 'ProofPage')
 const NotFoundPage = page(() => import('./app/pages/ProofPage'), 'NotFoundPage')
 const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
 const DemoPage = page(() => import('./demo/DemoPage'), 'DemoPage')
+const DashPage = page(() => import('./dash/DashPage'), 'DashPage')
+const PayeePage = page(() => import('./dash/PayeePage'), 'PayeePage')
 const SellPage = page(() => import('./app/pages/SellPage'), 'SellPage')
 
 // The landing lives in src/landing and is the only route outside the app
@@ -149,13 +152,20 @@ function LandingRoute() {
   )
 }
 
+/** /app: the new dashboard behind its flag (?dash=1), the Run-it flow otherwise. */
+function AppIndex() {
+  const { search } = useLocation()
+  return dashEnabled(search) ? <DashPage /> : <RunPage />
+}
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingRoute />} />
       <Route path="/demo" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#0e1219' }} aria-busy="true" />}><DemoPage /></Suspense>} />
       <Route path="/app" element={<AppShell />}>
-        <Route index element={<RunPage />} />
+        <Route index element={<AppIndex />} />
+        <Route path="run" element={<RunPage />} />
         <Route path="receipt/*" element={<ReceiptPage />} />
         <Route path="proof" element={<ProofPage />} />
         <Route path="proof/agent" element={<AgentPage />} />
@@ -175,6 +185,7 @@ export function AppRoutes() {
         <Route path="x402" element={<Navigate to="/app/proof/x402" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
+      <Route path="/p/:account" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#f1f3f8' }} aria-busy="true" />}><PayeePage /></Suspense>} />
       <Route path="/dashboard" element={<LegacyDashboard />} />
       <Route path="/dashboard/pay" element={<LegacyDashboardPay />} />
       <Route path="/judges" element={<Navigate to="/app/proof/judges" replace />} />

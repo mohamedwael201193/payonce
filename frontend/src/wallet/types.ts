@@ -27,6 +27,13 @@ export interface WalletSession {
   /** V&A V1 when the wallet supports it, the V0 Web3 ID presentation otherwise. */
   requestProof(req: { v1?: unknown; v0?: { challenge: string; statements: unknown } }): Promise<ProofResult>
   disconnect(): Promise<void>
+  /** Sponsor-first transaction from POST /api/relay/prepare: the wallet adds the sender signature and submits.
+      Throws WalletTooOld when this wallet cannot (Browser Wallet < 2.10, or a phone wallet without the method). */
+  sendSponsored?(transaction: unknown, schemaBase64: string | null): Promise<string>
+}
+
+export class WalletTooOld extends Error {
+  constructor() { super('This wallet cannot send sponsored transactions. Update to Concordium Wallet for Web 2.10 or later, or use CryptoX on Android.') }
 }
 
 export const TESTNET_GENESIS = '4221332d34e1694168c2a0c0b3fd0f273809612cb13d000d5c2e00e85f50f796'

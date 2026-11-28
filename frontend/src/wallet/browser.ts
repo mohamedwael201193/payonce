@@ -1,9 +1,9 @@
 // Concordium Browser Wallet (desktop extension) path. Loaded on demand with the wallet pages.
 import { detectConcordiumProvider } from '@concordium/browser-wallet-api-helpers'
 import {
-  AccountAddress, AccountTransactionType, CcdAmount, ContractAddress, Energy, ReceiveName, VerificationRequestV1,
+  AccountAddress, AccountTransactionType, CcdAmount, ContractAddress, Energy, ReceiveName, Transaction, VerificationRequestV1,
 } from '@concordium/web-sdk'
-import { TESTNET_GENESIS, type ProofResult, type UpdateTx, type WalletSession } from './types'
+import { TESTNET_GENESIS, WalletTooOld, type ProofResult, type UpdateTx, type WalletSession } from './types'
 
 type Api = Awaited<ReturnType<typeof detectConcordiumProvider>>
 
@@ -33,6 +33,15 @@ function session(api: Api, account: string, chainOk: boolean | null): WalletSess
         },
         tx.parameter_json as never,
         tx.schema ? { type: 'parameter', value: tx.schema.value } : undefined,
+      )
+    },
+    async sendSponsored(transaction: unknown, schemaBase64: string | null) {
+      const send = (api as { sendSponsoredTransaction?: unknown }).sendSponsoredTransaction
+      if (typeof send !== 'function') throw new WalletTooOld()
+      return (api.sendSponsoredTransaction as (a: unknown, t: unknown, s?: unknown) => Promise<string>)(
+        AccountAddress.fromBase58(account),
+        Transaction.signableFromJSON(transaction),
+        schemaBase64 ? { type: 'ModuleSchema', value: schemaBase64 } : undefined,
       )
     },
     async signMessage(text: string) {

@@ -4,17 +4,17 @@
 // wallet receives exactly the payload format it expects.
 import {
   CONCORDIUM_WALLET_CONNECT_PROJECT_ID, TESTNET, WalletConnectConnection, WalletConnectConnector, getChainId,
-  stringMessage, typeSchemaFromBase64, type WalletConnectionDelegate,
+  moduleSchemaFromBase64, stringMessage, typeSchemaFromBase64, type WalletConnectionDelegate,
 } from '@concordium/wallet-connectors'
 import {
-  AccountTransactionType, CcdAmount, ContractAddress, Energy, ReceiveName,
+  AccountAddress, AccountTransactionType, CcdAmount, ContractAddress, Energy, ReceiveName, Transaction,
 } from '@concordium/web-sdk'
-import type { ProofResult, UpdateTx, WalletSession } from './types'
+import { WalletTooOld, type ProofResult, type UpdateTx, type WalletSession } from './types'
 
 const PROJECT_ID = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) || CONCORDIUM_WALLET_CONNECT_PROJECT_ID
 const CHAIN_ID = getChainId(TESTNET)
 const REQUIRED = { methods: ['sign_and_send_transaction', 'sign_message'], chains: [CHAIN_ID], events: ['accounts_changed', 'chain_changed'] }
-const OPTIONAL = { methods: ['request_verifiable_presentation', 'request_verifiable_presentation_v1'], chains: [CHAIN_ID], events: [] as string[] }
+const OPTIONAL = { methods: ['request_verifiable_presentation', 'request_verifiable_presentation_v1', 'sign_and_send_sponsored_transaction'], chains: [CHAIN_ID], events: [] as string[] }
 
 let connectorPromise: Promise<WalletConnectConnector> | null = null
 let onGone: (() => void) | null = null
@@ -69,6 +69,15 @@ function wrap(conn: WalletConnectConnection): WalletSession {
           maxContractExecutionEnergy: Energy.create(tx.max_energy),
         },
         tx.schema ? { parameters: tx.parameter_json as never, schema: typeSchemaFromBase64(tx.schema.value) } : undefined,
+      )
+    },
+    async sendSponsored(transaction: unknown, schemaBase64: string | null) {
+      const methods = conn.session.namespaces.ccd?.methods ?? []
+      if (!methods.includes('sign_and_send_sponsored_transaction')) throw new WalletTooOld()
+      return conn.signAndSendSponsoredTransaction(
+        AccountAddress.fromBase58(account),
+        Transaction.signableFromJSON(transaction),
+        schemaBase64 ? moduleSchemaFromBase64(schemaBase64) : undefined,
       )
     },
     async signMessage(text: string) {
