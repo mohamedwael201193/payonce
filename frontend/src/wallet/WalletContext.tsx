@@ -1,4 +1,4 @@
-// One wallet connection for the wallet pages: Browser Wallet (desktop extension) or CryptoX over WalletConnect.
+// One wallet connection for the wallet pages: Concordium Wallet (browser extension) or CryptoX over WalletConnect.
 // Resumes silently after a reload when the visitor already approved PayOnce.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isMobile, walletErrorText, type WalletKind, type WalletSession } from './types'

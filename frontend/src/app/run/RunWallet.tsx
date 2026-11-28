@@ -1,5 +1,5 @@
 // The "your own wallet" payer for the Run-it flow, in the Run-it design language (rn-*).
-// Desktop: Concordium Browser Wallet first, phone QR second. Phone: CryptoX over WalletConnect first (deep link).
+// Desktop: Concordium Wallet (browser) first, phone QR second. Phone: CryptoX over WalletConnect first (deep link).
 // Then the balance, with one button for free test CCD. The wallet signs every payment; PayOnce never sees keys.
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -36,7 +36,7 @@ export function RunConnect() {
     return (
       <div className="rn-acct" data-testid="wallet-connected">
         <div>
-          <p className="rn-note">{s.kind === 'browser' ? 'Concordium Browser Wallet' : 'Phone wallet (WalletConnect)'}</p>
+          <p className="rn-note">{s.kind === 'browser' ? 'Concordium Wallet (browser)' : 'Phone wallet (WalletConnect)'}</p>
           <a className="rn-a rn-mono" href={EXPLORER_ACCOUNT + s.account} target="_blank" rel="noreferrer" title={s.account}>{midTruncate(s.account, 6, 6)}</a>
         </div>
         <button className="rn-link" onClick={() => void w.disconnect()}>Disconnect</button>
@@ -50,7 +50,7 @@ export function RunConnect() {
   const browserBtn = (
     <button key="bw" id="connect-browser" className={`rn-btn${w.mobile ? ' rn-btn--quiet' : ''}`} disabled={noExt} onClick={() => void w.connect('browser')}
       title={noExt ? (w.mobile ? 'Browser extensions do not run on phones. Use CryptoX.' : 'The extension is not installed in this browser.') : undefined}>
-      {w.status === 'connecting' && w.pendingKind === 'browser' ? 'Approve in the extension…' : 'Concordium Browser Wallet'}
+      {w.status === 'connecting' && w.pendingKind === 'browser' ? 'Approve in the extension…' : 'Concordium Wallet (browser)'}
     </button>
   )
   const phoneBtn = (
@@ -62,7 +62,7 @@ export function RunConnect() {
     <div data-testid="wallet-connect">
       <div className="rn-actions">{w.mobile ? [phoneBtn, w.browserWallet ? browserBtn : null] : [browserBtn, phoneBtn]}</div>
       {noExt && !w.mobile && (
-        <p className="rn-note">No extension in this browser? <a className="rn-a" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Install the Concordium Browser Wallet</a>, set it to Testnet, then reload. Or use your phone.</p>
+        <p className="rn-note">No extension in this browser? <a className="rn-a" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Install Concordium Wallet</a>, set it to Testnet, then reload. Or use your phone.</p>
       )}
       {pairing && w.pairingUri && (
         <div className="rn-pair" data-testid="wc-pairing">
@@ -84,7 +84,7 @@ export function RunConnect() {
       {w.error && <div className="rn-failed" role="alert"><p>{w.error}</p></div>}
       <p className="rn-note">
         No wallet yet? <a className="rn-a" href={MOBILE_WALLET_URL} target="_blank" rel="noreferrer">CryptoX</a> on your phone or the{' '}
-        <a className="rn-a" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Browser Wallet</a> for Chrome. Choose Testnet and create an identity with the
+        <a className="rn-a" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Concordium Wallet</a> for Chrome. Choose Testnet and create an identity with the
         Concordium testnet identity provider: it takes a minute and needs no documents.
       </p>
     </div>

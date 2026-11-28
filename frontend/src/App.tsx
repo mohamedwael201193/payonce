@@ -163,6 +163,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingRoute />} />
+      <Route path="/faq" element={<Navigate to={{ pathname: '/', hash: 'faq' }} replace />} />
       <Route path="/demo" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#0e1219' }} aria-busy="true" />}><DemoPage /></Suspense>} />
       <Route path="/app" element={<AppShell />}>
         <Route index element={<AppIndex />} />

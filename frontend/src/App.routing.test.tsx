@@ -145,7 +145,7 @@ function stubMedia(desktop: boolean) {
 
 function Where() {
   const l = useLocation()
-  return <p data-testid="where">{`${l.pathname}${l.search}`}</p>
+  return <p data-testid="where">{`${l.pathname}${l.search}${l.hash}`}</p>
 }
 
 function renderAt(url: string) {
@@ -210,6 +210,11 @@ describe('legacy redirects', () => {
     renderAt('/nope')
     expect(await screen.findByTestId('not-found')).toBeInTheDocument()
     expect(where()).toBe('/nope')
+  })
+
+  it('/faq opens the landing FAQ', async () => {
+    renderAt('/faq')
+    await waitFor(() => expect(where()).toBe('/#faq'))
   })
 
   it('legacyPayTarget maps every tab once', () => {

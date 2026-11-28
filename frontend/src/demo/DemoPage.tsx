@@ -1,7 +1,7 @@
 // /demo: the whole idea in six screens and about a minute. One button per
 // screen, a few words each. The run comes from loadDemoRun(): a fresh real
 // run when the API has one, otherwise a labelled replay of a recorded run.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { VerdictMark } from '../app/run/Visuals'
@@ -52,22 +52,34 @@ export function DemoPage() {
   useDocumentTitle('Demo')
   const [i, setI] = useState(0)
   const [run, setRun] = useState<DemoRun>(RECORDED_RUN)
+  const [ready, setReady] = useState(false)
+  const [diffAcct, setDiffAcct] = useState<{ asked: string; illustration: boolean } | null>(null)
   const still = useReducedMotion()
 
   useEffect(() => {
     const ac = new AbortController()
-    void loadDemoRun(ac.signal).then((r) => setRun(r))
+    void loadDemoRun(ac.signal).then((r) => {
+      if (ac.signal.aborted) return
+      setRun(r)
+      setReady(true)
+    })
     return () => ac.abort()
   }, [])
 
+  // Lookalike search is a CPU loop: never run it on the first screens or it freezes the "Run it" click.
+  useEffect(() => {
+    if (i < 3) return
+    const e = sharedEnds(run.good.account, run.impostor.account)
+    if (e.head + e.tail >= 8) { setDiffAcct({ asked: run.impostor.account, illustration: false }); return }
+    const id = window.setTimeout(() => {
+      const l = lookalike(run.good.account)
+      setDiffAcct(l ? { asked: l, illustration: true } : null)
+    }, 0)
+    return () => clearTimeout(id)
+  }, [i, run.good.account, run.impostor.account])
+
   const next = () => setI((n) => Math.min(n + 1, SCREENS.length - 1))
   const imp = run.impostor
-  const diffAcct = useMemo(() => {
-    const e = sharedEnds(run.good.account, imp.account)
-    if (e.head + e.tail >= 8) return { asked: imp.account, illustration: false }
-    const l = lookalike(run.good.account)
-    return l ? { asked: l, illustration: true } : null
-  }, [run.good.account, imp.account])
 
   let body: React.ReactNode
   switch (i) {
@@ -75,11 +87,17 @@ export function DemoPage() {
       body = (
         <>
           <h1 className="dm-h">Same invoice. Different account. Which one should your AI pay?</h1>
-          <div className="dm-pair">
-            <Invoice account={run.good.account} tone="a" tag={run.invoice.amount} />
-            <Invoice account={imp.account} tone="b" tag={run.invoice.amount} />
-          </div>
-          <button className="dm-btn" onClick={next}>Run it</button>
+          {ready ? (
+            <>
+              <div className="dm-pair">
+                <Invoice account={run.good.account} tone="a" tag={run.invoice.amount} />
+                <Invoice account={imp.account} tone="b" tag={run.invoice.amount} />
+              </div>
+              <button className="dm-btn" type="button" onClick={next}>Run it</button>
+            </>
+          ) : (
+            <p className="dm-busy" role="status" data-testid="demo-loading">Loading the latest run…</p>
+          )}
         </>
       )
       break
@@ -172,8 +190,16 @@ export function DemoPage() {
         </AnimatePresence>
       </main>
       <footer className="dm-foot" data-testid="demo-label">
-        <span className={`dm-pill ${run.live ? 'is-live' : ''}`}>{run.live ? 'Live run' : 'Replay'}</span>
-        {run.label} Testnet names are mock identities.
+        <span className={`dm-pill ${run.live ? 'is-live' : ''}`}>{ready ? (run.live ? 'Live run' : 'Replay') : 'Loading'}</span>
+        {ready
+          ? (run.live ? 'A real payment on the test network, from today. The name on the invoice is a practice name.' : 'A recorded payment on the test network. The name on the invoice is a practice name.')
+          : 'Fetching a fresh run. If that takes too long, a recorded run will play instead.'}
+        {ready ? (
+          <details className="dm-details">
+            <summary>Details</summary>
+            <p>{run.label} Testnet names are mock identities.</p>
+          </details>
+        ) : null}
       </footer>
     </div>
   )

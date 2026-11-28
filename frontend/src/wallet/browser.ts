@@ -1,4 +1,4 @@
-// Concordium Browser Wallet (desktop extension) path. Loaded on demand with the wallet pages.
+// Concordium Wallet (browser extension, Chrome Web Store id mnnkpffndmickbiakofclnpoiajlegmg) path. Loaded on demand with the wallet pages.
 import { detectConcordiumProvider } from '@concordium/browser-wallet-api-helpers'
 import {
   AccountAddress, AccountTransactionType, CcdAmount, ContractAddress, Energy, ReceiveName, Transaction, VerificationRequestV1,
@@ -70,7 +70,7 @@ export async function connectBrowserWallet(): Promise<WalletSession> {
   try {
     api = await detectConcordiumProvider(2500)
   } catch {
-    throw new Error('The Concordium Browser Wallet extension was not found in this browser.')
+    throw new Error('The Concordium Wallet extension was not found in this browser.')
   }
   const accounts = await api.requestAccounts()
   const account = (await api.getMostRecentlySelectedAccount()) ?? accounts[0]

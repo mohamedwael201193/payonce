@@ -42,7 +42,7 @@ export function ConnectWallet({ purpose }: { purpose: string }) {
       <Card className="flex flex-col gap-3" data-testid="wallet-connected">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-sm text-po-grey">{s.kind === 'browser' ? 'Concordium Browser Wallet' : 'Phone wallet (WalletConnect)'}</span>
+            <span className="text-sm text-po-grey">{s.kind === 'browser' ? 'Concordium Wallet (browser)' : 'Phone wallet (WalletConnect)'}</span>
             <Address value={s.account} kind="account" label="your account" />
           </div>
           <ButtonRow>
@@ -60,7 +60,7 @@ export function ConnectWallet({ purpose }: { purpose: string }) {
     <Button key="bw" id="connect-browser" variant={w.mobile ? 'secondary' : 'primary'} size="lg" busy={w.status === 'connecting' && w.pendingKind === 'browser'}
       disabled={w.browserWallet === false} disabledReason={w.browserWallet === false ? (w.mobile ? 'Browser extensions do not run on phones. Use CryptoX.' : 'The extension is not installed in this browser.') : null}
       onClick={() => void w.connect('browser')}>
-      <Monitor className="h-4 w-4" aria-hidden="true" />Concordium Browser Wallet
+      <Monitor className="h-4 w-4" aria-hidden="true" />Concordium Wallet (browser)
     </Button>
   )
   const phoneBtn = (
@@ -77,7 +77,7 @@ export function ConnectWallet({ purpose }: { purpose: string }) {
       </div>
       <ButtonRow stack={w.mobile}>{w.mobile ? [phoneBtn, browserBtn] : [browserBtn, phoneBtn]}</ButtonRow>
       {w.browserWallet === false && !w.mobile ? (
-        <p className="text-sm text-po-grey">No extension yet? <a className="underline" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Install the Concordium Browser Wallet<ExternalLink className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" /></a>, create a testnet account, then reload this page.</p>
+        <p className="text-sm text-po-grey">No extension yet? <a className="underline" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Install Concordium Wallet<ExternalLink className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" /></a>, create a testnet account, then reload this page.</p>
       ) : null}
       {pairing && w.pairingUri ? (
         <div className="flex flex-col items-start gap-3 rounded-[10px] border border-po-line p-4" data-testid="wc-pairing">
@@ -97,7 +97,7 @@ export function ConnectWallet({ purpose }: { purpose: string }) {
         </div>
       ) : null}
       {w.error ? <Notice tone="error">{w.error}</Notice> : null}
-      <p className="text-sm text-po-grey">No wallet yet? Get <a className="underline" href={MOBILE_WALLET_URL} target="_blank" rel="noreferrer">CryptoX for your phone</a> or the <a className="underline" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Browser Wallet for Chrome</a>, create a Testnet identity and account (the Concordium testnet identity provider needs no documents), then come back.</p>
+      <p className="text-sm text-po-grey">No wallet yet? Get <a className="underline" href={MOBILE_WALLET_URL} target="_blank" rel="noreferrer">CryptoX for your phone</a> or the <a className="underline" href={BROWSER_WALLET_URL} target="_blank" rel="noreferrer">Concordium Wallet for Chrome</a>, create a Testnet identity and account (the Concordium testnet identity provider needs no documents), then come back.</p>
     </Card>
   )
 }

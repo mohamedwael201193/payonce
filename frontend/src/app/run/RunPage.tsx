@@ -316,7 +316,7 @@ function RunFlow() {
               <legend>Choose the payer</legend>
               <label className={mine ? 'is-on' : ''}>
                 <input type="radio" name="payer" checked={mine} onChange={() => setPayer('wallet')} />
-                <span><b>My own wallet</b>{w.mobile ? 'CryptoX on this phone.' : 'Browser Wallet here, or CryptoX on your phone.'} You sign the payment yourself.</span>
+                <span><b>My own wallet</b>{w.mobile ? 'CryptoX on this phone.' : 'Concordium Wallet (browser) here, or CryptoX on your phone.'} You sign the payment yourself.</span>
               </label>
               <label className={!mine ? 'is-on' : ''}>
                 <input type="radio" name="payer" checked={!mine} onChange={() => setPayer('agent')} />

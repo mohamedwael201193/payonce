@@ -65,15 +65,34 @@ export function parseLiveRun(raw: unknown, now = Date.now()): DemoRun | null {
   return r as DemoRun
 }
 
-export async function loadDemoRun(signal?: AbortSignal): Promise<DemoRun> {
+/** Give up on a fresh run quickly: the page must always be clickable. */
+export const DEMO_LOAD_MS = 5_000
+
+function deadline(ms: number, signal?: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const t = setTimeout(() => reject(new DOMException('Timeout', 'TimeoutError')), ms)
+    if (!signal) return
+    const onAbort = () => {
+      clearTimeout(t)
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    }
+    if (signal.aborted) { onAbort(); return }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+export async function loadDemoRun(signal?: AbortSignal, timeoutMs = DEMO_LOAD_MS): Promise<DemoRun> {
   try {
-    const res = await timedFetch(`${API_BASE}/api/demo/run`, { signal })
+    const res = await Promise.race([
+      timedFetch(`${API_BASE}/api/demo/run`, signal ? { signal } : undefined),
+      deadline(timeoutMs, signal),
+    ])
     if (res.ok) {
       const live = parseLiveRun(await res.json())
       if (live) return live
     }
   } catch {
-    /* no live run available: replay */
+    /* timeout, abort, or no live run: labelled replay */
   }
   return RECORDED_RUN
 }

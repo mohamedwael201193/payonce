@@ -326,7 +326,7 @@ export function SellPage() {
         <header className="ds-hero ds-hero--slim">
           <p className="ds-crumb"><Link to="/app">Run it</Link> · Become a payee</p>
           <h1 className="ds-h1">Get paid by an AI agent.</h1>
-          <p className="ds-lead">Register from your own wallet, issue an invoice, watch the agent pay it once. Testnet fees are several test CCD per transaction (about 100 in all); Concordium’s faucet covers it.</p>
+          <p className="ds-lead">Register from your own wallet, issue an invoice, watch the agent pay it once. You will need about 100 test CCD for network fees on this path (Concordium’s faucet covers it). When the agent pays you, PayOnce covers that fee.</p>
         </header>
         <div className="ds-body ds-body--wide">
           <SellFlow />

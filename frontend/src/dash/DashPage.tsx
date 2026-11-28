@@ -255,7 +255,7 @@ function Flow() {
       card = (
         <Card k="c0" title="Connect your wallet">
           <RunConnect />
-          <p className="ds-note">0 CCD needed. Browser Wallet 2.10+ or CryptoX (Android). <a href="https://docs.concordium.com/" target="_blank" rel="noreferrer">No testnet identity? Guide</a></p>
+          <p className="ds-note">No fee to connect, prove your name or become a payee — PayOnce pays those. You need some test CCD only if you later pay someone from this wallet (Concordium’s faucet). Concordium Wallet (browser) 2.10+ or CryptoX (Android). <a href="https://docs.concordium.com/" target="_blank" rel="noreferrer">No testnet identity? Guide</a></p>
           {acct ? <button className="ds-btn" onClick={() => setStep(proof ? 2 : 1)}>Continue</button> : null}
         </Card>
       )

@@ -33,7 +33,7 @@ describe('wallet helpers', () => {
 })
 
 describe('ConnectWallet', () => {
-  it('offers the Browser Wallet first on a computer and explains a missing extension', async () => {
+  it('offers Concordium Wallet (browser) first on a computer and explains a missing extension', async () => {
     const { WalletProvider } = await import('./WalletContext')
     const { ConnectWallet } = await import('./WalletUI')
     render(
@@ -45,8 +45,8 @@ describe('ConnectWallet', () => {
     )
     expect(await screen.findByText('Connect your wallet')).toBeTruthy()
     const buttons = screen.getAllByRole('button')
-    expect(buttons[0].textContent).toMatch(/Browser Wallet/)
-    expect(screen.getByText(/Install the Concordium Browser Wallet/)).toBeTruthy()
+    expect(buttons[0].textContent).toMatch(/Concordium Wallet \(browser\)/)
+    expect(screen.getByText(/Install Concordium Wallet/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Phone wallet/ })).toBeTruthy()
   })
 })
