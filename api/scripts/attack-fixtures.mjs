@@ -72,12 +72,23 @@ async function tracked(key, build) {
         return h;
       }
     }
-    throw new Error(`${key}: earlier tx ${prev.hash} is not finalized under any known hash; not sending again`);
+    // Absent under every candidate after its expiry + 60 s: it can never execute, so a new transaction cannot double-run.
+    const expiry = Number(prev.expiry_ms ?? (Date.parse(prev.at) + 8 * 60_000));
+    const expiredUnseen = prev.state === 'sent' && Date.now() >= expiry + 60_000;
+    if (prev.state !== 'not_sent' && !expiredUnseen) throw new Error(`${key}: earlier tx ${prev.hash} (${prev.state}) is not finalized and not provably dead; not sending again`);
+    out.steps.push({ key, previous: prev.hash, note: prev.state === 'not_sent' ? 'refused by the node before acceptance; building a new one' : 'absent after expiry; building a new one' });
   }
   const { tx, send } = await build();
   const candidates = hashCandidates(tx);
-  await kvPut(NS, key, { hash: candidates[0], candidates, state: 'sent', at: new Date().toISOString() });
-  const got = returnedHash(await send(tx));
+  const expiry_ms = Number(tx.header?.expiry?.expiryEpochSeconds ?? 0) * 1000 || Date.now() + 8 * 60_000;
+  await kvPut(NS, key, { hash: candidates[0], candidates, expiry_ms, state: 'sent', at: new Date().toISOString() });
+  let got;
+  try { got = returnedHash(await send(tx)); } catch (e) {
+    const m = String(e?.message ?? e);
+    // the node refused it before acceptance (gRPC InvalidArgument): nothing was sent
+    if (/enough funds|duplicate nonce|nonce too|invalid signature|expired/i.test(m)) await kvPut(NS, key, { hash: candidates[0], candidates, expiry_ms, state: 'not_sent', error: m.slice(0, 160), at: new Date().toISOString() });
+    throw e;
+  }
   const hash = got ?? candidates[0];
   out.hash_check.push({ key, version: tx.version, node: got, block_item_hash_matches: got === candidates[0], sdk_hash_matches: got === candidates[candidates.length - 1] });
   await kvPut(NS, key, { hash, candidates, state: 'sent', at: new Date().toISOString() });
@@ -137,7 +148,9 @@ try {
   // F4/F5: X funded and strict.
   if (!(await strictOf(X.address))) {
     if ((await balance(X.address)) < 500_000n) await tracked('f4_fund_x', () => transferTx(OWNER, X.address, 1_000_000n));
-    await tracked('f5_strict_x', () => ownTx(X, 'set_strict', Buffer.from([1]), { energy: 5000n }));
+    // testnet energy is ~0.008 CCD/NRG: the sender must hold max-energy x price, so X gets 20 CCD and a tight cap
+    if ((await balance(X.address)) < 15_000_000n) await tracked('f4b_fund_x', () => transferTx(OWNER, X.address, 20_000_000n));
+    await tracked('f5_strict_x', () => ownTx(X, 'set_strict', Buffer.from([1]), { energy: 1500n }));
   }
   out.X_strict = await strictOf(X.address);
   // F6: open invoice, no expected payer.
