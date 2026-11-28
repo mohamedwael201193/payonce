@@ -126,3 +126,38 @@ jobs:
       - name: v2.1 registry tests
         run: cargo concordium test --out out/payable_registry_v2_1.wasm.v1
         working-directory: contracts/payable_registry_v2_1
+
+  verify-v3-module:
+    name: v3 module == committed verifiable build (source archive, hash, node bytes, both books)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: source archive == repo source
+        run: |
+          set -e
+          mkdir -p /tmp/v3 && tar -xf contracts/payable_registry_v3/verifiable/payable_registry_v3.wasm.v1.tar -C /tmp/v3
+          for f in src/lib.rs Cargo.toml Cargo.lock tests/payable_v3.rs; do
+            cmp contracts/payable_registry_v3/$f /tmp/v3/payable_registry_v3-0.1.0/$f && echo "same $f"
+          done
+      - name: module hash == deployed ref; node bytes == file; both v3 books run it
+        working-directory: api
+        run: npm ci --no-audit --no-fund && node scripts/verify-module.mjs
+
+  verify-v3-build:
+    name: v3 rebuild from source in Concordium's pinned image (cargo concordium verify-build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-concordium
+          key: cargo-concordium-5.0.0
+      - name: Install cargo-concordium 5.0.0
+        run: command -v cargo-concordium || cargo install cargo-concordium --version 5.0.0 --locked
+      - name: verify-build (rebuilds the committed archive in docker.io/concordium/verifiable-sc-wasm32v1:1)
+        working-directory: contracts/payable_registry_v3
+        run: cargo concordium verify-build --module verifiable/payable_registry_v3.wasm.v1 --source verifiable/payable_registry_v3.wasm.v1.tar

@@ -38,6 +38,8 @@ import { createDashboard, DashError } from './dash.mjs';
 import { createDashChain } from './dash-chain.mjs';
 import { createLedger } from './vop-ledger.mjs';
 import { createAttackCatalogue, aliasOf } from './vop-attacks.mjs';
+import { createFees } from './fees.mjs';
+const fees = createFees();
 import { createApprovals, ApprovalError } from './approvals.mjs';
 import { sendRegisterData, txStatus } from './vop-anchor-wiring.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
@@ -411,6 +413,8 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
+    // ---- G19 fees: measured NRG x the chain's live exchange-rate parameters ----
+    ['GET', /^\/api\/fees$/, wrap(async (req) => { await limited('fees', 60)(req); return fees.table(); })],
     // ---- G13 live attack catalogue ----
     ['GET', /^\/api\/proof\/attacks$/, wrap(async (req) => { const fresh = qs(req).fresh === '1'; await limited(fresh ? 'attacks:fresh' : 'attacks:get', fresh ? 2 : 60)(req); return attackScorecard(fresh); })],
     ['GET', /^\/api\/proof\/false-green$/, wrap(async (req) => { await limited('falsegreen:get', 30)(req); const r = await kvGet('proof', 'false_green:latest'); if (!r) throw new DashError(404, 'not_run', 'The benchmark has not been run yet (api/scripts/false-green.mjs).'); return qs(req).cases === '1' ? r : { ...r, cases: undefined, cases_url: '/api/proof/false-green?cases=1' }; })],
