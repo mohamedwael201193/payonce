@@ -24,6 +24,8 @@ Four PayOnce agents hold a **valid Concordium badge** on the official CIS-8004 r
 Seller **#1476** `JyP9XawpXHMjTN5ocrA5a` · Buyer **#1488** `JyP9Xp5bhbLsQrw7yTyph` · Seller 2 **#1506** `JyP9Y9nGU4KaM7DBDXRgm` · check_payee service **#1554** `JyP9UE8M6sTcxSaorAr8W`.
 The cards are hosted on our domain under `/.well-known/registry/`. Transactions, raw check output and how to re-run it: [docs/REGISTRY.md](docs/REGISTRY.md).
 
+Payments run in **CCD or EUDemo** (the testnet euro PLT), with the same payee check on both. EUDemo run, buyer paid no fees: [docs/EUDEMO.md](docs/EUDEMO.md).
+
 ## What is real today, and what is not
 
 | Part | Status (28 Nov 2026) |

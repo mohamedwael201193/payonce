@@ -1,0 +1,115 @@
+{
+    "run": "EUDemo rail with Verification of Payee",
+    "contract": "<13173,0>",
+    "started_at": "2026-11-28T08:46:52.884Z",
+    "seller": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+    "buyer": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+    "txs": {
+        "approve_vendor": {
+            "hash": "a51b2c4f3bc4107e44a35949610032087db02884861338da7d6e44110b25e19f",
+            "block": "9e5a79c2808707a782dbe5118e0c9aac573f5e834fef57b00c8e0a23fe98f625",
+            "ok": true,
+            "reject": null,
+            "reject_name": null,
+            "cost_micro": "0",
+            "sponsor": {
+                "cost": "11148365",
+                "sponsor": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+            }
+        },
+        "register": {
+            "hash": "5499c54fba2189967c3ce283675775d89ae81e2a0bfc539b614694a306c49a33",
+            "block": "9e507d136dcf0526c9a65dfb6c7606fff9bc38829df46c16877532c61feff71f",
+            "ok": true,
+            "reject": null,
+            "reject_name": null,
+            "cost_micro": "17890167",
+            "sponsor": null
+        },
+        "reserve_plt": {
+            "hash": "894b1c7679f255cbf7ad6912320bbaf43c5280d5ae00cb7c1827905c274d2446",
+            "block": "498ecbe4f38c76ade875bba1d9c0cc61fd11f9c64192d5cce42aa00fbcf607c7",
+            "ok": true,
+            "reject": null,
+            "reject_name": null,
+            "cost_micro": "0",
+            "sponsor": {
+                "cost": "19833533",
+                "sponsor": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+            }
+        },
+        "eudemo_transfer": {
+            "hash": "7ddeb8280c8e85dd42c2c691d1b308117d09cf0534cee7c02b18abb65a60eb8b",
+            "block": "5f1d6fef0712684820732966def15812cbd1869d43ea80c55dca2f77bbf0a01e",
+            "ok": true,
+            "reject": null,
+            "reject_name": null,
+            "cost_micro": "0",
+            "sponsor": {
+                "cost": "6901750",
+                "sponsor": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+            }
+        },
+        "confirm_plt": {
+            "hash": "0219c2da836140fc9f0c870bb82d29bce434bee637f785883a03d31f8bbdd771",
+            "block": "aba1efc0a925e3b5ab54bf9e58dbb417bf8af808f618a3eaa6db40fd77ab5461",
+            "ok": true,
+            "reject": null,
+            "reject_name": null,
+            "cost_micro": "0",
+            "sponsor": {
+                "cost": "14819168",
+                "sponsor": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB"
+            }
+        },
+        "reserve_again": {
+            "hash": "5fac785d9174277ef182a427242c3fb6fc8fadfaa0e8d68799f075d48c012fbd",
+            "block": "f7c8760713e51c1005f1acd8ea594e4773b1799c101db927a3f8a70ae1955003",
+            "ok": false,
+            "reject": -16,
+            "reject_name": null,
+            "cost_micro": "6022037",
+            "sponsor": null
+        }
+    },
+    "vendor_before": "none",
+    "invoice": {
+        "payable_id": 9000,
+        "amount": "0.01 EUDemo",
+        "amount_minor": "10000",
+        "payee": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+        "payee_name": "PayOnce Labs"
+    },
+    "check_payee": {
+        "verdict": "MATCH",
+        "payable": true,
+        "evidence_hash": "16840c701415334956d449cd4c4d1c575495ea3409f4206036d6b7c0b8d9a00c",
+        "buyer_ack_current": true
+    },
+    "wrong_recipient": {
+        "refused": true,
+        "code": "wrong_recipient",
+        "message": "The transfer must go to the payable\u2019s bound payee."
+    },
+    "payable_after": {
+        "status": "Paid",
+        "payer": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+        "tx_hash": "7ddeb8280c8e85dd42c2c691d1b308117d09cf0534cee7c02b18abb65a60eb8b",
+        "asset": "EUDemo"
+    },
+    "transfer_readback": {
+        "token": true,
+        "sender_is_buyer": true,
+        "to_payee": true,
+        "memo_present": true,
+        "sponsored": true,
+        "raw_type": "tokenUpdate"
+    },
+    "replay": {
+        "ok": false,
+        "reject": -16,
+        "reject_name": null
+    },
+    "go": true,
+    "finished_at": "2026-11-28T08:47:28.120Z"
+}
