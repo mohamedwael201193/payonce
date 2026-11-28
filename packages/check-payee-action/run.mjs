@@ -22,5 +22,5 @@ const reason = r.check?.reasons?.[0] ?? r.reasons?.[0] ?? '';
 const line = `check_payee: ${r.verdict} (${r.outcome}) for ${e.C_NAME} -> ${payTo}${r.selected ? `, ${r.selected.amount_ccd} CCD` : ''}${reason ? `. ${reason}` : ''}`;
 process.stdout.write(`${line}\n${r.text}\n`);
 if (e.GITHUB_STEP_SUMMARY) appendFileSync(e.GITHUB_STEP_SUMMARY, `### PayOnce check_payee\n\n| | |\n|---|---|\n| Verdict | **${r.verdict}** (${r.outcome}) |\n| Name | ${e.C_NAME.replace(/\|/g, '/')} |\n| Pay to | \`${payTo}\` |\n${r.selected ? `| Price | ${r.selected.amount_ccd} CCD |\n` : ''}| What an agent may do | ${r.text} |\n\nTestnet names are self-asserted mock identities; the chain does not verify the ZK proof, a keyless verifier does.\n`);
-const failOn = String(e.C_FAIL ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const failOn = String(e.C_FAIL ?? 'no_match,close_match,not_possible').split(',').map((s) => s.trim()).filter(Boolean);
 if (r.outcome !== 'match' && failOn.includes(r.outcome)) { process.stdout.write(`::error::${r.text}\n`); process.exit(1); }
