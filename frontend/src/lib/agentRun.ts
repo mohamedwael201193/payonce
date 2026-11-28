@@ -199,3 +199,33 @@ export function correctionText(c: ProseCorrection, run: Pick<AgentRun, 'decision
   }
   return `Run record: payable ${c.payable_id} was refused and nothing was paid. The model's sentence is wrong about this.`
 }
+
+const TOOL_PLAIN: Record<string, string> = {
+  read_inbox: 'Reading the inbox',
+  list_payables: 'Looking up the invoices',
+  check_payable: 'Checking who it is paying (Match / No match)',
+  verify_payable: 'Checking who it is paying (Match / No match)',
+  pay_payable: 'Paying once; waiting for the testnet to finalize (about 30 to 60 seconds)',
+  run_verifier: 'Re-checking the payment with the public verifier',
+  get_receipt: 'Reading the receipt',
+}
+
+/** One raw live-run log line -> one plain sentence. Unknown lines pass through unchanged. */
+export function plainEvent(raw: string): string {
+  const t = raw.trim()
+  let m = /^tool_call\s+([a-z_]+)/.exec(t)
+  if (m) return TOOL_PLAIN[m[1]] ?? `Calling ${m[1].replace(/_/g, ' ')}`
+  m = /^guard(?:\s+[a-z_]+)?:\s*(.*)$/.exec(t)
+  if (m) return `Safety guard: ${m[1]}`
+  m = /^thought:\s*(.*)$/.exec(t)
+  if (m) return `Agent: ${m[1]}`
+  m = /^harness_note:\s*(.*)$/.exec(t)
+  if (m) return `Note: ${m[1]}`
+  m = /^final:\s*(.*)$/.exec(t)
+  if (m) return `Finished: ${m[1]}`
+  m = /^task:\s*(.*)$/.exec(t)
+  if (m) return `Task: ${m[1]}`
+  m = /^agent:\s*(.*)$/.exec(t)
+  if (m) return `Planner: ${m[1]}`
+  return t
+}

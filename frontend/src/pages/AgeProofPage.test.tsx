@@ -51,7 +51,8 @@ let ageHealthStatus = 200
 let verifyFiled = false
 let verifyBinding: string | null = null
 let verifyHolder: string | null = null
-let lastVerifyBody: unknown = null
+let lastV1Body: unknown = null
+let v1Status = 200
 
 function mockApi() {
   vi.stubGlobal(
@@ -81,8 +82,14 @@ function mockApi() {
           json: async () => ({ allowed: false, rule: 'REVEAL_REFUSED', reason: 'reveal of firstName is refused by policy' }),
         }
       }
+      if (url.includes('/api/age-proof/v1')) {
+        lastV1Body = init?.body ? JSON.parse(String(init.body)) : null
+        if (v1Status === 200) {
+          return { ok: true, status: 200, json: async () => ({ ok: true, binding: 'bound', statements: ['dob >= 18', 'nationality in EU27'], payable_id: 1007, vra_tx: 'aa'.repeat(32), vaa_tx: 'bb'.repeat(32), valid_for_seconds: 600 }) }
+        }
+        return { ok: false, status: 400, json: async () => ({ ok: false, step: 'node_verify', error: 'the node rejected the presentation (bad proof)' }) }
+      }
       if (url.includes('/api/age-proof/verify')) {
-        lastVerifyBody = init?.body ? JSON.parse(String(init.body)) : null
         if (verifyStatus === 200) {
           return {
             ok: true,
@@ -127,7 +134,8 @@ describe('AgeProofPage', () => {
     verifyFiled = false
     verifyBinding = null
     verifyHolder = null
-    lastVerifyBody = null
+    lastV1Body = null
+    v1Status = 200
     mockApi()
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -157,71 +165,39 @@ describe('AgeProofPage', () => {
     expect(screen.getByText('reveal of firstName is refused by policy')).toBeInTheDocument()
   })
 
-  it('shows the 200 valid:true from the verify panel', async () => {
+  it('the 18+ check needs an invoice number: the button stays disabled until one is typed', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Verify the 18+ proof' }))
-    await waitFor(() => expect(screen.getByText(/valid: true/)).toBeInTheDocument())
-    expect(screen.getByText(/Valid 18\+ proof/)).toBeInTheDocument()
+    const btn = screen.getByRole('button', { name: 'Run the 18+ check' })
+    expect(btn).toBeDisabled()
+    await user.type(screen.getByLabelText('Invoice number'), 'abc')
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter an invoice number')
+    expect(btn).toBeDisabled()
+    expect(lastV1Body).toBeNull()
   })
 
-  it('shows the 400 valid:false when the verifier rejects', async () => {
-    verifyStatus = 400
+  it('runs the real V1 check for the invoice and shows Match with both anchors', async () => {
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Verify the 18+ proof' }))
-    await waitFor(() => expect(screen.getByText('HTTP 400 · valid: false')).toBeInTheDocument())
-    expect(screen.getByText(/Rejected by the official testnet verifier/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Invoice number'), '1007')
+    await user.click(screen.getByRole('button', { name: 'Run the 18+ check' }))
+    await waitFor(() => expect(screen.getByText('Match: 18+ proven for invoice 1007')).toBeInTheDocument())
+    expect(lastV1Body).toEqual({ payable_id: 1007 })
+    expect(screen.getByRole('link', { name: 'Request anchored on CCDExplorer' })).toHaveAttribute('href', expect.stringContaining('aa'.repeat(32)))
+    expect(screen.getByRole('link', { name: 'Result anchored on CCDExplorer' })).toHaveAttribute('href', expect.stringContaining('bb'.repeat(32)))
   })
 
-  it('M3: sends the payable id + payer with the verify call and shows the filing', async () => {
-    verifyFiled = true
+  it('a failed check says No match and nothing was filed, with the step', async () => {
+    v1Status = 400
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    await user.type(screen.getByLabelText('Payable to unlock'), '1007')
-    await user.type(screen.getByLabelText('Payer account'), '4TestPayer')
-    await user.click(screen.getByRole('button', { name: 'Verify the 18+ proof' }))
-    await waitFor(() => expect(screen.getByText(/valid: true/)).toBeInTheDocument())
-    expect(screen.getByText(/Filed for payable 1007/)).toBeInTheDocument()
-    expect(lastVerifyBody).toMatchObject({ payable_id: 1007, payer: '4TestPayer' })
-  })
-
-  // Fix-back-2 MF2: the filed copy says "filed for this payer" — never
-  // "the age gate is open for this payer" (the pay gate honours only
-  // proofs filed for its fixed payer, so that sentence was false for
-  // any other payer). A proof filed for another payer surfaces the
-  // API's binding/holder reason instead of the generic nothing-filed
-  // text.
-  it('MF2: a filed proof says "filed for this payer", never "the age gate is open"', async () => {
-    verifyFiled = true
-    verifyHolder = '4TestPayer'
-    const user = userEvent.setup()
-    renderPage()
-    await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    await user.type(screen.getByLabelText('Payable to unlock'), '1007')
-    await user.type(screen.getByLabelText('Payer account'), '4TestPayer')
-    await user.click(screen.getByRole('button', { name: 'Verify the 18+ proof' }))
-    await waitFor(() => expect(screen.getByText(/Filed for payable 1007 for this payer/)).toBeInTheDocument())
-    expect(screen.queryByText(/the age gate is open for this payer/)).not.toBeInTheDocument()
-  })
-
-  it('MF2: a proof for another payer shows the binding + holder reason, not the generic text', async () => {
-    verifyFiled = false
-    verifyBinding = 'holder_mismatch'
-    verifyHolder = '4OtherHolder'
-    const user = userEvent.setup()
-    renderPage()
-    await waitFor(() => expect(screen.getByText('Prover live — Testnet')).toBeInTheDocument())
-    await user.type(screen.getByLabelText('Payable to unlock'), '1007')
-    await user.type(screen.getByLabelText('Payer account'), '4TestPayer')
-    await user.click(screen.getByRole('button', { name: 'Verify the 18+ proof' }))
-    await waitFor(() => expect(screen.getByText(/holder_mismatch/)).toBeInTheDocument())
-    expect(screen.getByText(/belongs to holder 4OtherHolder, not the payer entered/)).toBeInTheDocument()
-    expect(screen.getByText(/never opens the gate/)).toBeInTheDocument()
-    expect(screen.queryByText(/no payable \+ payer were given/)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Invoice number'), '1007')
+    await user.click(screen.getByRole('button', { name: 'Run the 18+ check' }))
+    await waitFor(() => expect(screen.getByText('No match: nothing was filed')).toBeInTheDocument())
+    expect(screen.getByText(/the node rejected the presentation/)).toBeInTheDocument()
   })
 
   it('says plainly the prover is not provisioned yet when the API returns 503', async () => {
@@ -245,7 +221,7 @@ describe('AgeProofPage', () => {
     })
     expect(screen.getAllByText(/Demo unavailable — The prover service is not reachable or not configured for this API/)).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Reveal the first name' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run the 18+ check' })).toBeDisabled()
   })
 
   // Fix-back-7 S2: while health is loading, both demo sections carry a
@@ -257,7 +233,7 @@ describe('AgeProofPage', () => {
       screen.getAllByText('Checking the age-proof prover… The demo buttons stay disabled until it answers.'),
     ).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Reveal the first name' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Verify the 18+ proof' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run the 18+ check' })).toBeDisabled()
   })
 
   it('B7: the verify intro has no stray valid:false fragment', async () => {

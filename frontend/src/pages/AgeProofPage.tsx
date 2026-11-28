@@ -17,28 +17,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ageProofApi } from '../lib/api'
+import { ageProofApi, type AgeV1Result } from '../lib/api'
 import { ApiError } from '../lib/types'
 import { useSlowLoad } from '../components/polish'
 
 const TX_BASE = 'https://ccdexplorer.io/testnet/transaction/'
-const EU27 = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK']
 export const AGE_PROOF_VRA = 'e576b2ed2a3539ecc9da872abad15a8ae1dde07c6aa946d3eb9a2b98718a17dc'
 export const AGE_PROOF_VAA = '5dc1e9858e8740a703bc5c437d7442dc624c8afc7b1dd2bc1b6f7b6489c05f51'
 export const AGE_PROOF_RECORD_SHA256 = 'fab62d06a55399e76699c52cf64799514b2d06b0b9a0062c16d7c29d9b469d3e'
-
-function yyyymmdd(d: Date): string {
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
-}
-
-// The prover accepts a dob upper bound of today minus 18 or 21 years,
-// with a +0 or +1 day offset (the SDK's addMinimumAge uses +1 day).
-function upperMinusYears(years: number): string {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() - years)
-  d.setDate(d.getDate() + 1)
-  return yyyymmdd(d)
-}
 
 function randomChallenge(): string {
   const bytes = new Uint8Array(32)
@@ -46,22 +32,6 @@ function randomChallenge(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-function allowedRequest(issuerDid: string): unknown {
-  return {
-    challenge: randomChallenge(),
-    subjectClaims: [
-      {
-        type: 'identity',
-        source: ['accountCredential'],
-        issuers: [issuerDid],
-        statements: [
-          { type: 'AttributeInRange', attributeTag: 'dob', lower: '18000101', upper: upperMinusYears(18) },
-          { type: 'AttributeInSet', attributeTag: 'nationality', set: EU27 },
-        ],
-      },
-    ],
-  }
-}
 
 function forbiddenRequest(issuerDid: string): unknown {
   return {
@@ -91,44 +61,12 @@ export function AgeProofPage() {
   // dead end. The payable arrives from the gate's own link
   // (/verify-age?payable=<id>) or from the inputs below.
   const [payableId, setPayableId] = useState(() => searchParams.get('payable') ?? '')
-  const [payer, setPayer] = useState('')
   const [forbidden, setForbidden] = useState<{ status: number; rule: string; reason: string } | null>(null)
   const [forbiddenBusy, setForbiddenBusy] = useState(false)
   const [forbiddenError, setForbiddenError] = useState<string | null>(null)
-  const [verify, setVerify] = useState<{ status: number; valid: boolean; detail: string } | null>(null)
+  const [verify, setVerify] = useState<{ ok: boolean; result: AgeV1Result } | null>(null)
   const [verifyBusy, setVerifyBusy] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
-
-  // Fix-back-2 MF2: the filing outcome is the API's own `binding` /
-  // `holder`, not a generic guess. The pay gate (api/src/server.mjs)
-  // honours ONLY proofs filed for its fixed PAYER_ADDRESS, so "the age
-  // gate is open for this payer" was false for any other payer — the
-  // page now says "filed for this payer" and names the binding reason.
-  function filingDetail(result: {
-    filed_for_payable?: number | null
-    holder?: string | null
-    binding?: string
-  }): string {
-    if (result.filed_for_payable) {
-      return `Filed for payable ${result.filed_for_payable} for this payer${
-        result.holder ? ` (holder ${result.holder})` : ''
-      }. The pay gate opens only for a proof filed for the payer the pay flow uses — pay within 10 minutes.`
-    }
-    switch (result.binding) {
-      case 'not_requested':
-        return 'Nothing was filed: no payable + payer were given, so this was verify-only (binding: not_requested).'
-      case 'no_dob_proof':
-        return 'Nothing was filed: the proof did not prove 18+ (binding: no_dob_proof).'
-      case 'holder_missing':
-        return 'Nothing was filed: the presentation named no holder that resolves to a payer (binding: holder_missing).'
-      case 'holder_unresolved':
-        return 'Nothing was filed: the presentation holder could not be resolved on chain (binding: holder_unresolved).'
-      case 'holder_mismatch':
-        return `Nothing was filed: the proof belongs to holder ${result.holder ?? 'unknown'}, not the payer entered (binding: holder_mismatch) — a proof filed for another payer never opens the gate.`
-      default:
-        return `Nothing was filed${result.binding ? ` (binding: ${result.binding})` : ''}.`
-    }
-  }
 
   const issuerDid = health.data?.prover.issuer_did ?? null
   const proverDown =
@@ -158,30 +96,26 @@ export function AgeProofPage() {
     }
   }
 
+  const parsedPayable = /^\d+$/.test(payableId.trim()) ? Number(payableId.trim()) : NaN
+  const payableOk = Number.isInteger(parsedPayable) && parsedPayable >= 1
+
   async function tryVerify() {
-    if (!issuerDid) return
+    if (!payableOk) return
     setVerifyBusy(true)
     setVerifyError(null)
+    setVerify(null)
     try {
-      const parsedPayable = Number.parseInt(payableId, 10)
-      const { status, result } = await ageProofApi.verify(
-        allowedRequest(issuerDid),
-        Number.isInteger(parsedPayable) && parsedPayable >= 1 ? parsedPayable : undefined,
-        payer.trim() ? payer.trim() : undefined,
-      )
-      setVerify({
-        status,
-        valid: result.valid,
-        detail: result.valid
-          ? `Valid 18+ proof — ${result.statements?.join(', ') ?? 'dob>=18, nationality in EU27'}. ${filingDetail(result)}`
-          : `Rejected by the official testnet verifier (HTTP ${result.verifier_status ?? status}).`,
-      })
+      const { status, body } = await ageProofApi.runV1(parsedPayable)
+      if (status === 200 && body.ok) setVerify({ ok: true, result: body })
+      else if (status === 400 || status === 403) setVerify({ ok: false, result: body })
+      else setVerifyError(body.message ?? body.error ?? `The API answered HTTP ${status}. Nothing was filed.`)
     } catch (e) {
-      setVerifyError(e instanceof ApiError ? e.body.message : 'The request failed.')
+      setVerifyError(e instanceof ApiError ? e.body.message : 'The request failed. Nothing was filed.')
     } finally {
       setVerifyBusy(false)
     }
   }
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -309,54 +243,42 @@ export function AgeProofPage() {
           ) : null}
         </section>
 
-        {/* Verify panel. */}
-        <section aria-label="Verify my age proof" className="mt-6 po-card p-5 sm:p-6">
-          <h2 className="text-lg font-medium text-po-ink">Verify my age proof</h2>
+        {/* The real check for one invoice. */}
+        <section aria-label="Run the 18+ check" className="mt-6 po-card p-5 sm:p-6">
+          <h2 className="text-lg font-medium text-po-ink">Run the 18+ check for an invoice</h2>
           <p className="mt-2 text-po-grey">
-            Send the allowed shape — dob in the 18+ range plus EU nationality — through the prover to the
-            official testnet verifier. A valid presentation returns HTTP 200; a rejected one returns HTTP
-            400. Give the payable and the payer too, and a valid proof is
-            filed for that payer and payable — that is what the pay gate honours for a gated pay (1 CCD or
-            1.00 EUDemo and up) for 10 minutes, when the filed payer is the payer the pay flow uses.
-            Without them the proof verifies but files nothing.
+            This is the extra identity check an age-restricted invoice needs before the agent may pay it. The paying
+            account proves 18+ and EU nationality from its Concordium identity, without revealing a birth date. The
+            request and the result are anchored on chain (two small testnet transactions), and the proof is filed for
+            that invoice for 10 minutes.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-po-ink">Payable to unlock</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={payableId}
-                onChange={(e) => setPayableId(e.target.value)}
-                placeholder="e.g. 1007"
-                aria-label="Payable to unlock"
-                className="po-input mt-1"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-po-ink">Payer account</span>
-              <input
-                type="text"
-                value={payer}
-                onChange={(e) => setPayer(e.target.value)}
-                placeholder="e.g. 4MvdME… (demo payer)"
-                aria-label="Payer account"
-                className="po-input mt-1"
-              />
-            </label>
-          </div>
-          <p className="mt-2 text-sm text-po-grey">
-            The proof is filed only when the presentation&apos;s credential holder is this payer — a proof
-            for someone else never unlocks your pay.
-          </p>
+          <label className="mt-4 block max-w-xs">
+            <span className="text-sm font-medium text-po-ink">Invoice number</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={payableId}
+              onChange={(e) => setPayableId(e.target.value)}
+              placeholder="e.g. 1007"
+              aria-label="Invoice number"
+              aria-invalid={payableId.trim() !== '' && !payableOk}
+              className="po-input mt-1"
+            />
+          </label>
+          {payableId.trim() !== '' && !payableOk ? (
+            <p className="mt-2 text-sm text-po-bad" role="alert">Enter an invoice number, for example 1007.</p>
+          ) : null}
           <button
             type="button"
             onClick={tryVerify}
-            disabled={verifyBusy || !issuerDid}
+            disabled={verifyBusy || !issuerDid || !payableOk}
             className="mt-4 po-btn po-btn-ink"
           >
-            {verifyBusy ? 'Verifying…' : 'Verify the 18+ proof'}
+            {verifyBusy ? 'Checking… (about 30 seconds)' : 'Run the 18+ check'}
           </button>
+          {!payableOk && payableId.trim() === '' ? (
+            <p className="mt-2 text-sm text-po-grey">Enter the invoice number first.</p>
+          ) : null}
           {health.isLoading ? (
             <p className="mt-3 rounded-[10px] border border-po-line bg-po-paper p-4 text-sm text-po-grey" role="status">
               Checking the age-proof prover… The demo buttons stay disabled until it answers.
@@ -367,10 +289,25 @@ export function AgeProofPage() {
             </p>
           ) : null}
           {verifyError ? <p className="mt-3 text-sm text-po-grey" role="alert">{verifyError}</p> : null}
-          {verify ? (
+          {verify?.ok ? (
             <div className="mt-4 rounded-[10px] border border-po-line bg-po-paper p-4" role="status">
-              <p className="text-sm text-po-grey">{`HTTP ${verify.status} · valid: ${verify.valid ? 'true' : 'false'}`}</p>
-              <p className="mt-1 text-sm text-po-grey">{verify.detail}</p>
+              <p className="font-medium text-po-ink">Match: 18+ proven for invoice {verify.result.payable_id}</p>
+              <p className="mt-1 text-sm text-po-grey">
+                {(verify.result.statements ?? []).join(', ') || '18+ and EU nationality'}. Filed for the paying account for{' '}
+                {Math.round((verify.result.valid_for_seconds ?? 600) / 60)} minutes: pay the invoice within that time.
+              </p>
+              <ul className="mt-2 flex flex-col gap-1 text-sm">
+                {verify.result.vra_tx ? <li><a className="text-po-accent-ink underline" href={`${TX_BASE}${verify.result.vra_tx}`} target="_blank" rel="noreferrer">Request anchored on CCDExplorer</a></li> : null}
+                {verify.result.vaa_tx ? <li><a className="text-po-accent-ink underline" href={`${TX_BASE}${verify.result.vaa_tx}`} target="_blank" rel="noreferrer">Result anchored on CCDExplorer</a></li> : null}
+              </ul>
+            </div>
+          ) : verify ? (
+            <div className="mt-4 rounded-[10px] border border-po-line bg-po-paper p-4" role="status">
+              <p className="font-medium text-po-ink">No match: nothing was filed</p>
+              <p className="mt-1 text-sm text-po-grey">
+                {verify.result.error ?? verify.result.message ?? 'The check did not pass.'}
+                {verify.result.step ? ` (step: ${verify.result.step})` : ''}
+              </p>
             </div>
           ) : null}
         </section>
@@ -395,7 +332,7 @@ export function AgeProofPage() {
             </li>
           </ul>
           <p className="mt-4 text-sm">
-            <Link to="/app/pay" className="inline-flex min-h-[44px] items-center font-medium text-po-accent-ink underline">
+            <Link to="/app" className="inline-flex min-h-[44px] items-center font-medium text-po-accent-ink underline">
               Pay an invoice
             </Link>
           </p>

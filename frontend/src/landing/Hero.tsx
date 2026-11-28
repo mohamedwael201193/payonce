@@ -71,7 +71,7 @@ export function Hero(_props: { data: LandingData }) {
               <Arrow />
             </Link>
           </Magnetic>
-          <Link to="/app/agent" className="po-btn po-btn--ghost">
+          <Link to="/app/proof/agent" className="po-btn po-btn--ghost">
             Watch the agent check
           </Link>
           <a

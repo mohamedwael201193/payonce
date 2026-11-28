@@ -40,7 +40,7 @@ export function Judges({ snapshot }: { snapshot: Snapshot }) {
             <Tag kind="recorded">Recorded {formatStamp(v.checked_at)}</Tag>
             <span>Results from payable {v.payable_id}. The script is read-only: no keys, no .env, nothing sent.</span>
           </p>
-          <Link to="/app/judges" className="po-btn po-btn--solid">
+          <Link to="/app/proof/judges" className="po-btn po-btn--solid">
             Open the judges page
           </Link>
         </div>

@@ -400,6 +400,13 @@ export const ageProofApi = {
     if (!parsed.success) throw ageProofError(status, body)
     return { status, result: parsed.data }
   },
+  // The real 18+ check for one invoice (V&A V1): the API anchors the request on chain, the scoped prover
+  // builds the presentation, the node verifies it, the holder must be the paying account, and the result
+  // is anchored and filed for that invoice for 10 minutes. Two small testnet transactions per run.
+  runV1: async (payableId: number): Promise<{ status: number; body: AgeV1Result }> => {
+    const { status, body } = await rawJson('/api/age-proof/v1', { method: 'POST', body: JSON.stringify({ payable_id: payableId }) })
+    return { status, body: (body ?? {}) as AgeV1Result }
+  },
   // F2a: verify-only path for a client-supplied presentation, straight to
   // the official verifier. Nothing is filed, the gate is untouched.
   verifyPresentation: async (
@@ -414,6 +421,21 @@ export const ageProofApi = {
     if (!parsed.success) throw ageProofError(status, body)
     return { status, result: parsed.data }
   },
+}
+
+export interface AgeV1Result {
+  ok?: boolean
+  step?: string
+  error?: string
+  message?: string
+  code?: string
+  binding?: string
+  statements?: string[]
+  holder?: string
+  payable_id?: number
+  vra_tx?: string
+  vaa_tx?: string
+  valid_for_seconds?: number
 }
 
 const RETRYABLE_CODES = new Set(['node_busy', 'chain_unreachable'])

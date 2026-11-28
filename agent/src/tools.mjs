@@ -2,7 +2,7 @@
 //
 //   list_payables  - what is open (read-only)
 //   check_payable  - the full verdict before money moves, with the badge checked BOTH WAYS
-//   pay_payable    - pays through the API (mandate + co-signer gate), only after re-running the verdict
+//   pay_payable    - pays through the API (mandate + policy gate), only after re-running the verdict
 //   receipt        - the receipt, the keyless verifier command, optionally the verifier run
 //
 // The stdio MCP server, the hosted /mcp endpoint and the agent all use these
@@ -11,7 +11,7 @@
 //
 // Honest limits, repeated in every verdict:
 //  - on the CCD rail the contract cannot verify a ZK proof; the age gate there is the server plus the verifier;
-//  - on the EUDemo rail the co-signer inside the API enforces policy (off-chain, deterministic), not a chain revert;
+//  - on the EUDemo rail the policy gate inside the API enforces policy (off-chain, deterministic), not a chain revert;
 //  - the seller is "any identity-backed account with an Active CIS-8004 token on the official registry", not a verified company.
 import { sha256Hex, addressesIn, microToDisplay } from './util.mjs';
 import { ApiError } from './client.mjs';
@@ -138,7 +138,7 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
     const checks = [];
     const out = { seller: args.seller, payable_id: id, verdict: 'refuse', reasons: [], checks, limits: [
       'CCD rail: the contract cannot verify a ZK proof. The age gate is enforced by the server and the verifier, not by a chain revert.',
-      'EUDemo rail: policy is enforced by the co-signer inside the API (off-chain, deterministic), not by the chain.',
+      'EUDemo rail: policy is enforced by the policy gate inside the API (off-chain, deterministic), not by the chain.',
       'The seller is an identity-backed account with an Active CIS-8004 token. There is no company proof.',
     ] };
     const add = (c) => { checks.push(c); if (c.status === 'fail') out.reasons.push({ code: c.id, text: c.detail }); return c; };
@@ -306,7 +306,7 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
   if (canPay) {
     tools.push({
       name: 'pay_payable',
-      description: 'Pay one payable. It re-runs check_payable first and pays ONLY on verdict "pay"; any other verdict is returned as a refusal and nothing is sent. Payment goes through the PayOnce API under the mandate and co-signer gate (vendor list, per-payable cap, reservation expiry). Above the ask-me threshold (1 CCD / 1.00 EUDemo) the owner\'s consent anchor must already be approved. Testnet only. The doc hash is pinned, so a changed document cannot be paid.',
+      description: 'Pay one payable. It re-runs check_payable first and pays ONLY on verdict "pay"; any other verdict is returned as a refusal and nothing is sent. Payment goes through the PayOnce API under the mandate and policy gate gate (vendor list, per-payable cap, reservation expiry). Above the ask-me threshold (1 CCD / 1.00 EUDemo) the owner\'s consent anchor must already be approved. Testnet only. The doc hash is pinned, so a changed document cannot be paid.',
       inputSchema: {
         type: 'object',
         properties: {

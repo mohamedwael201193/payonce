@@ -11,7 +11,8 @@ export interface PayableKey {
 
 export const keyStr = (k: PayableKey): string => `${k.seller}:${k.id}`
 
-export const payPath = (k?: PayableKey | null): string => (k ? `/app/pay/${k.seller}/${k.id}` : '/app/pay')
+/** Paying happens in the one guided flow at /app. */
+export const payPath = (_k?: PayableKey | null): string => '/app'
 export const receiptPath = (k: PayableKey): string => `/app/receipt/${k.seller}/${k.id}`
 
 /** Split "<seller>/<id>" (the splat of /app/pay/* and /app/receipt/*). */

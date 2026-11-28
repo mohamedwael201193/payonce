@@ -11,7 +11,7 @@ const sellers = [
 
 describe('seller key', () => {
   it('paths always carry the seller', () => {
-    expect(payPath({ seller: 'AAA', id: 3 })).toBe('/app/pay/AAA/3')
+    expect(payPath({ seller: 'AAA', id: 3 })).toBe('/app')
     expect(receiptPath({ seller: 'BBB', id: 1 })).toBe('/app/receipt/BBB/1')
   })
   it('parses and rejects splats', () => {

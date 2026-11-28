@@ -1,7 +1,7 @@
 // The agent's mandate: what its owner allowed. It is enforced by the agent
 // harness around every pay call, independently of the planner (a scripted
 // planner or an LLM). A fooled model cannot widen it; the PayOnce API then
-// applies its own gates on top (vendor list, caps, consent, co-signer).
+// applies its own gates on top (vendor list, caps, consent, policy gate).
 
 export const DEFAULT_BUDGET = { ccd: 1_000_000n, eudemo: 1_000_000n }; // base units: 1.00 CCD, 1.00 EUDemo (testnet units, not euro)
 

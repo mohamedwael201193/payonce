@@ -2,22 +2,22 @@ import { Suspense, lazy, useEffect, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
-import { OverviewPage } from './app/pages/OverviewPage'
+import { RunPage } from './app/run/RunPage'
 
-// Code splitting: the shell and the overview (the /app landing screen) ship in the
+// Code splitting: the shell and the Run-it flow (the /app screen) ship in the
 // main chunk; every other page is its own chunk, fetched on first visit. The
 // agent page carries the bundled run record (~50 kB of JSON), so /app no longer
 // downloads it up front.
 function page<K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) {
   return lazy(() => load().then((m) => ({ default: m[name] })))
 }
-const PayPage = page(() => import('./app/pages/PayPage'), 'PayPage')
-const InvoicesPage = page(() => import('./app/pages/InvoicesPage'), 'InvoicesPage')
 const ReceiptPage = page(() => import('./app/pages/ReceiptPage'), 'ReceiptPage')
 const BreakPage = page(() => import('./app/pages/BreakPage'), 'BreakPage')
 const AgentPage = page(() => import('./app/pages/AgentPage'), 'AgentPage')
 const JudgesPage = page(() => import('./app/pages/JudgesPage'), 'JudgesPage')
 const X402Page = page(() => import('./app/pages/X402Page'), 'X402Page')
+const ProofPage = page(() => import('./app/pages/ProofPage'), 'ProofPage')
+const NotFoundPage = page(() => import('./app/pages/ProofPage'), 'NotFoundPage')
 const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
 
 // The landing lives in src/landing and is the only route outside the app
@@ -100,10 +100,9 @@ export function legacyPayTarget(params: URLSearchParams, hash = ''): string {
   const id = legacyPayable(params)
   const seller = encodeURIComponent(legacySeller(params))
   const tab = params.get('tab')
-  if (tab === 'try') return '/app/break'
+  if (tab === 'try') return '/app/proof/break'
   if (id && tab === 'receipt') return `/app/receipt/${seller}/${id}`
-  if (id) return `/app/pay/${seller}/${id}`
-  if (params.has('tab') || hash === '#pay') return '/app/pay'
+  void hash
   return '/app'
 }
 
@@ -115,28 +114,32 @@ function LegacyDashboard() {
 
 function LegacyDashboardPay() {
   const [params] = useSearchParams()
-  const target = legacyPayTarget(params)
-  return <Navigate to={target === '/app' ? '/app/pay' : target} replace />
+  return <Navigate to={legacyPayTarget(params)} replace />
 }
 
 function LegacyReceipt() {
   const { payableId } = useParams()
   const [params] = useSearchParams()
   const id = Number.parseInt(payableId ?? '', 10)
-  if (!Number.isFinite(id) || id <= 0) return <Navigate to="/app/invoices" replace />
+  if (!Number.isFinite(id) || id <= 0) return <Navigate to="/app" replace />
   return <Navigate to={`/app/receipt/${encodeURIComponent(legacySeller(params))}/${id}`} replace />
+}
+
+function KeepSearch({ to }: { to: string }) {
+  const { search } = useLocation()
+  return <Navigate to={`${to}${search}`} replace />
 }
 
 function LegacyAge() {
   const { search } = useLocation()
-  return <Navigate to={`/app/age${search}`} replace />
+  return <Navigate to={`/app/proof/age${search}`} replace />
 }
 
 // "/?payable=N" links (shared before v9) go straight to the pay screen.
 function LandingRoute() {
   const [params] = useSearchParams()
   const id = legacyPayable(params)
-  if (id) return <Navigate to={`/app/pay/${encodeURIComponent(legacySeller(params))}/${id}`} replace />
+  if (id) return <Navigate to={`/app/receipt/${encodeURIComponent(legacySeller(params))}/${id}`} replace />
   return (
     <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f1f3f8' }} aria-busy="true" />}>
       <LandingPage />
@@ -149,21 +152,28 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingRoute />} />
       <Route path="/app" element={<AppShell />}>
-        <Route index element={<OverviewPage />} />
-        <Route path="pay/*" element={<PayPage />} />
-        <Route path="invoices" element={<InvoicesPage />} />
+        <Route index element={<RunPage />} />
         <Route path="receipt/*" element={<ReceiptPage />} />
-        <Route path="break" element={<BreakPage />} />
-        <Route path="agent" element={<AgentPage />} />
-        <Route path="age" element={<AgeProofPage />} />
-        <Route path="judges" element={<JudgesPage />} />
-        <Route path="x402" element={<X402Page />} />
-        <Route path="*" element={<Navigate to="/app" replace />} />
+        <Route path="proof" element={<ProofPage />} />
+        <Route path="proof/agent" element={<AgentPage />} />
+        <Route path="proof/break" element={<BreakPage />} />
+        <Route path="proof/judges" element={<JudgesPage />} />
+        <Route path="proof/age" element={<AgeProofPage />} />
+        <Route path="proof/x402" element={<X402Page />} />
+        {/* Old addresses keep working. */}
+        <Route path="agent" element={<Navigate to="/app/proof/agent" replace />} />
+        <Route path="break" element={<Navigate to="/app/proof/break" replace />} />
+        <Route path="judges" element={<Navigate to="/app/proof/judges" replace />} />
+        <Route path="age" element={<KeepSearch to="/app/proof/age" />} />
+        <Route path="pay/*" element={<Navigate to="/app" replace />} />
+        <Route path="invoices" element={<Navigate to="/app" replace />} />
+        <Route path="x402" element={<Navigate to="/app/proof/x402" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/dashboard" element={<LegacyDashboard />} />
       <Route path="/dashboard/pay" element={<LegacyDashboardPay />} />
-      <Route path="/judges" element={<Navigate to="/app/judges" replace />} />
-      <Route path="/receipt" element={<Navigate to="/app/invoices" replace />} />
+      <Route path="/judges" element={<Navigate to="/app/proof/judges" replace />} />
+      <Route path="/receipt" element={<Navigate to="/app" replace />} />
       <Route path="/receipt/:payableId" element={<LegacyReceipt />} />
       <Route path="/verify-age" element={<LegacyAge />} />
       <Route path="*" element={<Navigate to="/" replace />} />

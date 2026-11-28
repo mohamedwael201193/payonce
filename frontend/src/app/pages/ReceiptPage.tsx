@@ -39,7 +39,7 @@ export function ReceiptPage() {
       <EmptyState
         title="This receipt link is incomplete"
         action={
-          <ButtonLink to="/app/invoices" variant="primary">
+          <ButtonLink to="/app" variant="primary">
             Open the invoices
           </ButtonLink>
         }
@@ -106,7 +106,7 @@ export function ReceiptPage() {
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label="Breadcrumb">
-        <Link to="/app/invoices" className="inline-flex min-h-[44px] items-center text-[15px] text-po-grey underline decoration-po-line-strong">
+        <Link to="/app" className="inline-flex min-h-[44px] items-center text-[15px] text-po-grey underline decoration-po-line-strong">
           All invoices
         </Link>
       </nav>

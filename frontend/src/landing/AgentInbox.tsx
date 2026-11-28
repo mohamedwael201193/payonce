@@ -156,7 +156,7 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
         <span>
           {refused} no match, stopped before any money moved. {paid} matched and paid exactly once. The checks are code the agent cannot change.
         </span>
-        <Link to="/app/agent">Open the full run</Link>
+        <Link to="/app/proof/agent">Open the full run</Link>
       </p>
     </div>
   )

@@ -130,7 +130,7 @@ export function X402Page() {
 
           <Card className="flex flex-col gap-4" aria-labelledby="x402-verifier">
             <h2 id="x402-verifier" className="text-2xl font-medium tracking-[-0.01em] text-po-ink">
-              Verifier result: {d.steps.keyless_verifier.summary}
+              Recorded run (with the invoice file): {d.steps.keyless_verifier.summary}
             </h2>
             <ul className="divide-y divide-po-line" data-testid="x402-verifier-lines">
               {d.steps.keyless_verifier.lines

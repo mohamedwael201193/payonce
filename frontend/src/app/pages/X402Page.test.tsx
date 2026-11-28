@@ -15,7 +15,7 @@ describe('x402 receipt page', () => {
         <MemoryRouter><X402Page /></MemoryRouter>
       </QueryClientProvider>,
     )
-    await waitFor(() => expect(screen.getByText(/Verifier result: ALL CHECKS PASS \(14\/14\)/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Recorded run \(with the invoice file\): ALL CHECKS PASS \(14\/14\)/)).toBeInTheDocument())
     expect(screen.getByText(/transaction not found/)).toBeInTheDocument()
     expect(screen.getByText(/while the transfer was already finalized on chain/)).toBeInTheDocument()
     expect(screen.getByTestId('x402-binding').querySelectorAll('li')).toHaveLength(7)

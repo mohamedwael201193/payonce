@@ -50,7 +50,7 @@ export function Nav() {
           ))}
         </nav>
         <div className="po-nav__end">
-          <Link to="/app/judges" className="po-nav__judges">
+          <Link to="/app/proof/judges" className="po-nav__judges">
             For judges
           </Link>
           <Link to="/app" className="po-btn po-btn--solid po-btn--sm">
@@ -91,13 +91,13 @@ export function Nav() {
                 {label}
               </motion.a>
             ))}
-            <Link to="/app/judges" onClick={() => setOpen(false)}>
+            <Link to="/app/proof/judges" onClick={() => setOpen(false)}>
               For judges
             </Link>
             <Link to="/app" onClick={() => setOpen(false)}>
               Open the app
             </Link>
-            <Link to="/app/pay" className="po-btn po-btn--solid" onClick={() => setOpen(false)}>
+            <Link to="/app" className="po-btn po-btn--solid" onClick={() => setOpen(false)}>
               Pay a live invoice
             </Link>
           </motion.div>

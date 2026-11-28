@@ -68,18 +68,18 @@ export function Closer() {
   const clip = useTransform(scrollYProgress, [0, 1], ['inset(0% 5% round 40px)', 'inset(0% 0% round 0px)'])
   return (
     <>
-      <section ref={ref} className="po-final" aria-label="Pay a live invoice">
+      <section ref={ref} className="po-final" aria-label="Run it on a real invoice">
         <motion.div className="po-final__card" style={still ? undefined : { clipPath: clip }} data-dark>
           <div className="po-final__in">
-            <Rise as="h2" text={'Pay one invoice.\nCheck the chain.'} className="po-final__h" />
-            <p className="po-final__p">Testnet only. Pick an invoice, review it, pay it once, and read the receipt.</p>
+            <Rise as="h2" text={'Check who it pays.\nThen pay once.'} className="po-final__h" />
+            <p className="po-final__p">Testnet only. Get a real invoice, watch the agent decide Match or No match, and pay it once.</p>
             <div className="po-cta-row">
               <Magnetic>
-                <Link to="/app/pay" className="po-btn po-btn--light">
-                  Pay a live invoice
+                <Link to="/app" className="po-btn po-btn--light">
+                  Run it on a real invoice
                 </Link>
               </Magnetic>
-              <Link to="/app/judges" className="po-btn po-btn--ghost">
+              <Link to="/app/proof/judges" className="po-btn po-btn--ghost">
                 Open the judges page
               </Link>
             </div>
@@ -110,16 +110,13 @@ export function Footer({ snapshot }: { snapshot: Snapshot }) {
             <h3>Product</h3>
             <ul>
               <li>
-                <Link to="/app/pay">Pay a live invoice</Link>
+                <Link to="/app">Run it on a real invoice</Link>
               </li>
               <li>
-                <Link to="/app/invoices">All invoices</Link>
+                <Link to="/app/proof/break">Try to fool it</Link>
               </li>
               <li>
-                <Link to="/app/break">Try to break it</Link>
-              </li>
-              <li>
-                <Link to="/app/judges">For judges</Link>
+                <Link to="/app/proof/judges">For judges</Link>
               </li>
             </ul>
           </nav>

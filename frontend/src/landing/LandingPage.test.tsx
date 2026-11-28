@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BANNED_WORDS } from '../lib/copy'
 import LandingPage from './LandingPage'
-import { SNAPSHOT, headline, verifierCommand } from './data'
+import { SNAPSHOT, verifierCommand } from './data'
 import { sha256Hex } from './sha256'
 import { flipChar, hashWithPayee, tamperPayee } from './Tamper'
 import { faqItems } from './Closer'
@@ -38,7 +38,7 @@ describe('landing', () => {
     expect(within(panel).getByText(/^Agent run, \d+ \w+ \d\d:\d\d UTC$/)).toBeInTheDocument()
     expect(within(rows[0]).getByText('No match')).toBeInTheDocument()
     expect(within(rows.at(-1)!).getByText('Match')).toBeInTheDocument()
-    expect(within(panel).getByRole('link', { name: 'Open the full run' })).toHaveAttribute('href', '/app/agent')
+    expect(within(panel).getByRole('link', { name: 'Open the full run' })).toHaveAttribute('href', '/app/proof/agent')
   })
 
   it('the hero carries no test-volume stats', () => {
@@ -49,10 +49,10 @@ describe('landing', () => {
   it('points CTAs at the right routes', () => {
     mount()
     const hrefs = (name: RegExp) => screen.getAllByRole('link', { name }).map((a) => a.getAttribute('href'))
-    expect(hrefs(/^Run it on a real invoice/)).toEqual(['/app'])
-    expect(hrefs(/^Watch the agent check$/)).toContain('/app/agent')
+    expect(new Set(hrefs(/^Run it on a real invoice/))).toEqual(new Set(['/app']))
+    expect(hrefs(/^Watch the agent check$/)).toContain('/app/proof/agent')
     expect(hrefs(/^See how it works$/)).toEqual(['#how'])
-    expect(hrefs(/judges/i).every((h) => h === '/app/judges')).toBe(true)
+    expect(hrefs(/judges/i).every((h) => h === '/app/proof/judges')).toBe(true)
   })
 
   it('links every proof hash to the singular explorer path', () => {

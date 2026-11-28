@@ -171,14 +171,18 @@ export function BreakPage() {
       const changed = await sha256Hex(tampered)
       const res = await api.verify(key.id, facts.status.kind === 'paid' ? 'after_pay' : 'before_pay', changed, key.seller)
       const failing = res.checks.find((c) => c.status === 'fail')
+      const docFailed = failing?.id === 'doc'
       return {
         tried: `Changed one character of the payee in the text of payable ${key.id}, then hashed it in your browser (${truncHash(original)} became ${truncHash(changed)}).`,
-        layer: failing?.layer ?? 'app',
+        // The comparison is the verifier's (an app-side check over a live chain read), not a chain revert.
+        layer: 'app',
         source: 'real',
-        stopped: failing
-          ? `${failing.label}: ${failing.detail}`
-          : res.blocked_reason ?? 'The verifier did not report a failing check for this copy.',
-        note: `The payee on chain is still ${truncHash(facts.payee)}. The hash on chain is ${truncHash(facts.doc_sha256)}.`,
+        stopped: docFailed
+          ? `No match. The edited copy hashes to ${truncHash(changed)}, but the hash on chain is ${truncHash(facts.doc_sha256)}, so the verifier refuses it and nothing is paid.`
+          : failing
+            ? `Refused by the check "${failing.label}": ${failing.detail}`
+            : res.blocked_reason ?? 'The verifier did not report a failing check for this copy.',
+        note: `The payee on chain is still ${truncHash(facts.payee)}.`,
       }
     })
 

@@ -38,7 +38,7 @@ export function HeroIdentity() {
       </ul>
       <p className="po-ident__note">
         Badges on the official agent registry. Press Check badge to ask it now.{' '}
-        <Link to="/app/judges#identity">Owner proof and trust model</Link>
+        <Link to="/app/proof/judges#identity">Owner proof and trust model</Link>
       </p>
     </section>
   )

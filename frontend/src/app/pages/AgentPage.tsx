@@ -2,7 +2,7 @@
 // paid or refused with the reason and who refused, then the receipts and the keyless verifier command.
 // Everything on this page comes from a run record (live from the API, else the recorded run bundled
 // with the app). The scripted planner is labelled as a script, never as a language model. Testnet only.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Address } from '../Address'
 import { CopyButton, ExplorerTx, KeyValue, Notice, PageHeader, Skeleton, StatusPill, Button, useExplorerBase } from '../ui'
@@ -22,6 +22,7 @@ import {
   type AgentCheck,
   type AgentDecision,
   type AgentRun,
+  plainEvent,
 } from '../../lib/agentRun'
 
 const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/[/]$/, '')
@@ -107,13 +108,14 @@ function DecisionCard({ d, index, explorer }: { d: AgentDecision; index: number;
               </KeyValue>
             ))}
             {d.receipt?.verifier_reread ? (
-              <KeyValue label="Verifier, server re-read">
-                {d.receipt.verifier_reread.passed}/{d.receipt.verifier_reread.total} checks pass
+              <KeyValue label="Server re-read after paying">
+                {d.receipt.verifier_reread.passed === d.receipt.verifier_reread.total ? 'All ' : ''}{d.receipt.verifier_reread.passed} of {d.receipt.verifier_reread.total} checks pass
               </KeyValue>
             ) : null}
             {d.verifier_run?.ran ? (
-              <KeyValue label="Keyless verifier, run by the agent">
-                {d.verifier_run.pass ? 'ALL CHECKS PASS' : 'Did not pass'} ({d.verifier_run.passed}/{d.verifier_run.total})
+              <KeyValue label="Public verifier script, run by the agent (no keys)">
+                {d.verifier_run.pass ? 'All ' : ''}{d.verifier_run.passed} of {d.verifier_run.total} checks pass
+                {d.verifier_run.pass ? '' : ' (the rest did not pass or were not run)'}
               </KeyValue>
             ) : null}
             {d.receipt?.anchor_tx ? (
@@ -204,35 +206,54 @@ function DecisionCard({ d, index, explorer }: { d: AgentDecision; index: number;
   )
 }
 
-function RunPanel({ onDone }: { onDone: () => void }) {
-  const qc = useQueryClient()
-  const status = useQuery({
+function useAgentStatus() {
+  return useQuery({
     queryKey: ['agent-status'],
     queryFn: () => getJson<AgentStatus>('/api/agent/status'),
     retry: 0,
     refetchInterval: (q) => (q.state.data?.running ? 3000 : false),
   })
-  const [busy, setBusy] = useState(false)
+}
+
+/** Live run as a state machine: idle -> starting -> running (one plain current step) -> finished (the new run loads below). */
+function RunPanel({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient()
+  const status = useAgentStatus()
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'running' | 'finished'>('idle')
   const [error, setError] = useState<string | null>(null)
-  const running = Boolean(status.data?.running)
+  const [now, setNow] = useState(() => Date.now())
+  const running = status.data?.running ?? null
+  const sawRunning = useRef(false)
   useEffect(() => {
-    if (status.data && !status.data.running && busy) {
-      setBusy(false)
+    if (running) {
+      sawRunning.current = true
+      if (phase !== 'running') setPhase('running')
+      return
+    }
+    if (phase === 'running' && sawRunning.current && status.data && !status.isFetching) {
+      sawRunning.current = false
+      setPhase('finished')
       onDone()
       void qc.invalidateQueries({ queryKey: ['agent-latest'] })
     }
-  }, [status.data, busy, onDone, qc])
+  }, [running, phase, status.data, status.isFetching, onDone, qc])
+  useEffect(() => {
+    if (phase !== 'running') return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [phase])
 
   async function start() {
-    setBusy(true)
+    setPhase('starting')
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/api/agent/run`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
       if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
+      setPhase('running')
       void status.refetch()
     } catch (e) {
-      setBusy(false)
+      setPhase('idle')
       setError(e instanceof Error ? e.message : 'The run could not start.')
     }
   }
@@ -240,35 +261,51 @@ function RunPanel({ onDone }: { onDone: () => void }) {
   if (status.isLoading) return <Skeleton className="h-16 w-full" />
   if (status.isError || !status.data) return <p className="text-sm text-po-grey">The run control is not available from this API.</p>
   if (!status.data.run_enabled) return <p className="max-w-[64ch] text-sm text-po-grey">{status.data.disabled_reason}</p>
+  const events = running?.events ?? []
+  const current = events.length ? plainEvent(events[events.length - 1].text) : 'Starting the run…'
+  const since = running?.started_at ? Math.max(0, Math.round((now - Date.parse(running.started_at)) / 1000)) : null
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <Button variant="primary" onClick={() => void start()} busy={busy || running} disabled={busy || running}>
-          Run the agent
-        </Button>
-        <p className="mt-2 max-w-[64ch] text-sm text-po-grey">
-          Registers three small test invoices and pays what passes, with real testnet transactions. One run per 20 minutes for the whole server; the planner is {status.data.planner.label}. The model's own wording is shown as its prose; amounts and verdicts come from the API.
-        </p>
-      </div>
+    <div className="flex flex-col gap-3" data-testid="agent-run-panel" data-phase={phase}>
+      {phase === 'running' || phase === 'starting' ? (
+        <div className="rounded-[10px] border border-po-line bg-po-paper p-4" aria-live="polite">
+          <p className="text-sm text-po-grey">Running now{since != null ? `, ${since} s` : ''}. The previous run stays below until this one finishes.</p>
+          <p className="mt-1 text-[19px] leading-snug text-po-ink [overflow-wrap:anywhere]" data-testid="agent-live-current">{current}</p>
+          {events.length ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-sm text-po-grey">Every step so far ({events.length})</summary>
+              <ol className="mt-2 max-h-56 overflow-auto text-sm text-po-grey" data-testid="agent-live-events">
+                {events.map((e, i) => (
+                  <li key={`${e.at}-${i}`} className="[overflow-wrap:anywhere]">
+                    {clockUtc(e.at)} {plainEvent(e.text)}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
+        </div>
+      ) : (
+        <div>
+          <Button variant="primary" onClick={() => void start()}>
+            {phase === 'finished' ? 'Run it again' : 'Run the agent now'}
+          </Button>
+          <p className="mt-2 max-w-[64ch] text-sm text-po-grey">
+            Registers three small test invoices and pays what passes, with real testnet transactions. One run per 20 minutes for the whole server; the planner is {status.data.planner.label}. Amounts and verdicts come from the API, never from the model.
+          </p>
+        </div>
+      )}
+      {phase === 'finished' ? <Notice tone="info">The run finished. Its result is shown below.</Notice> : null}
       {error ? <Notice tone="error">{error}</Notice> : null}
-      {status.data.running ? (
-        <ol className="max-h-56 overflow-auto rounded-[10px] border border-po-line p-3 text-sm text-po-grey" aria-live="polite" data-testid="agent-live-events">
-          {status.data.running.events.map((e, i) => (
-            <li key={`${e.at}-${i}`} className="[overflow-wrap:anywhere]">
-              {clockUtc(e.at)} {e.text}
-            </li>
-          ))}
-        </ol>
-      ) : null}
       {status.data.last_error && !running ? <Notice tone="warn">The last run on this server did not finish: {status.data.last_error.message}</Notice> : null}
     </div>
   )
 }
 
 export function AgentPage() {
-  useDocumentTitle('Agent pays')
+  useDocumentTitle('The agent at work')
   const { run, source, refetch } = useLatestRun()
   const explorer = useExplorerBase()
+  const liveStatus = useAgentStatus()
+  const runningNow = Boolean(liveStatus.data?.running)
   useEffect(() => {
     if (run) markMilestone('agent')
   }, [run])
@@ -278,9 +315,15 @@ export function AgentPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Agent pays"
-        lead="An agent gets a task, reads an inbox of invoices, checks each one in both directions, pays what is legitimate and refuses the rest. This is the latest real run on the Concordium testnet."
+        title="The agent at work"
+        lead="The agent reads an inbox of invoices and checks who each one would pay. Match: it pays once. No match: nothing moves. Emails that try to give it orders are refused by its safety layer. This is the latest real run on the Concordium testnet."
       />
+
+      <section aria-label="Run the agent" className="po-card flex flex-col gap-3 p-5 sm:p-6">
+        <h2 className="text-xl font-medium text-po-ink">Run the agent yourself</h2>
+        <RunPanel onDone={refetch} />
+      </section>
+
 
       {!run ? (
         <Skeleton className="h-40 w-full" />
@@ -291,7 +334,7 @@ export function AgentPage() {
               <span className="po-chip po-chip-neutral" data-testid="agent-planner">
                 {plannerBadge(run.planner)}
               </span>
-              <span className="po-chip po-chip-neutral">{source === 'live' ? 'Run by this server' : `Recorded run, ${run.started_at.slice(0, 10)}`}</span>
+              <span className="po-chip po-chip-neutral">{runningNow ? 'Previous run' : source === 'live' ? 'Run by this server' : `Recorded run, ${run.started_at.slice(0, 10)}`}</span>
               <span className="po-chip po-chip-neutral">Testnet</span>
             </div>
             <div>
@@ -406,11 +449,6 @@ export function AgentPage() {
           </section>
         </>
       )}
-
-      <section aria-label="Run the agent" className="po-card flex flex-col gap-3 p-5 sm:p-6">
-        <h2 className="text-xl font-medium text-po-ink">Run it</h2>
-        <RunPanel onDone={refetch} />
-      </section>
 
       <section aria-label="Use it from your own agent" className="po-card flex flex-col gap-3 p-5 sm:p-6">
         <h2 className="text-xl font-medium text-po-ink">Use PayOnce from your own agent</h2>

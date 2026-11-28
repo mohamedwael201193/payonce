@@ -120,10 +120,10 @@ export function JudgesPage() {
 
       <Section id="x402" title="x402 settle on a receipt">
         <p className="text-[15px] text-po-grey">
-          One invoice was paid by x402 through the hosted Concordium facilitator, then verified from the chain (14 of 14 checks). The hosted settle call answered &ldquo;not found&rdquo; while the chain had already confirmed the transfer, and the receipt says so.
+          One invoice was paid by x402 through the hosted Concordium facilitator, then verified from the chain (13 of 14 checks pass; the 14th, the invoice file, was not kept, so it reads "not run"). The hosted settle call answered &ldquo;not found&rdquo; while the chain had already confirmed the transfer, and the receipt says so.
         </p>
         <div>
-          <Link to="/app/x402" className="po-btn po-btn-secondary po-btn-sm">
+          <Link to="/app/proof/x402" className="po-btn po-btn-secondary po-btn-sm">
             Open the x402 receipt
           </Link>
         </div>
@@ -167,7 +167,7 @@ export function JudgesPage() {
         </p>
         <p className="text-[15px] text-po-grey">
           To check a payment from this app, open its receipt: it prints the same command with that payment&apos;s hash.{' '}
-          <Link to="/app/invoices" className="font-medium text-po-accent-ink underline decoration-po-line-strong">
+          <Link to="/app" className="font-medium text-po-accent-ink underline decoration-po-line-strong">
             Open the invoices
           </Link>
         </p>
