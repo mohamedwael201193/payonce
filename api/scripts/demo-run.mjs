@@ -71,8 +71,11 @@ async function freshAccount() {
   const ips = await (await fetch(`${WP}/v2/ip_info`)).json();
   const ip = ips.find((x) => x.ipInfo.ipIdentity === 0);
   const req = sdk.createIdentityRecoveryRequestWithKeys({ idCredSec: hd.getIdCredSec(0, 1).toString('hex'), ipInfo: ip.ipInfo, globalContext: g, timestamp: Math.floor(Date.now() / 1000) });
-  let idObj = await (await fetch(`${ip.metadata.recoveryStart}?state=${encodeURIComponent(JSON.stringify({ idRecoveryRequest: req }))}`, { redirect: 'follow' })).json();
+  const rr = await fetch(`${ip.metadata.recoveryStart}?state=${encodeURIComponent(JSON.stringify({ idRecoveryRequest: req }))}`, { redirect: 'follow' });
+  const rtext = await rr.text();
+  let idObj; try { idObj = JSON.parse(rtext); } catch { throw new Error(`identity recovery: HTTP ${rr.status} ${rtext.slice(0, 160)}`); }
   idObj = idObj.value ?? idObj;
+  if (!idObj?.attributeList) throw new Error(`identity recovery: no identity object (HTTP ${rr.status}) ${rtext.slice(0, 160)}`);
   let cred = Number((await kvGet('demo_run', 'next_cred'))?.n ?? 20);
   for (;; cred++) {
     const addr = getAccountAddress(Buffer.from(hd.getCredentialId(0, 1, cred, g)).toString('hex')).address;
@@ -86,13 +89,29 @@ async function freshAccount() {
   const bytes = Buffer.from(sdk.serializeCredentialDeploymentTransactionForSubmission(cdp, [sig]));
   const s = await fetch(`${WP}/v0/submitRawTransaction`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: bytes });
   const t = await s.json().catch(() => ({}));
-  if (!s.ok || !t.submissionId) throw new Error(`credential deployment not accepted (${s.status})`);
+  if (!s.ok || !t.submissionId) throw new Error(`credential deployment not accepted (${s.status} ${J(t).slice(0, 160)})`);
   for (let i = 0; i < 40; i++) {
     await sleep(4000);
     const st = await fetch(`${WP}/v0/submissionStatus/${t.submissionId}`).then((x) => x.json()).catch(() => ({}));
-    if (st.status === 'finalized') { if (st.outcome !== 'success') throw new Error('credential deployment failed'); break; }
+    if (st.status === 'finalized') { if (st.outcome !== 'success') throw new Error(`credential deployment failed ${J(st).slice(0, 160)}`); break; }
+    if (i === 39) throw new Error(`credential deployment not finalized after 160 s (submission ${t.submissionId})`);
   }
   return { address, cred, deploy_tx: t.submissionId, signer: buildBasicAccountSigner(hd.getAccountSigningKey(0, 1, cred).toString('hex')) };
+}
+
+// cross-process single flight with the API's GET /api/demo/run (and Render one-off jobs)
+const lock = await kvGet('demo_run', 'lock');
+if (lock?.until_ms > Date.now() && process.env.DEMO_IGNORE_LOCK !== '1') { console.log(`another demo run holds the lock until ${new Date(lock.until_ms).toISOString()}`); process.exit(3); }
+await kvPut('demo_run', 'lock', { until_ms: Date.now() + 12 * 60_000, pid: process.pid, started_at: log.started_at });
+let step = 'setup';
+process.on('uncaughtException', async (e) => { await fail(e); });
+process.on('unhandledRejection', async (e) => { await fail(e); });
+async function fail(e) {
+  const err = { at: new Date().toISOString(), step, error: String(e?.message ?? e).slice(0, 500), txs: log.txs };
+  console.error('DEMO_RUN_FAILED', J(err));
+  await kvPut('demo_run', 'last_error', err).catch(() => {});
+  await kvPut('demo_run', 'lock', { until_ms: 0 }).catch(() => {});
+  process.exit(1);
 }
 
 // ---- setup (idempotent): seller's payee bound + matured; buyer agent's acknowledgment current ----
@@ -113,6 +132,7 @@ if (!chk.buyer_ack?.current) {
 if (!chk.payable || !chk.buyer_ack?.current) throw new Error(`setup: not payable (${chk.verdict}, ack ${J(chk.buyer_ack)})`);
 if (await ccdMicro(BUYER.address) < 30_000_000n) throw new Error('buyer agent below 30 CCD: top up before demo runs');
 
+step = 'invoice';
 // ---- 1 invoice ----
 const id = Number((await kvGet('demo_run', 'next_id'))?.n ?? 100);
 await kvPut('demo_run', 'next_id', { n: id + 2 });
@@ -122,14 +142,17 @@ log.txs.register = (await send(SELLER, 'register_payable', serRegisterPayable({ 
 const paid = await sponsored(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id }), AMOUNT);
 // ---- 3 pay again: the chain refuses ----
 const again = await send(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id }), { amount: AMOUNT, energy: 6000n, expectReject: true });
+step = 'impostor_account';
 // ---- 4 impostor ----
 const imp = await freshAccount();
+step = 'impostor_bind';
 const impStandin = { account: imp.address, legal_name: NAME, country: 'DK', label: 'IMPOSTOR: claims the seller name; no proof' };
 const impIdentity = { kind: 1, idp_index: 0, legal_name_hash: legalNameHash(NAME), country: 'DK', proof_anchor: sha256Hex(canonicalJson(impStandin)), anchor_tx: null };
 log.txs.impostor_propose = (await send(SELLER, 'propose_payee', serProposePayee({ payee: imp.address, agent_token: OWNER_TOKEN, identity: impIdentity }))).hash;
 const impRec = await getPayeeRecord(c, SELLER.address, imp.address);
 log.txs.impostor_accept = (await sponsored(imp, 'accept_payee', serAcceptPayee({ seller: SELLER.address, version: impRec.version, proof_anchor: impIdentity.proof_anchor }))).hash;
 log.impostor_ccd_micro = String(await ccdMicro(imp.address));
+step = 'impostor_check';
 const impCheck = await vop.check({ seller: SELLER.address, payee: imp.address, legal_name: NAME, buyer: BUYER.address });
 log.txs.impostor_register = (await send(SELLER, 'register_payable', serRegisterPayable({ payable_id: id + 1, payee: imp.address, amount: AMOUNT, asset: 'CCD', due_ms: due, doc_hash: sha256Hex(`payonce demo impostor invoice ${id + 1} ${Date.now()}`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }))).hash;
 const impPay = await send(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id + 1 }), { amount: AMOUNT, energy: 6000n, expectReject: true });
@@ -156,5 +179,6 @@ const run = {
   },
 };
 await kvPut('demo_run', 'latest', run);
+await kvPut('demo_run', 'lock', { until_ms: 0 });
 console.log('RESULT', J(run));
 process.exit(0);

@@ -122,7 +122,12 @@ async function demoRun() {
   const latest = await kvGet('demo_run', 'latest');
   const age = latest?.generated_at ? Date.now() - Date.parse(latest.generated_at) : Infinity;
   let refreshing = !!demoChild;
-  if (!demoChild && age > DEMO_FRESH_MS) {
+  const lastError = await kvGet('demo_run', 'last_error');
+  const lock = await kvGet('demo_run', 'lock');
+  const locked = lock?.until_ms > Date.now();
+  if (locked) refreshing = true;
+  const backoff = lastError?.at && Date.now() - Date.parse(lastError.at) < 15 * 60_000 && (!latest?.generated_at || Date.parse(lastError.at) > Date.parse(latest.generated_at));
+  if (!demoChild && !locked && !backoff && age > DEMO_FRESH_MS) {
     const day = new Date().toISOString().slice(0, 10);
     const count = (await kvGet('demo_run', `count:${day}`))?.n ?? 0;
     if (count < DEMO_MAX_PER_DAY) {
@@ -131,12 +136,13 @@ async function demoRun() {
       demoChild = spawn(process.execPath, [script], { env: { ...process.env, PAYONCE_V3_INDEX: DEMO_BOOK.index, PAYONCE_V3_SUBINDEX: '0' }, stdio: ['ignore', 'ignore', 'pipe'] });
       let err = '';
       demoChild.stderr.on('data', (d) => { err = (err + d).slice(-600); });
-      demoChild.on('exit', (code) => { if (code) kvPut('demo_run', 'last_error', { at: new Date().toISOString(), code, err }).catch(() => {}); demoChild = null; });
+      demoChild.on('exit', (code) => { if (code && code !== 3 && !/DEMO_RUN_FAILED/.test(err)) kvPut('demo_run', 'last_error', { at: new Date().toISOString(), step: 'process', error: `exit ${code}: ${err.slice(-300)}` }).catch(() => {}); demoChild = null; });
       refreshing = true;
     }
   }
-  if (!latest) return { live: false, refreshing, label: 'No fresh run yet; one is being produced (about 2 minutes).', demo_book: DEMO_BOOK };
-  return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, age_secs: Math.round(age / 1000), demo_book: DEMO_BOOK };
+  const last_error = lastError && (!latest?.generated_at || Date.parse(lastError.at) > Date.parse(latest.generated_at)) ? { at: lastError.at, step: lastError.step, error: lastError.error } : undefined;
+  if (!latest) return { live: false, refreshing, label: refreshing ? 'No fresh run yet; one is being produced (about 3 minutes).' : 'No fresh run available right now.', last_error, demo_book: DEMO_BOOK };
+  return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, age_secs: Math.round(age / 1000), last_error, demo_book: DEMO_BOOK };
 }
 
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
