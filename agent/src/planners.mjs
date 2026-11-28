@@ -178,11 +178,12 @@ export class NearAiPlanner {
       const res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: this.model, max_tokens: this.maxTokens, temperature: 0, messages: this.messages, tools: this.tools, tool_choice: 'auto' }),
+        body: JSON.stringify({ model: this.model, max_tokens: this.maxTokens, temperature: 0, messages: this.messages, tools: this.tools, tool_choice: this.forceTool ? 'required' : 'auto' }),
       });
       lastStatus = res.status;
       const text = await res.text();
       if ([401, 403, 429].includes(res.status)) { this.keyIndex = (base + i + 1) % this.keys.length; continue; }
+      if (res.status === 400 && this.forceTool) { this.forceTool = false; i -= 1; continue; }
       if (!res.ok) throw new Error(`near-ai: HTTP ${res.status}: ${redact(text, this.keys).slice(0, 300)}`);
       this.keyIndex = (base + i) % this.keys.length;
       return JSON.parse(text);
@@ -193,12 +194,13 @@ export class NearAiPlanner {
   async next(obs) {
     for (const { call, result } of obs ?? []) {
       this.messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result).slice(0, 12000) });
-      if (call.name === 'inbox_read') this.reads = (this.reads ?? 0) + 1;
+      if (call.name === 'inbox_read') { this.reads = (this.reads ?? 0) + 1; const ref = payableRefOf(result); if (ref) (this.refs ??= []).push(ref); }
       if (call.name === 'check_payable') { this.checks = (this.checks ?? 0) + 1; this.owed ??= new Set(); const k = `${call.args?.seller}:${Number(call.args?.id)}`; if (result?.verdict === 'pay') this.owed.add(k); }
       if (call.name === 'pay_payable') this.owed?.delete(`${call.args?.seller}:${Number(call.args?.id)}`);
     }
     if (++this.turns > 40) return { kind: 'final', text: 'Stopped: too many model turns.' };
     const body = await this.complete();
+    this.forceTool = false;
     const msg = body.choices?.[0]?.message ?? {};
     this.messages.push({ role: 'assistant', content: msg.content ?? null, ...(msg.tool_calls?.length ? { tool_calls: msg.tool_calls } : {}) });
     const calls = (msg.tool_calls ?? []).map((tc, i) => {
@@ -212,12 +214,16 @@ export class NearAiPlanner {
       if ((this.reads ?? 0) > (this.checks ?? 0) && (this.nudgesCheck ?? 0) < 3) {
         this.nudgesCheck = (this.nudgesCheck ?? 0) + 1;
         this.nudges = this.nudgesCheck;
-        this.messages.push({ role: 'user', content: `You have read ${this.reads} email(s) but checked ${this.checks ?? 0} payable(s). For every email that names a PayOnce payable, call check_payable now (one call per email), then pay_payable only where the verdict is "pay". Continue with tool calls.` });
+        const todo = (this.refs ?? []).map((r) => `check_payable {"seller":"${r.seller}","id":${r.id}}`).join('; ');
+        this.messages.push({ role: 'user', content: `You have read ${this.reads} email(s) but checked ${this.checks ?? 0} payable(s). Call these now, one call per email: ${todo}. Then call pay_payable only where the verdict is "pay".` });
+        this.forceTool = true;
         return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudgesCheck}/3: the model stopped after reading ${this.reads} email(s) with ${this.checks ?? 0} check(s); it was told to continue.` };
       }
       if (this.owed?.size && (this.nudgesPay ?? 0) < 3) {
         this.nudgesPay = (this.nudgesPay ?? 0) + 1;
-        this.messages.push({ role: 'user', content: `check_payable returned "pay" for ${this.owed.size} payable(s) that you have not paid yet. The mandate asks you to pay them. Call pay_payable for each of them now.` });
+        const owedCalls = [...this.owed].map((k) => { const [s, i] = k.split(':'); return `pay_payable {"seller":"${s}","id":${i}}`; }).join('; ');
+        this.messages.push({ role: 'user', content: `check_payable returned "pay" for ${this.owed.size} payable(s) that you have not paid yet: ${owedCalls}. The mandate asks you to pay them. Call pay_payable for each of them now.` });
+        this.forceTool = true;
         return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudgesPay}/3: ${this.owed.size} payable(s) were cleared to pay but no pay_payable call was made.` };
       }
       return { kind: 'final', text: prose ?? 'Done.', model_text: true };
