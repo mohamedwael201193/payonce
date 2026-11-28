@@ -95,7 +95,7 @@ if (PHASE === 'standin-bind') {
   await done();
 }
 
-if (PHASE === 'fraud-proof' && (await kvGet('vop_demo_pres', FRAUD.address))) {
+if (PHASE === 'fraud-proof' && process.env.FRESH !== '1' && (await kvGet('vop_demo_pres', FRAUD.address))) {
   // Resume: the presentation was built before (its VRA is on chain); only the keyless intake is retried.
   const saved = await kvGet('vop_demo_pres', FRAUD.address);
   out.resumed = true; out.vra_tx = saved.vra_tx;
@@ -122,7 +122,13 @@ if (PHASE === 'fraud-proof') {
   const hd = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED_PHRASE || '').trim(), 'Testnet');
   const rand = Buffer.from(hd.getAttributeCommitmentRandomness(0, 1, 1, 'nationality')).toString('hex');
   const presentation = await VerifiablePresentationV1.createFromAnchor(c, request, vclaims, [{ type: 'account', issuer: 0, values: { nationality: 'DK' }, randomness: { nationality: rand } }], []);
+  const direct0 = await VerifiablePresentationV1.verifyWithNode(presentation, c, 'Testnet').catch((e) => ({ type: 'threw', error: String(e?.message ?? e) }));
+  out.verify_direct = { type: direct0?.type, error: direct0?.error ? String(direct0.error?.message ?? direct0.error).slice(0, 300) : null };
+  console.log('[verify direct]', J(out.verify_direct));
   const pj = JSON.parse(J(presentation.toJSON ? presentation.toJSON() : presentation));
+  const rt = await VerifiablePresentationV1.verifyWithNode(VerifiablePresentationV1.fromJSON(pj), c, 'Testnet').catch((e) => ({ type: 'threw', error: String(e?.message ?? e) }));
+  out.verify_roundtrip = { type: rt?.type, error: rt?.error ? String(rt.error?.message ?? rt.error).slice(0, 300) : null };
+  console.log('[verify roundtrip]', J(out.verify_roundtrip));
   await kvPut('vop_demo_pres', FRAUD.address, { presentation: pj, nonce, vra_tx: vra });
   out.vra_tx = vra;
   out.submit = await vop.submitProof({ payee: FRAUD.address, presentation: pj, version: 'v1', nonce_expected: nonce, anchor_tx: null });
