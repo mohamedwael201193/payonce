@@ -5,6 +5,7 @@
 //   GET  /api/vop/payee?seller=&payee=                            the raw payee-book record
 //   GET  /api/vop/payable?seller=&id=                             a v3 payable (payee + payee_version from chain)
 //   GET  /api/vop/config                                          contract, codes, verdicts
+//   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
 //   GET  /api/relay/config                                        what the relayer sponsors
 //   POST /api/relay/prepare     { sender, entrypoint, parameter } sponsor-first: tx co-signed by the sponsor, wallet signs + submits
 //   POST /api/relay/build       { sender, entrypoint, parameter | kind:'token', recipient, amount, memo }
@@ -13,6 +14,8 @@
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
 import { VerifiablePresentationV1, getEmbeddedModuleSchema } from '@concordium/web-sdk';
 import { readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
 import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
@@ -109,6 +112,33 @@ export const cards = createPayeeCards({
   appBase: APP_BASE, apiBase: API_BASE,
 });
 
+
+// ---- /demo: fresh real runs on the 90 s demo book, at most one in flight, at most DEMO_MAX_PER_DAY a day ----
+export const DEMO_BOOK = { index: String(process.env.PAYONCE_DEMO_BOOK_INDEX ?? 13173), subindex: '0', cooling_off_secs: 90 };
+const DEMO_FRESH_MS = 50 * 60_000;
+const DEMO_MAX_PER_DAY = Number(process.env.PAYONCE_DEMO_MAX_PER_DAY ?? 12);
+let demoChild = null;
+async function demoRun() {
+  const latest = await kvGet('demo_run', 'latest');
+  const age = latest?.generated_at ? Date.now() - Date.parse(latest.generated_at) : Infinity;
+  let refreshing = !!demoChild;
+  if (!demoChild && age > DEMO_FRESH_MS) {
+    const day = new Date().toISOString().slice(0, 10);
+    const count = (await kvGet('demo_run', `count:${day}`))?.n ?? 0;
+    if (count < DEMO_MAX_PER_DAY) {
+      await kvPut('demo_run', `count:${day}`, { n: count + 1 });
+      const script = fileURLToPath(new URL('../scripts/demo-run.mjs', import.meta.url));
+      demoChild = spawn(process.execPath, [script], { env: { ...process.env, PAYONCE_V3_INDEX: DEMO_BOOK.index, PAYONCE_V3_SUBINDEX: '0' }, stdio: ['ignore', 'ignore', 'pipe'] });
+      let err = '';
+      demoChild.stderr.on('data', (d) => { err = (err + d).slice(-600); });
+      demoChild.on('exit', (code) => { if (code) kvPut('demo_run', 'last_error', { at: new Date().toISOString(), code, err }).catch(() => {}); demoChild = null; });
+      refreshing = true;
+    }
+  }
+  if (!latest) return { live: false, refreshing, label: 'No fresh run yet; one is being produced (about 2 minutes).', demo_book: DEMO_BOOK };
+  return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, age_secs: Math.round(age / 1000), demo_book: DEMO_BOOK };
+}
+
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
   const wrap = (fn) => async (req, res, m) => {
@@ -171,6 +201,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     // ---- payee links ----
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('p:card', 60)(req); return cards.card(m[1]); })],
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/check$/, wrap(async (req, res, m) => { await limited('vop:check', 30)(req); const q = qs(req); return cards.check(m[1], q.name ?? q.legal_name, { country: q.country, buyer: q.buyer }); })],
+    ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap(() => relayer.config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); return relayer.prepare(await readBody(req)); })],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],
