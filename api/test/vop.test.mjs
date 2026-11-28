@@ -276,6 +276,22 @@ test('check_payee: a rate-limited node gives no verdict (503), never a cached fa
   await assert.rejects(svc.check({ seller: SELLER, payee: PAYEE, legal_name: 'Acme GmbH' }), (e) => e.status === 503 && e.code === 'node_busy');
 });
 
+test('diagnose: a wallet presentation -> verified, holder account, single credential, name, anchor; stores nothing', async () => {
+  const p = pres({ legalName: 'Acme GmbH' });
+  let stored = 0;
+  const mk = (ok, reason, creds = 1) => createVopService({
+    grpc: async () => ({ async getAccountInfo() { return { accountAddress: PAYEE, accountThreshold: 1, accountCredentials: Object.fromEntries([...Array(creds)].map((_, i) => [i, { value: { contents: { credId: CRED, ipIdentity: 4 } } }])) }; } }),
+    kv: { get: async () => null, put: async () => { stored++; } },
+    verifyPresentation: async () => ({ ok, reason }), now: () => NOW,
+  });
+  const r = await mk(true, null).diagnose({ presentation: JSON.stringify(p), account: PAYEE });
+  assert.equal(r.verified, true); assert.equal(r.holders[0].account, PAYEE); assert.equal(r.holders[0].single_credential, true);
+  assert.equal(r.account_matches, true); assert.equal(r.name, 'Acme GmbH'); assert.equal(r.kind, 'business'); assert.equal(r.anchor, presentationAnchor(p)); assert.equal(stored, 0);
+  const bad = await mk(false, 'the credential was not valid (index 0)', 2).diagnose({ presentation: p });
+  assert.equal(bad.verified, false); assert.equal(bad.holders[0].single_credential, false);
+  assert.ok(bad.hints.some((h) => /not produced from the credential/.test(h))); assert.ok(bad.hints.some((h) => /single-credential/.test(h)));
+});
+
 // ---------- sponsor-first relayer (wallet adds the sender signature) ----------
 import { createRelayer } from '../src/relayer.mjs';
 function fakeRelayer({ invokeOk = true, sponsorMicro = 5_000_000_000n, allowed = true } = {}) {

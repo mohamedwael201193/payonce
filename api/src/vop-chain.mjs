@@ -20,7 +20,12 @@ export const V3 = Object.freeze({
   name: 'payable_registry_v3',
   moduleRef: ENV.PAYONCE_V3_MODULE ?? '8641046eb939a5693731b6d79b227a1a4b356d8cf10308baabca0a93a16b3946',
 });
-export const v3Label = () => `<${V3.index},${V3.subindex}>`;
+export const v3Label = (book = V3) => `<${book.index},${book.subindex}>`;
+/** A handle for another instance of the same module (e.g. the 90 s demo book). */
+export function bookAt(index, subindex = 0) {
+  return Object.freeze({ index: BigInt(index), subindex: BigInt(subindex), name: V3.name, moduleRef: V3.moduleRef });
+}
+export const DEMO_V3 = bookAt(ENV.PAYONCE_DEMO_BOOK_INDEX ?? 13173, ENV.PAYONCE_DEMO_BOOK_SUBINDEX ?? 0);
 
 export const PAYEE_STATUS = ['Proposed', 'Bound', 'Revoked'];
 export const PAYABLE_STATUS = ['Unpaid', 'Reserved', 'Paid', 'Voided'];
@@ -142,9 +147,9 @@ export function parseConfigV3(buf) {
 }
 
 // ---------------- node reads ----------------
-export async function invokeV3(c, method, paramBuf = Buffer.alloc(0), blockHashHex = null) {
+export async function invokeV3(c, method, paramBuf = Buffer.alloc(0), blockHashHex = null, book = V3) {
   const res = await c.invokeContract(
-    { contract: ContractAddress.create(V3.index, V3.subindex), method: ReceiveName.fromString(`${V3.name}.${method}`), parameter: Parameter.fromBuffer(paramBuf) },
+    { contract: ContractAddress.create(book.index, book.subindex), method: ReceiveName.fromString(`${book.name}.${method}`), parameter: Parameter.fromBuffer(paramBuf) },
     blockHashHex ? BlockHash.fromHexString(blockHashHex) : undefined,
   );
   if (res.tag !== 'success') {
@@ -154,10 +159,10 @@ export async function invokeV3(c, method, paramBuf = Buffer.alloc(0), blockHashH
   const rv = res.returnValue;
   return Buffer.from(rv instanceof Uint8Array ? rv : rv?.buffer ?? []);
 }
-export const getPayeeRecord = async (c, seller, payee) => parsePayeeRecord(await invokeV3(c, 'get_payee', serPayeeRef({ seller, payee })));
-export const getPayeeAck = async (c, buyer, seller, payee) => parsePayeeAck(await invokeV3(c, 'get_ack', serGetAck({ buyer, seller, payee })));
-export const getPayableV3 = async (c, seller, payable_id) => parsePayableV3(await invokeV3(c, 'get_payable', serPayableKey({ seller, payable_id })));
-export const getConfigV3 = async (c) => parseConfigV3(await invokeV3(c, 'get_config'));
+export const getPayeeRecord = async (c, seller, payee, book = V3) => parsePayeeRecord(await invokeV3(c, 'get_payee', serPayeeRef({ seller, payee }), null, book));
+export const getPayeeAck = async (c, buyer, seller, payee, book = V3) => parsePayeeAck(await invokeV3(c, 'get_ack', serGetAck({ buyer, seller, payee }), null, book));
+export const getPayableV3 = async (c, seller, payable_id, book = V3) => parsePayableV3(await invokeV3(c, 'get_payable', serPayableKey({ seller, payable_id }), null, book));
+export const getConfigV3 = async (c, book = V3) => parseConfigV3(await invokeV3(c, 'get_config', Buffer.alloc(0), null, book));
 
 const jsonSafe = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 /** Public identity facts of an account: its credentials' registration ids and identity-provider indexes. */

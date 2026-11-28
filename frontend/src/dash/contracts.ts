@@ -2,6 +2,10 @@
 // EXISTS = live on payonce-api today. PLANNED = WS1/WS3 implement exactly this shape
 // (copied into payonce-private HANDOFF_V12). The UI treats a 404 from a PLANNED route
 // as "not shipped yet" and says so; it never fakes a result.
+// WS1 (payonce-private HANDOFF_V14): every WS1 route below except age-proof is LIVE on the v3 DEMO book <13173,0>
+// (90 s hold). Changes are optional fields only, except: checkPayee and prepare send book=demo (the dashboard's
+// payees live on the demo book), payLinkTx can pass the invoice name, and PayLinkTx.acknowledge, when not null,
+// must be signed (sponsored, via prepare) before the payment, or the chain refuses -30 PayeeNotAcknowledged.
 import { walletApi, WalletApiError } from '../wallet/api'
 
 export type Verdict = 'MATCH' | 'CLOSE_MATCH' | 'NO_MATCH' | 'UNVERIFIED'
@@ -51,17 +55,21 @@ export interface PreparedSponsored {
   schema: string | null
 }
 
-/** PLANNED (WS1): POST /api/payee/propose { account } -> the demo seller proposes the visitor as payee.
+/** LIVE (WS1): POST /api/payee/propose { account } -> the demo seller proposes the visitor as payee.
     The visitor then signs accept_payee { seller, version, proof_anchor } through /api/relay/prepare. */
 export interface ProposedPayee {
   seller: string
   version: number
   /** hex, 32 bytes: sha256 of the stored name proof (see api/src/payee-proof.mjs) */
   proof_anchor: string
-  tx_hash: string
+  /** null only when the record existed before this server stored the proposal */
+  tx_hash: string | null
+  /** 'Bound' = accept_payee already signed: skip it. Errors: 409 no_name_proof | would_reject, 429 rate_limited. */
+  status?: 'Proposed' | 'Bound'
+  book?: string
 }
 
-/** PLANNED (WS1): GET /api/payee/:account -> the visitor's payee-book state on the demo book. */
+/** LIVE (WS1): GET /api/payee/:account -> the visitor's payee-book state on the demo book. */
 export interface PayeeStatus {
   account: string
   seller: string
@@ -71,6 +79,8 @@ export interface PayeeStatus {
   hold_secs: number
   hold_ends_at: string | null
   link: string
+  book?: string
+  proof_anchor?: string | null
 }
 
 /** PLANNED (WS3): POST /api/invoices/parse { text } */
@@ -81,7 +91,7 @@ export interface ParsedInvoice {
   reference: string | null
 }
 
-/** PLANNED (WS1): POST /api/getpaid { payee, invoice } -> { job_id }; GET /api/getpaid/:job -> GetPaidJob.
+/** LIVE (WS1): POST /api/getpaid { payee, invoice } -> { job_id }; GET /api/getpaid/:job -> GetPaidJob.
     The AP agent pays the visitor from the labelled reference payer after check_payee says MATCH. */
 export type GetPaidStage = 'checking' | 'hold' | 'paying' | 'paid' | 'refused' | 'failed'
 export interface GetPaidJob {
@@ -93,13 +103,23 @@ export interface GetPaidJob {
   amount_display: string
   payer_label: string
   error: string | null
+  // optional extras (WS1)
+  payee?: string
+  invoice_name?: string
+  payable_id?: number | null
+  txs?: { ack: string | null; register: string | null; pay: string | null }
+  /** set when the chain refused the payment itself (-28..-36) */
+  refusal?: { code: number; name: string; tx_hash: string } | null
 }
 
-/** PLANNED (WS1): POST /api/getpaid/:job/redirect { to } -> the agent is told to pay another account. */
+/** LIVE (WS1): POST /api/getpaid/:job/redirect { to } -> the agent is told to pay another account. */
 export interface RedirectResult {
   check: CheckPayee
   /** present when the agent was forced to submit and the chain refused (codes -28..-36) */
   refusal: { code: number; name: string; tx_hash: string } | null
+  /** one sentence on what happened, e.g. "Forced anyway, the chain refused: PayeeNotBound (-28)." */
+  note?: string
+  to?: string
 }
 
 /** EXISTS (WS3): GET /api/x402/sellers -> live x402 services run by other teams (Concordium testnet). */
@@ -203,22 +223,29 @@ export interface Census {
 export interface AgeRequest { request_id: string; v1?: unknown; v0?: { challenge: string; statements: unknown } }
 export interface AgeVerified { verified: boolean; vaa_tx: string | null }
 
-/** PLANNED (WS1): GET /api/p/:account/pay-tx?payer=&amount_micro=[&approved=1] -> the exact pay transaction for the payer's wallet.
+/** LIVE (WS1): GET /api/p/:account/pay-tx?payer=&amount_micro=[&name=][&approved=1] -> the exact pay transaction for the payer's wallet.
     Refuses NO_MATCH always. CLOSE_MATCH / UNVERIFIED only with approved=1 (the human decided; the contract's acknowledge_payee accepts CLOSE_MATCH,
-    the agent itself pays only on MATCH). */
+    the agent itself pays only on MATCH). WS1: UNVERIFIED is refused even with approved=1 (409 not_payable): the contract
+    cannot record an acknowledgment for it, so the payment would be refused -36. CLOSE_MATCH without approved=1 -> 409 needs_approval. */
 export interface PayLinkTx {
   transaction: import('../wallet/types').UpdateTx
   check: CheckPayee
+  /** not null = the payer has not acknowledged this payee version yet: first
+      dashApi.prepare(payer, 'acknowledge_payee', acknowledge.parameter) + sendSponsored (PayOnce pays the fee). */
+  acknowledge: { entrypoint: 'acknowledge_payee'; parameter: string; book: 'demo' } | null
+  invoice: { seller: string; payable_id: number; amount_micro: string; register_tx: string; book: string }
 }
 
-/** PLANNED (WS1): GET /api/record/:account */
+/** LIVE (WS1): GET /api/record/:account */
 export interface RecordItem {
   at: string
   role: 'received' | 'paid' | 'refused'
   counterparty: string
   amount_display: string
   verdict: Verdict
-  tx_hash: string
+  /** null when nothing reached the chain (the agent refused before sending) */
+  tx_hash: string | null
+  note?: string
 }
 
 export class NotShipped extends Error {
@@ -239,11 +266,11 @@ const q = encodeURIComponent
 export const dashApi = {
   // EXISTS
   checkPayee: (seller: string, payee: string, name: string) =>
-    walletApi<CheckPayee>(`/api/check-payee?seller=${q(seller)}&payee=${q(payee)}&legal_name=${q(name)}`),
+    walletApi<CheckPayee>(`/api/check-payee?book=demo&seller=${q(seller)}&payee=${q(payee)}&legal_name=${q(name)}`),
   payeeProof: (account: string) => walletApi<{ account: string; proof: PayeeProof | null }>(`/api/wallet/payee-proof/${q(account)}`),
   relayConfig: () => walletApi<RelayConfig>('/api/relay/config'),
   prepare: (sender: string, entrypoint: string, parameterHex: string, amountMicro?: string) =>
-    walletApi<PreparedSponsored>('/api/relay/prepare', { method: 'POST', body: { sender, entrypoint, parameter: parameterHex, ...(amountMicro ? { amount_micro_ccd: amountMicro } : {}) } }),
+    walletApi<PreparedSponsored>('/api/relay/prepare', { method: 'POST', body: { sender, entrypoint, parameter: parameterHex, book: 'demo', ...(amountMicro ? { amount_micro_ccd: amountMicro } : {}) } }),
   // PLANNED
   propose: (account: string) => planned<ProposedPayee>('POST /api/payee/propose', '/api/payee/propose', { method: 'POST', body: { account } }),
   payeeStatus: (account: string) => planned<PayeeStatus>('GET /api/payee/:account', `/api/payee/${q(account)}`),
@@ -267,8 +294,8 @@ export const dashApi = {
     planned<AgeRequest>('POST /api/wallet/age-proof/request', '/api/wallet/age-proof/request', { method: 'POST', body: { account, seller_id: sellerId } }),
   ageVerify: (requestId: string, version: string, presentation: string) =>
     planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
-  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false) =>
-    planned<PayLinkTx>('GET /api/p/:account/pay-tx', `/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}`),
+  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string) =>
+    planned<PayLinkTx>('GET /api/p/:account/pay-tx', `/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}`),
   record: (account: string) => planned<{ items: RecordItem[] }>('GET /api/record/:account', `/api/record/${q(account)}`),
 }
 

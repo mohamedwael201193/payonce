@@ -1,0 +1,79 @@
+{
+  "target": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+  "note": "Lookalike impostors for /demo: seed identity 1 credential slots (public numbers) + account alias. No keys.",
+  "generated_at": "2026-11-28T08:11:23.660Z",
+  "pool": [
+    {
+      "identity": 1,
+      "cred": 61,
+      "canonical": "4T5fWmzgXdusuFtBBxzAf4bPxc2xoQ5n9CDMP8TZtfJMr7nBRp",
+      "alias": "4T5fWmzgXdusuFtBBxzAf4bPxc2xoQ5n9CDMP8TZrNztQtpjNB",
+      "alias_index": 79175,
+      "suffix_match": 3,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 62,
+      "canonical": "4HE6cWRBPrrriCq3eu23xDTM5qCe6ginJUYA3Vrz8jaStR2WrE",
+      "alias": "4HE6cWRBPrrriCq3eu23xDTM5qCe6ginJUYA3Vrz7yQCxwRjNB",
+      "alias_index": 12072126,
+      "suffix_match": 4,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 66,
+      "canonical": "4JRjP5ddjNjSe2NCQr7zG9bBNPvPXzjHpKF7E1qx9E5yfcYHiv",
+      "alias": "4JRjP5ddjNjSe2NCQr7zG9bBNPvPXzjHpKF7E1qx1skcf92jNB",
+      "alias_index": 198332,
+      "suffix_match": 3,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 67,
+      "canonical": "4qLKYxvNXwy5cJJBRykAMXpyXLvWiu89xcGGmNQNeLvgt5hM3s",
+      "alias": "4qLKYxvNXwy5cJJBRykAMXpyXLvWiu89xcGGmNQNcgayRNajNB",
+      "alias_index": 123268,
+      "suffix_match": 3,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 69,
+      "canonical": "4WnSVwnzqrtPKUw8EmiWYX2DQ4w32VuqSfABk6jGzNtjcofqhZ",
+      "alias": "4WnSVwnzqrtPKUw8EmiWYX2DQ4w32VuqSfABk6jH389Ku3RjNB",
+      "alias_index": 5775016,
+      "suffix_match": 4,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 76,
+      "canonical": "4JjiqK5XggFJAYhHM2aoDiMvFXGhnCNEaUXQNesz1ErjXTR9Px",
+      "alias": "4JjiqK5XggFJAYhHM2aoDiMvFXGhnCNEaUXQNesz1WZ1zYRjNB",
+      "alias_index": 10540533,
+      "suffix_match": 4,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 79,
+      "canonical": "4Bc3VJmZ8KmeEcFLBBRVJbKhbFkUSZoyqp9UxksuZ1SA3ydY5J",
+      "alias": "4Bc3VJmZ8KmeEcFLBBRVJbKhbFkUSZoyqp9UxksuYoBEPiRjNB",
+      "alias_index": 14081864,
+      "suffix_match": 4,
+      "prefix_match": 1
+    },
+    {
+      "identity": 1,
+      "cred": 80,
+      "canonical": "4TCzGP9WxjxCycctQ19ohgPmTcEfQv9wMWq4QiAZq749x6Vr21",
+      "alias": "4TCzGP9WxjxCycctQ19ohgPmTcEfQv9wMWq4QiAZnMnQgDNjNB",
+      "alias_index": 80318,
+      "suffix_match": 3,
+      "prefix_match": 1
+    }
+  ]
+}

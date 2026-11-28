@@ -386,7 +386,7 @@ function Flow() {
           {need}
           <State a={record}>{(items) => items.length === 0 ? <p className="ds-note">Nothing yet.</p> : (
             <ul className="ds-record">{items.map((r) => (
-              <li key={r.tx_hash}><span className={`ds-dot ds-dot--${r.role}`} /><b>{r.role === 'received' ? '+' : r.role === 'paid' ? '−' : '×'}{r.amount_display}</b><span>{short(r.counterparty)}</span><span>{r.verdict.replace('_', ' ').toLowerCase()}</span><Tx hash={r.tx_hash} label="tx" /></li>
+              <li key={r.tx_hash}><span className={`ds-dot ds-dot--${r.role}`} /><b>{r.role === 'received' ? '+' : r.role === 'paid' ? '−' : '×'}{r.amount_display}</b><span>{short(r.counterparty)}</span><span>{r.verdict.replace('_', ' ').toLowerCase()}</span>{r.tx_hash ? <Tx hash={r.tx_hash} label="tx" /> : <span>nothing sent</span>}</li>
             ))}</ul>
           )}</State>
           <p className="ds-note"><Link to="/app/proof/judges">Verify it yourself</Link>, no keys needed.</p>

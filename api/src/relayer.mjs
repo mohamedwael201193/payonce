@@ -62,7 +62,7 @@ const addrOf = (a) => (a == null ? null : typeof a === 'string' ? a : a.address 
  * Static checks on a sender-signed sponsored transaction (no network).
  * Returns { kind: 'contract'|'token', entrypoint?, transfer? }.
  */
-export function inspectSponsored(tx, { sponsorAddress, nowSecs = Math.floor(Date.now() / 1000), limits = RELAY_LIMITS } = {}) {
+export function inspectSponsored(tx, { sponsorAddress, nowSecs = Math.floor(Date.now() / 1000), limits = RELAY_LIMITS, book = V3 } = {}) {
   if (tx?.version !== 1) throw new RelayError(400, 'not_sponsored', 'Only version-1 (sponsored) transactions are relayed.');
   const h = tx.header ?? {};
   if (addrOf(h.sponsor?.account) !== sponsorAddress) throw new RelayError(400, 'wrong_sponsor', `The transaction must name ${sponsorAddress} as sponsor.`);
@@ -74,10 +74,10 @@ export function inspectSponsored(tx, { sponsorAddress, nowSecs = Math.floor(Date
   const p = tx.payload ?? {};
   if (p.type === 'update' || p.type === AccountTransactionType.Update) {
     const addr = p.address;
-    if (BigInt(addr?.index ?? -1) !== V3.index || BigInt(addr?.subindex ?? -1) !== V3.subindex) throw new RelayError(403, 'wrong_contract', `Only payable_registry_v3 ${`<${V3.index},${V3.subindex}>`} is sponsored.`);
+    if (BigInt(addr?.index ?? -1) !== book.index || BigInt(addr?.subindex ?? -1) !== book.subindex) throw new RelayError(403, 'wrong_contract', `Only payable_registry_v3 ${`<${book.index},${book.subindex}>`} is sponsored.`);
     const rn = String(p.receiveName?.value ?? p.receiveName ?? '');
     const [contract, entrypoint] = rn.split('.');
-    if (contract !== V3.name || !SPONSORED_ENTRYPOINTS.includes(entrypoint)) throw new RelayError(403, 'entrypoint_not_sponsored', `Entrypoint ${rn} is not sponsored.`);
+    if (contract !== book.name || !SPONSORED_ENTRYPOINTS.includes(entrypoint)) throw new RelayError(403, 'entrypoint_not_sponsored', `Entrypoint ${rn} is not sponsored.`);
     const amount = BigInt(p.amount?.microCcdAmount ?? p.amount ?? 0);
     if (amount !== 0n && entrypoint !== 'pay_ccd') throw new RelayError(403, 'ccd_attached', 'Only pay_ccd may carry CCD.');
     const energy = BigInt(h.executionEnergyAmount?.value ?? h.executionEnergyAmount ?? 0);
@@ -104,13 +104,14 @@ export function inspectSponsored(tx, { sponsorAddress, nowSecs = Math.floor(Date
 export function createRelayer(deps) {
   const now = deps.now ?? Date.now;
   const limits = deps.limits ?? RELAY_LIMITS;
+  const B = deps.book ?? V3;
 
   async function sponsorAddress() { return (await deps.sponsor()).address; }
 
   async function config() {
     return {
       sponsor: await sponsorAddress(),
-      contract: { index: V3.index.toString(), subindex: V3.subindex.toString(), name: V3.name },
+      contract: { index: B.index.toString(), subindex: B.subindex.toString(), name: B.name },
       entrypoints: SPONSORED_ENTRYPOINTS,
       token: { id: SPONSORED_TOKEN, rule: 'one transfer, memo payable:<seller>:<id>, payable Reserved by the sender, exact payee and amount' },
       limits: { max_contract_energy: limits.maxContractEnergy.toString(), expiry_secs: [limits.minExpirySecs, limits.maxExpirySecs], per_sender_per_minute: limits.perSenderPerMinute },
@@ -124,8 +125,8 @@ export function createRelayer(deps) {
   async function estimateEnergy(c, { sender, entrypoint, paramHex, amount }) {
     const res = await c.invokeContract({
       invoker: AccountAddress.fromBase58(sender),
-      contract: ContractAddress.create(V3.index, V3.subindex),
-      method: ReceiveName.fromString(`${V3.name}.${entrypoint}`),
+      contract: ContractAddress.create(B.index, B.subindex),
+      method: ReceiveName.fromString(`${B.name}.${entrypoint}`),
       parameter: Parameter.fromHexString(paramHex),
       amount: CcdAmount.fromMicroCcd(BigInt(amount ?? 0)),
     });
@@ -147,7 +148,7 @@ export function createRelayer(deps) {
 
   /** An EUDemo transfer is sponsored only for a v3 payable Reserved by this sender, to its payee, for its amount. */
   async function checkTokenTransfer(c, sender, t, expiryMs) {
-    const p = await getPayableV3(c, t.seller, t.payable_id);
+    const p = await getPayableV3(c, t.seller, t.payable_id, B);
     if (!p) throw new RelayError(404, 'no_payable', `No v3 payable ${t.seller.slice(0, 8)}…/${t.payable_id}.`);
     if (p.asset !== SPONSORED_TOKEN) throw new RelayError(403, 'wrong_asset', 'That payable is not an EUDemo payable.');
     if (p.status.tag !== 'Reserved' || p.status.payer !== sender) throw new RelayError(403, 'not_reserved_by_sender', 'The payable must be Reserved by this sender (reserve_plt first).');
@@ -174,7 +175,7 @@ export function createRelayer(deps) {
     const tx = Transaction.signableFromJSON(built.transaction);
     const c = await deps.grpc();
     if (body?.kind === 'token') {
-      const facts = inspectSponsored({ ...tx, signatures: { sender: { 0: { 0: 'x' } } } }, { sponsorAddress: built.sponsor, nowSecs: Math.floor(now() / 1000), limits });
+      const facts = inspectSponsored({ ...tx, signatures: { sender: { 0: { 0: 'x' } } } }, { sponsorAddress: built.sponsor, nowSecs: Math.floor(now() / 1000), limits, book: B });
       await checkTokenTransfer(c, sender, facts.transfer, Number(tx.header.expiry?.expiryEpochSeconds ?? tx.header.expiry) * 1000);
     }
     const sp = await deps.sponsor();
@@ -220,14 +221,14 @@ export function createRelayer(deps) {
       const amount = BigInt(body?.amount_micro_ccd ?? 0);
       const energy = await estimateEnergy(c, { sender, entrypoint, paramHex, amount });
       tx = Transaction.updateContract(Payload.updateContract({
-        amount: CcdAmount.fromMicroCcd(amount), address: ContractAddress.create(V3.index, V3.subindex),
-        receiveName: ReceiveName.fromString(`${V3.name}.${entrypoint}`), message: Parameter.fromHexString(paramHex),
+        amount: CcdAmount.fromMicroCcd(amount), address: ContractAddress.create(B.index, B.subindex),
+        receiveName: ReceiveName.fromString(`${B.name}.${entrypoint}`), message: Parameter.fromHexString(paramHex),
       }), Energy.create(energy));
     }
     const built = tx.addMetadata({ sender: AccountAddress.fromBase58(sender), nonce: SequenceNumber.create(nonce), expiry })
       .addSponsor(AccountAddress.fromBase58(sponsor)).build();
     const json = toJsonSafe(Transaction.toJSON(built));
-    inspectSponsored({ ...Transaction.signableFromJSON(json), signatures: { sender: { 0: { 0: 'x' } } } }, { sponsorAddress: sponsor, nowSecs: Math.floor(now() / 1000), limits });
+    inspectSponsored({ ...Transaction.signableFromJSON(json), signatures: { sender: { 0: { 0: 'x' } } } }, { sponsorAddress: sponsor, nowSecs: Math.floor(now() / 1000), limits, book: B });
     return { transaction: json, sponsor, sign_with: 'Transaction.sign(Transaction.signableFromJSON(transaction), senderSigner)', fee_paid_by: sponsor };
   }
 
@@ -238,7 +239,7 @@ export function createRelayer(deps) {
       throw new RelayError(400, 'bad_transaction', `Not a signable transaction: ${String(e?.message ?? e).slice(0, 120)}`);
     }
     const sp = await deps.sponsor();
-    const facts = inspectSponsored(tx, { sponsorAddress: sp.address, nowSecs: Math.floor(now() / 1000), limits });
+    const facts = inspectSponsored(tx, { sponsorAddress: sp.address, nowSecs: Math.floor(now() / 1000), limits, book: B });
     const sender = addrOf(tx.header.sender);
     if (deps.hitWindow) {
       const w = await deps.hitWindow(`relay:${sender}`, 60_000, limits.perSenderPerMinute);

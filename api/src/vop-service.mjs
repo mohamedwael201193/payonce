@@ -15,7 +15,8 @@
 // The agent's policy (agent-side) pays only on `payable: true`.
 import { decideVop, evidenceHash, presentationAnchor, canonicalJson, legalNameHash, VERDICT, VERDICT_CODE, BUSINESS_IDPS, sha256Hex } from './vop.mjs';
 import { revealedAttributes } from './payee-proof.mjs';
-import { V3, v3Label, getPayeeRecord, getPayeeAck, accountIdentity, serAcknowledgePayee } from './vop-chain.mjs';
+import { V3, v3Label, getPayeeRecord, getPayeeAck, accountIdentity, serAcknowledgePayee, credentialsOf } from './vop-chain.mjs';
+import { CredentialRegistrationId } from '@concordium/web-sdk';
 
 export class VopError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -54,6 +55,7 @@ export function factsFromPresentation(pres) {
  * }
  */
 export function createVopService(deps) {
+  const B = deps.book ?? V3;
   const now = deps.now ?? Date.now;
   const network = deps.network ?? 'Testnet';
   const verifyCache = new Map(); // anchor -> { at, ok, reason }
@@ -89,7 +91,7 @@ export function createVopService(deps) {
     if (buyer && !ADDR.test(buyer)) throw new VopError(400, 'bad_address', 'buyer must be a Concordium account address.');
     if (!legalName || legalName.length > 200) throw new VopError(400, 'bad_name', 'legal_name (the payee name on the invoice) is required, up to 200 characters.');
     const c = await deps.grpc();
-    const [account, rec] = await Promise.all([accountIdentity(c, payee), getPayeeRecord(c, seller, payee)]);
+    const [account, rec] = await Promise.all([accountIdentity(c, payee), getPayeeRecord(c, seller, payee, B)]);
     const book = rec ?? { status: 'NotBound', version: 0, mature_at_ms: null, identity: null };
     const anchorOnChain = rec?.identity?.proof_anchor ?? null;
     const found = await proofFor(payee, anchorOnChain);
@@ -106,7 +108,7 @@ export function createVopService(deps) {
       if (result.verdict === VERDICT.MATCH) result.reasons.push('The payee book points at a different proof: not payable until the payee re-binds.');
     }
     const subject = {
-      network, contract: v3Label(), seller, payee, invoice_name: legalName,
+      network, contract: v3Label(B), seller, payee, invoice_name: legalName,
       book: rec ? { status: rec.status, version: rec.version, mature_at_ms: rec.mature_at_ms, proof_anchor: anchorOnChain, idp_index: rec.identity.idp_index, kind: rec.identity.kind } : { status: 'NotBound' },
       proof_source: found?.source ?? null, proof_anchor: found?.anchor ?? null,
     };
@@ -114,7 +116,7 @@ export function createVopService(deps) {
     const evidence_hash = evidenceHash(result);
     let ack = null;
     if (buyer) {
-      const a = await getPayeeAck(c, buyer, seller, payee);
+      const a = await getPayeeAck(c, buyer, seller, payee, B);
       ack = a ? { ...a, current: rec ? a.version === rec.version : false } : null;
     }
     const recordable = [VERDICT.MATCH, VERDICT.CLOSE_MATCH].includes(result.verdict) && rec?.status === 'Bound';
@@ -132,7 +134,7 @@ export function createVopService(deps) {
       checked_at: new Date(now()).toISOString(),
       buyer_ack: ack,
       acknowledge: recordable ? {
-        entrypoint: `${V3.name}.acknowledge_payee`, contract: v3Label(),
+        entrypoint: `${B.name}.acknowledge_payee`, contract: v3Label(B),
         parameter: serAcknowledgePayee({ seller, payee, version: rec.version, verdict: VERDICT_CODE[result.verdict], evidence_hash }).toString('hex'),
         note: 'The buyer records the verdict and this evidence hash on chain; pay_ccd / reserve_plt refuse (-30) without it.',
       } : null,
@@ -167,6 +169,48 @@ export function createVopService(deps) {
     };
   }
 
+  /**
+   * QA path for a wallet-produced presentation (Browser Wallet V&A V1, or V0): verify with the node, find the holder
+   * credential's account on chain, say whether it is a single-credential account, what name it reveals and the anchor
+   * it would bind under. Stores nothing, sends nothing.
+   */
+  async function diagnose(body) {
+    const version = body?.version === 'v0' ? 'v0' : 'v1';
+    let pres = body?.presentation;
+    if (typeof pres === 'string') { try { pres = JSON.parse(pres); } catch { throw new VopError(400, 'bad_presentation', 'presentation is not JSON.'); } }
+    if (!pres || typeof pres !== 'object') throw new VopError(400, 'bad_presentation', 'presentation required.');
+    const facts = factsFromPresentation(pres);
+    const v = await deps.verifyPresentation({ version, presentation: pres });
+    const c = await deps.grpc();
+    const holders = [];
+    for (const credId of facts.credIds.slice(0, 4)) {
+      try {
+        const info = JSON.parse(JSON.stringify(await c.getAccountInfo(CredentialRegistrationId.fromHexString(credId)), (k, x) => (typeof x === 'bigint' ? x.toString() : x)));
+        const creds = credentialsOf(info);
+        const address = info.accountAddress?.address ?? info.accountAddress ?? null;
+        holders.push({ cred_id: credId, account: address, credentials_on_account: creds.length, account_threshold: Number(info.accountThreshold ?? 1), single_credential: creds.length === 1, idps: creds.map((x) => x.idp) });
+      } catch (e) {
+        holders.push({ cred_id: credId, account: null, error: /not.?found|NOT_FOUND/i.test(String(e?.message ?? e)) ? 'no account on chain has this credential' : String(e?.message ?? e).slice(0, 120) });
+      }
+    }
+    const business = facts.idpIndexes.length > 0 && facts.idpIndexes.every((i) => (BUSINESS_IDPS[network] ?? []).includes(i));
+    const name = business ? facts.revealed.legalName ?? null : [facts.revealed.firstName, facts.revealed.lastName].filter(Boolean).join(' ') || null;
+    const expected = body?.account && ADDR.test(String(body.account)) ? String(body.account) : null;
+    const hints = [];
+    if (!v.ok && /credential was not valid/i.test(String(v.reason))) hints.push('The node rejected the credential proof itself: the presentation was not produced from the credential deployed on chain (wrong key/randomness or validity), or the credential has expired. Produce it in the Browser Wallet from a single-credential account.');
+    if (holders.some((h) => h.credentials_on_account > 1)) hints.push('The holder account has more than one credential: use a single-credential account for the name proof.');
+    if (expected && !holders.some((h) => h.account === expected)) hints.push('The presenting credential is not a credential of the account you named.');
+    if (!name) hints.push(business ? 'No legalName revealed.' : 'No firstName/lastName revealed.');
+    if (v.transient) hints.push('The node did not answer (rate limit); try again in a minute.');
+    return {
+      verified: !!v.ok, reason: v.ok ? null : String(v.reason ?? '').slice(0, 300), transient: !!v.transient, version,
+      holders, account_matches: expected ? holders.some((h) => h.account === expected) : null,
+      kind: business ? 'business' : 'person', idp_indexes: facts.idpIndexes, revealed: facts.revealed, name,
+      anchor: presentationAnchor(pres), stored: false, hints,
+      next: v.ok ? 'Store it with POST /api/wallet/payee-proof/verify (dashboard R1, anchored request) or POST /api/vop/proofs {payee, presentation}; then POST /api/payee/propose binds it on the demo book.' : null,
+    };
+  }
+
   async function getProof(anchor) {
     if (!/^[0-9a-f]{64}$/.test(String(anchor))) throw new VopError(400, 'bad_anchor', 'anchor is a sha256 hex.');
     const rec = await deps.kv.get('vop_proof', anchor);
@@ -174,5 +218,5 @@ export function createVopService(deps) {
     return { anchor, recomputed_anchor: presentationAnchor(rec.presentation), ...rec };
   }
 
-  return { check, submitProof, getProof };
+  return { check, submitProof, getProof, diagnose };
 }

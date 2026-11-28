@@ -53,7 +53,7 @@ describe('planned routes', () => {
     vi.stubGlobal('fetch', f)
     await dashApi.prepare(A, 'accept_payee', 'abcd')
     const body = JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
-    expect(body).toEqual({ sender: A, entrypoint: 'accept_payee', parameter: 'abcd' })
+    expect(body).toEqual({ sender: A, entrypoint: 'accept_payee', parameter: 'abcd', book: 'demo' })
   })
 })
 

@@ -22,6 +22,7 @@ import { createVopService } from '../src/vop-service.mjs';
 import { verifyPresentationKeyless } from '../src/vop-routes.mjs';
 import { legalNameHash, canonicalJson, sha256Hex } from '../src/vop.mjs';
 import { OWNER_TOKEN } from '../src/config.mjs';
+import { readFileSync } from 'node:fs';
 
 if (String(V3.index) === '13172' && process.env.DEMO_ALLOW_LIVE_BOOK !== '1') { console.log('refusing: demo runs use the 90 s demo book (set PAYONCE_V3_INDEX)'); process.exit(1); }
 const J = (o) => JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
@@ -64,6 +65,70 @@ async function sponsored(from, entrypoint, param, amount = 0n) {
 }
 async function ccdMicro(a) { const i = JSON.parse(J(await c.getAccountInfo(AccountAddress.fromBase58(a)))); return BigInt(i.accountAmount?.microCcdAmount ?? i.accountAmount); }
 
+// Lookalike impostors (api/scripts/lookalike-pool.mjs): identity-1 credential slots whose account starts like the real
+// payee, used through the account alias whose last characters match it. Reused in rotation (each identity allows only
+// 200 accounts); every run re-binds the impostor (new payee version), so the chain refusal is fresh each time.
+const POOL = JSON.parse(readFileSync(new URL('./lookalike-pool.json', import.meta.url), 'utf8'));
+const POOL_CREDS = new Set(POOL.pool.map((e) => e.cred));
+const exists = async (a) => { const ex = await fetch(`${WP}/v0/accBalance/${a}`).then((x) => x.json()).catch(() => null); return !!(ex?.finalizedBalance || ex?.currentBalance); };
+
+async function lookalikeAccount() {
+  if (POOL.target !== SELLER.address) throw new Error('lookalike pool was built for a different payee');
+  const order = [...POOL.pool].sort((a, b) => b.suffix_match - a.suffix_match || a.cred - b.cred).filter((e, _, all) => e.suffix_match === all[0].suffix_match);
+  const n = Number((await kvGet('demo_run', 'lookalike_next'))?.n ?? 0);
+  await kvPut('demo_run', 'lookalike_next', { n: n + 1 });
+  const e = order[n % order.length];
+  const hd = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED_PHRASE || '').trim(), 'Testnet');
+  const g = (await (await fetch(`${WP}/v0/global`)).json()).value;
+  const canonical = getAccountAddress(Buffer.from(hd.getCredentialId(0, 1, e.cred, g)).toString('hex')).address;
+  if (canonical !== e.canonical) throw new Error('lookalike pool does not match this seed');
+  const ca = Buffer.from(AccountAddress.fromBase58(canonical).decodedAddress); const al = Buffer.from(AccountAddress.fromBase58(e.alias).decodedAddress);
+  if (!ca.subarray(0, 29).equals(al.subarray(0, 29))) throw new Error('lookalike alias is not an alias of its account');
+  let meta = await kvGet('demo_run', `lookalike:${e.cred}`);
+  let firstUse = false;
+  if (!(await exists(canonical))) {
+    const d = await deployCred(hd, g, e.cred);
+    meta = { deploy_tx: d.deploy_tx, deployed_at: new Date().toISOString() };
+    await kvPut('demo_run', `lookalike:${e.cred}`, meta);
+    firstUse = true;
+  }
+  return {
+    address: e.alias, canonical, cred: e.cred, deploy_tx: meta?.deploy_tx ?? null, deployed_at: meta?.deployed_at ?? null, first_use: firstUse,
+    signer: buildBasicAccountSigner(hd.getAccountSigningKey(0, 1, e.cred).toString('hex')),
+    lookalike: { real: SELLER.address, fake: e.alias, same_start: e.prefix_match, same_end: e.suffix_match, alias_of: canonical },
+  };
+}
+
+/** Recover identity 1 from the testnet IdP and deploy credential `cred` (fee-free credential deployment). */
+async function deployCred(hd, g, cred) {
+  const ips = await (await fetch(`${WP}/v2/ip_info`)).json();
+  const ip = ips.find((x) => x.ipInfo.ipIdentity === 0);
+  const req = sdk.createIdentityRecoveryRequestWithKeys({ idCredSec: hd.getIdCredSec(0, 1).toString('hex'), ipInfo: ip.ipInfo, globalContext: g, timestamp: Math.floor(Date.now() / 1000) });
+  const rr = await fetch(`${ip.metadata.recoveryStart}?state=${encodeURIComponent(JSON.stringify({ idRecoveryRequest: req }))}`, { redirect: 'follow' });
+  const rtext = await rr.text();
+  let idObj; try { idObj = JSON.parse(rtext); } catch { throw new Error(`identity recovery: HTTP ${rr.status} ${rtext.slice(0, 160)}`); }
+  idObj = idObj.value ?? idObj;
+  if (!idObj?.attributeList) throw new Error(`identity recovery: no identity object (HTTP ${rr.status}) ${rtext.slice(0, 160)}`);
+  const cdp = sdk.createCredentialPayload({ ipInfo: ip.ipInfo, globalContext: g, arsInfos: ip.arsInfos, idObject: idObj, revealedAttributes: [], credNumber: cred, seedAsHex: hd.seedAsHex, net: 'Testnet', identityIndex: 1 }, sdk.TransactionExpiry.futureMinutes(10));
+  const address = sdk.getAccountAddress(cdp.unsignedCdi.credId).address;
+  const sig = await sdk.signCredentialTransaction(cdp, hd.getAccountSigningKey(0, 1, cred).toString('hex'));
+  const bytes = Buffer.from(sdk.serializeCredentialDeploymentTransactionForSubmission(cdp, [sig]));
+  let s; let t = {};
+  for (const body of [bytes.subarray(1), bytes]) {
+    s = await fetch(`${WP}/v0/submitRawTransaction`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body });
+    t = await s.json().catch(() => ({}));
+    if (s.ok || !/Parsing input failed/.test(t.errorMessage ?? '')) break;
+  }
+  if (!s.ok || !t.submissionId) throw new Error(`credential deployment not accepted (${s.status} ${J(t).slice(0, 160)})`);
+  for (let i = 0; i < 40; i++) {
+    await sleep(4000);
+    const st = await fetch(`${WP}/v0/submissionStatus/${t.submissionId}`).then((x) => x.json()).catch(() => ({}));
+    if (st.status === 'finalized') { if (st.outcome !== 'success') throw new Error(`credential deployment failed ${J(st).slice(0, 160)}`); break; }
+    if (i === 39) throw new Error(`credential deployment not finalized after 160 s (submission ${t.submissionId})`);
+  }
+  return { address, deploy_tx: t.submissionId };
+}
+
 /** A brand-new account from the seed's identity 1 (recovered from the testnet IdP), next free credential number. */
 async function freshAccount() {
   const hd = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED_PHRASE || '').trim(), 'Testnet');
@@ -78,6 +143,7 @@ async function freshAccount() {
   if (!idObj?.attributeList) throw new Error(`identity recovery: no identity object (HTTP ${rr.status}) ${rtext.slice(0, 160)}`);
   let cred = Number((await kvGet('demo_run', 'next_cred'))?.n ?? 20);
   for (;; cred++) {
+    if (POOL_CREDS.has(cred)) continue;
     const addr = getAccountAddress(Buffer.from(hd.getCredentialId(0, 1, cred, g)).toString('hex')).address;
     const ex = await fetch(`${WP}/v0/accBalance/${addr}`).then((x) => x.json()).catch(() => null);
     if (!(ex?.finalizedBalance || ex?.currentBalance)) break;
@@ -150,7 +216,7 @@ const paid = await sponsored(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.ad
 const again = await send(BUYER, 'pay_ccd', serPayableKey({ seller: SELLER.address, payable_id: id }), { amount: AMOUNT, energy: 6000n, expectReject: true });
 step = 'impostor_account';
 // ---- 4 impostor ----
-const imp = await freshAccount();
+const imp = process.env.DEMO_FRESH_IMPOSTOR === '1' ? await freshAccount() : await lookalikeAccount();
 step = 'impostor_bind';
 const impStandin = { account: imp.address, legal_name: NAME, country: 'DK', label: 'IMPOSTOR: claims the seller name; no proof' };
 const impIdentity = { kind: 1, idp_index: 0, legal_name_hash: legalNameHash(NAME), country: 'DK', proof_anchor: sha256Hex(canonicalJson(impStandin)), anchor_tx: null };
@@ -173,14 +239,17 @@ const run = {
   paid: { hash: paid.hash },
   impostor: {
     account: imp.address,
-    headline: `${verdictWord[impCheck.verdict]}: a brand-new account (0 CCD) claims "${NAME}". Nothing sent.`,
+    headline: imp.lookalike
+      ? `${verdictWord[impCheck.verdict]}: a lookalike account (same first ${imp.lookalike.same_start} and last ${imp.lookalike.same_end} characters as the real payee, 0 CCD${imp.first_use ? ', brand-new' : ''}) claims "${NAME}". Nothing sent.`
+      : `${verdictWord[impCheck.verdict]}: a brand-new account (0 CCD) claims "${NAME}". Nothing sent.`,
+    lookalike: imp.lookalike ?? null,
     refusal: impPay.reject != null ? { code: impPay.reject, name: ERR[String(impPay.reject)] ?? 'Rejected', hash: impPay.hash } : null,
   },
   again: { code: again.reject ?? 0, name: ERR[String(again.reject)] ?? 'Rejected', hash: again.hash },
   detail: {
     ...log, payable_id: id, impostor_payable_id: id + 1, check: { verdict: chk.verdict, payable: chk.payable, evidence_hash: chk.evidence_hash },
     impostor_check: { verdict: impCheck.verdict, payable: impCheck.payable, reasons: impCheck.reasons },
-    impostor_account: { address: imp.address, credential: `seed identity 1, credential ${imp.cred}`, deploy_tx: imp.deploy_tx },
+    impostor_account: { address: imp.address, canonical: imp.canonical ?? imp.address, credential: `seed identity 1, credential ${imp.cred}`, deploy_tx: imp.deploy_tx, deployed_at: imp.deployed_at ?? null, first_use: imp.first_use ?? true, note: imp.lookalike ? 'account alias (same account, last 3 address bytes chosen) of a seed account picked so the address looks like the real payee; reused in rotation and re-bound every run' : null },
     paid_fee: { sponsor: paid.sponsor }, again_reject: again.reject, impostor_reject: impPay.reject,
   },
 };

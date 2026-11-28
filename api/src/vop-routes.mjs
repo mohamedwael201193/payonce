@@ -10,19 +10,26 @@
 //   GET  /api/census                                              VoP census of the Agent Registry (census_public.json shape)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
+//   POST /api/vop/proofs/diagnose {presentation, version?, account?}   QA: verify a wallet presentation, holder account, single-credential? (stores nothing)
+//   POST /api/payee/propose {account}      GET /api/payee/:account     (dashboard, demo book <13173,0>; dash.mjs)
+//   POST /api/getpaid {payee, invoice}     GET /api/getpaid/:job       POST /api/getpaid/:job/redirect {to}
+//   GET  /api/p/:account/pay-tx?payer=&amount_micro=[&name=]          GET /api/record/:account
+//   book=demo on /api/vop/check, /api/check-payee, /api/relay/config and in the /api/relay/prepare body selects the demo book
 //   GET  /api/relay/config                                        what the relayer sponsors
 //   POST /api/relay/prepare     { sender, entrypoint, parameter } sponsor-first: tx co-signed by the sponsor, wallet signs + submits
 //   POST /api/relay/build       { sender, entrypoint, parameter | kind:'token', recipient, amount, memo }
 //   POST /api/relay/submit      { transaction }                   sender-signed -> sponsor co-signs -> submit once
 //   GET  /api/check-payee?seller=&payee=&legal_name=               alias of /api/vop/check (+ epc_verdict lower case)
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
-import { VerifiablePresentationV1, getEmbeddedModuleSchema } from '@concordium/web-sdk';
+import { VerifiablePresentationV1, getEmbeddedModuleSchema, getUpdateContractParameterSchema, ContractName, EntrypointName } from '@concordium/web-sdk';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
-import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
+import { V3, DEMO_V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
+import { createDashboard, DashError } from './dash.mjs';
+import { createDashChain } from './dash-chain.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
 import { vClient, VERIFIER_URL } from './consent.mjs';
 import { signers } from './chain-v2.mjs';
@@ -37,7 +44,7 @@ import { BACKEND_DIR } from './backend.mjs';
 import { retryingReads } from './node-retry.mjs';
 import { parseInvoice, ParseError } from './invoice-parse.mjs';
 import { pathToFileURL } from 'node:url';
-import { OWNER_ADDRESS } from './config.mjs';
+import { OWNER_ADDRESS, OWNER_TOKEN } from './config.mjs';
 
 const toPlain = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
@@ -88,6 +95,42 @@ export const relayer = createRelayer({
   moduleSchemaBase64,
 });
 let hitWindowRef = async () => ({ allowed: true });
+
+// ---- the 90 s DEMO book <13173,0>: its own check_payee + relayer + the /app dashboard (dash.mjs) ----
+export const vopDemo = createVopService({
+  grpc: async () => retryingReads(vClient()), kv: { get: kvGet, put: kvPut }, verifyPresentation: verifyPresentationKeyless, network: 'Testnet', book: DEMO_V3,
+});
+export const relayerDemo = createRelayer({
+  grpc: async () => vClient(), sponsor: async () => (await signers()).owner,
+  hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit), moduleSchemaBase64, book: DEMO_V3,
+});
+let payCcdSchemaB64 = null;
+async function payCcdSchema() {
+  if (payCcdSchemaB64) return payCcdSchemaB64;
+  const ms = await moduleSchemaBase64();
+  if (!ms) return null;
+  payCcdSchemaB64 = Buffer.from(getUpdateContractParameterSchema(Buffer.from(ms, 'base64'), ContractName.fromString(DEMO_V3.name), EntrypointName.fromString('pay_ccd'))).toString('base64');
+  return payCcdSchemaB64;
+}
+const dashDeps = {
+  kv: { get: kvGet, put: kvPut, list: kvList },
+  hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit),
+  vop: vopDemo, seller: OWNER_ADDRESS, payer: null, agentToken: OWNER_TOKEN, book: DEMO_V3, bookLabel: v3Label(DEMO_V3),
+  appBase: process.env.PAYONCE_APP_URL ?? 'https://payonce-tau.vercel.app',
+  chain: createDashChain({ client: () => vClient(), signers, book: DEMO_V3, seller: OWNER_ADDRESS }),
+};
+let dashboardP = null;
+/** Lazily built: the payer address and the pay_ccd schema load after boot. */
+export function dashboard() {
+  if (!dashboardP) {
+    dashboardP = (async () => {
+      const s = await signers();
+      return createDashboard({ ...dashDeps, payer: s.seller2.address, payCcdSchema: await payCcdSchema() });
+    })().catch((e) => { dashboardP = null; throw e; });
+  }
+  return dashboardP;
+}
+const isDemoBook = (v) => String(v ?? '').toLowerCase() === 'demo' || String(v ?? '') === String(DEMO_V3.index);
 
 // ---- x402 buyer (VoP on every payTo) and payee links ----
 const BOOK_SELLERS = (process.env.PAYONCE_BOOK_SELLERS ?? OWNER_ADDRESS).split(',').map((x) => x.trim()).filter(Boolean);
@@ -157,7 +200,7 @@ async function demoRun() {
 
 /** network=mainnet -> identity-only mainnet mode; anything else -> the testnet v3 check. */
 const isMainnet = (v) => String(v ?? '').toLowerCase() === 'mainnet';
-const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : vop.check(input));
+const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : isDemoBook(input?.book) ? vopDemo.check(input) : vop.check(input));
 
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
@@ -171,6 +214,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof AnchorError) return apiError(res, e.status, e.code, 'app', e.message, { retryable: e.retryable === true, ...(e.retry_after_s ? { retry_after_s: e.retry_after_s } : {}), ...(e.evidence_hash ? { evidence_hash: e.evidence_hash } : {}) });
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
+      if (e instanceof DashError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
     }
@@ -192,12 +236,13 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       check: 'GET /api/vop/check?seller=<acct>&payee=<acct>&name=<invoice payee name>[&buyer=<acct>][&network=mainnet]',
       rule: 'An agent pays only when payable=true: verdict MATCH, payee bound by its own signature, cooling-off over, proof anchored and re-verified with the node.',
     }))],
-    ['GET', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); return runCheck({ network: q.network, seller: q.seller, payee: q.payee, legal_name: q.name ?? q.legal_name, country: q.country, buyer: q.buyer }); })],
+    ['GET', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); return runCheck({ network: q.network, book: q.book, seller: q.seller, payee: q.payee, legal_name: q.name ?? q.legal_name, country: q.country, buyer: q.buyer }); })],
     // Alias for the interface the MCP / npm / GitHub Action packaging codes against (handoff V11): same service,
     // EPC lower-case vocabulary added as `epc_verdict`.
-    ['GET', /^\/api\/check-payee$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); const r = await runCheck({ network: q.network, seller: q.seller, payee: q.payee, legal_name: q.legal_name ?? q.name, country: q.country, buyer: q.buyer }); return { ...r, epc_verdict: r.verdict.toLowerCase() }; })],
+    ['GET', /^\/api\/check-payee$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); const r = await runCheck({ network: q.network, book: q.book, seller: q.seller, payee: q.payee, legal_name: q.legal_name ?? q.name, country: q.country, buyer: q.buyer }); return { ...r, epc_verdict: r.verdict.toLowerCase() }; })],
     ['POST', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); return runCheck(await readBody(req)); })],
     ['POST', /^\/api\/vop\/proofs$/, wrap(async (req) => { await limited('vop:proof', 6)(req); return vop.submitProof(await readBody(req, 256 * 1024)); })],
+    ['POST', /^\/api\/vop\/proofs\/diagnose$/, wrap(async (req) => { await limited('vop:diagnose', 6)(req); return vop.diagnose(await readBody(req, 256 * 1024)); })],
     ['GET', /^\/api\/vop\/proofs\/([0-9a-f]{64})$/, wrap(async (req, res, m) => { await limited('vop:proofget', 30)(req); return vop.getProof(m[1]); })],
     ['GET', /^\/api\/vop\/payee$/, wrap(async (req) => {
       await limited('vop:payee', 30)(req); const q = qs(req);
@@ -233,8 +278,16 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('p:card', 60)(req); return cards.card(m[1]); })],
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/check$/, wrap(async (req, res, m) => { await limited('vop:check', 30)(req); const q = qs(req); return cards.check(m[1], q.name ?? q.legal_name, { country: q.country, buyer: q.buyer }); })],
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
-    ['GET', /^\/api\/relay\/config$/, wrap(() => relayer.config())],
-    ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); return relayer.prepare(await readBody(req)); })],
+    ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
+    ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
+    // ---- /app dashboard on the demo book (dash.mjs) ----
+    ['POST', /^\/api\/payee\/propose$/, wrap(async (req) => { await limited('dash:propose', 6)(req); return (await dashboard()).propose(await readBody(req, 4096), clientIp(req)); })],
+    ['GET', /^\/api\/payee\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('dash:payee', 60)(req); return (await dashboard()).payeeStatus(m[1]); })],
+    ['POST', /^\/api\/getpaid$/, wrap(async (req) => { await limited('dash:getpaid', 6)(req); return (await dashboard()).startGetPaid(await readBody(req, 16 * 1024), clientIp(req)); })],
+    ['GET', /^\/api\/getpaid\/([0-9a-f]{24})$/, wrap(async (req, res, m) => { await limited('dash:job', 90)(req); return (await dashboard()).getJob(m[1]); })],
+    ['POST', /^\/api\/getpaid\/([0-9a-f]{24})\/redirect$/, wrap(async (req, res, m) => { await limited('dash:redirect', 6)(req); return (await dashboard()).redirect(m[1], await readBody(req, 4096), clientIp(req)); })],
+    ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/pay-tx$/, wrap(async (req, res, m) => { await limited('dash:paytx', 12)(req); return (await dashboard()).payTx(m[1], qs(req), clientIp(req)); })],
+    ['GET', /^\/api\/record\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('dash:record', 30)(req); return (await dashboard()).record(m[1]); })],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],
     ['POST', /^\/api\/relay\/submit$/, wrap(async (req) => { await relayLimited(req); return relayer.submit(await readBody(req, 128 * 1024)); })],
   ];
