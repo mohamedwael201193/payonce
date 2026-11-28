@@ -5,6 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 if [ "$(date -u +%H)" -lt 6 ] || [ "${FULL:-0}" = "1" ]; then rm -f badge_official.json vop_testnet_cache.json vop_mainnet_cache.json; echo "full revalidation"; fi
 rm -f vop_testnet_cache.json vop_mainnet_cache.json   # live verdicts are cheap (~250 + ~120 calls) and must be current
+# keep the previous snapshot so build_public.py can publish what changed (payee-change feed)
+for f in agents_mainnet.json agents_testnet.json census_public.json; do [ -f "$f" ] && cp "$f" "prev_$f"; done
 python3 dl_agents.py mainnet
 python3 dl_agents.py testnet
 python3 fetch_cards.py mainnet

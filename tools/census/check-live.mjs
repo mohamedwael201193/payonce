@@ -68,6 +68,16 @@ claim('L11', 'Census: the published numbers match a fresh read of the official r
   return { ok: t <= st.networks.testnet.agents && m <= st.networks.mainnet.agents && st.networks.testnet.agents - t < 400 && st.networks.mainnet.agents - m < 800, detail: `census ${t}/${m} vs indexer ${st.networks.testnet.agents}/${st.networks.mainnet.agents}` };
 });
 
+claim('L12', 'Mainnet check_payee is read-only and identity-only: never MATCH, never payable', async () => {
+  const q = new URLSearchParams({ network: 'mainnet', payee: '4VgCemxxqBmz5nzxPWYQUqFgKtLkecFb6Jdx4D73bBTCfiQXEc', name: 'Check Live Test' });
+  const { status, body } = await retry(() => j(`${API}/api/vop/check?${q}`));
+  return { ok: status === 200 && body?.mode === 'identity_only' && body?.payable === false && body?.verdict !== 'MATCH' && /^[0-9a-f]{64}$/.test(body?.evidence_hash ?? ''), detail: `HTTP ${status} ${body?.verdict} ${body?.identity_kind} via ${body?.subject?.source}` };
+});
+claim('L13', 'GET /api/census serves the census and it is fresh (refreshed within 14 h)', async () => {
+  const { status, body } = await retry(() => j(`${API}/api/census`));
+  return { ok: status === 200 && body?.schema === 'payonce-vop-census/v1' && body?.served?.stale === false, detail: `HTTP ${status} source ${body?.served?.source} age ${body?.served?.age_hours} h` };
+});
+
 const out = [];
 for (const c of claims) {
   let r; try { r = await c.fn(); } catch (e) { r = { ok: false, detail: `error: ${e.message}` }; }

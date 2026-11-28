@@ -39,6 +39,20 @@ if os.path.exists("x402_vop_results.json"):
     xs=json.load(open("x402_sellers.json"))
     out["x402_sellers"]["endpoints_probed"]=len(xs); out["x402_sellers"]["answering_402"]=sum(1 for x in xs if x.get("status")==402)
     out["x402_sellers"]["non_concordium_402_networks"]=dict(collections.Counter((a.get("network") or "?").split(":")[0] for x in xs for a in x.get("accepts") or [] if not (a.get("network") or "").startswith("ccd")))
+# Payee-change feed: what moved since the previous run (agentWallet = where money goes; "bank details changed" on chain).
+def snap(path):
+    return {str(a["token_id"]):a for a in json.load(open(path))} if os.path.exists(path) else None
+chg={}
+for n in ["mainnet","testnet"]:
+    old,new=snap(f"prev_agents_{n}.json"),snap(f"agents_{n}.json")
+    if old is None: continue
+    pay=lambda a:a.get("agent_wallet") or a["owner_account"]
+    both=set(old)&set(new)
+    moved=[{"token_id":int(t),"from":pay(old[t]),"to":pay(new[t]),"owner_unchanged":old[t]["owner_account"]==new[t]["owner_account"]} for t in sorted(both,key=int) if pay(old[t])!=pay(new[t])]
+    chg[n]={"new_agents":len(set(new)-set(old)),"removed_agents":len(set(old)-set(new)),"payee_changed":len(moved),"payee_changed_examples":moved[:25]}
+if chg:
+    prev=json.load(open("prev_census_public.json")).get("generated_at_utc") if os.path.exists("prev_census_public.json") else None
+    out["changes_since_previous_run"]={"previous_generated_at_utc":prev,"networks":chg,"meaning":"payee = agentWallet, or the owner when unset. A changed payee on an existing token is the on-chain form of 'our bank details changed'."}
 # Precise wording (the page must use these, not paraphrase): numbers are computed from this same file.
 m,t=out["networks"]["mainnet"],out["networks"]["testnet"]
 out["wording"]={
