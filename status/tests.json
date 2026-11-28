@@ -1,74 +1,84 @@
 {
-  "total": 1234,
-  "passing": 1226,
+  "total": 1235,
+  "passing": 1227,
   "failing": 0,
+  "skipped": 8,
   "suites": [
     {
       "suite": "agent",
       "runner": "node",
       "tests": 46,
       "pass": 46,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "api",
       "runner": "node",
-      "tests": 312,
-      "pass": 310,
-      "fail": 0
+      "tests": 313,
+      "pass": 311,
+      "fail": 0,
+      "skipped": 2
     },
     {
       "suite": "backend",
       "runner": "node",
       "tests": 210,
       "pass": 204,
-      "fail": 0
+      "fail": 0,
+      "skipped": 6
     },
     {
       "suite": "contracts-v2",
       "runner": "cargo",
       "tests": 80,
       "pass": 80,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "contracts-v2_1",
       "runner": "cargo",
       "tests": 83,
       "pass": 83,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "contracts-v3",
       "runner": "cargo",
       "tests": 101,
       "pass": 101,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "cosigner",
       "runner": "node",
       "tests": 35,
       "pass": 35,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "frontend",
       "runner": "vitest",
       "tests": 357,
       "pass": 357,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     },
     {
       "suite": "packages",
       "runner": "node",
       "tests": 10,
       "pass": 10,
-      "fail": 0
+      "fail": 0,
+      "skipped": 0
     }
   ],
-  "commit": "754143f3524c7cc93af902c38275c32638cd2fd2",
-  "run": "https://github.com/mohamedwael201193/payonce/actions/runs/46146479151",
-  "generated_at": "2026-11-28T12:54:31.396Z",
+  "commit": "37d8397c79302c9d9521c878898393c83c473d4d",
+  "run": "https://github.com/mohamedwael201193/payonce/actions/runs/46147004488",
+  "generated_at": "2026-11-28T12:59:09.555Z",
   "source": "parsed from the test runners’ own summaries in the CI run above (node --test, vitest, cargo concordium test)"
 }
