@@ -30,6 +30,7 @@ import { createPayeeCards } from './payee-card.mjs';
 import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
 import { BACKEND_DIR } from './backend.mjs';
+import { retryingReads } from './node-retry.mjs';
 import { pathToFileURL } from 'node:url';
 import { OWNER_ADDRESS } from './config.mjs';
 
@@ -60,7 +61,7 @@ export async function verifyPresentationKeyless({ version, presentation }) {
 }
 
 export const vop = createVopService({
-  grpc: async () => vClient(),
+  grpc: async () => retryingReads(vClient()), // reads only: retries the public node's 429s
   kv: { get: kvGet, put: kvPut },
   verifyPresentation: verifyPresentationKeyless,
   network: 'Testnet',
@@ -110,8 +111,8 @@ export const x402 = createX402Client({
 export const cards = createPayeeCards({
   kv: { get: kvGet },
   vop,
-  readBook: (seller, payee) => getPayeeRecord(vClient(), seller, payee),
-  readAccount: async (a) => { const id = await accountIdentity(vClient(), a); return { exists: !!id?.exists }; },
+  readBook: (seller, payee) => getPayeeRecord(retryingReads(vClient()), seller, payee),
+  readAccount: async (a) => { const id = await accountIdentity(retryingReads(vClient()), a); return { exists: !!id?.exists }; },
   bookSellers: BOOK_SELLERS,
   appBase: APP_BASE, apiBase: API_BASE,
 });

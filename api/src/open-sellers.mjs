@@ -192,7 +192,8 @@ export function createOpenSellers(deps) {
     const out = await mcp.agentsByOwner(account);
     const agents = (out?.agents ?? []).map((a) => ({
       token_id: Number(a.token_id ?? a.tokenId),
-      token_address: a.token_address ?? null,
+      // agents_by_owner does not always return the badge token address; it is derived from the official registry + token id (same as the listing check)
+      token_address: a.token_address ?? (Number.isInteger(Number(a.token_id ?? a.tokenId)) ? (mcp.tokenAddress?.(Number(a.token_id ?? a.tokenId)) ?? null) : null),
       status: a.status ?? null,
       agent_uri: a.agent_uri ?? null,
       agent_wallet: a.agent_wallet ?? null,

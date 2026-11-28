@@ -193,3 +193,12 @@ test('ecosystem verdicts: safe_to_pay, already_paid, do_not_pay', () => {
   const third = payableVerdict({ view: { ...view, payee: OTHER }, agent, badge: { badge_valid: true }, chainNowMs: now });
   assert.equal(third.checks.find((c) => c.id === 'payee_is_seller_wallet').status, 'warn');
 });
+
+test('status: an agent without a token_address from agents_by_owner still gets its badge checked (derived from the registry)', async () => {
+  const checked = [];
+  const { o } = setup({ mcp: { ...setup().deps.mcp, agentsByOwner: async () => ({ agents: [{ token_id: 1600, status: 'Active' }] }), checkBadge: async (a) => { checked.push(a); return { badge_valid: true, issues: [] }; } } });
+  const st = await o.status(SELLER);
+  assert.deepEqual(checked, ['BADGE1600']);
+  assert.equal(st.agents[0].badge_valid, true);
+  assert.equal(st.agents[0].token_address, 'BADGE1600');
+});
