@@ -64,8 +64,8 @@ async function loadIdentity() {
 /** What requestVerifiablePresentation (V0, the CryptoX / Web3 ID path) does: ZK-prove the statements for this account's credential. */
 async function proveV0(challenge, statements) {
   await loadIdentity();
-  const credId = w.getCredentialId(0, ID, CRED, g.value);
-  const attrs = idObject.attributeList.chosenAttributes;
+  const credId = Buffer.from(w.getCredentialId(0, ID, CRED, g.value)).toString('hex');
+  const attrs = idObject.attributeList; // the SDK reads attributes.chosenAttributes itself
   const atomic = statements.flatMap((x) => x.statement);
   const ci = sdk.createAccountCommitmentInputWithHdWallet(atomic, 0, attrs, w, ID, CRED);
   const pres = sdk.getVerifiablePresentation({

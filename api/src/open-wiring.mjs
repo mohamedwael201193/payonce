@@ -1,6 +1,7 @@
 // PayOnce API - wiring of the open-seller flow and the ecosystem verifier into the live server.
 // Real adapters (gRPC, the official registry MCP, the payer's signer) live here; the decisions live in
 // open-sellers.mjs and ecosystem-verify.mjs, which are unit-tested with stubs.
+import { retryingReads } from './node-retry.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -124,7 +125,7 @@ export const chainAdapter = {
   async getVendor(buyer, seller) { return getVendor(await grpc(), buyer, seller); },
   agentOf: agentWith,
   async verifySignature(account, message, signature) {
-    const c = await grpc();
+    const c = retryingReads(await grpc()); // reads only: retries the public node's 429s
     const info = await c.getAccountInfo(AccountAddress.fromBase58(account));
     return verifyMessageSignature(message, signature, info);
   },

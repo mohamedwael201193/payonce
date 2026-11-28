@@ -111,11 +111,11 @@ export function listingChallengeText({ account, agentToken, nonce, expiresIso, p
 /**
  * Pure listing decision from gathered evidence. Every requirement is a named check; any fail -> refuse.
  */
-export function listingDecision({ account, agent, badge, signatureOk, challengeOk, alreadyListed, budgetOk, internalAccounts = [] }) {
+export function listingDecision({ account, agent, badge, signatureOk, signatureError = null, challengeOk, alreadyListed, budgetOk, internalAccounts = [] }) {
   const checks = [];
   const add = (id, label, ok, detail) => checks.push({ id, label, status: ok ? 'ok' : 'fail', detail });
   add('challenge', 'One-time challenge is fresh and unused', challengeOk, challengeOk ? 'nonce accepted' : 'the challenge is missing, expired or already used: ask for a new one');
-  add('wallet_signature', 'You control the account (wallet signature verified against its on-chain keys)', signatureOk, signatureOk ? 'signature verified on chain keys' : 'the signature does not verify for this account');
+  add('wallet_signature', 'You control the account (wallet signature verified against its on-chain keys)', signatureOk, signatureOk ? 'signature verified on chain keys' : (signatureError ? `could not check the signature: ${signatureError}` : 'the signature does not verify for this account'));
   const active = agent?.status === 'Active';
   const owner = agent?.owner === account;
   add('agent_active', 'Your CIS-8004 agent is Active on the official registry <12802,0>', Boolean(agent) && active, agent ? `status=${agent.status}` : 'no such agent token');
@@ -316,9 +316,9 @@ export function createOpenSellers(deps) {
     const tokenId = Number(agent_token);
     const ch = typeof nonce === 'string' ? await kv.get('open_challenge', nonce) : null;
     const challengeOk = Boolean(ch && !ch.used && ch.account === account && ch.agent_token === tokenId && ch.expires_ms > now());
-    let signatureOk = false;
+    let signatureOk = false; let signatureError = null;
     if (challengeOk && signature && typeof signature === 'object') {
-      try { signatureOk = await chain.verifySignature(account, ch.message, signature); } catch { signatureOk = false; }
+      try { signatureOk = await chain.verifySignature(account, ch.message, signature); } catch (e) { signatureOk = false; signatureError = String(e?.message ?? e).slice(0, 160); }
     }
     let agent = null;
     try { agent = await chain.agentOf(tokenId); } catch { agent = null; }
@@ -329,7 +329,7 @@ export function createOpenSellers(deps) {
     try { vendorRow = await chain.getVendor(payer, account); } catch { vendorRow = null; }
     const alreadyListed = listed.has(account) || Boolean(vendorRow);
     const budget = hitWindow ? await hitWindow('open:listings:day', 86_400_000, OPEN_POLICY.listingsPerDay) : { allowed: true };
-    const decision = listingDecision({ account, agent, badge, signatureOk, challengeOk, alreadyListed, budgetOk: budget.allowed, internalAccounts });
+    const decision = listingDecision({ account, agent, badge, signatureOk, signatureError, challengeOk, alreadyListed, budgetOk: budget.allowed, internalAccounts });
     if (!decision.allow) {
       // A seller that is already on the list on chain (e.g. re-onboarding) is restored into the mirror, not refused.
       if (alreadyListed && decision.checks.filter((c) => c.status === 'fail').every((c) => c.id === 'not_listed') && vendorRow && !listed.has(account)) {

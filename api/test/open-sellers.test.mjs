@@ -202,3 +202,11 @@ test('status: an agent without a token_address from agents_by_owner still gets i
   assert.equal(st.agents[0].badge_valid, true);
   assert.equal(st.agents[0].token_address, 'BADGE1600');
 });
+
+test('a node error while checking the signature is reported as such, not as a bad signature', async () => {
+  const { o } = setup({ chain: { ...setup().deps.chain, verifySignature: async () => { throw new Error('Received HTTP status code 429'); } } });
+  const ch = await o.challenge({ account: SELLER, agent_token: 1600 });
+  const r = await o.list({ account: SELLER, agent_token: 1600, nonce: ch.nonce, signature: { ok: true } }, { ip: '1.1.1.1' });
+  const c = r.checks.find((x) => x.id === 'wallet_signature');
+  assert.equal(r.listed, false); assert.match(c.detail, /could not check the signature: .*429/);
+});
