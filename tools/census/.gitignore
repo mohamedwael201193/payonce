@@ -2,3 +2,5 @@ prev_*
 *.log
 __pycache__/
 *_cache.json.tmp
+vop_testnet_cache.json
+vop_mainnet_cache.json

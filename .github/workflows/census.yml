@@ -62,5 +62,11 @@ jobs:
           git add tools/census
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "census: refresh $(date -u +%Y-%m-%dT%H:%MZ) [skip render]"
-          for i in 1 2 3 4; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          # Other workers push to main too and may touch census_public.json: on a conflict the freshly generated data wins (-X theirs
+          # = the commit being replayed). A failed attempt is aborted cleanly before the next one.
+          for i in 1 2 3 4; do
+            if git pull --rebase -X theirs origin main && git push origin HEAD:main; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((i*5))
+          done
           exit 1
