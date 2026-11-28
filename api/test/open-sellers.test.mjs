@@ -210,3 +210,13 @@ test('a node error while checking the signature is reported as such, not as a ba
   const c = r.checks.find((x) => x.id === 'wallet_signature');
   assert.equal(r.listed, false); assert.match(c.detail, /could not check the signature: .*429/);
 });
+
+test('the register_payable schema is read lazily (a getter filled after startup must still reach the wallet)', async () => {
+  let loaded = null; const base = setup().deps;
+  const deps = { ...base }; delete deps.registerPayableSchemaB64;
+  Object.defineProperty(deps, 'registerPayableSchemaB64', { get: () => loaded, enumerable: true });
+  const o = (await import('../src/open-sellers.mjs')).createOpenSellers(deps);
+  assert.equal((await o.config()).register_payable.schema, null);
+  loaded = 'AAEC';
+  assert.deepEqual((await o.config()).register_payable.schema, { type: 'parameter', value: 'AAEC' });
+});

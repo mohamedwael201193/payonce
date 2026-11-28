@@ -137,8 +137,10 @@ const cardKey = (account, n) => `${account}/${n}`;
 export function createOpenSellers(deps) {
   const {
     kv, chain, mcp, payer, registry, apiPublicBase, explorerTx, now = () => Date.now(), hitWindow,
-    internalAccounts = [], registerPayableSchemaB64, cis8004Schemas, payWithAgent, onInvoiceRecorded = async () => {},
+    internalAccounts = [], cis8004Schemas, payWithAgent, onInvoiceRecorded = async () => {},
   } = deps;
+  // read lazily: open-wiring exposes it as a getter that is filled after the module schema loads at startup (a destructured copy stayed null)
+  const schemaB64 = () => deps.registerPayableSchemaB64 ?? null;
 
   const listed = new Map(); // account -> record (in-memory mirror of kv 'open_seller')
   let loaded = false;
@@ -183,7 +185,7 @@ export function createOpenSellers(deps) {
         listing_requires: ['wallet signature on a one-time challenge', 'Active CIS-8004 agent owned by the account', 'official badge_valid:true'],
         enforced_on_chain: ['vendor row (buyer, seller) with caps: over-cap payments revert -23', 'strict vendor list: unlisted sellers revert -19 (EUDemo) / refused before signing (CCD)', 'pay exactly once (-5/-16), exact amount (-6), expected payer (-21)'],
       },
-      register_payable: { receive_name: `${registry.name}.register_payable`, max_energy: 9000, schema: registerPayableSchemaB64 ? { type: 'parameter', value: registerPayableSchemaB64 } : null },
+      register_payable: { receive_name: `${registry.name}.register_payable`, max_energy: 9000, schema: schemaB64() ? { type: 'parameter', value: schemaB64() } : null },
       listed_sellers: allListed().length,
     };
   }
@@ -395,7 +397,7 @@ export function createOpenSellers(deps) {
         amount_micro_ccd: '0',
         max_energy: 9000,
         parameter_json: registerPayableParameterJson({ payableId, payee: pay, amountMicro, dueIso, docHashHex: docHash, agentToken: rec.agent_token, payer }),
-        schema: registerPayableSchemaB64 ? { type: 'parameter', value: registerPayableSchemaB64 } : null,
+        schema: schemaB64() ? { type: 'parameter', value: schemaB64() } : null,
       },
     };
   }
