@@ -266,3 +266,12 @@ test('submitProof: verifies, checks the holder, stores by anchor, returns the id
   const other = pres({ legalName: 'Acme GmbH' }); other.verifiableCredential[0].credentialSubject.id = `did:ccd:testnet:cred:${'c'.repeat(96)}`;
   await assert.rejects(svc.submitProof({ payee: PAYEE, presentation: other }), /not a credential of that account/);
 });
+test('check_payee: a rate-limited node gives no verdict (503), never a cached failure', async () => {
+  const p = pres({ legalName: 'Acme GmbH' });
+  const svc = createVopService({
+    grpc: async () => ({ async getAccountInfo() { return { accountCredentials: { 0: { value: { contents: { credId: CRED, ipIdentity: 4 } } } } }; }, async invokeContract({ method }) { return { tag: 'success', returnValue: String(method.value ?? method).endsWith('get_payee') ? recordBuf(presentationAnchor(p), legalNameHash('Acme GmbH')) : Buffer.from([0]) }; } }),
+    kv: { get: async (ns, k) => (ns === 'vop_proof' ? { presentation: p, version: 'v1' } : null), put: async () => {} },
+    verifyPresentation: async () => ({ ok: false, reason: 'HTTP 429', transient: true }), now: () => NOW,
+  });
+  await assert.rejects(svc.check({ seller: SELLER, payee: PAYEE, legal_name: 'Acme GmbH' }), (e) => e.status === 503 && e.code === 'node_busy');
+});

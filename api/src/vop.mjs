@@ -146,7 +146,7 @@ export function decideVop({ invoice, account, proof = null, book = null, nowMs =
     out.verified_name = standin.legal_name;
     out.verified_country = standin.country ?? null;
     out.verdict = cmp.result;
-    reasons.push(`TESTNET STAND-IN (${standin.label ?? 'no business identity issued yet'}): the name is declared, not proven. Real VoP needs a Global FinReg presentation.`);
+    reasons.push(`${standin.label ?? 'TESTNET STAND-IN: no business identity issued yet'}. Real VoP needs a Global FinReg presentation.`);
     const agrees = book?.identity?.legal_name_hash ? add('book_name_matches_proof', book.identity.legal_name_hash === legalNameHash(standin.legal_name), 'the legal-name hash the payee signed into the payee book equals the stand-in name') : true;
     out.payable = cmp.result === VERDICT.MATCH && agrees && bookPayable(book, nowMs);
     return out;

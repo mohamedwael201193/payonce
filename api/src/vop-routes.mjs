@@ -30,10 +30,18 @@ export async function verifyPresentationKeyless({ version, presentation }) {
   }
   let pres;
   try { pres = VerifiablePresentationV1.fromJSON(presentation); } catch (e) { return { ok: false, reason: `malformed V1 presentation (${String(e?.message ?? e).slice(0, 80)})` }; }
-  try {
-    const r = await VerifiablePresentationV1.verifyWithNode(pres, vClient(), 'Testnet');
-    return r?.type === 'success' ? { ok: true } : { ok: false, reason: String(r?.error?.message ?? r?.error ?? 'node verification failed').slice(0, 200) };
-  } catch (e) { return { ok: false, reason: String(e?.message ?? e).slice(0, 200) }; }
+  // The public node rate-limits (HTTP 429 / UNAVAILABLE): that is "no answer", not "invalid". Retry with backoff.
+  let last = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const r = await VerifiablePresentationV1.verifyWithNode(pres, vClient(), 'Testnet');
+      if (r?.type === 'success') return { ok: true };
+      last = { ok: false, reason: String(r?.error?.message ?? r?.error ?? 'node verification failed').slice(0, 200) };
+    } catch (e) { last = { ok: false, reason: String(e?.message ?? e).slice(0, 200) }; }
+    if (!/429|UNAVAILABLE|RESOURCE_EXHAUSTED|ECONNRESET|ETIMEDOUT/.test(last.reason)) return last;
+    await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+  }
+  return { ...last, transient: true };
 }
 
 export const vop = createVopService({

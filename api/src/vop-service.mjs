@@ -62,7 +62,8 @@ export function createVopService(deps) {
     const hit = verifyCache.get(anchor);
     if (hit && now() - hit.at < 10 * 60_000) return hit;
     const r = await deps.verifyPresentation({ version, presentation });
-    const v = { at: now(), ok: !!r.ok, reason: r.reason ?? null };
+    const v = { at: now(), ok: !!r.ok, reason: r.reason ?? null, transient: !!r.transient };
+    if (r.transient) throw new VopError(503, 'node_busy', 'The node did not answer while re-verifying the payee proof; try again (no verdict given).');
     if (r.ok) verifyCache.set(anchor, v);
     return v;
   }
@@ -147,6 +148,7 @@ export function createVopService(deps) {
     const payee = String(body?.payee ?? '');
     if (!ADDR.test(payee)) throw new VopError(400, 'bad_address', 'payee (the account the proof is for) is required.');
     const v = await deps.verifyPresentation({ version, presentation: pres });
+    if (!v.ok && v.transient) throw new VopError(503, 'node_busy', `The node did not answer (${String(v.reason ?? '').slice(0, 120)}); try again.`);
     if (!v.ok) throw new VopError(422, 'proof_invalid', `The presentation did not verify: ${String(v.reason ?? '').slice(0, 200)}`);
     const facts = factsFromPresentation(pres);
     const c = await deps.grpc();

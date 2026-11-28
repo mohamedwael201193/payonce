@@ -92,6 +92,14 @@ if (PHASE === 'standin-bind') {
   await done();
 }
 
+if (PHASE === 'fraud-proof' && (await kvGet('vop_demo_pres', FRAUD.address))) {
+  // Resume: the presentation was built before (its VRA is on chain); only the keyless intake is retried.
+  const saved = await kvGet('vop_demo_pres', FRAUD.address);
+  out.resumed = true; out.vra_tx = saved.vra_tx;
+  out.submit = await vop.submitProof({ payee: FRAUD.address, presentation: saved.presentation, version: 'v1', nonce_expected: saved.nonce, anchor_tx: null });
+  await done();
+}
+
 if (PHASE === 'fraud-proof') {
   // Headless V1 presentation from the seed-derived credential of the fraud account (identity 0/1, credential 3):
   // it proves EU nationality and reveals no name. Anchored request (VRA) sent by the owner.
@@ -112,8 +120,9 @@ if (PHASE === 'fraud-proof') {
   const rand = Buffer.from(hd.getAttributeCommitmentRandomness(0, 1, 3, 'nationality')).toString('hex');
   const presentation = await VerifiablePresentationV1.createFromAnchor(c, request, vclaims, [{ type: 'account', issuer: 0, values: { nationality: 'DK' }, randomness: { nationality: rand } }], []);
   const pj = JSON.parse(J(presentation.toJSON ? presentation.toJSON() : presentation));
-  out.submit = await vop.submitProof({ payee: FRAUD.address, presentation: pj, version: 'v1', nonce_expected: nonce, anchor_tx: null });
+  await kvPut('vop_demo_pres', FRAUD.address, { presentation: pj, nonce, vra_tx: vra });
   out.vra_tx = vra;
+  out.submit = await vop.submitProof({ payee: FRAUD.address, presentation: pj, version: 'v1', nonce_expected: nonce, anchor_tx: null });
   await done();
 }
 
