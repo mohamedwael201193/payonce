@@ -125,7 +125,9 @@ export const chainAdapter = {
   async getVendor(buyer, seller) { return getVendor(await grpc(), buyer, seller); },
   agentOf: agentWith,
   async verifySignature(account, message, signature) {
-    const c = retryingReads(await grpc()); // reads only: retries the public node's 429s
+    // The api's own SDK client: the backend's grpc() client belongs to another copy of web-sdk, whose AccountAddress class this
+    // SDK's getAccountInfo rejects ("Unsupported account identifier"). Reads only, with retry for the public node's 429s.
+    const c = retryingReads(vClient());
     const info = await c.getAccountInfo(AccountAddress.fromBase58(account));
     return verifyMessageSignature(message, signature, info);
   },
