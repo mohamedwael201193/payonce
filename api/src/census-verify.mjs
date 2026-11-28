@@ -48,7 +48,7 @@ export function censusAccounts(rows) {
 export function seededRandom(seed) { let s = Number(seed) >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
 
 /** Pure: compare census attributions with what a node says. `readIdps(addr)` -> array of provider names (or throws). */
-export async function verifyNetwork({ net, rows, readIdps, n = 25, seed = 7, concurrency = 4 }) {
+export async function verifyNetwork({ net, rows, readIdps, n = 25, seed = 7, concurrency = 2 }) {
   const m = censusAccounts(rows); const all = [...m.keys()].sort();
   const biz = all.filter((a) => isBusiness(setOf(m.get(a))));
   const rnd = seededRandom(seed); const chosen = new Set(biz);
@@ -84,7 +84,12 @@ export function nodeClient(net) {
   return (clients[net] ??= new ConcordiumGRPCNodeClient(host, 20000, credentials.createSsl()));
 }
 export async function nodeIdps(net, address, client = nodeClient(net)) {
-  const info = await client.getAccountInfo(AccountAddress.fromBase58(address));
+  // The public nodes rate-limit (HTTP 429 / RESOURCE_EXHAUSTED): a read is safe to repeat, so back off and retry.
+  let info;
+  for (let i = 0; ; i++) {
+    try { info = await client.getAccountInfo(AccountAddress.fromBase58(address)); break; }
+    catch (e) { if (i >= 5 || !/429|RESOURCE_EXHAUSTED|UNAVAILABLE|ETIMEDOUT|ECONNRESET/i.test(String(e?.message ?? e))) throw e; await new Promise((r) => setTimeout(r, 1500 * (i + 1))); }
+  }
   return Object.values(info.accountCredentials ?? {}).map((x) => { const i = Number(x.value?.contents?.ipIdentity); return IDP_NAMES[net][i] ?? `idp ${i}`; });
 }
 
@@ -115,7 +120,8 @@ export async function loadAndVerify({ fetchImpl = fetch, readLocal, run = runVer
     // the sample changes daily (seed = UTC date) so repeated visits widen the evidence, and any day can be re-derived
     const d = new Date(now()); const seed = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
     const value = await run({ rowsByNet, censusGeneratedAt: gen, seed, runBy: 'api', now });
-    cached = { at: now(), value }; return { ...value, cached: false };
+    // a run with node errors is not worth keeping for 30 min: retry soon
+    cached = { at: now() - (value.all_agree ? 0 : ttlMs - 60_000), value }; return { ...value, cached: false };
   })().finally(() => { inflight = null; });
   return inflight;
 }
