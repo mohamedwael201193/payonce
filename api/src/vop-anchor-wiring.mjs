@@ -31,7 +31,10 @@ export function registeredDataHex(summary) {
   return hex ? hex.toLowerCase() : null;
 }
 export async function txStatus(txHash) {
-  const s = await getTx(await grpc(), txHash);
+  let s;
+  for (let i = 0; ; i++) { // the public node rate-limits (429): a read is safe to repeat
+    try { s = await getTx(await grpc(), txHash); break; } catch (e) { if (i >= 3 || !/429|RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(String(e?.message ?? e))) throw e; await new Promise((r) => setTimeout(r, 1200 * (i + 1))); }
+  }
   return { status: s.status, dataHex: registeredDataHex(s.summary) };
 }
 
