@@ -77,8 +77,8 @@
       "skipped": 0
     }
   ],
-  "commit": "37d8397c79302c9d9521c878898393c83c473d4d",
-  "run": "https://github.com/mohamedwael201193/payonce/actions/runs/46147004488",
-  "generated_at": "2026-11-28T12:59:09.555Z",
+  "commit": "8a20c40794da4f7168d93cdf8baa6caeea49c875",
+  "run": "https://github.com/mohamedwael201193/payonce/actions/runs/46154029414",
+  "generated_at": "2026-11-28T14:23:54.858Z",
   "source": "parsed from the test runners’ own summaries in the CI run above (node --test, vitest, cargo concordium test)"
 }
