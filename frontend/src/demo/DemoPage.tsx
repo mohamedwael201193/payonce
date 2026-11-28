@@ -1,13 +1,16 @@
 // /demo: the whole idea in six screens and about a minute. One button per
 // screen, a few words each. The run comes from loadDemoRun(): a fresh real
 // run when the API has one, otherwise a labelled replay of a recorded run.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { VerdictMark } from '../app/run/Visuals'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
 import { RECORDED_RUN, loadDemoRun, txUrl, type DemoRun } from './demoData'
+import { PayeeDiff } from '../dash/motion'
+import { lookalike, sharedEnds } from '../dash/lookalike'
+import '../dash/dash.css'
 import './demo.css'
 
 const SCREENS = ['Which one?', 'Check', 'Pay once', 'Impostor', 'Twice?', 'Next'] as const
@@ -59,6 +62,12 @@ export function DemoPage() {
 
   const next = () => setI((n) => Math.min(n + 1, SCREENS.length - 1))
   const imp = run.impostor
+  const diffAcct = useMemo(() => {
+    const e = sharedEnds(run.good.account, imp.account)
+    if (e.head + e.tail >= 8) return { asked: imp.account, illustration: false }
+    const l = lookalike(run.good.account)
+    return l ? { asked: l, illustration: true } : null
+  }, [run.good.account, imp.account])
 
   let body: React.ReactNode
   switch (i) {
@@ -100,6 +109,7 @@ export function DemoPage() {
           <p className="dm-mail">“Our bank details changed. Please pay <code>{short(imp.account)}</code> instead.”</p>
           <div className="dm-verdict dm-verdict--bad"><VerdictMark kind="no_match" size={84} /><h2 className="dm-h">No match</h2></div>
           <p className="dm-sub">{imp.headline}</p>
+          {diffAcct ? <div className="dm-diff"><PayeeDiff real={run.good.account} asked={diffAcct.asked} realLabel="The real payee" askedLabel={diffAcct.illustration ? 'A lookalike an attacker could make' : 'The account in the email'} illustration={diffAcct.illustration} /></div> : null}
           {imp.refusal ? (
             <>
               <p className="dm-sub">Forced anyway, the chain refused: {imp.refusal.name} ({imp.refusal.code}).</p>

@@ -102,18 +102,109 @@ export interface RedirectResult {
   refusal: { code: number; name: string; tx_hash: string } | null
 }
 
-/** PLANNED (WS3): GET /api/x402/sellers -> live x402 services run by other teams. */
+/** EXISTS (WS3): GET /api/x402/sellers -> live x402 services run by other teams (Concordium testnet). */
 export interface X402Seller {
   id: string
   name: string
   team: string
   url: string
-  price_display: string
-  pay_to: string
-  needs_age: boolean
+  method: 'GET' | 'POST'
+  price_ccd: string
+  note: string
+  body?: unknown
+  /** PLANNED: set by WS3 when the service demands an 18+ proof. Absent today. */
+  needs_age?: boolean
+}
+export interface X402SellersResponse {
+  sellers: X402Seller[]
+  policy: { network: string; max_ccd_per_purchase: string; asset: string; payer: string; outcomes: string[] }
 }
 
-/** PLANNED (WS1): GET /api/p/:account/pay-tx?payer=&amount_micro= -> the exact pay transaction for the payer's wallet. */
+export type Outcome = 'match' | 'close_match' | 'no_match' | 'not_possible'
+export interface X402Decision {
+  outcome: Outcome
+  action: 'pay' | 'ask_human' | 'refuse'
+  human_can_override: boolean
+  why: string
+}
+/** EXISTS (WS3): POST /api/x402/probe { url, method, body?, name } -> free; never pays. */
+export interface X402Probe {
+  url: string
+  name: string
+  requires_payment: boolean
+  selected?: { amount: string; amount_ccd: string; pay_to: string; network: string }
+  pay_to?: string
+  check: { verdict: Verdict; payable: boolean; verified_name: string | null; identity_kind: string | null; reasons: string[]; checks: { id: string; ok: boolean; detail: string }[]; evidence_hash: string | null } | null
+  decision: X402Decision
+}
+/** EXISTS (WS3): POST /api/x402/buy { seller_id, name?, approved? } (3/h per IP). The reference buyer pays, not the visitor. */
+export interface X402Buy extends X402Probe {
+  paid: boolean
+  tx_hash?: string | null
+  explorer_url?: string | null
+  delivered?: boolean
+  http_status?: number
+  response_preview?: string
+  note?: string
+}
+
+/** EXISTS (WS3): GET /api/p/:account (the payee card) and GET /api/p/:account/check?name= */
+export interface PayeeCard {
+  account: string
+  exists: boolean | null
+  verified: boolean
+  name: string | null
+  kind: 'person' | 'business' | null
+  proof: { version: string; verified_at: string; issuer: string | null; vra_tx: string | null; vaa_tx: string | null } | null
+  bound: { status: string; seller?: string; hold_over?: boolean; version?: number } | null
+  label: string
+  testnet_note: string
+  links: { page: string; check_payee: string; card_json: string; pay_with_wallet: string }
+}
+
+/** EXISTS (WS3): GET /api/census (tools/census/census_public.json + served{}). Wording rules: tools/census/METHOD.md. */
+export interface CensusNet {
+  agents_total: number
+  active: number
+  badge_valid_official: number
+  agents_that_pass_vop_today: number
+  pct_pass_vop_today: number
+  valid_badge_but_payee_has_only_personal_identity_or_none: number
+  payee_equals_owner_default: number
+  payee_not_set: number
+  owner_ne_payee: number
+  distinct_owners: number
+  distinct_owners_with_business_id: number
+  cards_mentioning_x402_text: number
+  owner_identity_provider_breakdown: Record<string, number>
+}
+export interface Census {
+  schema: string
+  generated_at_utc: string
+  vop_rule: string
+  networks: { mainnet: CensusNet; testnet: CensusNet }
+  check_payee_live_on_testnet_payees: { accounts_checked: number; verdicts: Record<string, number>; note: string }
+  x402_sellers: {
+    concordium_endpoints_checked: number
+    rows: { endpoint: string; network: string; payTo: string; amount: string; asset: string; check_payee_verdict: Verdict; payTo_business_id: boolean }[]
+    payTo_with_business_identity: number
+    endpoints_probed: number
+    answering_402: number
+    non_concordium_402_networks: Record<string, number>
+  }
+  served: { source: string; served_at: string; age_hours: number | null; stale: boolean; refresh: string }
+}
+
+/** PLANNED (WS1): wallet-signed 18+ proof for the visitor (V&A V1 in the wallet, V0 on phones).
+    POST /api/wallet/age-proof/request { account, seller_id } -> { request_id, v1?, v0? }
+    POST /api/wallet/age-proof/verify  { request_id, version, presentation } -> { verified, vaa_tx|null }.
+    The existing /api/age-proof/v1 is a hosted check with one PayOnce testnet credential; it is not the visitor's proof. */
+export interface AgeRequest { request_id: string; v1?: unknown; v0?: { challenge: string; statements: unknown } }
+export interface AgeVerified { verified: boolean; vaa_tx: string | null }
+
+/** PLANNED (WS1): GET /api/p/:account/pay-tx?payer=&amount_micro=[&approved=1] -> the exact pay transaction for the payer's wallet.
+    Refuses NO_MATCH always. CLOSE_MATCH / UNVERIFIED only with approved=1 (the human decided; the contract's acknowledge_payee accepts CLOSE_MATCH,
+    the agent itself pays only on MATCH). */
 export interface PayLinkTx {
   transaction: import('../wallet/types').UpdateTx
   check: CheckPayee
@@ -161,9 +252,22 @@ export const dashApi = {
   getPaidJob: (job: string) => planned<GetPaidJob>('GET /api/getpaid/:job', `/api/getpaid/${q(job)}`),
   redirect: (job: string, to: string) =>
     planned<RedirectResult>('POST /api/getpaid/:job/redirect', `/api/getpaid/${q(job)}/redirect`, { method: 'POST', body: { to } }),
-  x402Sellers: () => planned<{ sellers: X402Seller[] }>('GET /api/x402/sellers', '/api/x402/sellers'),
-  payLinkTx: (payee: string, payer: string, amountMicro: string) =>
-    planned<PayLinkTx>('GET /api/p/:account/pay-tx', `/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}`),
+  // EXISTS (WS3)
+  x402Sellers: () => walletApi<X402SellersResponse>('/api/x402/sellers'),
+  x402Probe: (s: X402Seller) =>
+    walletApi<X402Probe>('/api/x402/probe', { method: 'POST', body: { url: s.url, method: s.method, name: s.name, ...(s.method === 'POST' && s.body !== undefined ? { body: s.body } : {}) } }),
+  x402Buy: (s: X402Seller, approved: boolean) =>
+    walletApi<X402Buy>('/api/x402/buy', { method: 'POST', body: { seller_id: s.id, name: s.name, approved } }),
+  payeeCard: (account: string) => walletApi<PayeeCard>(`/api/p/${q(account)}`),
+  payeeCheck: (account: string, name: string) => walletApi<CheckPayee>(`/api/p/${q(account)}/check?name=${q(name)}`),
+  census: () => walletApi<Census>('/api/census'),
+  // PLANNED (WS1)
+  ageRequest: (account: string, sellerId: string) =>
+    planned<AgeRequest>('POST /api/wallet/age-proof/request', '/api/wallet/age-proof/request', { method: 'POST', body: { account, seller_id: sellerId } }),
+  ageVerify: (requestId: string, version: string, presentation: string) =>
+    planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
+  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false) =>
+    planned<PayLinkTx>('GET /api/p/:account/pay-tx', `/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}`),
   record: (account: string) => planned<{ items: RecordItem[] }>('GET /api/record/:account', `/api/record/${q(account)}`),
 }
 

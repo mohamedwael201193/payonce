@@ -2,7 +2,7 @@
 // R0 Connect · R1 Prove your name · R2 Become a payee · R3 Get paid · R4 Now you pay · R5 Your record.
 // Real today: wallet connect, the name proof, check_payee, the relay prepare call, tx status.
 // Every PLANNED call (contracts.ts) shows "not live yet" when the API answers 404; nothing is faked.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,7 +15,10 @@ import { FAKE_PAYEE } from '../app/run/flow'
 import { AGENTS } from '../app/identity'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
-import { NotShipped, dashApi, type CheckPayee, type GetPaidJob, type RedirectResult, type X402Seller, type RecordItem } from './contracts'
+import { NotShipped, dashApi, type CheckPayee, type GetPaidJob, type RedirectResult, type RecordItem } from './contracts'
+import { HumanGate } from './gates'
+import { Services } from './Services'
+import { lookalike } from './lookalike'
 import { acceptPayeeParamHex } from './params'
 import { ChainBar, CheckTicks, HoldRing, PayeeDiff, Stamp, useTxStatus } from './motion'
 import '../app/run/run.css'
@@ -116,7 +119,7 @@ function Flow() {
   const proofQ = useQuery({ queryKey: ['payee-proof', acct], enabled: !!acct, queryFn: () => dashApi.payeeProof(acct!) })
   const proof = proofQ.data?.proof ?? null
   const [params] = useSearchParams()
-  const payParam = params.get('pay')
+  const payParam = params.get('pay') ?? params.get('payee')
   const [step, setStep] = useState(payParam ? 4 : 0)
   const [kind, setKind] = useState<'person' | 'business'>('person')
   const [prove, setProve] = useState<Async<true>>({ s: 'idle' })
@@ -135,7 +138,7 @@ function Flow() {
   const [outAt, setOutAt] = useState(0)
   const outSt = useTxStatus(outTx)
   const [outPay, setOutPay] = useState<Async<true>>({ s: 'idle' })
-  const [x402, setX402] = useState<Async<X402Seller[]>>({ s: 'idle' })
+  const [declined, setDeclined] = useState(false)
   const [record, setRecord] = useState<Async<RecordItem[]>>({ s: 'idle' })
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
@@ -205,22 +208,23 @@ function Flow() {
     if (job.s !== 'done') return
     try {
       setRedir({ s: 'busy', note: 'Telling the agent to pay another account…' })
-      setRedir({ s: 'done', v: await dashApi.redirect(job.v.job_id, FAKE_PAYEE) })
+      setRedir({ s: 'done', v: await dashApi.redirect(job.v.job_id, fakePayee) })
     } catch (e) { setRedir(errOf(e)) }
   }
 
   async function checkOut() {
     try {
+      setDeclined(false)
       setOutCheck({ s: 'busy', note: 'Checking who you are paying…' })
       setOutCheck({ s: 'done', v: await dashApi.checkPayee(DEMO_SELLER, payTo.trim(), payName.trim()) })
     } catch (e) { setOutCheck(errOf(e)) }
   }
 
-  async function payOut() {
+  async function payOut(approved = false) {
     if (!w.session || !acct || outCheck.s !== 'done') return
     try {
       setOutPay({ s: 'busy', note: 'Building the payment…' })
-      const t = await dashApi.payLinkTx(payTo.trim(), acct, '1000000')
+      const t = await dashApi.payLinkTx(payTo.trim(), acct, '1000000', approved)
       setOutPay({ s: 'busy', note: 'Approve in your wallet.' })
       setOutAt(Date.now())
       setOutTx(await w.session.sendUpdate(t.transaction))
@@ -228,9 +232,6 @@ function Flow() {
     } catch (e) { setOutPay(errOf(e)) }
   }
 
-  async function loadX402() {
-    try { setX402({ s: 'busy', note: 'Loading services…' }); setX402({ s: 'done', v: (await dashApi.x402Sellers()).sellers }) } catch (e) { setX402(errOf(e)) }
-  }
   async function loadRecord() {
     if (!acct) return
     try { setRecord({ s: 'busy', note: 'Loading…' }); setRecord({ s: 'done', v: (await dashApi.record(acct)).items }) } catch (e) { setRecord(errOf(e)) }
@@ -239,6 +240,7 @@ function Flow() {
 
   const need = !acct && step > 0 ? <p className="ds-note">Connect your wallet first.</p> : null
   const balance = bal.data?.balance_ccd ?? null
+  const fakePayee = useMemo(() => (acct ? lookalike(acct) : null) ?? FAKE_PAYEE, [acct])
 
   let card: React.ReactNode
   switch (step) {
@@ -320,7 +322,7 @@ function Flow() {
               {j.stage !== 'paid' && redir.s === 'idle' ? <button className="ds-btn ds-btn--ghost" onClick={() => void tryRedirect()}>Try to redirect your payment</button> : null}
               {redir.s === 'done' && acct ? (
                 <div className="ds-redir">
-                  <PayeeDiff real={acct} asked={FAKE_PAYEE} />
+                  <PayeeDiff real={acct} asked={fakePayee} illustration />
                   <VerdictBlock check={redir.v.check} />
                   {redir.v.refusal ? <Tx hash={redir.v.refusal.tx_hash} label={`Chain refused (${redir.v.refusal.code})`} /> : <p className="ds-note">Nothing sent.</p>}
                 </div>
@@ -345,7 +347,25 @@ function Flow() {
               <State a={outCheck}>{(c) => (
                 <>
                   <VerdictBlock check={c} />
-                  {c.payable ? <button className="ds-btn" disabled={!acct || outPay.s === 'busy'} onClick={() => void payOut()}>Pay 1 CCD</button> : <p className="ds-note">{c.verdict === 'NO_MATCH' ? 'The agent pays nothing.' : 'The agent asks you first.'}</p>}
+                  {c.payable ? <button className="ds-btn" disabled={!acct || outPay.s === 'busy'} onClick={() => void payOut()}>Pay 1 CCD</button> : null}
+                  {c.verdict === 'NO_MATCH' ? <p className="ds-note">The agent pays nothing. No override.</p> : null}
+                  {!c.payable && c.verdict !== 'NO_MATCH' && !declined && !outTx ? (
+                    <HumanGate
+                      outcome={c.verdict === 'CLOSE_MATCH' ? 'close_match' : c.verdict === 'MATCH' ? 'match_unbound' : 'not_possible'}
+                      why={c.reasons[0] ?? 'The agent cannot confirm this payee on its own.'}
+                      facts={[
+                        { label: 'Name on invoice', value: payName.trim() },
+                        { label: 'Proven name', value: c.verified_name ?? 'none' },
+                        { label: 'Account', value: short(payTo.trim()) },
+                        { label: 'Amount', value: '1 CCD, once' },
+                      ]}
+                      confirmLabel="Pay 1 CCD anyway"
+                      busy={outPay.s === 'busy' || !acct}
+                      onApprove={() => void payOut(true)}
+                      onDecline={() => setDeclined(true)}
+                    />
+                  ) : null}
+                  {declined ? <p className="ds-note">You decided not to pay. Nothing was sent.</p> : null}
                   {outTx ? <><ChainBar phase={outSt.phase} startedAt={outAt} /><Tx hash={outTx} label="Payment" /></> : null}
                   <State a={outPay} />
                 </>
@@ -353,11 +373,7 @@ function Flow() {
             </div>
             <div className="ds-pane">
               <h3>A paid service</h3>
-              <p className="ds-note">x402 services run by other teams. The verdict shows before you pay.</p>
-              {x402.s === 'idle' ? <button className="ds-btn ds-btn--ghost" onClick={() => void loadX402()}>Show services</button> : null}
-              <State a={x402}>{(list) => (
-                <ul className="ds-list">{list.map((s) => <li key={s.id}><b>{s.name}</b><span>{s.team} · {s.price_display}</span><code>{short(s.pay_to)}</code></li>)}</ul>
-              )}</State>
+              <Services />
             </div>
           </div>
           <button className="ds-btn ds-btn--ghost" onClick={() => setStep(5)}>Your record</button>

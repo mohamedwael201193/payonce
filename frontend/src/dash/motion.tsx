@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { walletApi } from '../wallet/api'
 import { VERDICT_TEXT, type Verdict } from './contracts'
+import { sharedEnds } from './lookalike'
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -63,8 +64,10 @@ export function diffPositions(a: string, b: string): Set<number> {
   return out
 }
 
-export function PayeeDiff({ real, asked, realLabel = 'On the invoice', askedLabel = 'Asked to pay' }: { real: string; asked: string; realLabel?: string; askedLabel?: string }) {
+export function PayeeDiff({ real, asked, realLabel = 'On the invoice', askedLabel = 'Asked to pay', illustration = false }: { real: string; asked: string; realLabel?: string; askedLabel?: string; illustration?: boolean }) {
   const d = diffPositions(real, asked)
+  const ends = sharedEnds(real, asked)
+  const lookalike = ends.head + ends.tail >= 6 && d.size > 0
   const still = useReducedMotion()
   return (
     <div className="ds-diff" aria-label={`${realLabel} ${real}. ${askedLabel} ${asked}. ${d.size} characters differ.`}>
@@ -81,7 +84,10 @@ export function PayeeDiff({ real, asked, realLabel = 'On the invoice', askedLabe
           )}
         </code>
       </div>
-      <p className="ds-diff__n">{d.size === 0 ? 'Same account' : `${d.size} of ${asked.length} characters differ`}</p>
+      <p className="ds-diff__n">
+        {d.size === 0 ? 'Same account' : lookalike ? `Same first ${ends.head} and last ${ends.tail}. ${d.size} in the middle differ.` : `${d.size} of ${asked.length} characters differ`}
+      </p>
+      {illustration ? <p className="ds-diff__ill"><span>Illustration</span> A lookalike made for this page. It has a valid checksum and is not a real account.</p> : null}
     </div>
   )
 }

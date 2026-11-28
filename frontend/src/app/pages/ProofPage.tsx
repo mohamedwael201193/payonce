@@ -9,6 +9,7 @@ const ROWS = [
   { to: '/app/proof/agent', title: 'The agent at work', line: 'Its last run over an inbox: which invoices it stopped, which it paid once, and why. Emails that try to give it orders are refused too: that is its safety layer.' },
   { to: '/app/proof/break', title: 'Try to fool it', line: 'Pay twice, pay the wrong amount, pay a seller nobody approved. Each attempt is refused, most of them by the chain itself.' },
   { to: '/app/proof/age', title: 'One more identity check: 18+', line: 'An age-restricted invoice is only paid after the buyer proves 18+ with a Concordium identity, without revealing a birth date.' },
+  { to: '/app/proof/census', title: 'Who could be verified today', line: 'A census of the Concordium agent registry: at most how many registered agents meet the preconditions of a payee check. An upper bound, with the definitions.' },
   { to: '/app/proof/judges#verify-it', title: 'Verify it yourself', line: 'A read-only verifier, no keys and no account: it re-reads any payment from the chain and prints every check.' },
   { to: '/app/proof/x402', title: 'Paid by x402', line: 'One invoice paid through the x402 payment flow, then checked from the chain the same way.' },
   { to: '/app/proof/judges', title: 'For judges', line: 'Contracts, transactions, the trust model and the honest limits in one place.' },

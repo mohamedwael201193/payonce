@@ -23,6 +23,7 @@ const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
 const DemoPage = page(() => import('./demo/DemoPage'), 'DemoPage')
 const DashPage = page(() => import('./dash/DashPage'), 'DashPage')
 const PayeePage = page(() => import('./dash/PayeePage'), 'PayeePage')
+const CensusPage = page(() => import('./dash/CensusPage'), 'CensusPage')
 const SellPage = page(() => import('./app/pages/SellPage'), 'SellPage')
 
 // The landing lives in src/landing and is the only route outside the app
@@ -173,6 +174,7 @@ export function AppRoutes() {
         <Route path="proof/judges" element={<JudgesPage />} />
         <Route path="proof/age" element={<AgeProofPage />} />
         <Route path="proof/x402" element={<X402Page />} />
+        <Route path="proof/census" element={<CensusPage />} />
         <Route path="sell" element={<SellPage />} />
         <Route path="wallet" element={<Navigate to="/app" replace />} />
         {/* Old addresses keep working. */}

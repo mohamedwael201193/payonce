@@ -60,7 +60,7 @@ describe('planned routes', () => {
 describe('/p/<account>', () => {
   it('shows the live check_payee verdict, honestly UNVERIFIED without a name proof', async () => {
     vi.stubGlobal('fetch', vi.fn(async (u: string) => {
-      if (u.includes('/payee-proof/')) return json({ account: A, proof: null })
+      if (/\/api\/p\/[^/]+$/.test(u)) return json({ account: A, exists: true, verified: false, name: null, kind: null, proof: null, bound: null, label: 'Unverified payee', testnet_note: '', links: {} })
       return json({ verdict: 'UNVERIFIED', payable: false, verified_name: null, identity_kind: 'person', standin: false, reasons: ['Verification not possible.'],
         checks: [{ id: 'account_exists', ok: true, detail: '' }, { id: 'payee_book_bound', ok: false, detail: '' }],
         subject: { contract: '<13172,0>', seller: S, payee: A, invoice_name: '', book: { status: 'NotBound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '' })

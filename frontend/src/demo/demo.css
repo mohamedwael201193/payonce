@@ -58,3 +58,6 @@
   .dm-btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .dm-btn, .dm-prog button { transition: none; } }
+
+.dm-diff { width: min(680px, 100%); margin: 6px auto 4px; text-align: left; --po-ink: #0e1219; --po-grey: #5b6472; --po-line: #e4e7ec; --po-bad: #b42318; }
+.dm-diff .ds-diff { background: rgba(255, 255, 255, .92); color: #0e1219; border-radius: 16px; padding: 14px 16px; }

@@ -6,10 +6,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDocumentTitle } from '../hooks'
-import { Button, ButtonLink, Card, Notice, PageHeader, StatusPill } from '../ui'
+import { Button, ButtonLink, Card, Notice, StatusPill } from '../ui'
 import { Address } from '../Address'
 import { WalletProvider, useWallet } from '../../wallet/WalletContext'
-import { ConnectWallet, Step, TestCcdHelper, TxLine, useAccountInfo, type StepState } from '../../wallet/WalletUI'
+import { ConnectWallet, TestCcdHelper, TxLine, useAccountInfo, type StepState } from '../../wallet/WalletUI'
+import { SellStep as Step } from '../../dash/SellStep'
+import '../../dash/dash.css'
 import { walletApi, waitForTx, WalletApiError } from '../../wallet/api'
 import { walletErrorText, type UpdateTx } from '../../wallet/types'
 import { PayeeProof } from '../../wallet/PayeeProof'
@@ -289,7 +291,7 @@ function SellFlow() {
   const s7: StepState = !latest ? 'todo' : latest.status === 'paid' ? 'done' : 'active'
 
   return (
-    <ol className="flex flex-col gap-4">
+    <ol className="ds-steps">
       <Step n={1} title="Connect your wallet" state={s1}><ConnectWallet purpose="register as a payee and get paid by an AI agent" /></Step>
       <Step n={2} title="Get test CCD" state={s2}>{acct ? <TestCcdHelper account={acct} minCcd={SELL_MIN_CCD} /> : null}</Step>
       <Step n={3} title="Register your seller agent" state={s3}>
@@ -320,14 +322,16 @@ export function SellPage() {
   useDocumentTitle('Become a payee - PayOnce')
   return (
     <WalletProvider>
-      <div className="flex flex-col gap-6">
-        <PageHeader
-          title="Become a payee"
-          lead="Register as a seller from your own wallet, issue an invoice, and watch PayOnce’s AI agent pay it exactly once. Testnet only. Testnet fees are several test CCD per transaction (this takes about 100), and Concordium’s faucet covers it."
-          actions={<StatusPill tone="neutral">Testnet</StatusPill>}
-        />
-        <SellFlow />
-        <p className="text-sm text-po-grey">Want to pay instead? <Link className="underline" to="/app">Pay an invoice from your wallet</Link>.</p>
+      <div className="ds ds-sell" data-testid="sell">
+        <header className="ds-hero ds-hero--slim">
+          <p className="ds-crumb"><Link to="/app">Run it</Link> · Become a payee</p>
+          <h1 className="ds-h1">Get paid by an AI agent.</h1>
+          <p className="ds-lead">Register from your own wallet, issue an invoice, watch the agent pay it once. Testnet fees are several test CCD per transaction (about 100 in all); Concordium’s faucet covers it.</p>
+        </header>
+        <div className="ds-body ds-body--wide">
+          <SellFlow />
+          <p className="ds-note ds-foot">Want to pay instead? <Link to="/app">Pay from your wallet</Link>.</p>
+        </div>
       </div>
     </WalletProvider>
   )

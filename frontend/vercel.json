@@ -73,6 +73,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/app/proof/census",
+      "destination": "/index.html"
+    },
+    {
       "source": "/app/proof/x402",
       "destination": "/index.html"
     },

@@ -147,3 +147,101 @@
 .ds-form { width: 100%; display: flex; align-items: flex-end; gap: 12px; }
 .ds-form .ds-btn { flex: none; }
 @media (max-width: 560px) { .ds-form { flex-direction: column; align-items: stretch; } }
+
+.ds-diff__ill { margin: 0; font-size: 13px; color: var(--po-grey); }
+.ds-diff__ill span { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; background: var(--po-info-bg); color: var(--po-info); font-weight: 600; font-size: 12px; }
+.ds-diff__row code b { padding: 0 1px; }
+
+/* Human gate: the agent stopped, a person decides. */
+.ds-gate { width: 100%; display: grid; gap: 14px; padding: 18px 20px; border-radius: 18px; background: var(--po-warn-bg); border: 1px solid var(--po-warn-line); color: var(--po-ink); }
+.ds-gate h3 { margin: 0; font-size: 20px; letter-spacing: -.01em; color: var(--po-warn); }
+.ds-gate p { margin: 0; font-size: 16px; }
+.ds-gate__facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 15px; }
+.ds-gate__facts span { color: var(--po-grey); }
+.ds-gate__facts b { overflow-wrap: anywhere; font-weight: 600; }
+.ds-gate label { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; cursor: pointer; }
+.ds-gate input[type=checkbox] { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--po-ink); flex: none; }
+.ds-gate__row { display: flex; flex-wrap: wrap; gap: 12px; }
+.ds-gate--ok { background: var(--po-info-bg); border-color: var(--po-info-line); }
+.ds-gate--ok h3 { color: var(--po-info); }
+
+/* Services (x402) */
+.ds-svc { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 14px; }
+.ds-svc > li { display: grid; gap: 12px; padding: 16px; border-radius: 16px; background: var(--po-paper); }
+.ds-svc__top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: baseline; }
+.ds-svc__top b { font-size: 17px; }
+.ds-svc__top span { font-size: 14px; color: var(--po-grey); }
+.ds-mini { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.ds-mini .ds-stamp { padding: 4px 14px 6px; border-width: 3px; outline-offset: 3px; }
+.ds-mini .ds-stamp__word { font-size: 24px; }
+.ds-mini .ds-stamp__sub { display: none; }
+.ds-preview { margin: 0; max-height: 140px; overflow: auto; width: 100%; padding: 10px 12px; border-radius: 10px; background: var(--po-rail); color: #dfe4ee; font: 12.5px/1.5 var(--po-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Census */
+.ds-census { min-height: 100%; }
+.ds-body--stack { display: grid; gap: 20px; }
+.ds-body--stack .ds-card { align-items: stretch; }
+.ds-toggle--on-sky { margin-top: 26px; position: relative; z-index: 1; background: rgba(14, 18, 25, .3); }
+.ds-toggle--on-sky button { color: rgba(255, 255, 255, .9); }
+.ds-toggle--on-sky button.is-on { background: #fff; color: var(--po-ink); }
+.ds-census .ds-h1 { max-width: 22ch; font-size: clamp(30px, 4.6vw, 52px); }
+.ds-meta { margin: 0; font-size: 15px; color: var(--po-grey); }
+.ds-badge { display: inline-block; margin-right: 8px; padding: 1px 9px; border-radius: 999px; background: var(--po-warn-bg); color: var(--po-warn); font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+.ds-stale { color: var(--po-bad); }
+.ds-funnel { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 16px; }
+.ds-funnel__lab { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; margin-bottom: 6px; }
+.ds-funnel__lab b { font-size: 22px; letter-spacing: -.02em; }
+.ds-funnel__bar { height: 14px; border-radius: 7px; background: var(--po-sunken); overflow: hidden; }
+.ds-funnel__bar i { display: block; height: 100%; border-radius: 7px; background: linear-gradient(90deg, #f75a0a, #fa8d37); min-width: 8px; }
+.ds-funnel__bar i.is-last { background: var(--po-ok); }
+.ds-funnel small { display: block; margin-top: 4px; font-size: 13px; color: var(--po-grey); }
+.ds-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-top: 6px; }
+.ds-stats div { display: grid; gap: 4px; padding: 14px; border-radius: 14px; background: var(--po-paper); align-content: start; }
+.ds-stats b { font-size: 28px; letter-spacing: -.02em; }
+.ds-stats span { font-size: 14px; color: var(--po-grey); }
+.ds-verdicts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px; }
+.ds-verdicts li { display: flex; align-items: baseline; gap: 8px; padding: 10px 16px; border-radius: 14px; background: var(--po-warn-bg); }
+.ds-verdicts b { font-size: 30px; }
+.ds-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.ds-rows li { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--po-line); font-size: 15px; }
+.ds-rows__host { font-family: var(--po-mono); font-size: 14px; overflow-wrap: anywhere; }
+.ds-pill { padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--po-warn-bg); color: var(--po-warn); }
+.ds-pill--ok { background: var(--po-ok-bg); color: var(--po-ok); }
+.ds-pill--bad { background: var(--po-bad-bg); color: var(--po-bad); }
+.ds-defs { margin: 0; display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 14px 24px; font-size: 15.5px; }
+.ds-defs dt { font-weight: 600; }
+.ds-defs dd { margin: 0; color: var(--po-grey); }
+.ds-defs dd code { color: var(--po-ink); font-size: 13.5px; }
+.ds-foot a { color: var(--po-accent-ink); text-underline-offset: 3px; }
+.ds-link-btn { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+@media (max-width: 760px) {
+  .ds-stats { grid-template-columns: 1fr; }
+  .ds-rows li { grid-template-columns: 1fr auto; }
+  .ds-rows li span:nth-child(2) { grid-column: 1; }
+  .ds-defs { grid-template-columns: 1fr; gap: 4px; }
+  .ds-defs dd { margin-bottom: 12px; }
+}
+
+/* /app/sell in the dashboard design: a timeline of steps. The old po-* atoms inside a step are restyled here, scoped. */
+.ds-body--wide { max-width: 920px; }
+.ds-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; position: relative; }
+.ds-step { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: 16px; }
+.ds-step::before { content: ''; position: absolute; left: 21px; top: 44px; bottom: -14px; width: 2px; background: var(--po-line); }
+.ds-step:last-child::before { display: none; }
+.ds-step.is-done::before { background: var(--po-ok-line); }
+.ds-step__node { z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #fff; border: 2px solid var(--po-line-strong); font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; box-shadow: var(--po-shadow-1); }
+.ds-step.is-active .ds-step__node { background: var(--po-ink); border-color: var(--po-ink); color: #fff; box-shadow: 0 0 0 5px rgba(232, 84, 26, .25); }
+.ds-step.is-done .ds-step__node { background: var(--po-ok); border-color: var(--po-ok); color: #fff; }
+.ds-step.is-failed .ds-step__node { background: var(--po-bad); border-color: var(--po-bad); color: #fff; }
+.ds-step__card { background: var(--po-surface); border-radius: 20px; padding: 20px 24px; box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 14px 40px rgba(16, 24, 40, .09); min-width: 0; }
+.ds-step.is-todo .ds-step__card { background: rgba(255, 255, 255, .6); box-shadow: none; border: 1px dashed var(--po-line-strong); }
+.ds-step__h { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.02em; }
+.ds-step.is-todo .ds-step__h { color: var(--po-grey); font-weight: 500; }
+.ds-step__body { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.ds-sell .po-card { box-shadow: none; border: 0; border-radius: 16px; background: var(--po-paper); }
+.ds-sell .po-btn { border-radius: 999px; min-height: 46px; padding: 0 22px; font-weight: 600; box-shadow: none; }
+.ds-sell .po-btn-primary { background: var(--po-ink); color: #fff; border-color: var(--po-ink); }
+.ds-sell .po-btn-secondary { background: transparent; border: 1.5px solid var(--po-line-strong); color: var(--po-ink); }
+.ds-sell .po-btn::before { display: none; }
+.ds-sell input[type='text'], .ds-sell input:not([type]), .ds-sell textarea { border-radius: 12px; }
+@media (max-width: 560px) { .ds-step { grid-template-columns: 34px 1fr; gap: 10px; } .ds-step__node { width: 34px; height: 34px; font-size: 14px; } .ds-step::before { left: 16px; top: 34px; } .ds-step__card { padding: 16px; } }
