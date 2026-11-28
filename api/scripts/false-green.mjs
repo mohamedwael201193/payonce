@@ -72,7 +72,7 @@ async function worker() {
         results[j] = { ...c, verdict: r.verdict, payable: !!r.payable, evidence_hash: r.evidence_hash ?? null };
         break;
       } catch (e) {
-        if (attempt < 6 && /429|UNAVAILABLE|unavailable|timeout|ECONNRESET/i.test(String(e?.message ?? e))) { await new Promise((ok) => setTimeout(ok, 1500 * (attempt + 1))); continue; }
+        if (attempt < 12 && /429|UNAVAILABLE|unavailable|timeout|ECONNRESET|did not answer/i.test(String(e?.message ?? e))) { await new Promise((ok) => setTimeout(ok, Math.min(30_000, 1500 * 2 ** Math.min(attempt, 5)))); continue; }
         results[j] = { ...c, verdict: 'ERROR', payable: false, error: String(e?.message ?? e).slice(0, 120) };
         break;
       }
