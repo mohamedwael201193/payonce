@@ -37,6 +37,18 @@
       "destination": "/index.html"
     },
     {
+      "source": "/app/wallet",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/sell/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/sell",
+      "destination": "/index.html"
+    },
+    {
       "source": "/app/proof",
       "destination": "/index.html"
     },

@@ -31,6 +31,7 @@ import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
 import { BACKEND_DIR } from './backend.mjs';
 import { retryingReads } from './node-retry.mjs';
+import { parseInvoice, ParseError } from './invoice-parse.mjs';
 import { pathToFileURL } from 'node:url';
 import { OWNER_ADDRESS } from './config.mjs';
 
@@ -91,8 +92,8 @@ const API_BASE = process.env.PAYONCE_API_URL ?? 'https://payonce-api-n98a.onrend
 
 /** Sellers built by other teams that answer a real x402 402 on Concordium testnet (tiny prices). Purchases are recorded. */
 export const X402_SELLERS = [
-  { id: 'oracle-scout', name: 'Oracle Scout', team: 'Oracle Scout (agent #1253)', url: 'https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k', method: 'GET', price_ccd: '2', note: 'Evidence pack for a prediction market.' },
-  { id: 'mainsmarker', name: 'MainsMarker', team: 'MainsMarker (agent #990)', url: 'https://mainsmarker.sites.tab.bot/x402/review', method: 'POST', body: { question: 'Explain why the sky appears blue during the day.', answer: 'Sunlight is scattered by air molecules, and short blue wavelengths scatter far more than red ones (Rayleigh scattering), so blue light reaches us from every direction.', marks: 10, mode: 'cloud' }, price_ccd: '0.5', note: 'AI answer review.' },
+  { id: 'oracle-scout', name: 'Oracle Scout', team: 'Oracle Scout (agent #1253)', url: 'https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k', method: 'GET', price_ccd: '2', price_display: '2 CCD', pay_to: '3u319bYkSSU3CeoMqyzt5nd72VpL5qF4oqmZoVTQQPLdBEqyL1', needs_age: false, note: 'Evidence pack for a prediction market.' },
+  { id: 'mainsmarker', name: 'MainsMarker', team: 'MainsMarker (agent #990)', url: 'https://mainsmarker.sites.tab.bot/x402/review', method: 'POST', body: { question: 'Explain why the sky appears blue during the day.', answer: 'Sunlight is scattered by air molecules, and short blue wavelengths scatter far more than red ones (Rayleigh scattering), so blue light reaches us from every direction.', marks: 10, mode: 'cloud' }, price_ccd: '0.5', price_display: '0.5 CCD', pay_to: '4J2SFgeVrLHVqPkb3dczpYKP99wFMm7FDFp3fEPwXMff3ieLi2', needs_age: false, note: 'AI answer review.' },
 ];
 
 async function buildPayload({ requirement, resource }) {
@@ -160,6 +161,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     try {
       return sendJson(res, 200, toPlain(await fn(req, res, m)));
     } catch (e) {
+      if (e instanceof ParseError) return apiError(res, 400, e.code, 'app', e.message);
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
@@ -215,6 +217,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       return x402.buy({ ...input, buyer: 'payonce_reference_buyer' });
     })],
     ['GET', /^\/api\/x402\/purchases$/, wrap(async () => { const rows = (await kvList('x402_purchase')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, purchases: rows }; })],
+    ['POST', /^\/api\/invoices\/parse$/, wrap(async (req) => { await limited('invoice:parse', 30)(req); const b = await readBody(req, 64 * 1024); return parseInvoice(b?.text); })],
     // ---- payee links ----
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('p:card', 60)(req); return cards.card(m[1]); })],
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/check$/, wrap(async (req, res, m) => { await limited('vop:check', 30)(req); const q = qs(req); return cards.check(m[1], q.name ?? q.legal_name, { country: q.country, buyer: q.buyer }); })],

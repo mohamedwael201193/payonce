@@ -35,10 +35,10 @@ Source: Concordium's release notes, docs.concordium.com/en/mainnet/technical-ref
   - Android: choose WalletConnect, scan the QR with the wallet (or tap the link on the phone), approve.
 - Step **Prove the name on your invoices**: approve the request in the wallet. You reveal only your **first and last name** (or your **company legal name** with the Global FinReg identity), as a zero-knowledge proof. Nothing else is shared.
 - Step **Register your seller agent**: one transaction from your account, then the card is published. Wait for the green tick.
-- Your public card is `https://payonce-api-n98a.onrender.com/api/p/<your account>` (it shows your proven name, whether you are bound, and the hold). The friendly page `payonce-tau.vercel.app/p/<your account>` is being added.
+- Your public card is `https://payonce-api-n98a.onrender.com/api/p/<your account>` (it shows your proven name, whether you are bound, and the hold). The friendly page is **https://payonce-tau.vercel.app/p/<your account>** (your name, bound, hold, and a Pay button for friends).
 
 ## 5. Bind as the payee, then pay and be paid
-- **Bind:** the payee-binding step asks you to sign once with your own wallet. PayOnce pays the network fee (you stay at 0 CCD spent). *Status 28 Nov: the sponsored bind API (`/api/relay/prepare`) is live; its button is being added to the page.* After binding there is a short **hold** (cooling-off), then the card shows **hold over**. An agent will only pay you after that.
+- **Bind:** the payee-binding step asks you to sign once with your own wallet. PayOnce pays the network fee (you stay at 0 CCD spent). *Status 28 Nov: the new guided flow with this button is behind `https://payonce-tau.vercel.app/app?dash=1` (Connect → Prove your name → Become a payee → Get paid → Now you pay) until its last endpoints ship. Use it if it works for you; otherwise follow the steps on `/app/sell`.* After binding there is a short **hold** (cooling-off), then the card shows **hold over**. An agent will only pay you after that.
 - **Get paid:** register an invoice in the last steps of the page and press **Let the agent pay you**. The agent checks your name first. **Match** → it pays once. **Close match** or **verification not possible** → it stops and asks a person. **No match** → it pays nothing.
 - **Pay someone:** open **https://payonce-tau.vercel.app/app** (**Run it**), choose **My own wallet**, and pay a friend's `/p/` link. A verdict appears before your wallet asks you to confirm.
 
