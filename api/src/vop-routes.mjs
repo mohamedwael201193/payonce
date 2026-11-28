@@ -6,11 +6,13 @@
 //   GET  /api/vop/payable?seller=&id=                             a v3 payable (payee + payee_version from chain)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/relay/config                                        what the relayer sponsors
+//   POST /api/relay/prepare     { sender, entrypoint, parameter } sponsor-first: tx co-signed by the sponsor, wallet signs + submits
 //   POST /api/relay/build       { sender, entrypoint, parameter | kind:'token', recipient, amount, memo }
 //   POST /api/relay/submit      { transaction }                   sender-signed -> sponsor co-signs -> submit once
 //   GET  /api/check-payee?seller=&payee=&legal_name=               alias of /api/vop/check (+ epc_verdict lower case)
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
-import { VerifiablePresentationV1 } from '@concordium/web-sdk';
+import { VerifiablePresentationV1, getEmbeddedModuleSchema } from '@concordium/web-sdk';
+import { readFileSync } from 'node:fs';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
 import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3 } from './vop-chain.mjs';
@@ -52,12 +54,25 @@ export const vop = createVopService({
   network: 'Testnet',
 });
 
+let schemaB64 = null;
+async function moduleSchemaBase64() {
+  if (schemaB64) return schemaB64;
+  const v = readFileSync(new URL('../../contracts/payable_registry_v3/verifiable/payable_registry_v3.wasm.v1', import.meta.url));
+  const raw = await getEmbeddedModuleSchema({ version: 1, source: new Uint8Array(v.subarray(8)) });
+  schemaB64 = raw ? Buffer.from(raw.buffer ?? raw).toString('base64') : null;
+  return schemaB64;
+}
+
 export const relayer = createRelayer({
   grpc: async () => vClient(),
   sponsor: async () => (await signers()).owner,
+  hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit),
+  moduleSchemaBase64,
 });
+let hitWindowRef = async () => ({ allowed: true });
 
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
+  hitWindowRef = hitWindow;
   const wrap = (fn) => async (req, res, m) => {
     try {
       return sendJson(res, 200, toPlain(await fn(req, res, m)));
@@ -101,6 +116,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       return { contract: v3Label(), payable: await getPayableV3(vClient(), q.seller, q.id) };
     })],
     ['GET', /^\/api\/relay\/config$/, wrap(() => relayer.config())],
+    ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); return relayer.prepare(await readBody(req)); })],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],
     ['POST', /^\/api\/relay\/submit$/, wrap(async (req) => { await relayLimited(req); return relayer.submit(await readBody(req, 128 * 1024)); })],
   ];

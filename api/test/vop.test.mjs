@@ -275,3 +275,32 @@ test('check_payee: a rate-limited node gives no verdict (503), never a cached fa
   });
   await assert.rejects(svc.check({ seller: SELLER, payee: PAYEE, legal_name: 'Acme GmbH' }), (e) => e.status === 503 && e.code === 'node_busy');
 });
+
+// ---------- sponsor-first relayer (wallet adds the sender signature) ----------
+import { createRelayer } from '../src/relayer.mjs';
+function fakeRelayer({ invokeOk = true, sponsorMicro = 5_000_000_000n, allowed = true } = {}) {
+  const sponsorSigner = buildBasicAccountSigner(randomBytes(32).toString('hex'));
+  const c = {
+    async getAccountInfo() { return { accountNonce: SequenceNumber.create(7), accountAvailableBalance: CcdAmount.fromMicroCcd(sponsorMicro), accountAmount: CcdAmount.fromMicroCcd(0n) }; },
+    async invokeContract() { return invokeOk ? { tag: 'success', usedEnergy: Energy.create(2000n) } : { tag: 'failure', reason: { rejectReason: -32 } }; },
+  };
+  return createRelayer({ grpc: async () => c, sponsor: async () => ({ address: SPONSOR, signer: sponsorSigner }), hitWindow: async () => ({ allowed }), moduleSchemaBase64: async () => 'c2NoZW1h', now: () => Date.now() });
+}
+test('relay prepare: sponsor signs first; a 0-CCD sender only adds its signature', async () => {
+  const r = await fakeRelayer().prepare({ sender: FRAUD, entrypoint: 'accept_payee', parameter: serAcceptPayee({ seller: SELLER, version: 1, proof_anchor: 'ab'.repeat(32) }).toString('hex') });
+  assert.equal(r.mode, 'sponsor-first'); assert.equal(r.schema, 'c2NoZW1h');
+  const tx = Transaction.signableFromJSON(r.transaction);
+  assert.ok(Object.keys(tx.signatures.sponsor ?? {}).length === 1, 'sponsor signature present');
+  assert.equal(Object.keys(tx.signatures.sender ?? {}).length, 0, 'no sender signature yet');
+  assert.equal(String(tx.header.nonce.value ?? tx.header.nonce), '7');
+  const wallet = buildBasicAccountSigner(randomBytes(32).toString('hex'));
+  const fin = Transaction.finalize(await Transaction.sign(tx, wallet));
+  assert.equal(Buffer.from(Transaction.getAccountTransactionHash(fin)).length, 32);
+});
+test('relay prepare: refuses calls the contract would reject, non-whitelisted entrypoints, low float, rate limit', async () => {
+  const p = { sender: FRAUD, entrypoint: 'accept_payee', parameter: '00' };
+  await assert.rejects(fakeRelayer({ invokeOk: false }).prepare(p), (e) => e.code === 'would_reject');
+  await assert.rejects(fakeRelayer().prepare({ ...p, entrypoint: 'set_config' }), (e) => e.code === 'entrypoint_not_sponsored');
+  await assert.rejects(fakeRelayer({ sponsorMicro: 10n }).prepare(p), (e) => e.code === 'sponsor_low');
+  await assert.rejects(fakeRelayer({ allowed: false }).prepare(p), (e) => e.code === 'rate_limited');
+});

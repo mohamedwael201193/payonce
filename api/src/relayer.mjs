@@ -25,6 +25,7 @@ export const RELAY_LIMITS = Object.freeze({
   maxExpirySecs: 600,
   minExpirySecs: 30,
   perSenderPerMinute: 6,
+  perSenderPerDay: 40,
   sponsorFloorMicroCcd: 1_000_000_000n, // stop sponsoring under 1,000 CCD
 });
 export const SPONSORED_ENTRYPOINTS = Object.freeze([
@@ -113,7 +114,10 @@ export function createRelayer(deps) {
       entrypoints: SPONSORED_ENTRYPOINTS,
       token: { id: SPONSORED_TOKEN, rule: 'one transfer, memo payable:<seller>:<id>, payable Reserved by the sender, exact payee and amount' },
       limits: { max_contract_energy: limits.maxContractEnergy.toString(), expiry_secs: [limits.minExpirySecs, limits.maxExpirySecs], per_sender_per_minute: limits.perSenderPerMinute },
-      flow: ['POST /api/relay/build -> unsigned sponsored tx JSON', 'sender signs (Transaction.sign) and posts it', 'POST /api/relay/submit -> relayer validates, co-signs as sponsor, submits once'],
+      flows: {
+        sponsor_first: ['POST /api/relay/prepare -> tx JSON already co-signed by the sponsor', 'wallet: sendSponsoredTransaction (adds the sender signature, submits)'],
+        sender_first: ['POST /api/relay/build -> unsigned sponsored tx JSON', 'sender signs (Transaction.sign) and posts it', 'POST /api/relay/submit -> relayer validates, co-signs as sponsor, submits once'],
+      },
     };
   }
 
@@ -133,6 +137,62 @@ export function createRelayer(deps) {
     const e = used + used / 5n + 500n;
     if (e > limits.maxContractEnergy) throw new RelayError(403, 'energy_cap', `Estimated energy ${e} exceeds the sponsor cap.`);
     return e;
+  }
+
+  async function sponsorFloor(c, address) {
+    const spInfo = await c.getAccountInfo(AccountAddress.fromBase58(address));
+    const avail = BigInt(spInfo.accountAvailableBalance?.microCcdAmount ?? spInfo.accountAvailableBalance ?? spInfo.accountAmount?.microCcdAmount ?? 0);
+    if (avail < limits.sponsorFloorMicroCcd) throw new RelayError(503, 'sponsor_low', 'The sponsor balance is under its floor; sponsoring paused.');
+  }
+
+  /** An EUDemo transfer is sponsored only for a v3 payable Reserved by this sender, to its payee, for its amount. */
+  async function checkTokenTransfer(c, sender, t, expiryMs) {
+    const p = await getPayableV3(c, t.seller, t.payable_id);
+    if (!p) throw new RelayError(404, 'no_payable', `No v3 payable ${t.seller.slice(0, 8)}…/${t.payable_id}.`);
+    if (p.asset !== SPONSORED_TOKEN) throw new RelayError(403, 'wrong_asset', 'That payable is not an EUDemo payable.');
+    if (p.status.tag !== 'Reserved' || p.status.payer !== sender) throw new RelayError(403, 'not_reserved_by_sender', 'The payable must be Reserved by this sender (reserve_plt first).');
+    if (p.status.expires_ms <= now()) throw new RelayError(409, 'reservation_expired', 'The reservation expired.');
+    if (p.payee !== t.recipient) throw new RelayError(403, 'wrong_recipient', 'The transfer must go to the payable’s bound payee.');
+    if (String(p.amount) !== t.amount.toString() || t.decimals !== 6) throw new RelayError(403, 'wrong_amount', 'The transfer amount must equal the payable amount.');
+    if (expiryMs > p.status.expires_ms) throw new RelayError(400, 'expiry_after_reservation', 'The transaction must expire before the reservation does.');
+  }
+
+  /**
+   * Sponsor-first (Concordium Wallet for Web >= 2.10 `sendSponsoredTransaction`, CryptoX over WalletConnect
+   * `sign_and_send_sponsored_transaction`): PayOnce builds the transaction from whitelisted inputs, previews it
+   * against the contract, co-signs as sponsor and returns it; the wallet adds the sender signature and submits.
+   * The sender can hold 0 CCD. The sponsor signature binds this exact payload, sender, nonce and expiry.
+   */
+  async function prepare(body) {
+    const sender = String(body?.sender ?? '');
+    if (deps.hitWindow) {
+      const m = await deps.hitWindow(`relayprep:${sender}`, 60_000, limits.perSenderPerMinute);
+      const d = await deps.hitWindow(`relayprepday:${sender}`, 86_400_000, limits.perSenderPerDay ?? 40);
+      if ((m && m.allowed === false) || (d && d.allowed === false)) throw new RelayError(429, 'rate_limited', 'Too many sponsored transactions for this account; try later.');
+    }
+    const built = await build(body);
+    const tx = Transaction.signableFromJSON(built.transaction);
+    const c = await deps.grpc();
+    if (body?.kind === 'token') {
+      const facts = inspectSponsored({ ...tx, signatures: { sender: { 0: { 0: 'x' } } } }, { sponsorAddress: built.sponsor, nowSecs: Math.floor(now() / 1000), limits });
+      await checkTokenTransfer(c, sender, facts.transfer, Number(tx.header.expiry?.expiryEpochSeconds ?? tx.header.expiry) * 1000);
+    }
+    const sp = await deps.sponsor();
+    await sponsorFloor(c, sp.address);
+    const sponsored = await Transaction.sponsor(tx, sp.signer);
+    const expirySecs = Number(tx.header.expiry?.expiryEpochSeconds ?? tx.header.expiry);
+    return {
+      mode: 'sponsor-first',
+      transaction: toJsonSafe(Transaction.toJSON(sponsored)),
+      sender, sponsor: sp.address, fee_paid_by: sp.address,
+      expires_at: new Date(expirySecs * 1000).toISOString(),
+      schema: body?.kind === 'token' ? null : (deps.moduleSchemaBase64 ? await deps.moduleSchemaBase64() : null),
+      wallet: {
+        browser: 'await provider.sendSponsoredTransaction(AccountAddress.fromBase58(sender), Transaction.signableFromJSON(transaction), { type: "ModuleSchema", value: schema })',
+        walletconnect: 'signAndSendSponsoredTransaction(sender, Transaction.signableFromJSON(transaction), schema) -> sign_and_send_sponsored_transaction',
+        min_versions: 'Concordium Wallet for Web 2.10.0 for contract updates (2.8.0 for token transfers); CryptoX Android',
+      },
+    };
   }
 
   /** Build an unsigned sponsored transaction for `sender`. */
@@ -191,21 +251,8 @@ export function createRelayer(deps) {
     const expectedNonce = BigInt(senderInfo.accountNonce?.value ?? senderInfo.accountNonce);
     const txNonce = BigInt(tx.header.nonce?.value ?? tx.header.nonce);
     if (txNonce !== expectedNonce) throw new RelayError(409, 'stale_nonce', `Nonce ${txNonce} is not the sender's next nonce (${expectedNonce}); rebuild.`);
-    if (facts.kind === 'token') {
-      const t = facts.transfer;
-      const p = await getPayableV3(c, t.seller, t.payable_id);
-      if (!p) throw new RelayError(404, 'no_payable', `No v3 payable ${t.seller.slice(0, 8)}…/${t.payable_id}.`);
-      if (p.asset !== SPONSORED_TOKEN) throw new RelayError(403, 'wrong_asset', 'That payable is not an EUDemo payable.');
-      if (p.status.tag !== 'Reserved' || p.status.payer !== sender) throw new RelayError(403, 'not_reserved_by_sender', 'The payable must be Reserved by this sender (reserve_plt first).');
-      if (p.status.expires_ms <= now()) throw new RelayError(409, 'reservation_expired', 'The reservation expired.');
-      if (p.payee !== t.recipient) throw new RelayError(403, 'wrong_recipient', 'The transfer must go to the payable’s bound payee.');
-      if (String(p.amount) !== t.amount.toString() || t.decimals !== 6) throw new RelayError(403, 'wrong_amount', 'The transfer amount must equal the payable amount.');
-      const exp = Number(tx.header.expiry?.expiryEpochSeconds ?? tx.header.expiry) * 1000;
-      if (exp > p.status.expires_ms) throw new RelayError(400, 'expiry_after_reservation', 'The transaction must expire before the reservation does.');
-    }
-    const spInfo = await c.getAccountInfo(AccountAddress.fromBase58(sp.address));
-    const avail = BigInt(spInfo.accountAvailableBalance?.microCcdAmount ?? spInfo.accountAvailableBalance ?? spInfo.accountAmount?.microCcdAmount ?? 0);
-    if (avail < limits.sponsorFloorMicroCcd) throw new RelayError(503, 'sponsor_low', 'The sponsor balance is under its floor; sponsoring paused.');
+    if (facts.kind === 'token') await checkTokenTransfer(c, sender, facts.transfer, Number(tx.header.expiry?.expiryEpochSeconds ?? tx.header.expiry) * 1000);
+    await sponsorFloor(c, sp.address);
     const sponsored = await Transaction.sponsor(tx, sp.signer);
     const finalized = Transaction.finalize(sponsored);
     const hash = Buffer.from(Transaction.getAccountTransactionHash(finalized)).toString('hex');
@@ -219,5 +266,5 @@ export function createRelayer(deps) {
     return { submitted: true, tx_hash: hash, sender, sponsor: sp.address, kind: facts.kind, entrypoint: facts.entrypoint ?? null, sender_paid_ccd: (facts.amount ?? 0n).toString() };
   }
 
-  return { config, build, submit };
+  return { config, build, submit, prepare };
 }
