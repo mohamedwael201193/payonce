@@ -3,7 +3,7 @@
   "name": "io.github.mohamedwael201193/payonce-check-payee",
   "title": "PayOnce check_payee",
   "description": "Verification of Payee for AI agents on Concordium: check who an account is before paying it.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "websiteUrl": "https://payonce-tau.vercel.app",
   "repository": {
     "url": "https://github.com/mohamedwael201193/payonce",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "payonce-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       },
