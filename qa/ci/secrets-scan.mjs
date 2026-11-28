@@ -79,10 +79,14 @@ function hasSeedRun(text) {
   const list = loadWordlist();
   if (!list) return /\b(?:[a-z]{3,8}[ ]+){11,23}[a-z]{3,8}\b/.test(text);
   for (const line of text.split('\n')) {
-    const words = line.toLowerCase().match(/[a-z]+/g);
-    if (!words || words.length < 12) continue;
-    let run = 0;
-    for (const w of words) { run = list.has(w) ? run + 1 : 0; if (run >= 12) return true; }
+    // A seed phrase is plain words separated by spaces. Punctuation (quotes, commas, colons, backticks) ends a run,
+    // so ordinary English sentences made only of common words are not mistaken for one.
+    for (const seg of line.toLowerCase().split(/[^a-z \t]+/)) {
+      const words = seg.match(/[a-z]+/g);
+      if (!words || words.length < 12) continue;
+      let run = 0;
+      for (const w of words) { run = list.has(w) ? run + 1 : 0; if (run >= 12) return true; }
+    }
   }
   return false;
 }
