@@ -31,7 +31,12 @@ const S = await signers();
 // Roles: seller = owner 42jaZZ (agent token 1476); buyer agent = seller2 3ARQvc (single key);
 // "fraud" payee = 4MvdME (seed identity 0/1, credential 1, single key). 3cjnRy is a 2-of-3 multisig account and is
 // not used (its credential index does not match the HD path, and the JS SDK mishandles multisig contract calls).
-const SELLER = S.owner; const BUYER = S.seller2; const FRAUD = S.sellerB;
+const FRAUD_CRED = Number(process.env.FRAUD_CRED ?? 8); // fresh account deployed from the seed (identity 1), 0 CCD
+const HD = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED_PHRASE || '').trim(), 'Testnet');
+const { buildBasicAccountSigner, getAccountAddress } = await import('@concordium/web-sdk');
+const fraudCredId = Buffer.from(HD.getCredentialId(0, 1, FRAUD_CRED, (await (await fetch('https://wallet-proxy.testnet.concordium.com/v0/global')).json()).value)).toString('hex');
+const FRAUD = { address: getAccountAddress(fraudCredId).address, signer: buildBasicAccountSigner(HD.getAccountSigningKey(0, 1, FRAUD_CRED).toString('hex')) };
+const SELLER = S.owner; const BUYER = S.seller2;
 const NAME = 'PayOnce Labs';
 const STANDIN = { account: SELLER.address, legal_name: NAME, country: 'DK', label: 'TESTNET STAND-IN: no Global FinReg company identity issued to PayOnce yet; this name is declared by PayOnce, not proven by a business identity' };
 const relayer = createRelayer({ grpc: async () => c, sponsor: async () => S.owner });
@@ -104,7 +109,7 @@ if (PHASE === 'fraud-proof' && process.env.FRESH !== '1' && (await kvGet('vop_de
 }
 
 if (PHASE === 'fraud-proof') {
-  // Headless V1 presentation from the seed-derived credential of the fraud account (identity 0/1, credential 1):
+  // Headless V1 presentation from the seed-derived credential of the fraud account (identity 0/1, credential FRAUD_CRED):
   // it proves EU nationality and reveals no name. Anchored request (VRA) sent by the owner.
   const nonce = vopNonceHex({ contract: v3Label(), seller: SELLER.address, payee: FRAUD.address, legalName: NAME, country: 'DK' });
   const context = VerificationRequestV1.createSimpleContext(new Uint8Array(Buffer.from(nonce, 'hex')), `payonce-vop:${FRAUD.address}`, CONSENT_DOMAIN, `PayOnce Verification of Payee: account ${FRAUD.address} proves its identity facts`);
@@ -119,8 +124,7 @@ if (PHASE === 'fraud-proof') {
   const acctInfo = JSON.parse(J(await c.getAccountInfo(AccountAddress.fromBase58(FRAUD.address))));
   const credIdHex = Object.values(acctInfo.accountCredentials ?? {})[0]?.value?.contents?.credId;
   const vclaims = [VerifiablePresentationV1.createAccountClaims('Testnet', CredentialRegistrationId.fromHexString(credIdHex), 0, statements)];
-  const hd = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED_PHRASE || '').trim(), 'Testnet');
-  const rand = Buffer.from(hd.getAttributeCommitmentRandomness(0, 1, 1, 'nationality')).toString('hex');
+  const rand = Buffer.from(HD.getAttributeCommitmentRandomness(0, 1, FRAUD_CRED, 'nationality')).toString('hex');
   const presentation = await VerifiablePresentationV1.createFromAnchor(c, request, vclaims, [{ type: 'account', issuer: 0, values: { nationality: 'DK' }, randomness: { nationality: rand } }], []);
   const direct0 = await VerifiablePresentationV1.verifyWithNode(presentation, c, 'Testnet').catch((e) => ({ type: 'threw', error: String(e?.message ?? e) }));
   out.verify_direct = { type: direct0?.type, error: direct0?.error ? String(direct0.error?.message ?? direct0.error).slice(0, 300) : null };

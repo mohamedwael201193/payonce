@@ -15,7 +15,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const S = await signers();
 const AGENT = S.seller2; // the buyer agent's account (3ARQvc…, single key)
 const SELLER = S.owner.address;
-const FRAUD = S.sellerB.address; // the account the fake "bank details changed" e-mail names
+const FRAUD = process.env.FRAUD_ADDRESS ?? '3LgPU9K2WFg3ghFHXjm2r2Mizi2eqY71ENTWqHZL98h9ueFKMt'; // fresh 0-CCD account (seed identity 1, credential 8) named by the fake "bank details changed" e-mail
 const mandate = { allowStandin: true }; // testnet demo: the owner allowed the labelled stand-in name
 
 async function api(path, body) {
