@@ -4,6 +4,8 @@
 //   GET  /api/vop/proofs/:anchor                                  the stored presentation (re-verifiable)
 //   GET  /api/vop/payee?seller=&payee=                            the raw payee-book record
 //   GET  /api/vop/payable?seller=&id=                             a v3 payable (payee + payee_version from chain)
+//   GET  /api/vop/check?network=mainnet&payee=&name=              mainnet mode: identity-only (never MATCH, never payable), see vop-mainnet.mjs
+//   GET  /api/census                                              VoP census of the Agent Registry (census_public.json shape)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
 //   GET  /api/relay/config                                        what the relayer sponsors
@@ -25,6 +27,8 @@ import { signers } from './chain-v2.mjs';
 import { kvGet, kvPut, kvList } from './store.mjs';
 import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
 import { createPayeeCards } from './payee-card.mjs';
+import { checkMainnet } from './vop-mainnet.mjs';
+import { loadCensus } from './census.mjs';
 import { BACKEND_DIR } from './backend.mjs';
 import { pathToFileURL } from 'node:url';
 import { OWNER_ADDRESS } from './config.mjs';
@@ -145,6 +149,10 @@ async function demoRun() {
   return { ...latest, live: age <= 3_600_000 && latest.live === true, refreshing, age_secs: Math.round(age / 1000), last_error, demo_book: DEMO_BOOK };
 }
 
+/** network=mainnet -> identity-only mainnet mode; anything else -> the testnet v3 check. */
+const isMainnet = (v) => String(v ?? '').toLowerCase() === 'mainnet';
+const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : vop.check(input));
+
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
   const wrap = (fn) => async (req, res, m) => {
@@ -170,14 +178,15 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/vop\/config$/, wrap(async () => ({
       contract: { address: v3Label(), name: V3.name, module_ref: V3.moduleRef, config: await getConfigV3(vClient()).catch(() => null) },
       verdicts: Object.values(VERDICT), business_identity_providers: BUSINESS_IDPS, reject_codes: V3_ERRORS,
-      check: 'GET /api/vop/check?seller=<acct>&payee=<acct>&name=<invoice payee name>[&buyer=<acct>]',
+      networks: { testnet: 'full check: payee book v3 + proof (default)', mainnet: 'identity-only: add network=mainnet; never MATCH, never payable (no mainnet payee book yet)' },
+      check: 'GET /api/vop/check?seller=<acct>&payee=<acct>&name=<invoice payee name>[&buyer=<acct>][&network=mainnet]',
       rule: 'An agent pays only when payable=true: verdict MATCH, payee bound by its own signature, cooling-off over, proof anchored and re-verified with the node.',
     }))],
-    ['GET', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); return vop.check({ seller: q.seller, payee: q.payee, legal_name: q.name ?? q.legal_name, country: q.country, buyer: q.buyer }); })],
+    ['GET', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); return runCheck({ network: q.network, seller: q.seller, payee: q.payee, legal_name: q.name ?? q.legal_name, country: q.country, buyer: q.buyer }); })],
     // Alias for the interface the MCP / npm / GitHub Action packaging codes against (handoff V11): same service,
     // EPC lower-case vocabulary added as `epc_verdict`.
-    ['GET', /^\/api\/check-payee$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); const r = await vop.check({ seller: q.seller, payee: q.payee, legal_name: q.legal_name ?? q.name, country: q.country, buyer: q.buyer }); return { ...r, epc_verdict: r.verdict.toLowerCase() }; })],
-    ['POST', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); return vop.check(await readBody(req)); })],
+    ['GET', /^\/api\/check-payee$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); const r = await runCheck({ network: q.network, seller: q.seller, payee: q.payee, legal_name: q.legal_name ?? q.name, country: q.country, buyer: q.buyer }); return { ...r, epc_verdict: r.verdict.toLowerCase() }; })],
+    ['POST', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); return runCheck(await readBody(req)); })],
     ['POST', /^\/api\/vop\/proofs$/, wrap(async (req) => { await limited('vop:proof', 6)(req); return vop.submitProof(await readBody(req, 256 * 1024)); })],
     ['GET', /^\/api\/vop\/proofs\/([0-9a-f]{64})$/, wrap(async (req, res, m) => { await limited('vop:proofget', 30)(req); return vop.getProof(m[1]); })],
     ['GET', /^\/api\/vop\/payee$/, wrap(async (req) => {
@@ -190,6 +199,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(q.seller ?? '') || !/^\d{1,19}$/.test(q.id ?? '')) throw new VopError(400, 'bad_key', 'seller (account) and id (integer) are required.');
       return { contract: v3Label(), payable: await getPayableV3(vClient(), q.seller, q.id) };
     })],
+    ['GET', /^\/api\/census$/, wrap(async (req) => { await limited('census', 60)(req); return loadCensus(); })],
     // ---- x402 buyer with check_payee on every payTo ----
     ['GET', /^\/api\/x402\/sellers$/, wrap(async () => ({ sellers: X402_SELLERS, policy: { network: 'Concordium testnet', max_ccd_per_purchase: '2.5', asset: 'CCD', payer: 'PayOnce reference buyer agent (labelled; a person approves anything that is not a Match)', outcomes: ['match: pay once', 'close_match: a person decides', 'no_match: pay nothing', 'not_possible: a person decides'] } }))],
     ['GET', /^\/api\/x402\/probe$/, wrap(async (req) => { await limited('x402:probe', 12)(req); const q = qs(req); return x402.probe({ url: q.url, method: q.method, name: q.name }); })],

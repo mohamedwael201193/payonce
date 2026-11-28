@@ -1,6 +1,6 @@
 # PayOnce — Verification-of-Payee census of the Concordium Agent Registry (read-only)
 
-Run date: 28 Nov 2026 (Cairo). Read-only: no keys, no transactions, public data only.
+First run: 28 Nov 2026 (Cairo); re-run every 6 h by GitHub Actions. Read-only: no keys, no transactions, public data only.
 
 ## Question
 How many registered agents would pass **Verification of Payee (VoP)** today, i.e. an agent that wants to pay them could
@@ -28,12 +28,36 @@ invoice identity which no other agent has). We also report the looser counts so 
   Upper bounds, not proof of a working payment endpoint.
 - `owner_idp`, `payee_idp`: identity provider names as shown by CCDExplorer.
 
-## Limits (be honest in any claim)
-- Business-ID check only proves the *account* belongs to a company identity; it does not check that the company's legal name
-  equals the name on a given invoice (that is the part PayOnce adds). So "pass" here is an *upper bound* on real VoP matches.
-- Testnet Global FinReg auto-approves anything, so testnet business IDs are weak evidence; mainnet is real KYB.
-- Cards on unreachable hosts (timeouts) are counted as not fetched. Run is a snapshot; registry grows daily.
-- Account→IdP resolution is by HTML scrape of ccdexplorer.io (1 req/s, polite UA). If it changes, use gRPC `getAccountInfo` credentials + `getIdentityProviders`.
+## Exact wording (copy these; the numbers come from `census_public.json`, field `wording`)
+- SAY: "At most N of M registered agents meet the *preconditions* of a Verification-of-Payee check today." (**upper bound**, snapshot at `generated_at_utc`).
+- DO NOT SAY: "N agents are verified / safe / legitimate", "M-N agents are fraudulent", "no Concordium agent can be trusted".
+- "Pass" = valid badge (registry's own check) AND agentWallet set AND the payee account holds a business identity (Global FinReg). It is an upper bound because a real
+  MATCH additionally needs the legal name proven or payee-signed (PayOnce v3 payee book, testnet) and equal to the invoice name. Nobody outside PayOnce has that today.
+- "Payee" = `agentWallet`, or the owner when none is set (registry semantics). The registry defaults `agentWallet` to the owner on registration, so
+  `payee_equals_owner_default` is mostly the default and is **not** evidence that a developer chose to separate a payee.
+- `distinct_owners` counts accounts, not people or companies: one company can hold many accounts.
+- Population: tokens returned by `list_agents` for each network at run time (mainnet 5,501 / testnet 1,553 on 28 Nov 2026). It is not "all Concordium agents".
+- Scope of "x402 sellers": Concordium-network `accepts` entries found in live 402 challenges of endpoints reachable from agent cards or `x402_field_urls.txt` (GET/POST, never paid).
+  It is a lower bound on live sellers (cards that do not advertise the endpoint are missed) and a handful, so quote counts, not percentages.
+- Testnet business IDs are weak evidence (the testnet Global FinReg issuer auto-approves). Mainnet business IDs are real KYB; mainnet figures are the ones to headline.
+
+## Limits
+- A business identity proves the *account* belongs to *a* company; it does not say which, so it never proves the invoice name. That part is PayOnce's.
+- Account→provider attribution is a scrape of CCDExplorer's public account page (1 req/s, polite UA); the live `check_payee` reads a node (gRPC `getAccountInfo`) instead.
+  If the page layout changes, the run fails the sanity check in `.github/workflows/census.yml` instead of publishing wrong numbers. **Sample verification:** see below.
+- Cards on unreachable hosts (timeouts, circuit breaker after 6 failures per host) count as "card not fetched", hence badge not valid. A transient outage can lower the badge count for one run.
+- Snapshot: the registry grows daily; every figure carries its `generated_at_utc` and `/api/census` adds `served.age_hours` and `served.stale`.
+- Mainnet `check_payee` is identity-only (`mode: identity_only`): never MATCH, never `payable`, because the payee book (v3) exists on testnet only.
+
+## Sample verification (how the scrape is cross-checked against a node)
+`node tools/census/verify-sample.mjs` (needs `cd api && npm ci` and a reachable Concordium gRPC node, e.g. momo's PC; the census host blocks port 20000).
+It re-reads `getAccountInfo` for every business-identity account plus a seeded random sample (default 25/network), compares the identity-provider set with the CSV and prints the
+agreement rate; exit code 1 on any mismatch. The mainnet `check_payee` also reads the node directly on every call (fallback to the explorer is labelled `source: ccdexplorer`).
+Until it has been run from a machine with gRPC, state the identity data as "read from CCDExplorer", not "verified on-chain".
+
+## Refresh
+`.github/workflows/census.yml` runs `refresh.sh` every 6 hours (cron `17 */6 * * *`), sanity-checks, and commits `tools/census` as mohamedwael201193 with `[skip render]`.
+The first run of each UTC day drops the badge cache and re-derives every badge. `GET /api/census` serves the committed `census_public.json` (raw GitHub, 10 min cache, bundled fallback).
 
 ## Reproduce
-`./run_all.sh` (python3 stdlib only, ~30–60 min). Outputs `census_mainnet.csv`, `census_testnet.csv`, `summary.json`.
+`./run_all.sh` or `./refresh.sh` (python3 stdlib only, ~30–60 min). Outputs `census_*.csv`, `summary.json`, `census_public.json`.

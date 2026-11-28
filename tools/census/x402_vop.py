@@ -1,4 +1,4 @@
-"""check_payee on every Concordium payTo found in live x402 challenges (read-only), cross-referenced with the registry."""
+"""check_payee on every Concordium payTo found in live x402 challenges (testnet: full check; mainnet: identity-only mode), cross-referenced with the registry."""
 import json,time,urllib.request,urllib.parse,collections,csv
 import idp_scrape
 API="https://payonce-api-n98a.onrender.com/api/vop/check"; SELLER="3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr"
@@ -22,15 +22,14 @@ for s in json.load(open("x402_sellers.json")):
             if c.get("name"): name=c["name"]; break
         name=name or s["url"].split("/")[2]
         v={}
-        if net=="testnet":
-            q=urllib.parse.urlencode({"seller":SELLER,"payee":p,"name":name})
-            for t in range(4):
-                try: v=json.loads(urllib.request.urlopen(API+"?"+q,timeout=60).read()); break
-                except Exception as e: time.sleep(5)
+        q=urllib.parse.urlencode({"network":net,"seller":SELLER,"payee":p,"name":name})
+        for t in range(4):
+            try: v=json.loads(urllib.request.urlopen(API+"?"+q,timeout=60).read()); break
+            except Exception as e: time.sleep(5)
         rows.append({"endpoint":s["url"],"network":net,"payTo":p,"amount":a.get("amount"),"asset":a.get("asset"),
             "registry_agents_for_payTo":",".join(str(x["token_id"]) for x in reg),"payTo_is_registry_owner_or_wallet":bool(reg),
             "owner_ne_payTo":bool(owner_neq),"payTo_idp":"|".join(provs),"payTo_business_id":any("Global FinReg" in x for x in provs),
-            "invoice_name_used":name,"check_payee_verdict":v.get("verdict") if net=="testnet" else "n/a (live check_payee is testnet-only)",
+            "invoice_name_used":name,"check_payee_verdict":v.get("verdict") or "ERROR",
             "check_payee_reason":((v.get("reasons") or [""])[0][:200] if v else ""),"evidence_hash":v.get("evidence_hash")})
         time.sleep(2.2)
 json.dump(rows,open("x402_vop_results.json","w"),indent=1)

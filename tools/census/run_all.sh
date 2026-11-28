@@ -12,4 +12,5 @@ python3 census.py   # also runs the official Concordium badge check for every pr
 python3 vop_testnet.py      # live check_payee on every testnet payee (paced <=20 req/min)
 python3 x402_probe.py       # find live x402 sellers (card endpoints + x402_field_urls.txt), GET/POST only, no payment
 python3 x402_vop.py
+python3 vop_mainnet.py
 python3 build_public.py
