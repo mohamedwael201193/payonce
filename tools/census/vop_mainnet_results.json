@@ -98,7 +98,7 @@
  {
   "network": "mainnet",
   "payee": "38F4QH75Z2ajJ4e5jPuHRwBDfpreowyWwNnU62fGo7s8jUqUBw",
-  "agents": 324,
+  "agents": 332,
   "invoice_name_used": "Lead Engineer FATHOM-01",
   "verdict": "UNVERIFIED",
   "identity_kind": "person",
@@ -422,7 +422,7 @@
  {
   "network": "mainnet",
   "payee": "3g5kKY8etFR94fs2WNSoB9pwLzwfd14K7AYkXr5DAdkg46v644",
-  "agents": 1304,
+  "agents": 1317,
   "invoice_name_used": "Facilitator GAVEL-01",
   "verdict": "UNVERIFIED",
   "identity_kind": "person",
@@ -434,7 +434,7 @@
  {
   "network": "mainnet",
   "payee": "3jcmDVwowgmtykJdEfGqRzjhybGecEQQXmr4URYm32Zeqd38Fr",
-  "agents": 1543,
+  "agents": 1554,
   "invoice_name_used": "Ochlos Fetch.ai 001",
   "verdict": "UNVERIFIED",
   "identity_kind": "person",
@@ -494,14 +494,14 @@
  {
   "network": "mainnet",
   "payee": "3oQSVHuPd5LYcxsZvMu9LBsw7W6aBQwQ4XasNfSQrXc6zQFtWh",
-  "agents": 27,
+  "agents": 28,
   "invoice_name_used": "Solution Architect KEEL-01",
   "verdict": "UNVERIFIED",
   "identity_kind": "person",
   "payable": false,
   "source": "node",
   "idps": "Notabene",
-  "evidence_hash": "2d1b85d2f4a09d40d9fbe6757ef077784fe9a072fe543a14babf180139eee3e7"
+  "evidence_hash": "a6b9822eb9a76531ff567a70df9a09dee26fbe3846d52ee14d314226c44604b4"
  },
  {
   "network": "mainnet",

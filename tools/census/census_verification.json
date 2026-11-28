@@ -1,8 +1,8 @@
 {
  "schema": "payonce-census-verification/v1",
- "verified_at_utc": "2026-11-28T08:56:15.982Z",
+ "verified_at_utc": "2026-11-28T12:58:55.044Z",
  "run_by": "github-actions",
- "census_generated_at_utc": "2026-11-28T08:56:08Z",
+ "census_generated_at_utc": "2026-11-28T12:58:44Z",
  "seed": 20261128,
  "sample_per_network": 25,
  "node": {
@@ -312,7 +312,7 @@
    ]
   },
   "testnet": {
-   "accounts_in_census": 276,
+   "accounts_in_census": 277,
    "business_accounts_in_census": 10,
    "business_accounts_checked": 10,
    "sample_size": 35,
@@ -412,12 +412,12 @@
      "result": "agree"
     },
     {
-     "account": "3iKSW5yYC3ukE4y2smSb3SbCGEa8BzfT8CbLaAfpJjJtGrgcD1",
+     "account": "3hurAcgoAiabk9VR5FqNaUySxW739FG2PcwnmWuhHp8D6jgNFY",
      "census": [
-      "Concordium testnet IP"
+      "Digital Trust Solutions TestNet"
      ],
      "node": [
-      "Concordium testnet IP"
+      "Digital Trust Solutions TestNet"
      ],
      "business_in_census": false,
      "result": "agree"
@@ -434,7 +434,7 @@
      "result": "agree"
     },
     {
-     "account": "3SAsvRbEJrDZ1NGLUTGkyhM4c4uTE6xXucqDqw1BxpXZsxHY8s",
+     "account": "3RP7sq5nFz4BcWxtV7eGZU7ZVFAWf3pJddg3iZ5qTu273NndeC",
      "census": [
       "Concordium testnet IP"
      ],
@@ -456,7 +456,7 @@
      "result": "agree"
     },
     {
-     "account": "3UrRJHiUmYPTpac1m1Uo7kQuR71KLwCG2NBV1hmnAE4zPa6ZEZ",
+     "account": "3UicG1GAQtP4QVsY5ine35QtkjtUftom3JcsxoCTDB2T7kqawd",
      "census": [
       "Concordium testnet IP"
      ],
@@ -500,23 +500,23 @@
      "result": "agree"
     },
     {
+     "account": "3ZvgksyqtVQug1fZihogs7xi9mRbbiVcve9Z1TnA38tzxHZAzh",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
      "account": "3ZYDJtScuPqTuToqbKuC5PVxjWhsDhq8DaSPZRRSAAV3uqSHVt",
      "census": [
       "Digital Trust Solutions TestNet"
      ],
      "node": [
       "Digital Trust Solutions TestNet"
-     ],
-     "business_in_census": false,
-     "result": "agree"
-    },
-    {
-     "account": "3Zzd2HYNqcTLY5JyQEtNNSvDShsK2fqGz9oQSHGPp9wUBKjzKM",
-     "census": [
-      "Concordium testnet IP"
-     ],
-     "node": [
-      "Concordium testnet IP"
      ],
      "business_in_census": false,
      "result": "agree"
@@ -533,7 +533,7 @@
      "result": "agree"
     },
     {
-     "account": "43JZTBYtNQmzy9JfG8x7TyTo5hdLhvYd4HR1x4HLyCBpfgTZkt",
+     "account": "43GQBGRBSet41XhHLwppEacq8eF3BzRrZYhKUG3zYC44jrMwrc",
      "census": [
       "Concordium testnet IP"
      ],
@@ -544,7 +544,7 @@
      "result": "agree"
     },
     {
-     "account": "44khdNXk2yBn8PvJYFYNsKuZrV8oUvdHo23bL6dA7YyEYGkEF7",
+     "account": "44gSuViEghMKGsSaeVrBWncPyXbTeAMfLdnNWXFAdr7pY97DnU",
      "census": [
       "Concordium testnet IP"
      ],

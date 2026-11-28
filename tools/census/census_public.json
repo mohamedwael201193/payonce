@@ -1,18 +1,18 @@
 {
  "schema": "payonce-vop-census/v1",
- "generated_at_utc": "2026-11-28T08:56:16Z",
+ "generated_at_utc": "2026-11-28T12:58:55Z",
  "method": "tools/census/METHOD.md",
  "vop_rule": "badge valid (official check) AND agentWallet set AND payee account holds a business identity (Global FinReg)",
  "networks": {
   "mainnet": {
-   "agents_total": 5501,
-   "active": 5492,
-   "badge_valid_official": 1997,
+   "agents_total": 5534,
+   "active": 5525,
+   "badge_valid_official": 2030,
    "agents_that_pass_vop_today": 5,
    "pct_pass_vop_today": 0.09,
-   "valid_badge_but_payee_has_only_personal_identity_or_none": 1992,
-   "payee_equals_owner_default": 4379,
-   "payee_not_set": 1121,
+   "valid_badge_but_payee_has_only_personal_identity_or_none": 2025,
+   "payee_equals_owner_default": 4411,
+   "payee_not_set": 1122,
    "owner_ne_payee": 1,
    "owner_business_but_payee_personal": 0,
    "distinct_owners": 115,
@@ -25,31 +25,31 @@
    }
   },
   "testnet": {
-   "agents_total": 1555,
-   "active": 1267,
-   "badge_valid_official": 215,
+   "agents_total": 1556,
+   "active": 1268,
+   "badge_valid_official": 217,
    "agents_that_pass_vop_today": 3,
    "pct_pass_vop_today": 0.19,
-   "valid_badge_but_payee_has_only_personal_identity_or_none": 212,
-   "payee_equals_owner_default": 1329,
+   "valid_badge_but_payee_has_only_personal_identity_or_none": 214,
+   "payee_equals_owner_default": 1330,
    "payee_not_set": 185,
    "owner_ne_payee": 41,
    "owner_business_but_payee_personal": 3,
-   "distinct_owners": 240,
+   "distinct_owners": 241,
    "distinct_owners_with_business_id": 10,
-   "cards_mentioning_x402_text": 152,
+   "cards_mentioning_x402_text": 154,
    "owner_identity_provider_breakdown": {
-    "Concordium testnet IP": 222,
+    "Concordium testnet IP": 223,
     "Global FinReg Testnet": 10,
     "Digital Trust Solutions TestNet": 8
    }
   }
  },
  "check_payee_live_on_testnet_payees": {
-  "accounts_checked": 249,
+  "accounts_checked": 250,
   "verdicts": {
-   "UNVERIFIED": 225,
-   "ERROR": 23,
+   "UNVERIFIED": 224,
+   "ERROR": 25,
    "NO_MATCH": 1
   },
   "note": "invoice name used = the agent card name; UNVERIFIED means no name proof exists yet for the account; a MATCH needs a name proof plus a payee-signed binding, which no account outside PayOnce has published yet"
@@ -57,7 +57,7 @@
  "check_payee_live_on_mainnet_payees": {
   "mode": "identity_only",
   "accounts_checked": 116,
-  "agents_covered": 5501,
+  "agents_covered": 5534,
   "verdicts": {
    "UNVERIFIED": 116
   },
@@ -151,16 +151,16 @@
   }
  },
  "changes_since_previous_run": {
-  "previous_generated_at_utc": "2026-11-28T08:19:05Z",
+  "previous_generated_at_utc": "2026-11-28T08:56:16Z",
   "networks": {
    "mainnet": {
-    "new_agents": 0,
+    "new_agents": 33,
     "removed_agents": 0,
     "payee_changed": 0,
     "payee_changed_examples": []
    },
    "testnet": {
-    "new_agents": 2,
+    "new_agents": 1,
     "removed_agents": 0,
     "payee_changed": 0,
     "payee_changed_examples": []
@@ -170,9 +170,9 @@
  },
  "verification": {
   "schema": "payonce-census-verification/v1",
-  "verified_at_utc": "2026-11-28T08:56:15.982Z",
+  "verified_at_utc": "2026-11-28T12:58:55.044Z",
   "run_by": "github-actions",
-  "census_generated_at_utc": "2026-11-28T08:56:08Z",
+  "census_generated_at_utc": "2026-11-28T12:58:44Z",
   "all_agree": true,
   "scope": "Identity-provider attribution only, for every business-identity account plus a seeded random sample of the other accounts. It does not verify badges, cards or the full census.",
   "networks": {
@@ -188,7 +188,7 @@
     "agreement_rate": 1
    },
    "testnet": {
-    "accounts_in_census": 276,
+    "accounts_in_census": 277,
     "business_accounts_in_census": 10,
     "business_accounts_checked": 10,
     "sample_size": 35,
@@ -202,7 +202,7 @@
   "file": "tools/census/census_verification.json"
  },
  "wording": {
-  "headline": "At most 5 of 5,501 agents in the Concordium mainnet registry (0.09%) meet the preconditions of a Verification-of-Payee check today; on testnet, 3 of 1,555.",
+  "headline": "At most 5 of 5,534 agents in the Concordium mainnet registry (0.09%) meet the preconditions of a Verification-of-Payee check today; on testnet, 3 of 1,556.",
   "upper_bound": "These are upper bounds. 'Pass' only means the technical preconditions hold (valid Verified-by-Concordium badge, an agentWallet is set, and the account receiving payment holds a business identity from Global FinReg). It does not prove the legal name matches an invoice: that needs a payee-signed name binding (PayOnce v3, testnet) or a zero-knowledge name proof.",
   "definitions": {
    "agents_total": "Tokens returned by the registry's list_agents for the network, at generated_at_utc.",
