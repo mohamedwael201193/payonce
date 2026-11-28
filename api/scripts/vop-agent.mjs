@@ -13,9 +13,9 @@ const API = (process.argv[2] ?? process.env.PAYONCE_API_URL ?? 'https://payonce-
 const J = (o) => JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const S = await signers();
-const AGENT = S.sellerB; // the buyer agent's account (4MvdME…)
+const AGENT = S.seller2; // the buyer agent's account (3ARQvc…, single key)
 const SELLER = S.owner.address;
-const FRAUD = S.agentC3Key0.address;
+const FRAUD = S.sellerB.address; // the account the fake "bank details changed" e-mail names
 const mandate = { allowStandin: true }; // testnet demo: the owner allowed the labelled stand-in name
 
 async function api(path, body) {
