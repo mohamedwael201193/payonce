@@ -10,6 +10,11 @@ import {
 import { createOpenSellers, OpenError, isAddress } from './open-sellers.mjs';
 import { payableVerdict } from './ecosystem-verify.mjs';
 import { createWalletDesk } from './wallet-desk.mjs';
+import { createPayeeProofs, TESTNET_IDPS } from './payee-proof.mjs';
+import { VerificationRequestV1, VerificationAuditRecordV1, VerifiablePresentationV1, IdentityProviderDID, CredentialRegistrationId } from '@concordium/web-sdk';
+import { vClient, verifyV1PresentationWithNode, assertContextsMatch, CONSENT_DOMAIN } from './consent.mjs';
+import { retryBusy } from './age-v1.mjs';
+import { VERIFIER_URL } from './age-proof.mjs';
 import { kvGet, kvPut, kvPutIfAbsent, kvList, kvDelete, hitWindow as storeHitWindow } from './store.mjs';
 import {
   grpc, getPayableOrNull, getVendor, agentOf as chainAgentOf, sendUpdate, waitFinalized, signers, chainNow,
@@ -215,11 +220,78 @@ export const desk = createWalletDesk({
       const { v2send } = await backend();
       return v2send.sendSimpleTransfer(c, { from: sig.owner, to, amountMicroCcd: micro });
     },
+    async officialDrop(addr) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 8000);
+      try {
+        const r = await fetch(`https://wallet-proxy.testnet.concordium.com/v0/testnetGTUDrop/${addr}`, { method: 'PUT', signal: ctl.signal });
+        if (!r.ok) return null;
+        const j = await r.json().catch(() => ({}));
+        const h = String(j.submissionId ?? j.transactionHash ?? '');
+        return /^[0-9a-f]{64}$/i.test(h) ? { txHash: h.toLowerCase() } : null;
+      } finally { clearTimeout(t); }
+    },
     async registerInvoiceFor(payer) {
       if (!visitorInvoiceCreator) throw new OpenError(503, 'not_ready', 'The server is still starting. Try again in a moment.');
       return visitorInvoiceCreator(payer);
     },
     async getPayable(seller, id) { return getPayableOrNull(await grpc(), seller, id); },
+  },
+});
+
+// ---- Verification of Payee: the payee's own wallet proves its name ----
+const jsonSafe = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+const refHex = (ref) => (ref?.toString?.() ?? String(ref ?? '')).toLowerCase();
+export const payeeProofs = createPayeeProofs({
+  kv: { get: kvGet, put: kvPut },
+  async anchorV1Request({ account, kind, tags, nonceHex }) {
+    const { owner } = await signers();
+    const sender = AccountAddress.fromBase58(owner.address);
+    const context = VerificationRequestV1.createSimpleContext(
+      new Uint8Array(Buffer.from(nonceHex, 'hex')), `payonce-payee:${account}`, CONSENT_DOMAIN,
+      `PayOnce Verification of Payee: account ${account} reveals ${kind === 'business' ? 'its company legal name' : 'its holder\u2019s first and last name'}, nothing else`,
+    );
+    const claims = VerificationRequestV1.claimsBuilder()
+      .addAccountClaims(TESTNET_IDPS.map((i) => new IdentityProviderDID('Testnet', i)), (b) => { for (const t of tags) b.revealAttribute(t); })
+      .getClaims();
+    const req = await retryBusy(() => VerificationRequestV1.createAndAnchor(vClient(), { sender, signer: owner.signer }, context, claims, { app: 'payonce-payee', account }));
+    const vra = refHex(req.transactionRef);
+    await waitFinalized(await grpc(), vra);
+    return { request: jsonSafe(req.toJSON()), vra_tx: vra };
+  },
+  async verifyV1({ request, presentation }) {
+    let pres;
+    try { pres = VerifiablePresentationV1.fromJSON(presentation); } catch { return { ok: false, reason: 'malformed V1 presentation' }; }
+    let node = await verifyV1PresentationWithNode(pres);
+    if (!node.ok && /429|UNAVAILABLE|RESOURCE_EXHAUSTED/.test(node.reason)) { await new Promise((r) => setTimeout(r, 4000)); node = await verifyV1PresentationWithNode(pres); }
+    if (!node.ok) return { ok: false, reason: node.reason };
+    const req = VerificationRequestV1.fromJSON(request);
+    try { assertContextsMatch(req, pres); } catch (e) { return { ok: false, reason: String(e?.message ?? e).slice(0, 200) }; }
+    let vaa = null;
+    try {
+      const { owner } = await signers();
+      const sender = AccountAddress.fromBase58(owner.address);
+      const r = await retryBusy(() => VerificationAuditRecordV1.createAndAnchor(`payonce-payee-${Date.now()}`, req, pres, vClient(), { metadata: { sender, signer: owner.signer }, info: { app: 'payonce-payee' } }, { network: 'Testnet' }));
+      if (r?.type === 'success') vaa = refHex(r.result?.anchorTransactionRef);
+    } catch { /* the proof stands without the audit anchor; vaa_tx stays null */ }
+    return { ok: true, vaa_tx: vaa };
+  },
+  async verifyV0({ presentation }) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 30_000);
+    try {
+      const r = await fetch(VERIFIER_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(presentation), signal: ctl.signal });
+      const text = await r.text();
+      if (!r.ok) return { ok: false, reason: `verifier HTTP ${r.status}: ${text.slice(0, 160)}` };
+      let j = {}; try { j = JSON.parse(text); } catch { /* ignore */ }
+      return { ok: true, challenge: String(j.challenge ?? j.request?.challenge ?? '').toLowerCase() };
+    } catch (e) {
+      return { ok: false, reason: `verifier unreachable (${String(e?.message ?? e).slice(0, 80)})` };
+    } finally { clearTimeout(t); }
+  },
+  async holderAccount(credIdHex) {
+    const info = await vClient().getAccountInfo(CredentialRegistrationId.fromHexString(credIdHex));
+    return jsonSafe(info)?.accountAddress ?? null;
   },
 });
 
@@ -243,6 +315,10 @@ export function openRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }
     ['GET', /^\/api\/wallet\/account\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('wallet:acct', 30)(req); return desk.account(m[1]); })],
     ['POST', /^\/api\/wallet\/faucet$/, wrap(async (req) => { await limited('wallet:faucet', 3)(req); const b = await readBody(req); return desk.faucet(b.account, clientIp(req)); })],
     ['POST', /^\/api\/wallet\/invoice$/, wrap(async (req) => { await limited('wallet:invoice', 4)(req); const b = await readBody(req); return desk.invoiceFor(b.payer, clientIp(req)); })],
+    ['POST', /^\/api\/wallet\/payee-proof\/request$/, wrap(async (req) => { await limited('wallet:proofreq', 4)(req); return payeeProofs.request(await readBody(req)); })],
+    ['POST', /^\/api\/wallet\/payee-proof\/verify$/, wrap(async (req) => { await limited('wallet:proofver', 6)(req); return payeeProofs.verify(await readBody(req, 256 * 1024)); })],
+    ['GET', /^\/api\/wallet\/payee-proof\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('wallet:proofget', 30)(req); return payeeProofs.get(m[1]); })],
+    ['GET', /^\/api\/wallet\/payee-proof\/([1-9A-HJ-NP-Za-km-z]{50})\/match$/, wrap(async (req, res, m) => { await limited('wallet:proofget', 30)(req); return payeeProofs.match(m[1], q(req, 'name')); })],
     ['GET', /^\/api\/wallet\/pay-tx$/, wrap(async (req) => { await limited('wallet:paytx', 30)(req); return desk.payTransaction(q(req, 'seller'), q(req, 'id'), q(req, 'account')); })],
     ['GET', /^\/api\/open\/sellers$/, wrap(async () => { await open.load(); return { sellers: open.allListed().map((s) => ({ account: s.account, agent_token: s.agent_token, badge: s.badge, listed_at: s.listed_at, listing_tx: s.listing_tx, invoices: (s.invoices ?? []).length })) }; })],
     ['GET', /^\/api\/open\/sellers\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('open:status', 30)(req); return open.status(m[1]); })],

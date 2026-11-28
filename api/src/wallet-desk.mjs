@@ -47,6 +47,16 @@ export function createWalletDesk(deps) {
     if (bal >= policy.faucetSkipAboveMicro) {
       return { sent: false, reason: 'already_funded', balance_ccd: microToCcd(bal), message: `You already have ${microToCcd(bal)} CCD, enough for every step.` };
     }
+    // 1. Concordium's own testnet faucet (wallet-proxy testnetGTUDrop): works once per account, only before any
+    //    incoming transfer. It answers with a tx hash, or an old hash if it already paid this account.
+    if (chain.officialDrop) {
+      const off = await chain.officialDrop(addr).catch(() => null);
+      if (off?.txHash) {
+        await kv.put('wallet_faucet_official', addr, { at: new Date(now()).toISOString(), tx_hash: off.txHash });
+        return { sent: true, source: 'concordium_faucet', tx_hash: off.txHash, message: 'Concordium\u2019s testnet faucet is sending test CCD to your account.' };
+      }
+    }
+    // 2. Fallback: PayOnce's one-time starter drop.
     const prior = await kv.get('wallet_faucet', addr);
     if (prior) return { sent: false, reason: 'already_sent', tx_hash: prior.tx_hash, message: 'This account already got its starter CCD. Use the faucet button in your wallet for more.' };
     await budget(`faucet-ip:${ip}`, DAY, policy.faucetPerIpPerDay, 'Starter CCD is limited per network. Use the faucet button in your wallet.');
@@ -62,7 +72,7 @@ export function createWalletDesk(deps) {
       throw new OpenError(503, 'faucet_send_failed', 'The starter transfer could not be sent. Use the faucet button in your wallet instead.');
     }
     await kv.put('wallet_faucet', addr, { at: new Date(now()).toISOString(), tx_hash: sent.txHash });
-    return { sent: true, tx_hash: sent.txHash, amount_ccd: microToCcd(policy.faucetMicro) };
+    return { sent: true, source: 'payonce_starter', tx_hash: sent.txHash, amount_ccd: microToCcd(policy.faucetMicro) };
   }
 
   async function invoiceFor(payer, ip = 'unknown') {
