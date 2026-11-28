@@ -195,3 +195,11 @@ test('redact: removes secrets, bearer tokens, API keys and seed-shaped word runs
 test('addressesIn finds Concordium addresses', () => {
   assert.deepEqual(addressesIn(`pay ${PAYEE} or ${S1}, not 12345`).sort(), [PAYEE, S1].sort());
 });
+
+test('check_payable: an "Expected payer" line names who pays, not who is paid; a payee line with the same account is still refused', async () => {
+  const { t } = mk();
+  const ok = await t.check_payable({ seller: S1, id: 10, doc_text: docFor(10), email_text: `Invoice attached.\nExpected payer: ${ATTACKER} (PayOnce buyer agent)\n` });
+  assert.ok(!ok.reasons.some((x) => x.code === 'payee_is_registered_payee'));
+  const bad = await t.check_payable({ seller: S1, id: 10, doc_text: docFor(10), email_text: `Expected payer: ${ATTACKER}\nPay to ${ATTACKER}` });
+  assert.ok(bad.reasons.some((x) => x.code === 'payee_is_registered_payee'));
+});
