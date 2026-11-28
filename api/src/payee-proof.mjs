@@ -44,7 +44,8 @@ export function provenName(kind, attrs) {
 // ---- EPC-style name matching (match / close_match / no_match) ----
 const STOP = new Set(['ltd', 'limited', 'llc', 'inc', 'gmbh', 'ag', 'sa', 'bv', 'nv', 'plc', 'co', 'company', 'corp', 'corporation', 'the', 'and', 'aps', 'ab', 'oy', 'srl', 'spa', 'sarl']);
 export function normalizeName(s) {
-  return String(s ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w && !STOP.has(w));
+  // German/Nordic letters transliterated (Müller = Mueller), dots dropped so G.m.b.H. = GmbH.
+  return String(s ?? '').normalize('NFC').replace(/[äÄ]/g, 'ae').replace(/[öÖøØ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss').replace(/[æÆ]/g, 'ae').replace(/[åÅ]/g, 'aa').replace(/\./g, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w && !STOP.has(w));
 }
 function lev(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -126,6 +127,8 @@ export function createPayeeProofs(deps) {
     if (!ok) return { verified: false, checks };
     const proof = { account: rec.account, kind: rec.kind, name, attributes: Object.fromEntries(rec.tags.map((t) => [t, attrs[t] ?? null])), version: version === 'v1' ? 'v1' : 'v0', vra_tx: rec.vra_tx ?? null, vaa_tx: vaa, verified_at: new Date(now()).toISOString(), issuer: issuerOf(pres) };
     await kv.put('payee_proof', rec.account, proof);
+    // check_payee (vop-service.mjs) re-verifies this exact presentation keylessly; its sha256 is the payee-book proof_anchor.
+    await kv.put('payee_proof_presentation', rec.account, { version: proof.version, presentation: pres });
     return { verified: true, checks, proof };
   }
 

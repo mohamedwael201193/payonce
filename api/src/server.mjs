@@ -52,6 +52,7 @@ import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoK
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
+import { vopRoutes } from './vop-routes.mjs';
 import { open as openSellers, openRoutes, initSchemas as initOpenSchemas, setOpenRowRefresher, setVisitorInvoiceCreator } from './open-wiring.mjs';
 import { OpenError } from './open-sellers.mjs';
 import { setOpenDocResolver } from './docs.mjs';
@@ -1797,6 +1798,7 @@ const routes = [
   ['GET', /^\/api\/cis8\/status$/, handleCis8Status],
   ['POST', /^\/api\/cis8\/request$/, handleCis8Request],
   ...openRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }),
+  ...vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }),
 ];
 
 const server = createServer(async (req, res) => {
