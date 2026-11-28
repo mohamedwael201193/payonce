@@ -516,7 +516,7 @@ Further attacks, proven in the live end-to-end run of 2026-11-27 and the agent r
 - **Buyer agent.** The buyer's card is published and its badge check is valid (verify step 2). The API's `/api/config` note for the buyer still says no card is published; the badge check is the authority.
 - **Tests that read the public node can fail on a 429.** See the test table; those are retried in CI.
 
-More limits, with the reasoning, are on the [judge page](https://payonce-tau.vercel.app/app/proof/judges) and in [`VERIFY.md`](../VERIFY.md) section 6.
+More limits, with the reasoning, are on the [judge page](https://payonce-tau.vercel.app/app/proof/judges) and in [`docs/VERIFY_LEGACY_V2.md`](VERIFY_LEGACY_V2.md) section 6 (v2 limits) and [`VERIFY.md`](../VERIFY.md).
 
 ## Repo layout
 
