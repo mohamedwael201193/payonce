@@ -93,3 +93,14 @@
 .pf-row__l { grid-column: 1; font-size: 17px; line-height: 1.5; color: var(--po-grey); }
 .pf-row__go { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 16px; font-weight: 500; color: var(--po-accent-ink); transition: transform .2s; }
 .pf-row:hover .pf-row__go { transform: translateX(3px); }
+
+/* Own-wallet payer */
+.rn-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.rn-acct { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 14px 18px; border-radius: 14px; background: var(--po-sunken); margin-top: 18px; }
+.rn-acct .rn-mono { font-size: 18px; }
+.rn-acct__warn { flex-basis: 100%; font-size: 15px; }
+.rn-pair { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--po-line); }
+.rn-qr { width: 232px; height: 232px; border-radius: 14px; border: 1px solid var(--po-line); background: var(--po-white); padding: 8px; }
+.rn-qr--wait { background: var(--po-sunken); }
+.rn-funds { margin-top: 18px; }
+.rn-ok { color: var(--po-ok); font-weight: 600; }

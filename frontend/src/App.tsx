@@ -19,6 +19,7 @@ const X402Page = page(() => import('./app/pages/X402Page'), 'X402Page')
 const ProofPage = page(() => import('./app/pages/ProofPage'), 'ProofPage')
 const NotFoundPage = page(() => import('./app/pages/ProofPage'), 'NotFoundPage')
 const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
+const SellPage = page(() => import('./app/pages/SellPage'), 'SellPage')
 
 // The landing lives in src/landing and is the only route outside the app
 // shell. It is loaded on demand, so /app visitors never download it.
@@ -160,6 +161,8 @@ export function AppRoutes() {
         <Route path="proof/judges" element={<JudgesPage />} />
         <Route path="proof/age" element={<AgeProofPage />} />
         <Route path="proof/x402" element={<X402Page />} />
+        <Route path="sell" element={<SellPage />} />
+        <Route path="wallet" element={<Navigate to="/app" replace />} />
         {/* Old addresses keep working. */}
         <Route path="agent" element={<Navigate to="/app/proof/agent" replace />} />
         <Route path="break" element={<Navigate to="/app/proof/break" replace />} />

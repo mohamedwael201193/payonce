@@ -13,6 +13,10 @@ import { midTruncate } from '../Address'
 import { useDocumentTitle } from '../hooks'
 import { STEPS, forgePayee, tidy, toVerdict, type StepIndex, type Verdict } from './flow'
 import { PaymentPath, VerdictMark } from './Visuals'
+import { WalletProvider, useWallet } from '../../wallet/WalletContext'
+import { walletApi, waitForTx, WalletApiError } from '../../wallet/api'
+import { walletErrorText, type UpdateTx } from '../../wallet/types'
+import { RunConnect, RunFunds, useFunded } from './RunWallet'
 import './run.css'
 
 const EXPLORER = 'https://ccdexplorer.io/testnet/transaction/'
@@ -27,6 +31,21 @@ interface Invoice {
   doc: string
 }
 
+type Payer = 'wallet' | 'agent'
+interface WalletInvoice { seller: string; payable_id: number; tx_hash?: string | null }
+interface PayTx { invoice: { payable_id: number; seller: string; payee: string; amount_ccd: string }; transaction: UpdateTx }
+const invoiceKey = (acct: string) => `payonce.wallet.invoice.${acct}`
+const REJECT_PLAIN: Record<string, string> = {
+  WrongStatus: 'This invoice is already paid, so the contract refused a second payment. Nothing moved.',
+  WrongPayer: 'Only the account named on the invoice may pay it.',
+  PastDue: 'The invoice is past due.',
+  WrongAmount: 'The amount does not match the invoice.',
+}
+function rejectText(r: { code: number; name: string; message?: string } | null | undefined): string {
+  if (!r) return 'The chain refused the transaction. Nothing moved.'
+  return `${REJECT_PLAIN[r.name] ?? r.message ?? 'The contract refused it. Nothing moved.'} (${r.name}, code ${r.code})`
+}
+
 type Async<T> = { s: 'idle' } | { s: 'busy'; note: string } | { s: 'done'; v: T } | { s: 'error'; msg: string }
 
 function errText(e: unknown): string {
@@ -37,12 +56,28 @@ const short = (a: string) => midTruncate(a, 6, 6)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export function RunPage() {
+  return (
+    <WalletProvider>
+      <RunFlow />
+    </WalletProvider>
+  )
+}
+
+function RunFlow() {
   useDocumentTitle('Run it')
+  const w = useWallet()
+  const acct = w.session?.account ?? null
+  const funded = useFunded(acct)
+  const [payer, setPayer] = useState<Payer | null>(null)
+  // Default: the visitor's own wallet on a phone or when the extension is installed; else the testnet buyer agent.
+  const choice: Payer = payer ?? (w.session || w.mobile || w.browserWallet ? 'wallet' : 'agent')
+  const mine = choice === 'wallet'
+  const [walletTx, setWalletTx] = useState<PayTx | null>(null)
   const [step, setStep] = useState<StepIndex>(0)
   const [invoice, setInvoice] = useState<Async<Invoice>>({ s: 'idle' })
   const [fake, setFake] = useState(false)
   const [check, setCheck] = useState<Async<Verdict>>({ s: 'idle' })
-  const [pay, setPay] = useState<Async<{ tx: string | null; job: JobSnapshot }>>({ s: 'idle' })
+  const [pay, setPay] = useState<Async<{ tx: string | null; job: JobSnapshot | null }>>({ s: 'idle' })
   const [again, setAgain] = useState<Async<{ plain: string; tx: string | null }>>({ s: 'idle' })
   const [review, setReview] = useState(false)
   const alive = useRef(true)
@@ -51,7 +86,38 @@ export function RunPage() {
   const inv = invoice.s === 'done' ? invoice.v : null
   const verdict = check.s === 'done' ? check.v : null
 
+  async function loadInvoice(seller: string, id: number, regTx: string | null) {
+    const facts = await api.getPayable(id, seller)
+    const doc = await api.getDocument(id, seller)
+    return { id, seller: facts.seller, payee: facts.payee, amount: tidy(facts.amount_display), regTx, doc }
+  }
+
+  async function getWalletInvoice() {
+    if (!acct) return
+    setInvoice({ s: 'busy', note: 'Registering an invoice that names your account as the only payer. About 10 seconds.' })
+    setWalletTx(null)
+    try {
+      const r = await walletApi<WalletInvoice>('/api/wallet/invoice', { method: 'POST', body: { payer: acct } })
+      try { localStorage.setItem(invoiceKey(acct), JSON.stringify({ seller: r.seller, payable_id: r.payable_id, tx_hash: r.tx_hash ?? null })) } catch { /* private mode */ }
+      const v = await loadInvoice(r.seller, r.payable_id, r.tx_hash ?? null)
+      if (alive.current) setInvoice({ s: 'done', v })
+    } catch (e) {
+      // Limited per account and per day: reuse this account's last invoice while it is still payable.
+      try {
+        const raw = localStorage.getItem(invoiceKey(acct))
+        const last = raw ? (JSON.parse(raw) as WalletInvoice) : null
+        if (!last) throw e
+        await walletApi<PayTx>(`/api/wallet/pay-tx?seller=${last.seller}&id=${last.payable_id}&account=${acct}`)
+        const v = await loadInvoice(last.seller, last.payable_id, last.tx_hash ?? null)
+        if (alive.current) setInvoice({ s: 'done', v })
+      } catch {
+        if (alive.current) setInvoice({ s: 'error', msg: e instanceof WalletApiError ? e.message : errText(e) })
+      }
+    }
+  }
+
   async function getInvoice() {
+    if (mine) return getWalletInvoice()
     setInvoice({ s: 'busy', note: 'Registering a new invoice on Concordium testnet. About 10 seconds.' })
     try {
       const created = await api.createPayable('ccd')
@@ -88,8 +154,60 @@ export function RunPage() {
     }
   }
 
+  async function openReview() {
+    if (!inv) return
+    if (!mine) return setReview(true)
+    if (!acct) return
+    try {
+      const t = await walletApi<PayTx>(`/api/wallet/pay-tx?seller=${inv.seller}&id=${inv.id}&account=${acct}`)
+      setWalletTx(t)
+      setReview(true)
+    } catch (e) {
+      setStep(3)
+      setPay({ s: 'error', msg: e instanceof WalletApiError ? e.message : errText(e) })
+    }
+  }
+
+  async function walletPay() {
+    if (!inv || !w.session || !walletTx) return
+    setReview(false)
+    setStep(3)
+    setPay({ s: 'busy', note: 'Approve the payment in your wallet.' })
+    try {
+      const hash = await w.session.sendUpdate(walletTx.transaction)
+      if (alive.current) setPay({ s: 'busy', note: 'Sent from your wallet. The chain takes about 10 seconds to finalise it.' })
+      const st = await waitForTx(hash)
+      if (!alive.current) return
+      if (st.status === 'finalized' && !st.reject) {
+        setPay({ s: 'done', v: { tx: hash, job: null } })
+        setStep(4)
+      } else if (st.reject) {
+        setPay({ s: 'error', msg: rejectText(st.reject) })
+      } else {
+        setPay({ s: 'error', msg: 'Still waiting for the chain. Open the receipt in a minute; do not pay again.' })
+      }
+    } catch (e) {
+      if (alive.current) setPay({ s: 'error', msg: walletErrorText(e) })
+    }
+  }
+
+  async function walletPayAgain() {
+    if (!w.session || !walletTx) return
+    setAgain({ s: 'busy', note: 'Approve the second payment in your wallet. The contract decides.' })
+    try {
+      const hash = await w.session.sendUpdate(walletTx.transaction)
+      const st = await waitForTx(hash)
+      if (!alive.current) return
+      if (st.reject) setAgain({ s: 'done', v: { plain: rejectText(st.reject), tx: hash } })
+      else setAgain({ s: 'error', msg: st.status === 'finalized' ? 'The chain accepted a second payment. This should never happen; please report it.' : 'Still waiting for the chain.' })
+    } catch (e) {
+      if (alive.current) setAgain({ s: 'error', msg: walletErrorText(e) })
+    }
+  }
+
   async function approveAndPay() {
     if (!inv) return
+    if (mine) return walletPay()
     setReview(false)
     setStep(3)
     setPay({ s: 'busy', note: 'Sending the payment. The chain takes about 10 seconds to finalise it.' })
@@ -119,6 +237,7 @@ export function RunPage() {
 
   async function payAgain() {
     if (!inv) return
+    if (mine) return walletPayAgain()
     setAgain({ s: 'busy', note: 'Sending a second payment for the same invoice to the chain.' })
     try {
       const r = await api.attack('pay_twice', inv.id, undefined, inv.seller)
@@ -129,7 +248,7 @@ export function RunPage() {
   }
 
   function restart() {
-    setStep(0); setInvoice({ s: 'idle' }); setFake(false); setCheck({ s: 'idle' }); setPay({ s: 'idle' }); setAgain({ s: 'idle' })
+    setStep(0); setInvoice({ s: 'idle' }); setFake(false); setCheck({ s: 'idle' }); setPay({ s: 'idle' }); setAgain({ s: 'idle' }); setWalletTx(null)
   }
 
   const progress: 0 | 1 | 2 = step >= 4 ? 2 : verdict ? 1 : 0
@@ -151,20 +270,44 @@ export function RunPage() {
         ))}
       </ol>
 
-      <PaymentPath progress={progress} blocked={blocked} payer="Payer" payee={inv ? short(inv.payee) : 'Payee'} />
+      <PaymentPath progress={progress} blocked={blocked} payer={mine && acct ? 'You' : 'Payer'} payee={inv ? short(inv.payee) : 'Payee'} />
 
       <Card k={`${step}-${check.s}-${verdict?.kind ?? ''}`}>
         {step === 0 && (
           <>
             <h2 className="rn-h2">Who pays?</h2>
-            <p className="rn-p">
-              The payer is PayOnce’s buyer agent on testnet, account <Mono>{short(PAYER.owner)}</Mono>, agent{' '}
-              <a className="rn-a" href={badgeCheckUrl(PAYER.badge)} target="_blank" rel="noreferrer">#{PAYER.token}</a> on the official Concordium registry.
-            </p>
-            <p className="rn-note">Paying from your own wallet comes in the next build. Until then a server key signs for the buyer agent.</p>
-            <div className="rn-actions">
-              <button className="rn-btn" onClick={() => setStep(1)}>Use the testnet buyer agent</button>
-            </div>
+            <fieldset className="rn-choice">
+              <legend>Choose the payer</legend>
+              <label className={mine ? 'is-on' : ''}>
+                <input type="radio" name="payer" checked={mine} onChange={() => setPayer('wallet')} />
+                <span><b>My own wallet</b>{w.mobile ? 'CryptoX on this phone.' : 'Browser Wallet here, or CryptoX on your phone.'} You sign the payment yourself.</span>
+              </label>
+              <label className={!mine ? 'is-on' : ''}>
+                <input type="radio" name="payer" checked={!mine} onChange={() => setPayer('agent')} />
+                <span><b>PayOnce’s buyer agent</b>No wallet needed. A server key signs for agent #{PAYER.token}.</span>
+              </label>
+            </fieldset>
+            {mine ? (
+              <>
+                <RunConnect />
+                {acct && w.session?.chainOk !== false && <RunFunds account={acct} />}
+                <div className="rn-actions">
+                  <button className="rn-btn" disabled={!acct || !funded || w.session?.chainOk === false} onClick={() => { setInvoice({ s: 'idle' }); setStep(1) }}>
+                    Continue with this account
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="rn-p" style={{ marginTop: 18 }}>
+                  The payer is PayOnce’s buyer agent on testnet, account <Mono>{short(PAYER.owner)}</Mono>, agent{' '}
+                  <a className="rn-a" href={badgeCheckUrl(PAYER.badge)} target="_blank" rel="noreferrer">#{PAYER.token}</a> on the official Concordium registry.
+                </p>
+                <div className="rn-actions">
+                  <button className="rn-btn" onClick={() => setStep(1)}>Use the testnet buyer agent</button>
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -173,7 +316,10 @@ export function RunPage() {
             <h2 className="rn-h2">Get a real invoice</h2>
             {invoice.s === 'idle' && (
               <>
-                <p className="rn-p">A seller agent registers a small invoice on chain: amount, due date, the account to pay and a fingerprint of the document.</p>
+                <p className="rn-p">
+                  A seller agent registers a small invoice on chain: amount, due date, the account to pay and a fingerprint of the document.
+                  {mine && acct && <> It names your account <Mono>{short(acct)}</Mono> as the only payer.</>}
+                </p>
                 <div className="rn-actions"><button className="rn-btn" onClick={getInvoice}>Get an invoice</button></div>
               </>
             )}
@@ -208,7 +354,7 @@ export function RunPage() {
           <>
             {check.s === 'busy' && <><h2 className="rn-h2">Checking who it’s paying</h2><Busy note={check.note} /></>}
             {check.s === 'error' && <><h2 className="rn-h2">The check did not finish</h2><Failed msg={check.msg} retry={runCheck} /></>}
-            {verdict && <VerdictView v={verdict} onPay={() => setReview(true)} onRestart={restart} onReal={() => { setFake(false); setStep(1); setCheck({ s: 'idle' }) }} receipt={inv ? `/app/receipt/${inv.seller}/${inv.id}` : null} />}
+            {verdict && <VerdictView v={verdict} onPay={() => void openReview()} onRestart={restart} onReal={() => { setFake(false); setStep(1); setCheck({ s: 'idle' }) }} receipt={inv ? `/app/receipt/${inv.seller}/${inv.id}` : null} />}
           </>
         )}
 
@@ -235,7 +381,7 @@ export function RunPage() {
             </div>
             <div className="rn-again">
               <h3 className="rn-h3">Now try to pay it again</h3>
-              {again.s === 'idle' && <button className="rn-btn rn-btn--quiet" onClick={payAgain}>Send a second payment</button>}
+              {again.s === 'idle' && <button className="rn-btn rn-btn--quiet" onClick={payAgain}>{mine ? 'Send the same payment again from my wallet' : 'Send a second payment'}</button>}
               {again.s === 'busy' && <Busy note={again.note} />}
               {again.s === 'error' && <Failed msg={again.msg} retry={payAgain} />}
               {again.s === 'done' && (
@@ -250,9 +396,10 @@ export function RunPage() {
         )}
       </Card>
 
-      {review && inv && <ReviewSheet inv={inv} onCancel={() => setReview(false)} onConfirm={approveAndPay} />}
+      {review && inv && <ReviewSheet inv={inv} from={mine && acct ? <>Your account <Mono>{short(acct)}</Mono>, signed in your wallet</> : null} onCancel={() => setReview(false)} onConfirm={approveAndPay} />}
 
       <p className="rn-foot">
+        Want to be paid instead? <Link className="rn-a" to="/app/sell">Become a verified payee</Link>.{' '}
         Testnet only: test CCD, demo identities. Every step above is a real transaction you can{' '}
         <Link className="rn-a" to="/app/proof/judges#verify-it">verify yourself</Link>. More evidence: <Link className="rn-a" to="/app/proof">Proof</Link>.
       </p>
@@ -311,7 +458,7 @@ function VerdictView({ v, onPay, onRestart, onReal, receipt }: { v: Verdict; onP
   )
 }
 
-function ReviewSheet({ inv, onCancel, onConfirm }: { inv: Invoice; onCancel: () => void; onConfirm: () => void }) {
+function ReviewSheet({ inv, from, onCancel, onConfirm }: { inv: Invoice; from?: React.ReactNode; onCancel: () => void; onConfirm: () => void }) {
   const btn = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     btn.current?.focus()
@@ -326,11 +473,11 @@ function ReviewSheet({ inv, onCancel, onConfirm }: { inv: Invoice; onCancel: () 
         <dl className="rn-kv">
           <div><dt>To</dt><dd><Mono>{inv.payee}</Mono></dd></div>
           <div><dt>Invoice</dt><dd>#{inv.id}</dd></div>
-          <div><dt>From</dt><dd>Buyer agent #{PAYER.token}</dd></div>
+          <div><dt>From</dt><dd>{from ?? <>Buyer agent #{PAYER.token}</>}</dd></div>
         </dl>
         <p className="rn-note">The contract pays this exact amount to this account, once. A second payment is refused by the chain.</p>
         <div className="rn-actions">
-          <button className="rn-btn" ref={btn} onClick={onConfirm}>Approve and pay</button>
+          <button className="rn-btn" ref={btn} onClick={onConfirm}>{from ? 'Pay from my wallet' : 'Approve and pay'}</button>
           <button className="rn-link" onClick={onCancel}>Cancel</button>
         </div>
       </div>
