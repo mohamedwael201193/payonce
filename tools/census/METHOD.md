@@ -50,10 +50,11 @@ invoice identity which no other agent has). We also report the looser counts so 
 - Mainnet `check_payee` is identity-only (`mode: identity_only`): never MATCH, never `payable`, because the payee book (v3) exists on testnet only.
 
 ## Sample verification (how the scrape is cross-checked against a node)
-`node tools/census/verify-sample.mjs` (needs `cd api && npm ci` and a reachable Concordium gRPC node, e.g. momo's PC; the census host blocks port 20000).
-It re-reads `getAccountInfo` for every business-identity account plus a seeded random sample (default 25/network), compares the identity-provider set with the CSV and prints the
-agreement rate; exit code 1 on any mismatch. The mainnet `check_payee` also reads the node directly on every call (fallback to the explorer is labelled `source: ccdexplorer`).
-Until it has been run from a machine with gRPC, state the identity data as "read from CCDExplorer", not "verified on-chain".
+The identity-provider attribution comes from CCDExplorer's public page. It is cross-checked against a Concordium node by **the same code in three places**:
+- `GET /api/census/verify`: the API host reaches the nodes; it re-reads `getAccountInfo` for **every business-identity account plus a seeded random sample** (25 per network, seed = UTC date, so each day widens the evidence) and returns the agreement. Read-only, cached 30 min, 6 requests/min/IP.
+- `node tools/census/verify-sample.mjs` (needs `npm ci --prefix api` and gRPC): run by `.github/workflows/census.yml` after every refresh; writes `census_verification.json`.
+- Unit tests with injected readers.
+`census_verification.json` and `census_public.json` (`verification`, `wording.sample_verification`) carry the result. **What may be said:** "identity attribution verified on chain for a sample: A of B accounts agree (all business-identity accounts included)". **What may not:** "the census is verified on chain": badges, cards and every other account are not re-read from a node. A mismatch or node error switches the wording off automatically.
 
 ## Refresh
 `.github/workflows/census.yml` runs `refresh.sh` every 6 hours (cron `17 */6 * * *`), sanity-checks, and commits `tools/census` as mohamedwael201193 with `[skip render]`.

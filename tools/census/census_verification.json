@@ -1,0 +1,716 @@
+{
+ "schema": "payonce-census-verification/v1",
+ "verified_at_utc": "2026-11-28T08:06:58.740Z",
+ "run_by": "api",
+ "census_generated_at_utc": "2026-11-28T07:46:14Z",
+ "seed": 20261128,
+ "sample_per_network": 25,
+ "node": {
+  "mainnet": "grpc.mainnet.concordium.software",
+  "testnet": "grpc.testnet.concordium.com"
+ },
+ "all_agree": true,
+ "networks": {
+  "mainnet": {
+   "accounts_in_census": 116,
+   "business_accounts_in_census": 1,
+   "business_accounts_checked": 1,
+   "sample_size": 26,
+   "agree": 26,
+   "mismatch": 0,
+   "node_errors": 0,
+   "census_unattributed": 0,
+   "agreement_rate": 1,
+   "business_agree": 1,
+   "accounts": [
+    {
+     "account": "37ySBqWmHrAdYtjCZXLimzTxJWqQmESDF9aE8FJFgQpFWe222h",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "38QG2HQJmTXDocpNKmiNqa7r8ogsTfGoCaq6xKxfVctiPDUgDc",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3cRqYRsWnZQ6uS6FML5NwvMhs6L4N8moZGM1Dn8CCLAdo7dbct",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3MsdECq1fzkvYvu4EMMj4TmdjiYLgLDLwHrYgUokRE8vFwYQoi",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3nt1y8iqvRfifo3KK6U36YL7DY3bD1Kco2Ev4UqPethFEs8VK1",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3Q3Ud3iJhS5inZL3BQfu5mPRkjqtpwRAH1pRf92Bgegm7XBLei",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3q5pJyZQWdrLbAq4B1SPvxkd4AHXyUPeotBBqypiJX6xmrDybu",
+     "census": [
+      "Notabene"
+     ],
+     "node": [
+      "Notabene"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3VfFTeUpKNLmQ6ZT3u6qLuNUmuvJ8t9TaYmVk11Wz5Y1eUNFNG",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3Z6ZSFJC4EWeJRbJ4gichbX8mdgDjJt8Nf681tJGeUh9rZDjCv",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "41typQuKA4AJiPQfnJSfX4WtioB4x9vQSp5vJeepAGRnMGifYz",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "42UQugZ2VtSAYfYnA24NgSc1RD4MSizTTyQP99ujBxka5xJvoL",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "45R4vB9JnXDUkYVNBrQE8yyg6o2qH32g7fX5N7i9yWxHxnFP7J",
+     "census": [
+      "Notabene"
+     ],
+     "node": [
+      "Notabene"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "47hLZTbw2UYRjsx23SsGkAJZQs9NPnREFBtKynGSDJQUxAA4NX",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4b2FBKkgr2RGs67TNeFBeYMEdV3sQXAJnwVcb9LgXgL9ft5yVz",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4c2qrpn83NyYh1bWqDJZjYv66jf6GdGyRfk6cAJRv7tykEQemS",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4DtVMtYMpPU8z7RyeVT942bZm9mAkx33dH3kEnPuY9HxvzoLZx",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4f5YxQJWzhpTB4RF235Rc2WS3D4QUxkTJLFKLEGnuTicuyoppj",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4fBwimTHgDEEcmgvQNmEMxoJYb3JLmJVwBeKK2mS3kJYKDwdDD",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4omnSi5Zwa1eDCizvViQ3PwWDN9am38BoFJHEzjvr94Hec6JrM",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4PsLjBzaaoVPJjNYKkC46CsHtExgSxkML87zAY9dyzmCJbvmNk",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4q9iPQegyqqjUp2hNTv3EriR4ErXaeYVLkWac9io5wZQJgHY79",
+     "census": [
+      "Notabene"
+     ],
+     "node": [
+      "Notabene"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4qyEJ26rzfkfJmFRbuGiMHQ54xbYGsjNK7TJgiq1KW6ac1RNhN",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4tJcQuonhqygbYbehTWcHscSdGdzB3FVGa27kdYJcnFJheLtJk",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4VgCemxxqBmz5nzxPWYQUqFgKtLkecFb6Jdx4D73bBTCfiQXEc",
+     "census": [
+      "Global FinReg"
+     ],
+     "node": [
+      "Global FinReg"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "4YyT4yiAY6rrHbXYyfcLce2exmHcWJZrow83JxYYWPutttUFs2",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4Z51qLJ8dKEnePGBfyH8azFC75SQLKbveD9nzwWdVzUj8SBkp5",
+     "census": [
+      "Digital Trust Solutions"
+     ],
+     "node": [
+      "Digital Trust Solutions"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    }
+   ]
+  },
+  "testnet": {
+   "accounts_in_census": 275,
+   "business_accounts_in_census": 10,
+   "business_accounts_checked": 10,
+   "sample_size": 35,
+   "agree": 35,
+   "mismatch": 0,
+   "node_errors": 0,
+   "census_unattributed": 0,
+   "agreement_rate": 1,
+   "business_agree": 10,
+   "accounts": [
+    {
+     "account": "2zApPQfD9xCw4QdRLA7QKyLpNdH5VgKHBjZ6SkQ4JgPft4xmZW",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "2zjstTQQxhJebpeqRvM5Kex6bG4ssTikwk5FSvLty8mWHtwvpB",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "34YUTLcnDvBYtoxYxVBdCjv5xQ7SgAXpUReg4a8vH7KZ8Rbisi",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "36bpBdY5PPqSMTBSSsbey6Xb9GpabrU86XtpyE5y8n8p8NzW8Z",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "36ywcyfH1J9hRJJnqSakg2euZ2r5YssGDvB6CT2dZW5r8ec25c",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "37FXXCmvW32QcsiH3y2VMuGdJXJ6LFHZMaxZuxWkTQvFykERLd",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "38Rr1whUjEyV6gcMzdgt3VcMW4555ZeaFDAH1uYy1vtiaEQVgH",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3bV1C2T7j8oNGPfZsMSP51KCgdzuTuUMjDcHFak3rHM43i46zX",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3hurAcgoAiabk9VR5FqNaUySxW739FG2PcwnmWuhHp8D6jgNFY",
+     "census": [
+      "Digital Trust Solutions TestNet"
+     ],
+     "node": [
+      "Digital Trust Solutions TestNet"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3oPfuWN3BfDHa2GFstC9SkrSFkTWFKdrg2c9cLdpGjphewLJeL",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3SAsvRbEJrDZ1NGLUTGkyhM4c4uTE6xXucqDqw1BxpXZsxHY8s",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3tCvWPDYchFULvGXKc6Q3MzofopAgMzzL3KeRU66G2dM2LqcNa",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "3UicG1GAQtP4QVsY5ine35QtkjtUftom3JcsxoCTDB2T7kqawd",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3whFmR7A1j55fAHfaMdkDckhH21Fr5ybfWm5oNVRGNsqJpeehk",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3xZj2tZLy1vgDT6JMJYsnnVmEY1DzSAUVVzYeuCwNHpw6Xtf7u",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3zKuq9cgzYgSs1cXE2ugGq3WkBNkPsAChj1fLSH8HhoQXoNL6s",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3ZYDJtScuPqTuToqbKuC5PVxjWhsDhq8DaSPZRRSAAV3uqSHVt",
+     "census": [
+      "Digital Trust Solutions TestNet"
+     ],
+     "node": [
+      "Digital Trust Solutions TestNet"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3Zzd2HYNqcTLY5JyQEtNNSvDShsK2fqGz9oQSHGPp9wUBKjzKM",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "41pmE4y6CvmYcAVXDX9V46SCPGv7Qam3UEFSqwBBsjBqZD8dPg",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "43JZTBYtNQmzy9JfG8x7TyTo5hdLhvYd4HR1x4HLyCBpfgTZkt",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "44khdNXk2yBn8PvJYFYNsKuZrV8oUvdHo23bL6dA7YyEYGkEF7",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4CbU6xsszMbZohZMnukPBfSNN3DCp1Jqa1kMuRQmjjyyZoR2VH",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4exgFq6kbBFSt8Rf2d7V8NA7twJQVzKumYD1Vxuss3v3rgjuXJ",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4eznZy4g4NtrQh6MSEm3tUKWhSPdQNWCmw9LTDmc649W5VuXJW",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "4fePS5auHSSZePTfbGHjGTxNP11UPfApfsCtwcFCZGMh91s8AY",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4FoWbP7qANwED5SkWgiEt7UEYgGuBTomNBePZ25YQ2oJTqXpTY",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "4jjXocyWa2vkaRjW7BAvQEvF8zzjrLRrktDFjExXkzKMKztn3b",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4mbNYv2HQ95xoAaQxqztKhXj5F2MJS397stwRNK7keJ5Bf1DkB",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4PrHYANQoqNYtMAgnh8Jev6vhqaJ7Rjnmfe2SaTB91acFEKChZ",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4Qpfc7LiNCYQQUpVFmbRg6gaoCCfvuAQTqE4VC4XDE22moedYc",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4REvxqE1oc48FXfHj6ZTiqHdFxHfmSHP6ry4KC9NjdAvk16gaq",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4sPGmfGr257NUVUNo1wdJS8kpMrvw17dSE9Fi8xu8jsATzKLrt",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4UVsGdSyYk43E2m99Vy3M38u92yknjBUoY7xKQHGSDXZAUiWw5",
+     "census": [
+      "Global FinReg Testnet"
+     ],
+     "node": [
+      "Global FinReg Testnet"
+     ],
+     "business_in_census": true,
+     "result": "agree"
+    },
+    {
+     "account": "4VpKv6Dnw1NmW5LjsaChZBpEepALGeGQdDgqgXmvVdz7tGt74h",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "4XCS4ePF1LtYyxKexh88HVE8c1wATAqY8KsyHEKTTy1yQitd4q",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    }
+   ]
+  }
+ },
+ "scope": "Identity-provider attribution only, for every business-identity account plus a seeded random sample of the other accounts. It does not verify badges, cards or the full census.",
+ "method": "getAccountInfo from a Concordium node (gRPC) -> identity provider index of every credential -> provider name, compared with the CCDExplorer-derived attribution in census_*.csv."
+}
