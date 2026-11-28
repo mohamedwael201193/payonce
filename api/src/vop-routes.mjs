@@ -8,6 +8,7 @@
 //   GET  /api/relay/config                                        what the relayer sponsors
 //   POST /api/relay/build       { sender, entrypoint, parameter | kind:'token', recipient, amount, memo }
 //   POST /api/relay/submit      { transaction }                   sender-signed -> sponsor co-signs -> submit once
+//   GET  /api/check-payee?seller=&payee=&legal_name=               alias of /api/vop/check (+ epc_verdict lower case)
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { createVopService, VopError } from './vop-service.mjs';
@@ -83,6 +84,9 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       rule: 'An agent pays only when payable=true: verdict MATCH, payee bound by its own signature, cooling-off over, proof anchored and re-verified with the node.',
     }))],
     ['GET', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); return vop.check({ seller: q.seller, payee: q.payee, legal_name: q.name ?? q.legal_name, country: q.country, buyer: q.buyer }); })],
+    // Alias for the interface the MCP / npm / GitHub Action packaging codes against (handoff V11): same service,
+    // EPC lower-case vocabulary added as `epc_verdict`.
+    ['GET', /^\/api\/check-payee$/, wrap(async (req) => { await limited('vop:check', 30)(req); const q = qs(req); const r = await vop.check({ seller: q.seller, payee: q.payee, legal_name: q.legal_name ?? q.name, country: q.country, buyer: q.buyer }); return { ...r, epc_verdict: r.verdict.toLowerCase() }; })],
     ['POST', /^\/api\/vop\/check$/, wrap(async (req) => { await limited('vop:check', 30)(req); return vop.check(await readBody(req)); })],
     ['POST', /^\/api\/vop\/proofs$/, wrap(async (req) => { await limited('vop:proof', 6)(req); return vop.submitProof(await readBody(req, 256 * 1024)); })],
     ['GET', /^\/api\/vop\/proofs\/([0-9a-f]{64})$/, wrap(async (req, res, m) => { await limited('vop:proofget', 30)(req); return vop.getProof(m[1]); })],
