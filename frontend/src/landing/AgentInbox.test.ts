@@ -15,9 +15,9 @@ describe('agent inbox rows', () => {
     expect(trimAmount('0.01 EUDemo')).toBe('0.01 EUDemo')
   })
   it('maps the run record codes to one short reason', () => {
-    expect(refusalWhy({ hostile_fixture: 'payee_change', reason_code: 'x', age_gate: null })).toBe('Asks to pay a different account')
-    expect(refusalWhy({ hostile_fixture: null, reason_code: 'seller_known', age_gate: null })).toBe('Seller is not on your approved list')
-    expect(refusalWhy({ hostile_fixture: 'tampered_document', reason_code: 'attachment_matches_chain', age_gate: null })).toBe('Invoice was edited after it went on chain')
+    expect(refusalWhy({ hostile_fixture: 'payee_change', reason_code: 'x', age_gate: null })).toBe('Account on the invoice is not the seller’s')
+    expect(refusalWhy({ hostile_fixture: null, reason_code: 'seller_known', age_gate: null })).toBe('Seller is not one you approved')
+    expect(refusalWhy({ hostile_fixture: 'tampered_document', reason_code: 'attachment_matches_chain', age_gate: null })).toBe('Invoice differs from the one on chain')
   })
   it('puts refusals first and links paid rows to their receipt', () => {
     const rows = inboxRows(recorded as unknown as AgentRun)

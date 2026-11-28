@@ -85,7 +85,7 @@ export function Rise({
     <El
       className={className}
       initial={still || instant ? 'show' : 'hide'}
-      {...(onLoad ? { animate: 'show' } : { whileInView: 'show', viewport: { once: true, amount: 0.4 } })}
+      {...(onLoad ? { animate: 'show' } : { whileInView: 'show', viewport: { once: true, amount: 0.15 } })}
       aria-label={text.replace(/\n/g, ' ')}
     >
       {lines.map((line, li) => (

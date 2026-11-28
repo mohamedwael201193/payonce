@@ -7,7 +7,6 @@ import { goTo } from './scroll'
 export const NAV_LINKS: readonly [string, string][] = [
   ['How it works', '#how'],
   ['Tamper test', '#tamper'],
-  ['Try to break it', '#break'],
   ['Proof', '#proof'],
   ['FAQ', '#faq'],
 ]

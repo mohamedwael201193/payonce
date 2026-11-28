@@ -31,12 +31,12 @@ export function supplierName(from: string): string {
 
 /** One short reason for a refusal, from the run record's own codes. */
 export function refusalWhy(d: Pick<AgentDecision, 'hostile_fixture' | 'reason_code' | 'age_gate'>): string {
-  if (d.hostile_fixture === 'unlisted_seller' || d.reason_code === 'seller_known') return 'Seller is not on your approved list'
-  if (d.hostile_fixture === 'payee_change') return 'Asks to pay a different account'
-  if (d.hostile_fixture === 'tampered_document' || d.reason_code === 'attachment_matches_chain') return 'Invoice was edited after it went on chain'
+  if (d.hostile_fixture === 'unlisted_seller' || d.reason_code === 'seller_known') return 'Seller is not one you approved'
+  if (d.hostile_fixture === 'payee_change') return 'Account on the invoice is not the seller’s'
+  if (d.hostile_fixture === 'tampered_document' || d.reason_code === 'attachment_matches_chain') return 'Invoice differs from the one on chain'
   if (d.reason_code === 'no_instructions_in_invoice') return 'The email tried to give the agent orders'
   if (d.age_gate?.required && d.age_gate.proof_on_file === false) return 'Needs an 18+ proof first'
-  return 'Refused before any money moved'
+  return 'Stopped before any money moved'
 }
 
 /** "0.500000 CCD" -> "0.5 CCD"; "10 CCD" stays "10 CCD". */
@@ -53,7 +53,7 @@ export function inboxRows(run: AgentRun): InboxRow[] {
       supplier: supplierName(d.from),
       subject: d.subject,
       outcome,
-      why: outcome === 'paid' ? 'To the account on chain' : outcome === 'refused' ? refusalWhy(d) : 'Not processed',
+      why: outcome === 'paid' ? 'Paid once to the seller’s account on chain' : outcome === 'refused' ? refusalWhy(d) : 'Not processed',
       amount: d.facts?.amount_display ? trimAmount(d.facts.amount_display) : null,
       href: outcome === 'paid' && d.payable_id && seller ? `/app/receipt/${seller}/${d.payable_id}` : null,
     }
@@ -113,7 +113,6 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
   const rows = inboxRows(run)
   const refused = rows.filter((r) => r.outcome === 'refused').length
   const paid = rows.filter((r) => r.outcome === 'paid').length
-  const planner = run.planner.kind === 'llm' ? run.planner.label : 'scripted agent'
   return (
     <div className="po-panel po-inbox" data-testid="hero-inbox">
       <div className="po-panel__bar">
@@ -125,9 +124,9 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
         </Tag>
       </div>
       <ol className="po-inbox__steps" aria-label="What the agent does">
-        <li><b>1</b> Reads the inbox</li>
-        <li><b>2</b> Checks each invoice on chain</li>
-        <li><b>3</b> Refuses, or pays once</li>
+        <li><b>1</b> Reads the invoice</li>
+        <li><b>2</b> Checks who it’s paying</li>
+        <li><b>3</b> No match: stops. Match: pays once</li>
       </ol>
       <ul className="po-inbox__list">
         {rows.map((r) => (
@@ -138,7 +137,7 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
             </div>
             <div className="po-inbox__verdict">
               <span className={`po-status po-status--${r.outcome === 'paid' ? 'paid' : r.outcome === 'refused' ? 'refused' : 'unpaid'}`}>
-                {r.outcome === 'paid' ? 'Paid once' : r.outcome === 'refused' ? 'Refused' : 'Skipped'}
+                {r.outcome === 'paid' ? 'Match' : r.outcome === 'refused' ? 'No match' : 'Skipped'}
               </span>
               <span className="po-inbox__why">
                 {r.why}
@@ -155,7 +154,7 @@ export function AgentInboxPanel({ initial }: { initial?: AgentRun | null }) {
       </ul>
       <p className="po-inbox__foot">
         <span>
-          {refused} refused before any money moved, {paid} paid exactly once. Planner: {planner}; the rules that move money are code it cannot change.
+          {refused} no match, stopped before any money moved. {paid} matched and paid exactly once. The checks are code the agent cannot change.
         </span>
         <Link to="/app/agent">Open the full run</Link>
       </p>

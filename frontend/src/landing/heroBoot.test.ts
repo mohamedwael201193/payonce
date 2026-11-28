@@ -13,7 +13,7 @@ describe('hero is visible without scroll or script', () => {
     for (const line of HERO_H1.split('\n')) expect(boot).toContain(line)
     expect(boot).toContain(HERO_LEAD)
     expect(boot).toContain('href="/app/agent"')
-    expect(boot).toContain('href="/app/break"')
+    expect(boot).toContain('href="/app"')
     expect(boot).toContain('href="#how"')
   })
 

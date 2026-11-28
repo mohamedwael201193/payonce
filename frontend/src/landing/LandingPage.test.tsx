@@ -23,10 +23,10 @@ afterEach(() => vi.unstubAllGlobals())
 const mount = () => render(<MemoryRouter><LandingPage /></MemoryRouter>)
 
 describe('landing', () => {
-  it('renders the hero, nine sections and the agent inbox panel', () => {
+  it('renders the hero, the sections and the agent inbox panel', () => {
     mount()
-    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('The agent pays your inbox. Safely, exactly once.')
-    for (const id of ['how', 'tamper', 'break', 'proof', 'judges', 'faq']) expect(document.getElementById(id)).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('Your AI agent checks who it’s paying.')
+    for (const id of ['how', 'tamper', 'proof', 'judges', 'faq']) expect(document.getElementById(id)).not.toBeNull()
     expect(screen.getByTestId('hero-inbox')).toBeInTheDocument()
   })
 
@@ -36,24 +36,23 @@ describe('landing', () => {
     expect(rows.length).toBeGreaterThan(2)
     const panel = screen.getByTestId('hero-inbox')
     expect(within(panel).getByText(/^Agent run, \d+ \w+ \d\d:\d\d UTC$/)).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Refused')).toBeInTheDocument()
-    expect(within(rows.at(-1)!).getByText('Paid once')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('No match')).toBeInTheDocument()
+    expect(within(rows.at(-1)!).getByText('Match')).toBeInTheDocument()
     expect(within(panel).getByRole('link', { name: 'Open the full run' })).toHaveAttribute('href', '/app/agent')
   })
 
-  it('the hero status line still carries the snapshot numbers', () => {
+  it('the hero carries no test-volume stats', () => {
     mount()
-    expect(screen.getByText(new RegExp(`Testnet: ${headline(SNAPSHOT.stats).paid} of ${headline(SNAPSHOT.stats).total}`))).toBeInTheDocument()
+    expect(screen.queryByText(/automated test runs/)).toBeNull()
   })
 
   it('points CTAs at the right routes', () => {
     mount()
     const hrefs = (name: RegExp) => screen.getAllByRole('link', { name }).map((a) => a.getAttribute('href'))
-    expect(hrefs(/^Watch the agent pay/)).toEqual(['/app/agent'])
-    expect(hrefs(/^Try to break it$/)).toContain('/app/break')
+    expect(hrefs(/^Run it on a real invoice/)).toEqual(['/app'])
+    expect(hrefs(/^Watch the agent check$/)).toContain('/app/agent')
     expect(hrefs(/^See how it works$/)).toEqual(['#how'])
     expect(hrefs(/judges/i).every((h) => h === '/app/judges')).toBe(true)
-    expect(hrefs(/Try to break it yourself/)).toEqual(['/app/break'])
   })
 
   it('links every proof hash to the singular explorer path', () => {

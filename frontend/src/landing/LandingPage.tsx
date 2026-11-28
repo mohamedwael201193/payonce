@@ -6,9 +6,7 @@ import { Hero } from './Hero'
 import { Judges } from './Judges'
 import { Nav } from './Nav'
 import { Proof } from './Proof'
-import { Stage } from './Stage'
 import { Story } from './Story'
-import { Strip } from './Strip'
 import { Tamper } from './Tamper'
 import { setLenis } from './scroll'
 import { useLandingData, type Snapshot } from './data'
@@ -43,10 +41,8 @@ export default function LandingPage({ snapshot }: { snapshot?: Snapshot }) {
         <Nav />
         <main id="main">
           <Hero data={data} />
-          <Strip data={data} />
           <Story snapshot={data.snapshot} />
           <Tamper snapshot={data.snapshot} />
-          <Stage data={data} />
           <Proof snapshot={data.snapshot} />
           <Judges snapshot={data.snapshot} />
           <Faq snapshot={data.snapshot} />

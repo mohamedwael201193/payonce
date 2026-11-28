@@ -2042,3 +2042,6 @@ html.lenis body {
   color: var(--po-ink);
   text-shadow: none;
 }
+
+/* In-page anchors land below the sticky nav, never under it (QA R1 #8). */
+.po-landing section[id] { scroll-margin-top: 88px; }

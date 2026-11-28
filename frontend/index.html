@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="PayOnce — an AI agent pays your invoice inbox on Concordium testnet: fake invoices are refused before money moves, real ones are paid exactly once, only to the account the supplier put on chain."
+      content="PayOnce: your AI agent checks who it is paying before any money moves. Match or No match on Concordium testnet; on a match it pays exactly once, to the account the seller registered."
     />
     <script>if(location.pathname==="/"){var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/assets/hero-sky.webp";l.setAttribute("fetchpriority","high");document.head.appendChild(l)}</script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>PayOnce — The agent pays your inbox, exactly once (Concordium testnet)</title>
+    <title>PayOnce: your AI agent checks who it’s paying (Concordium testnet)</title>
     <style>
       /* First-paint hero: plain HTML + CSS, painted before any script runs. The
          landing replaces it with the same words as soon as it has mounted. */
@@ -42,9 +42,9 @@
     <div id="po-boot" hidden>
       <div class="b-nav"><a class="b-brand" href="/">PayOnce</a><a class="b-open" href="/app">Open the app</a></div>
       <div class="b-copy">
-        <h1>The agent pays your inbox.<br />Safely, exactly once.</h1>
-        <p>Each invoice is checked against the chain before money moves: a changed payee, an edited file or an unknown seller is refused. The rest are paid once.</p>
-        <div class="b-cta"><a class="b-btn b-btn1" href="/app/agent">Watch the agent pay</a><a class="b-btn b-btn2" href="/app/break">Try to break it</a><a class="b-how" href="#how">See how it works</a></div>
+        <h1>Your AI agent checks<br />who it’s paying.</h1>
+        <p>Match or No match, before any money moves. On a match it pays exactly once, to the account the seller registered on Concordium. On no match, nothing is sent.</p>
+        <div class="b-cta"><a class="b-btn b-btn1" href="/app">Run it on a real invoice</a><a class="b-btn b-btn2" href="/app/agent">Watch the agent check</a><a class="b-how" href="#how">See how it works</a></div>
       </div>
     </div>
     <script>if(location.pathname==='/'){document.getElementById('po-boot').hidden=false}</script>

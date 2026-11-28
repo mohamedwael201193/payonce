@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { RECORDED_REFUSALS } from '../lib/recorded'
-import { Count, Rise, Tag } from './bits'
-import { formatDay, instanceUrl, shortHash, txUrl, type Snapshot } from './data'
+import { Rise } from './bits'
+import { instanceUrl, shortHash, txUrl, type Snapshot } from './data'
 
 interface Item {
   key: string
@@ -71,9 +71,6 @@ function Marquee({ items, reverse, label }: { items: Item[]; reverse?: boolean; 
 /** Section 6: proof wall. Two opposing marquees of real transaction hashes, linked to the explorer. */
 export function Proof({ snapshot }: { snapshot: Snapshot }) {
   const { a, b } = useMemo(() => proofItems(snapshot), [snapshot])
-  const t = snapshot.tests
-  const cases = t.frontend.cases + t.api.cases
-  const files = t.frontend.files + t.api.files
   const reg = snapshot.config?.registry
   return (
     <section className="po-proof po-section" id="proof" aria-label="Proof">
@@ -88,12 +85,6 @@ export function Proof({ snapshot }: { snapshot: Snapshot }) {
         <Marquee items={b} reverse label="Refused attempts and payments on testnet" />
       </div>
       <div className="po-wrap po-proof__foot">
-        <p className="po-proof__tests">
-          The repo holds <Count to={cases} className="po-proof__n" /> test cases in {files} test files, counted from the
-          source on {formatDay(snapshot.captured_at)}: {t.frontend.cases} for the app, {t.api.cases} for the API and
-          backend.
-          <Tag kind="recorded">Counted from source</Tag>
-        </p>
         <ul className="po-proof__stack">
           <li>Registry contract{reg ? ' ' : ''}{reg && (
             <a className="po-link po-mono" href={instanceUrl(reg.index, reg.subindex)} target="_blank" rel="noreferrer">

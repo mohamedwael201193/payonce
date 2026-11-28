@@ -6,16 +6,16 @@ import { formatDay, formatStamp, shortHash, txUrl, type Snapshot } from './data'
 
 export const STORY_STEPS: { title: string; body: string }[] = [
   {
-    title: 'The seller registers the payable.',
-    body: 'Payee, amount, asset and due date go on the testnet registry, together with the SHA-256 of the invoice document.',
+    title: 'The seller registers who to pay.',
+    body: 'A seller agent on the official Concordium agent registry puts the invoice on chain: payee account, amount, due date and the SHA-256 of the document.',
   },
   {
-    title: 'The buyer checks it before paying.',
-    body: 'The verifier re-reads the chain: document hash, payee, seller agent and status. If one check fails, nothing is sent.',
+    title: 'Your agent checks who it’s paying.',
+    body: 'Is the seller one you approved? Is the account on the invoice the one the seller registered? Is the document the one on chain? All yes is a Match. Anything else is No match.',
   },
   {
-    title: 'The payment goes out on one of two rails.',
-    body: 'On the CCD rail the contract call carries the CCD, so the contract is the payment. On the EUDemo rail a co-signed transfer of the testnet demo token is sent after the chain has reserved the invoice.',
+    title: 'No match: nothing moves. Match: paid once.',
+    body: 'On no match the agent stops and says why. On a match it pays the exact amount to the registered account, and the contract refuses a second payment.',
   },
   {
     title: 'Anyone can read the receipt.',
@@ -211,7 +211,7 @@ export function Story({ snapshot }: { snapshot: Snapshot }) {
       <div className="po-story__pin">
         <div className="po-wrap po-story__grid">
           <div className="po-story__copy">
-            <Rise as="h2" text={'How a payable\ngets paid once'} className="po-h2" />
+            <Rise as="h2" text={'How your agent\nchecks who it pays'} className="po-h2" />
             {steps}
           </div>
           {pinned && (

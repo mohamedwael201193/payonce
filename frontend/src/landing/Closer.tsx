@@ -15,15 +15,11 @@ export function faqItems(s: Snapshot): { q: string; a: string }[] {
   return [
     {
       q: 'Does PayOnce keep my money?',
-      a: 'No. On the CCD rail the contract call carries the payment to the payee in the same transaction, and the verifier checks that the registry balance is zero afterwards. On the EUDemo rail a co-signed transfer sends the testnet demo token straight to the payee.',
+      a: 'No. The payment goes straight to the registered payee in the same transaction, and the verifier checks that the registry holds nothing afterwards.',
     },
     {
-      q: 'Why two rails, CCD and EUDemo?',
-      a: 'They show the two ways a payment can be tied to an invoice. With CCD, the contract is the payment. With the EUDemo token, a co-signed transfer makes the payment, and only after the chain has reserved the invoice.',
-    },
-    {
-      q: 'What can the policy gate do, and what can it not do?',
-      a: 'It decides whether to sign a EUDemo transfer. It signs only for a reserved invoice, to the payee stored on chain, from the vendor list. It cannot pay an invoice the chain has not reserved. It runs inside the API server, so on this rail the guard is enforced by a key holder, not by the contract.',
+      q: 'What decides Match or No match?',
+      a: 'Code, not the language model. The agent may read and plan, but the checks run against the chain: approved seller, registered payee account, document hash, invoice status. Today one server key both checks and signs; a second, independent signer is planned and not live yet.',
     },
     {
       q: 'What if someone edits the invoice?',
