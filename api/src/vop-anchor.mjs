@@ -74,7 +74,8 @@ export function createAnchorService(deps) {
     const fin = await deps.waitFinalized(sent.txHash).catch(() => ({ ok: false }));
     const done = fin.ok ? { ...rec, state: 'finalized' } : { ...rec, note: 'Sent; not finalized yet. Poll GET /api/vop/anchor/<evidence_hash>.' };
     await deps.kv.put(ANCHOR_NS, hash, done);
-    return { ...view(done, fin.ok ? { status: 'finalized', dataHex } : null), already_anchored: false, check: { verdict: result.verdict, checked_at: result.checked_at } };
+    const live = await liveOf(done); // an independent read of the chain, not our own bytes
+    return { ...view(done, live ?? (fin.ok ? { status: 'finalized', dataHex: null } : null)), already_anchored: false, check: { verdict: result.verdict, checked_at: result.checked_at } };
   }
 
   async function liveOf(rec) { if (!rec.tx_hash) return null; try { return await deps.status(rec.tx_hash); } catch { return null; } }

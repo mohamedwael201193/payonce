@@ -22,11 +22,17 @@ export async function sendRegisterData(dataHex) {
   } catch (e) { if (PRE_ACCEPT.test(String(e?.message ?? e))) e.notSent = true; throw e; }
 }
 
+/** Hex of the data a finalized registerData transaction carries (summary.dataRegistered.data, whatever the JSON shape of RegisteredData is). */
+export function registeredDataHex(summary) {
+  const strings = [];
+  const walk = (v) => { if (typeof v === 'string') strings.push(v); else if (v && typeof v === 'object') Object.values(v).forEach(walk); };
+  walk(summary?.dataRegistered);
+  const hex = strings.find((x) => /^[0-9a-fA-F]+$/.test(x) && x.length >= 10);
+  return hex ? hex.toLowerCase() : null;
+}
 export async function txStatus(txHash) {
   const s = await getTx(await grpc(), txHash);
-  const ev = (s.summary?.events ?? s.summary?.type?.contents?.events ?? []).find?.((e) => /data/i.test(e?.tag ?? ''));
-  const raw = typeof ev?.data === 'string' ? ev.data : (ev?.data?.hex ?? null);
-  return { status: s.status, dataHex: raw ? String(raw).toLowerCase() : null };
+  return { status: s.status, dataHex: registeredDataHex(s.summary) };
 }
 
 export const anchorDeps = (hitWindow) => ({
