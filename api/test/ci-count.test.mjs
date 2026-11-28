@@ -11,8 +11,12 @@ test('parses node --test (tap and spec), vitest and cargo summaries; the last no
   assert.deepEqual(parseLog('cargo', 'test result: ok. 100 passed; 0 failed; 0 ignored\ntest result: ok. 1 passed; 0 failed; 0 ignored\n'), { tests: 101, pass: 101, fail: 0 });
   assert.equal(parseLog('node', 'nothing here'), null);
 });
+test('skipped tests are counted as skipped, not as passing', () => {
+  const a = aggregate([{ label: 'x', runner: 'node', tests: 10, pass: 8, fail: 0 }]);
+  assert.equal(a.skipped, 2); assert.equal(badge(a).message, '8 passing, 2 skipped');
+});
 test('aggregate sums the suites; the badge goes red on any failure', () => {
   const a = aggregate([{ label: 'api', runner: 'node', tests: 5, pass: 5, fail: 0 }, { label: 'frontend', runner: 'vitest', tests: 3, pass: 3, fail: 0 }]);
-  assert.equal(a.total, 8); assert.deepEqual(badge(a), { schemaVersion: 1, label: 'tests (CI)', message: '8 passing', color: 'brightgreen' });
+  assert.equal(a.total, 8); assert.equal(a.skipped, 0); assert.deepEqual(badge(a), { schemaVersion: 1, label: 'tests (CI)', message: '8 passing', color: 'brightgreen' });
   assert.equal(badge(aggregate([{ label: 'x', runner: 'node', tests: 2, pass: 1, fail: 1 }])).color, 'red');
 });

@@ -6,9 +6,9 @@ import { join } from 'node:path';
 export function aggregate(rows, meta = {}) {
   const suites = rows.map((r) => ({ suite: r.label, runner: r.runner, tests: r.tests, pass: r.pass, fail: r.fail })).sort((a, b) => a.suite.localeCompare(b.suite));
   const tests = suites.reduce((n, s) => n + s.tests, 0); const pass = suites.reduce((n, s) => n + s.pass, 0); const fail = suites.reduce((n, s) => n + s.fail, 0);
-  return { total: tests, passing: pass, failing: fail, suites, ...meta };
+  return { total: tests, passing: pass, failing: fail, skipped: tests - pass - fail, suites: suites.map((x) => ({ ...x, skipped: x.tests - x.pass - x.fail })), ...meta };
 }
-export const badge = (a) => ({ schemaVersion: 1, label: 'tests (CI)', message: a.failing ? `${a.passing}/${a.total} passing` : `${a.passing} passing`, color: a.failing ? 'red' : 'brightgreen' });
+export const badge = (a) => ({ schemaVersion: 1, label: 'tests (CI)', message: a.failing ? `${a.passing}/${a.total} passing` : `${a.passing} passing${a.skipped ? `, ${a.skipped} skipped` : ''}`, color: a.failing ? 'red' : 'brightgreen' });
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [dir, sha = '', runUrl = ''] = process.argv.slice(2);

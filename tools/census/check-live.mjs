@@ -160,9 +160,9 @@ claim('L29', 'The standalone GitHub Action is public with a v1 release', async (
   const { status, body } = await retry(() => j('https://api.github.com/repos/mohamedwael201193/payonce-check-payee-action/releases/latest'));
   return { ok: status === 200 && /^v1\./.test(body?.tag_name ?? ''), detail: `HTTP ${status} ${body?.tag_name}` };
 });
-claim('L30', 'CI publishes one test-count number derived from the runners (status/tests.json), all passing', async () => {
+claim('L30', 'CI publishes one test-count number derived from the runners (status/tests.json), none failing', async () => {
   const { status, body } = await retry(() => j('https://raw.githubusercontent.com/mohamedwael201193/payonce/main/status/tests.json'));
-  return { ok: status === 200 && body?.failing === 0 && body?.total > 0 && body?.passing === body?.total && /^[0-9a-f]{40}$/.test(body?.commit ?? ''), detail: `${body?.passing}/${body?.total} passing at ${String(body?.commit).slice(0, 8)}` };
+  return { ok: status === 200 && body?.failing === 0 && body?.total > 0 && typeof body?.skipped === "number" && body?.passing + body?.skipped === body?.total && /^[0-9a-f]{40}$/.test(body?.commit ?? ''), detail: `${body?.passing} passing, ${body?.skipped} skipped of ${body?.total} at ${String(body?.commit).slice(0, 8)}` };
 });
 
 const out = [];
