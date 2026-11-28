@@ -77,6 +77,78 @@ function Tx({ hash, label }: { hash: string; label: string }) {
   return <a className="ds-tx" href={EXPLORER_TX + hash} target="_blank" rel="noreferrer">{label} <code>{short(hash)}</code> ↗</a>
 }
 
+/** CCDScan testnet transaction page (QA R3c: the dashboard keeps the full hash and this link after Sent). */
+export const CCDSCAN_TX = 'https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash='
+
+/** The full transaction hash, copyable text, with a CCDScan link. Never shortened. */
+export function FullTx({ hash, label }: { hash: string; label: string }) {
+  return (
+    <div className="ds-fulltx">
+      <small>{label}</small>
+      <code className="ds-fulltx__hash">{hash}</code>
+      <a className="ds-tx" href={CCDSCAN_TX + hash} target="_blank" rel="noreferrer">Open in CCDScan ↗</a>
+    </div>
+  )
+}
+
+const bindKey = (account: string) => `payonce.dash.bindTx.${account}`
+export function rememberBindTx(account: string, hash: string) {
+  try { localStorage.setItem(bindKey(account), hash) } catch { /* private mode */ }
+}
+export function recallBindTx(account: string): string | null {
+  try {
+    const h = localStorage.getItem(bindKey(account))
+    return h && /^[0-9a-f]{64}$/i.test(h) ? h : null
+  } catch { return null }
+}
+
+/** After Sent: follows the payee book itself (Bound, then the hold, then the real check) so the page shows what the chain did. */
+export function BindProgress({ account, name, txHash }: { account: string; name: string; txHash: string | null }) {
+  const tx = useTxStatus(txHash)
+  const statusQ = useQuery({
+    queryKey: ['bind-status', account],
+    queryFn: () => dashApi.payeeStatus(account),
+    refetchInterval: (q) => (q.state.data?.status === 'Bound' ? false : 3000),
+  })
+  const st = statusQ.data
+  const endsAt = st?.status === 'Bound' && st.hold_ends_at ? Date.parse(st.hold_ends_at) : null
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (endsAt == null || endsAt <= Date.now()) return
+    const t = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [endsAt])
+  const holding = endsAt != null && endsAt > now
+  const bound = st?.status === 'Bound'
+  const checkQ = useQuery({
+    queryKey: ['bind-check', account, name],
+    enabled: bound && !holding && name.trim().length > 0,
+    queryFn: () => dashApi.payeeCheck(account, name),
+  })
+  return (
+    <div className="ds-run" data-testid="bind-progress">
+      {txHash ? <FullTx hash={txHash} label="accept_payee transaction" /> : null}
+      {tx.phase === 'refused' ? (
+        <p className="ds-err" role="alert">The chain refused this transaction{tx.reject ? `: ${tx.reject.name} (${tx.reject.code})` : ''}. Nothing changed. Try again.</p>
+      ) : !bound ? (
+        <p className="ds-note" role="status">{txHash ? 'Sent. Waiting for the chain to record it (usually under a minute)…' : 'Looking up your payee record…'}</p>
+      ) : holding ? (
+        <>
+          <p className="ds-note">Bound by your signature. The hold has to finish before an agent will pay you.</p>
+          <HoldRing endsAt={st!.hold_ends_at!} totalSecs={st!.hold_secs || 90} />
+        </>
+      ) : checkQ.data ? (
+        <>
+          <VerdictBlock check={checkQ.data} />
+          {reasonFor(checkQ.data) ? <p className="ds-note">{reasonFor(checkQ.data)}</p> : null}
+        </>
+      ) : (
+        <p className="ds-note" role="status">Bound and the hold is over. Running the check…</p>
+      )}
+    </div>
+  )
+}
+
 function checksOf(c: CheckPayee) {
   const plain: Record<string, string> = {
     account_exists: 'Account exists',
@@ -180,6 +252,8 @@ function Flow() {
   // Facts move the flow forward on their own.
   useEffect(() => { if (acct && step === 0) setStep(proof ? 2 : 1) }, [acct]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (bindSt.phase === 'finalized') setBound(true) }, [bindSt.phase])
+  // the last accept_payee stays on screen across a reload
+  useEffect(() => { if (acct && !bindTx) { const h = recallBindTx(acct); if (h) setBindTx(h) } }, [acct]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!acct) return
     dashApi.payeeStatus(acct).then((p) => alive.current && p.status === 'Bound' && setBound(true)).catch(() => {})
@@ -235,6 +309,7 @@ function Flow() {
       setBind({ s: 'busy', note: 'Sign in your wallet. PayOnce pays the fee.' })
       setBindAt(Date.now())
       const hash = await w.session.sendSponsored(prep.transaction, prep.schema)
+      rememberBindTx(acct, hash)
       setBindTx(hash)
       setBind({ s: 'done', v: hash })
     } catch (e) { setBind(errOf(e)) }
@@ -392,15 +467,15 @@ function Flow() {
           </div>
           {bound ? (
             <>
-              <Stamp verdict="MATCH" sub="Bound by your signature" />
+              {acct ? <BindProgress account={acct} name={proof?.name ?? ''} txHash={bindTx} /> : null}
               {acct ? <p className="ds-link">Your link <Link to={`/p/${acct}`}><code>payonce…/p/{short(acct)}</code></Link></p> : null}
               <button className="ds-btn" onClick={() => setStep(3)}>Get paid</button>
             </>
           ) : (
             <>
               <button className="ds-btn" disabled={!acct || !proof || bind.s === 'busy'} onClick={() => void becomePayee()}>Sign once, 0 CCD</button>
-              {bindTx ? <ChainBar phase={bindSt.phase} startedAt={bindAt} /> : null}
-              {bindTx ? <Tx hash={bindTx} label="accept_payee" /> : null}
+              {bindTx ? <ChainBar phase={bindSt.phase} startedAt={bindAt || Date.now()} /> : null}
+              {bindTx && acct ? <BindProgress account={acct} name={proof?.name ?? ''} txHash={bindTx} /> : null}
               <State a={bind} />
             </>
           )}

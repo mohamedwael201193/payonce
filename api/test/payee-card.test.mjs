@@ -49,3 +49,33 @@ test('bad addresses are refused; check uses the book seller and returns lower-ca
   assert.equal(r.epc_verdict, 'match');
   assert.equal(seen[0].seller, BOOK); assert.equal(seen[0].payee, ACC); assert.equal(seen[0].legal_name, 'Acme ApS');
 });
+
+// QA R3c-4: a visitor binds on the 90 s demo book (<13173,0>), so /p must read that book too, not only the live one.
+test('a payee bound only on an extra (demo) book is shown as Bound there and checked against that book', async () => {
+  const seenLive = []; const seenDemo = [];
+  const cards = createPayeeCards({
+    kv: { get: async () => null },
+    vop: { check: async (i) => { seenLive.push(i); return { verdict: 'UNVERIFIED', reasons: [] }; } },
+    readBook: async () => null, readAccount: async () => ({ exists: true }),
+    bookSellers: [BOOK], now: () => NOW, appBase: 'https://app.test', apiBase: 'https://api.test',
+    extraBooks: [{ label: '<13173,0>', bookSellers: [BOOK], vop: { check: async (i) => { seenDemo.push(i); return { verdict: 'MATCH', payable: true, reasons: [] }; } },
+      readBook: async () => ({ status: 'Bound', version: 1, mature_at_ms: NOW - 1, identity: { kind: 2 } }) }],
+  });
+  const c = await cards.card(ACC);
+  assert.equal(c.bound.status, 'Bound'); assert.equal(c.bound.book, '<13173,0>'); assert.equal(c.bound.hold_over, true);
+  assert.match(c.label, /bound by the payee’s own signature/);
+  const r = await cards.check(ACC, 'Elin');
+  assert.equal(r.payable, true); assert.equal(seenDemo.length, 1); assert.equal(seenLive.length, 0);
+});
+
+test('the primary book wins when it is Bound; extra books are only a fallback', async () => {
+  const cards = createPayeeCards({
+    kv: { get: async () => null }, vop: { check: async () => ({ verdict: 'MATCH', reasons: [] }) },
+    readBook: async () => ({ status: 'Bound', version: 1, mature_at_ms: NOW - 1, identity: { kind: 0 } }), readAccount: async () => ({ exists: true }),
+    bookSellers: [BOOK], now: () => NOW,
+    extraBooks: [{ label: 'x', bookSellers: [BOOK], vop: { check: async () => { throw new Error('should not be used'); } }, readBook: async () => { throw new Error('should not be read'); } }],
+  });
+  const c = await cards.card(ACC);
+  assert.equal(c.bound.book ?? null, null);
+  assert.equal((await cards.check(ACC, 'x')).verdict, 'MATCH');
+});

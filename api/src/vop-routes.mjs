@@ -218,6 +218,8 @@ export const cards = createPayeeCards({
   readBook: (seller, payee) => getPayeeRecord(retryingReads(vClient()), seller, payee),
   readAccount: async (a) => { const id = await accountIdentity(retryingReads(vClient()), a); return { exists: !!id?.exists }; },
   bookSellers: BOOK_SELLERS,
+  // visitors bind on the 90 s demo book from the dashboard: /p reads it too when the live book has no Bound record
+  extraBooks: [{ label: v3Label(DEMO_V3), bookSellers: BOOK_SELLERS, vop: vopDemo, readBook: (seller, payee) => getPayeeRecord(retryingReads(vClient()), seller, payee, DEMO_V3) }],
   appBase: APP_BASE, apiBase: API_BASE,
 });
 

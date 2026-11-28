@@ -261,3 +261,6 @@
   .ds-body { margin-top: -48px; padding-left: 16px; padding-right: 16px; }
   .ds-h1 { font-size: clamp(28px, 9vw, 40px); }
 }
+.ds-fulltx { display: grid; gap: 4px; margin: 10px 0; }
+.ds-fulltx small { color: var(--po-muted, #5b6470); }
+.ds-fulltx__hash { overflow-wrap: anywhere; word-break: break-all; font-size: 12px; line-height: 1.4; user-select: all; }

@@ -10,7 +10,7 @@ import { VopError } from './vop-service.mjs';
 
 const ADDR = /^[1-9A-HJ-NP-Za-km-z]{50}$/;
 
-export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, now = Date.now, appBase = '', apiBase = '' }) {
+export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, extraBooks = [], now = Date.now, appBase = '', apiBase = '' }) {
   function need(account) {
     if (!ADDR.test(String(account ?? ''))) throw new VopError(400, 'bad_address', 'That is not a Concordium account address.');
   }
@@ -19,13 +19,19 @@ export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, 
     need(account);
     const [acct, proof] = await Promise.all([readAccount(account).catch(() => null), kv.get('payee_proof', account).catch(() => null)]);
     let bound = null;
-    for (const seller of bookSellers) {
-      const rec = await readBook(seller, account).catch(() => null);
-      if (rec && rec.status && rec.status !== 'NotBound') {
-        const mature = rec.mature_at_ms != null ? Number(rec.mature_at_ms) <= now() : false;
-        bound = { seller, status: rec.status, version: rec.version, mature_at_ms: rec.mature_at_ms ?? null, hold_over: rec.status === 'Bound' && mature, kind: rec.identity?.kind === 1 ? 'business' : rec.identity?.kind === 2 ? 'person' : null, idp_index: rec.identity?.idp_index ?? null, proof_anchor: rec.identity?.proof_anchor ?? null };
-        if (rec.status === 'Bound') break;
+    let via = null; // the extra book the record came from (null = the primary book)
+    const books = [{ label: null, sellers: bookSellers, read: readBook, vop }, ...extraBooks.map((b) => ({ label: b.label ?? null, sellers: b.bookSellers ?? bookSellers, read: b.readBook, vop: b.vop }))];
+    for (const b of books) {
+      for (const seller of b.sellers) {
+        const rec = await b.read(seller, account).catch(() => null);
+        if (rec && rec.status && rec.status !== 'NotBound') {
+          const mature = rec.mature_at_ms != null ? Number(rec.mature_at_ms) <= now() : false;
+          const cand = { seller, status: rec.status, version: rec.version, mature_at_ms: rec.mature_at_ms ?? null, hold_over: rec.status === 'Bound' && mature, kind: rec.identity?.kind === 1 ? 'business' : rec.identity?.kind === 2 ? 'person' : null, idp_index: rec.identity?.idp_index ?? null, proof_anchor: rec.identity?.proof_anchor ?? null, ...(b.label ? { book: b.label } : {}) };
+          if (!bound || (rec.status === 'Bound' && bound.status !== 'Bound')) { bound = cand; via = b; }
+          if (rec.status === 'Bound') break;
+        }
       }
+      if (bound?.status === 'Bound') break;
     }
     const verified = Boolean(proof?.name);
     const name = proof?.name ?? null;
@@ -34,7 +40,7 @@ export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, 
     if (bound?.status === 'Bound') parts.push('bound by the payee’s own signature');
     if (bound?.hold_over) parts.push('hold over');
     if (bound?.version != null) parts.push(`v${bound.version}`);
-    return {
+    const out = {
       account, exists: acct?.exists ?? null, verified, name, kind: proof?.kind ?? bound?.kind ?? null,
       proof: proof ? { version: proof.version, verified_at: proof.verified_at, issuer: proof.issuer ?? null, vra_tx: proof.vra_tx ?? null, vaa_tx: proof.vaa_tx ?? null } : null,
       bound, label: parts.join(' · '),
@@ -46,13 +52,15 @@ export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, 
         pay_with_wallet: `${appBase}/app?payee=${account}`,
       },
     };
+    Object.defineProperty(out, '_via', { value: via, enumerable: false });
+    return out;
   }
 
   async function check(account, name, extra = {}) {
     need(account);
     const c = await card(account);
     const seller = c.bound?.seller ?? bookSellers[0] ?? account;
-    const r = await vop.check({ seller, payee: account, legal_name: name, country: extra.country, buyer: extra.buyer });
+    const r = await (c._via?.vop ?? vop).check({ seller, payee: account, legal_name: name, country: extra.country, buyer: extra.buyer });
     return { ...r, epc_verdict: String(r.verdict).toLowerCase(), card: { label: c.label, verified: c.verified, name: c.name } };
   }
 

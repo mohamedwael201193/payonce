@@ -114,3 +114,53 @@ describe('/p/<account>', () => {
     expect(screen.getByText(/not a payee yet/i)).toBeInTheDocument()
   })
 })
+
+import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx } from './DashPage'
+
+const TXH = 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701'
+const ACC = '4ANkHiBERTZUsU3HHy99hrQQbzrGJLzqBdkoqmW9pXFtb89MEL'
+const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>)
+const route = (status: object, check?: object) => vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+  if (u.includes('/status')) return json({ tx_hash: TXH, status: 'finalized', reject: null })
+  if (u.includes('/api/payee/')) return json(status)
+  if (u.includes('/check')) return json(check)
+  return json({}, 404)
+}))
+const stRec = (o: object) => ({ account: ACC, seller: S, version: 1, hold_secs: 90, hold_ends_at: null, link: '', ...o })
+
+describe('accept_payee progress (QA R3c)', () => {
+  it('shows the full tx hash with a CCDScan link and remembers it per account', () => {
+    render(<FullTx hash={TXH} label="accept_payee" />)
+    expect(screen.getByText(TXH)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /CCDScan/ })).toHaveAttribute('href', CCDSCAN_TX + TXH)
+    rememberBindTx(ACC, TXH)
+    expect(recallBindTx(ACC)).toBe(TXH)
+    expect(recallBindTx(S)).toBeNull()
+  })
+
+  it('NotBound after Sent: says it is waiting for the chain, never Match', async () => {
+    route(stRec({ status: 'NotBound' }))
+    wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
+    expect(await screen.findByText(/waiting for the chain/i)).toBeInTheDocument()
+    expect(screen.queryByText('Match', { selector: '.ds-stamp__word' })).toBeNull()
+  })
+
+  it('Bound inside the hold: shows the hold countdown, still not Match', async () => {
+    route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() + 60_000).toISOString() }))
+    wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
+    expect(await screen.findByRole('timer')).toBeInTheDocument()
+    expect(screen.getByText(/Bound by your signature/i)).toBeInTheDocument()
+    expect(screen.queryByText('Match', { selector: '.ds-stamp__word' })).toBeNull()
+  })
+
+  it('Bound and hold over: runs the real check and shows green Match only when payable', async () => {
+    route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() - 1000).toISOString() }), {
+      verdict: 'MATCH', payable: true, verified_name: 'Elin Berglund', identity_kind: 'person', standin: true, reasons: [],
+      checks: [{ id: 'payee_book_bound', ok: true, detail: '' }, { id: 'cooling_off_over', ok: true, detail: '' }],
+      subject: { contract: '<13173,0>', seller: S, payee: ACC, invoice_name: 'Elin Berglund', book: { status: 'Bound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '',
+    })
+    wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
+    const v = await screen.findByTestId('verdict')
+    expect(v).toHaveAttribute('data-verdict', 'MATCH')
+  })
+})
