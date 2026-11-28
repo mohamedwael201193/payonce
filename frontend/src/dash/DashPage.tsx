@@ -15,6 +15,8 @@ import { FAKE_PAYEE } from '../app/run/flow'
 import { AGENTS } from '../app/identity'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
+import { FeeEurSource } from '../app/FeeNote'
+import { NRG, PAID_INVOICE_FEE_TEXT, eurOfNrg } from '../lib/feeEur'
 import { NotShipped, dashApi, type CheckPayee, type GetPaidJob, type RedirectResult, type RecordItem } from './contracts'
 import { HumanGate } from './gates'
 import { Services } from './Services'
@@ -41,7 +43,32 @@ function rejectOf(e: unknown): { code: number; name?: string } | null {
   const m = /reject(?: code)?\s+(-?\d+)/i.exec(msg)
   return m ? { code: Number(m[1]) } : null
 }
-type OutLegs = { reserve?: string; transfer?: string; confirm?: string; replay?: string; replayCode?: number | null; replayName?: string; replayMsg?: string }
+type OutLegs = { ack?: string; reserve?: string; transfer?: string; confirm?: string; replay?: string; replayCode?: number | null; replayName?: string; replayMsg?: string }
+
+/** The acknowledge_payee transaction of a pay: shown as soon as it is sent, before the payment itself. */
+export function AckLeg({ hash }: { hash?: string }) {
+  return hash ? <Tx hash={hash} label="acknowledge_payee" /> : null
+}
+
+/** The EUDemo legs after the transfer. */
+export function PayLegs({ legs }: { legs: Pick<OutLegs, 'reserve' | 'confirm'> }) {
+  return (
+    <>
+      {legs.reserve ? <Tx hash={legs.reserve} label="reserve_plt" /> : null}
+      {legs.confirm ? <Tx hash={legs.confirm} label="confirm_plt" /> : null}
+    </>
+  )
+}
+
+/** The CCD rail's note: the fee in CCD and euros, with its source. */
+export function CcdRailNote() {
+  return (
+    <>
+      <p className="ds-note">1 CCD, once, paid from your wallet. The network fee is {PAID_INVOICE_FEE_TEXT}; your wallet shows who pays it before you sign.</p>
+      <FeeEurSource />
+    </>
+  )
+}
 
 export const STEPS = [
   { key: 'connect', label: 'Connect', group: 'get' },
@@ -428,7 +455,8 @@ function Flow() {
         if (!w.session.sendSponsored) throw new WalletTooOld()
         setOutPay({ s: 'busy', note: 'First, acknowledge this payee in your wallet. PayOnce pays the fee.' })
         const prep = await dashApi.prepare(acct, t.acknowledge.entrypoint, t.acknowledge.parameter)
-        await w.session.sendSponsored(prep.transaction, prep.schema)
+        const ack = await w.session.sendSponsored(prep.transaction, prep.schema)
+        setOutLegs((l) => ({ ...l, ack }))
       }
       if (payRail === 'eudemo' || t.rail === 'eudemo') {
         if (!t.reserve || !t.transfer) throw new Error('The API did not return the EUDemo steps.')
@@ -487,6 +515,7 @@ function Flow() {
       card = (
         <Card k="c0" title="Connect your wallet">
           <RunConnect />
+          <p className="ds-nowallet" data-testid="no-wallet">No wallet yet? <Link to="/#try">Try a check</Link> or <Link to="/demo">watch the live run</Link> first. No account needed.</p>
           <p className="ds-note">No fee to connect, prove your name or become a payee — PayOnce pays those. You need some test CCD only if you later pay someone from this wallet (<a href="https://developer.concordium.software/en/mainnet/net/guides/accounts-wallets.html" target="_blank" rel="noreferrer">Concordium’s testnet faucet</a>). Concordium Wallet (browser) 2.10+ or CryptoX (Android). <a href="https://developer.concordium.software/en/mainnet/net/guides/create-identity.html" target="_blank" rel="noreferrer">No testnet identity? Guide</a></p>
           {acct ? <button className="ds-btn" onClick={() => setStep(proof ? 2 : 1)}>Continue</button> : null}
         </Card>
@@ -520,7 +549,7 @@ function Flow() {
         <Card k="c2" title="Become a payee">
           {need}
           <div className="ds-kv">
-            <span>Fee</span><b>0 CCD · paid by PayOnce</b>
+            <span>Fee</span><b>0 CCD · paid by PayOnce <small className="ds-fee-eur">(about {eurOfNrg(NRG.accept_payee)} on the network)</small></b>
             <span>Your balance</span><b className="tabular">{balance != null ? `${balance} CCD` : '…'}</b>
           </div>
           {bound ? (
@@ -589,7 +618,7 @@ function Flow() {
               {payRail === 'eudemo' ? (
                 <p className="ds-note">0.01 EUDemo, once. Reserve, then a token transfer whose memo names the payable, then confirm. PayOnce pays the fees. Both accounts must be on Concordium’s EUDemo allow list (lab accounts are; a new wallet needs to be added first). <a href={EUDEMO_EVIDENCE} target="_blank" rel="noreferrer">A completed run</a> was refused on re-reserve (−16).</p>
               ) : (
-                <p className="ds-note">1 CCD, once, paid from your wallet.</p>
+                <CcdRailNote />
               )}
               <label className="ds-field"><span>Account</span><input value={payTo} onChange={(e) => setPayTo(e.target.value)} placeholder="Paste a Concordium account" spellCheck={false} /></label>
               <label className="ds-field"><span>Name on the invoice</span><input value={payName} onChange={(e) => setPayName(e.target.value)} placeholder="Nour Design Studio" /></label>
@@ -617,9 +646,9 @@ function Flow() {
                     />
                   ) : null}
                   {declined ? <p className="ds-note">You decided not to pay. Nothing was sent.</p> : null}
+                  <AckLeg hash={outLegs.ack} />
                   {outTx ? <><ChainBar phase={outSt.phase} startedAt={outAt} /><Tx hash={outTx} label={payRail === 'eudemo' ? 'EUDemo transfer' : 'Payment'} /></> : null}
-                  {outLegs.reserve ? <Tx hash={outLegs.reserve} label="reserve_plt" /> : null}
-                  {outLegs.confirm ? <Tx hash={outLegs.confirm} label="confirm_plt" /> : null}
+                  <PayLegs legs={outLegs} />
                   {outLegs.replayCode === -16 || (outLegs.replayMsg && outLegs.replayCode != null) ? (
                     <p className="ds-note" data-testid="eudemo-replay">{outLegs.replay ? <Tx hash={outLegs.replay} label={`Re-reserve refused (${outLegs.replayCode}${outLegs.replayName ? `, ${outLegs.replayName}` : ''})`} /> : <>Re-reserve refused{outLegs.replayCode != null ? ` (${outLegs.replayCode}${outLegs.replayName ? `, ${outLegs.replayName}` : ''})` : ''}. The payable is already paid.</>}</p>
                   ) : outLegs.replayMsg ? <p className="ds-err">{outLegs.replayMsg}</p> : null}

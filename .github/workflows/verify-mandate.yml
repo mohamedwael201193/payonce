@@ -1,0 +1,20 @@
+name: verify-mandate
+# Keyless third-party check of the reference buyer agent's spend mandate against a public Concordium testnet node.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix api
+      - name: verify the mandate (signature, finalized anchor, spends within the cap)
+        working-directory: api
+        run: node scripts/verify-mandate.mjs

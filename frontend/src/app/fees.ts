@@ -3,6 +3,7 @@
 // (previously 16.2 and 19.6 both appeared). It is a testnet fee, not a
 // mainnet estimate.
 import { RECORDED_DATE, RECORDED_FEES } from '../lib/recorded'
+import { eurOfCcd } from '../lib/feeEur'
 
 const ccdPay = RECORDED_FEES.find((f) => f.step === 'Pay in CCD' && f.note === 'success')
 
@@ -16,7 +17,7 @@ export const FEE_SOURCE = {
 
 export function ccdPayFeeSentence(): string {
   return CCD_PAY_FEE
-    ? `A successful CCD payment cost ${CCD_PAY_FEE} testnet CCD in the recorded run of ${formatDay(FEE_SOURCE.date)}. Fees vary per transaction and are testnet fees, not mainnet estimates.`
+    ? `A successful CCD payment cost ${CCD_PAY_FEE} testnet CCD (about ${eurOfCcd(Number(CCD_PAY_FEE))}) in the recorded run of ${formatDay(FEE_SOURCE.date)}. Fees vary per transaction. CCD figures are testnet fees; the euro figure is what that energy costs at Concordium's on-chain price.`
     : 'Fees are testnet fees and vary per transaction.'
 }
 

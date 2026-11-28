@@ -10,6 +10,8 @@ import { BANNED_WORDS, GLOSSARY, buildStatusString, buildStatusText, coSignerRun
 import { EXPLORER_INSTANCE } from '../../lib/tokens'
 import { useConfig, usePayable } from '../../hooks/useApi'
 import { ccdPayFeeSentence, recordedLabel } from '../fees'
+import { FeeEurSource } from '../FeeNote'
+import { PAID_INVOICE_FEE_TEXT } from '../../lib/feeEur'
 import { useDocumentTitle } from '../hooks'
 import { verifierCommand } from '../verifier'
 import { Card, CopyButton, ExplorerTx, KeyValue, PageHeader, Skeleton, useExplorerBase } from '../ui'
@@ -246,7 +248,9 @@ export function JudgesPage() {
         </Fold>
         <Fold title="Fee table">
           <p>
-            Concordium&apos;s fee peg is 0.01 euro per transaction. Every transaction in a payment is counted at the peg. Testnet CCD energy costs are a separate, larger number. {ccdPayFeeSentence()}
+            Concordium prices energy in euros: 1 EUR per 50,000 NRG. A plain transfer (about 500 NRG) costs about €0.01; a paid invoice&apos;s sponsored payment (about 2,518 NRG) costs {PAID_INVOICE_FEE_TEXT}. {ccdPayFeeSentence()}</p>
+          <FeeEurSource />
+          <p>
           </p>
           <table className="w-full text-left text-sm">
             <thead>

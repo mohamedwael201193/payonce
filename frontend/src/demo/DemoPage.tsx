@@ -9,6 +9,7 @@ import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
 import { RECORDED_RUN, ago, impostorHeadline, loadDemoFeed, txUrl, type DemoProgressStep, type DemoRun } from './demoData'
 import { PayeeDiff } from '../dash/motion'
+import { eurOfCcd } from '../lib/feeEur'
 import { lookalike, sharedEnds } from '../dash/lookalike'
 import { OfficialBadges } from '../app/OfficialBadges'
 import '../dash/dash.css'
@@ -177,6 +178,7 @@ export function DemoPage() {
           <div className="dm-verdict dm-verdict--ok"><VerdictMark kind="paid" size={84} /><h2 className="dm-h">Paid once.</h2></div>
           <p className="dm-sub">{run.invoice.amount} to <code>{short(run.good.account)}</code>. On chain.</p>
           <Chip hash={run.paid.hash} label="Payment" />
+          {run.feeCcd ? <p className="dm-fee" data-testid="demo-fee">Network fee {run.feeCcd.toFixed(1)} CCD (about {eurOfCcd(run.feeCcd)}), paid by PayOnce. The buyer sent only the invoice amount.</p> : null}
           <button className="dm-btn" onClick={next}>Now the impostor</button>
         </>
       )

@@ -96,3 +96,5 @@
 .dm-progress em{font-size:.82rem;opacity:.7}
 @keyframes dm-pulse{70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 @media (prefers-reduced-motion: reduce){.dm-status--live .dm-status__dot{animation:none}}
+
+.dm-fee{margin:10px 0 0;font-size:.85rem;opacity:.75;max-width:420px;text-align:center}

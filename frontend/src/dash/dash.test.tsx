@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { diffPositions } from './motion'
@@ -139,7 +139,7 @@ describe('/p/<account>', () => {
   })
 })
 
-import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx, checksOf } from './DashPage'
+import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx, checksOf, AckLeg, PayLegs, CcdRailNote, DashPage } from './DashPage'
 
 const TXH = 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701'
 const ACC = '4ANkHiBERTZUsU3HHy99hrQQbzrGJLzqBdkoqmW9pXFtb89MEL'
@@ -245,5 +245,37 @@ describe('checksOf', () => {
     })
     expect(rows.filter((r) => r.text === 'Name matches the invoice')).toEqual([{ ok: true, text: 'Name matches the invoice' }])
     expect(rows.filter((r) => r.text === 'Name proven by the payee')).toHaveLength(1)
+  })
+})
+
+describe('pay progress shows every sponsored transaction (R13 #10)', () => {
+  it('the acknowledge_payee hash is shown as a transaction link', () => {
+    render(<AckLeg hash={TXH} />)
+    expect(screen.getByRole('link', { name: /acknowledge_payee/ })).toHaveAttribute('href', expect.stringContaining(TXH))
+  })
+  it('shows nothing before the acknowledgment is sent', () => {
+    const { container } = render(<AckLeg />)
+    expect(container).toBeEmptyDOMElement()
+  })
+  it('the EUDemo legs follow, in order', () => {
+    render(<PayLegs legs={{ reserve: 'a'.repeat(64), confirm: 'b'.repeat(64) }} />)
+    const links = screen.getAllByRole('link')
+    expect(links[0]).toHaveTextContent('reserve_plt')
+    expect(links[1]).toHaveTextContent('confirm_plt')
+  })
+  it('the CCD rail states the fee in CCD and euros, with the source', () => {
+    render(<CcdRailNote />)
+    expect(screen.getByText(/about 20 CCD \(€0\.05\)/)).toBeInTheDocument()
+    expect(screen.getByText(/How is the euro figure computed/)).toBeInTheDocument()
+  })
+})
+
+describe('dashboard connect step', () => {
+  it('points a visitor without a wallet to the no-wallet path', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({}, 404)))
+    wrap(<DashPage />)
+    const line = screen.getByTestId('no-wallet')
+    expect(within(line).getByRole('link', { name: 'Try a check' })).toHaveAttribute('href', '/#try')
+    expect(within(line).getByRole('link', { name: 'watch the live run' })).toHaveAttribute('href', '/demo')
   })
 })

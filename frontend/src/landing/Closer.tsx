@@ -2,6 +2,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { RECORDED_FEES } from '../lib/recorded'
+import { FEE_RATE_DATE, PAID_INVOICE_FEE_TEXT } from '../lib/feeEur'
 import { Magnetic, Rise } from './bits'
 import { Mark } from './Nav'
 import { formatDay, instanceUrl, type Snapshot } from './data'
@@ -36,7 +37,7 @@ export function faqItems(s: Snapshot): { q: string; a: string }[] {
     {
       q: 'What does one payment cost?',
       a: fee
-        ? `In the recorded run of ${date}, a successful CCD payment cost ${fee} testnet CCD in network fees, more than the 0.5 CCD invoice. Fees vary per transaction. They are testnet fees, not an estimate for any other network.`
+        ? `In the recorded run of ${date}, a successful CCD payment cost ${fee} testnet CCD in network fees, more than the 0.5 CCD invoice. A paid invoice's sponsored payment now costs ${PAID_INVOICE_FEE_TEXT}, paid by PayOnce: the buyer sends only the invoice amount. The euro figure is Concordium's own price of energy (1 EUR per 50,000 NRG, the same on every Concordium network, ${FEE_RATE_DATE}); testnet CCD itself has no market value.`
         : 'Each transaction pays a network fee in testnet CCD. The recorded run lists the fee for every step on the judges page.',
     },
   ]

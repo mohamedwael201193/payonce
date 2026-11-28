@@ -278,3 +278,7 @@
   .ds-stamp-slot { padding: 24px 32px 32px 16px; }
   .ds-verdict__why { padding-top: 2px; }
 }
+
+.ds-fee-eur { font-weight: 400; color: var(--po-grey); font-size: 0.85em; }
+.ds-nowallet { margin: 0 0 12px; font-size: 15px; color: var(--po-grey); }
+.ds-nowallet a { color: var(--po-accent-ink); font-weight: 600; text-underline-offset: 3px; }

@@ -358,3 +358,7 @@ textarea.po-input {
     scroll-behavior: auto !important;
   }
 }
+
+.fee-src { font-size: 14px; color: var(--po-grey); margin: 6px 0 0; }
+.fee-src summary { cursor: pointer; color: var(--po-accent-ink); width: fit-content; text-underline-offset: 3px; }
+.fee-src p { margin: 6px 0 0; line-height: 1.5; max-width: 62ch; }

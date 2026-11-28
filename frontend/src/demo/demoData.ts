@@ -21,6 +21,8 @@ export interface DemoRun {
   source?: RunSource
   /** seconds since the API produced the run (live and recent runs only) */
   ageSecs?: number
+  /** the sponsored fee of the payment, in CCD, when the run reports it */
+  feeCcd?: number
   /** One line shown under the stage: what the visitor is looking at. */
   label: string
   invoice: { amount: string; due: string | null }
@@ -61,6 +63,13 @@ const HASH = /^[0-9a-f]{64}$/i
 const isRefusal = (r: unknown): r is DemoRefusal =>
   !!r && typeof (r as DemoRefusal).code === 'number' && typeof (r as DemoRefusal).name === 'string' && HASH.test((r as DemoRefusal).hash)
 
+/** detail.paid_fee.sponsor.cost is in microCCD. */
+export function feeCcdOf(raw: unknown): number | undefined {
+  const cost = (raw as { detail?: { paid_fee?: { sponsor?: { cost?: unknown } } } })?.detail?.paid_fee?.sponsor?.cost
+  const n = Number(cost)
+  return Number.isFinite(n) && n > 0 ? n / 1e6 : undefined
+}
+
 function complete(r: Partial<DemoRun>): boolean {
   if (!r || typeof r.label !== 'string') return false
   if (!r.invoice || !r.good || !Array.isArray(r.good.ticks) || !r.paid || !HASH.test(r.paid.hash)) return false
@@ -76,7 +85,7 @@ export function parseLiveRun(raw: unknown, now = Date.now()): DemoRun | null {
   const at = r.generated_at ? Date.parse(r.generated_at) : NaN
   if (!Number.isFinite(at) || now - at > 3_600_000) return null
   if (!complete(r)) return null
-  return { ...(r as DemoRun), live: true, source: 'live', ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
+  return { ...(r as DemoRun), live: true, source: 'live', feeCcd: feeCcdOf(r), ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
 }
 
 /** A complete real run from the API that is over an hour old but under a day: shown with its age, never as live. */
@@ -86,7 +95,7 @@ export function parseRecentRun(raw: unknown, now = Date.now()): DemoRun | null {
   if (!r) return null
   const at = r.generated_at ? Date.parse(r.generated_at) : NaN
   if (!Number.isFinite(at) || now - at > RECENT_MAX_MS || !complete(r)) return null
-  return { ...(r as DemoRun), live: false, source: 'recent', ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
+  return { ...(r as DemoRun), live: false, source: 'recent', feeCcd: feeCcdOf(r), ageSecs: Math.max(0, Math.round((now - at) / 1000)) }
 }
 
 export interface DemoProgressStep { key: string; label: string; hash: string }

@@ -137,3 +137,23 @@ describe('DemoStatus', () => {
     expect(screen.getByTestId('demo-label')).toHaveTextContent('Live run')
   })
 })
+
+describe('fee on the paid screen', () => {
+  it('reads the sponsored fee from the run and states it in euros', async () => {
+    const run = { ...live(), detail: { paid_fee: { sponsor: { cost: '22495143' } } } }
+    vi.stubGlobal('fetch', vi.fn(async () => json(run)))
+    const user = userEvent.setup()
+    render(<MemoryRouter><DemoPage /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Run it' }))
+    await user.click(await screen.findByRole('button', { name: 'Pay' }))
+    expect(await screen.findByTestId('demo-fee')).toHaveTextContent('Network fee 22.5 CCD (about €0.05), paid by PayOnce')
+  })
+  it('shows no fee line when the run has none', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json(live())))
+    const user = userEvent.setup()
+    render(<MemoryRouter><DemoPage /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Run it' }))
+    await user.click(await screen.findByRole('button', { name: 'Pay' }))
+    expect(screen.queryByTestId('demo-fee')).toBeNull()
+  })
+})

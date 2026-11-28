@@ -113,7 +113,7 @@ const PATH = [
   { n: 1, title: 'Try a check', time: 'about 10 s', text: 'Pick a name below. Match, Close match or No match, from the chain.', to: '#try', label: 'Try a check' },
   { n: 2, title: 'Watch the live run', time: 'about 40 s', text: 'A real payment, a refused second one, and a lookalike account turned away.', to: '/demo', label: 'Watch the live run' },
   { n: 3, title: 'Re-run the proof', time: 'about 10 s', text: 'One command re-checks the chain. No account, nothing sent.', to: '/app/proof/judges', label: 'Re-run the proof' },
-  { n: 4, title: 'Then, with a wallet', time: 'optional, 3 min', text: 'Become a payee and pay 1 CCD from your own Concordium wallet.', to: '/app', label: 'Use your wallet' },
+  { n: 4, title: 'Then, with a wallet', time: 'optional, 3 min', text: 'Become a payee and pay 1 CCD from your own Concordium wallet.', to: '/app?dash=1', label: 'Use your wallet' },
 ] as const
 
 /** Four numbered steps. The path is the same on every device: top to bottom. */

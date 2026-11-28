@@ -2,6 +2,7 @@
 // Every chain write is signed in YOUR wallet: the agent registration on Concordium's official CIS-8004 registry
 // (two transactions: mint, then pin the badged card), the listing signature, and the invoice registration.
 // PayOnce's buyer then writes its own capped vendor row for you, and its agent pays your invoice exactly once.
+import { eurOfCcd } from '../../lib/feeEur'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -110,7 +111,7 @@ function AgentStep({ account, status, onChange }: { account: string; status: Sta
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-po-grey">Your invoices are issued by an AI-agent identity you own on Concordium’s official CIS-8004 registry. Two wallet approvals: mint the agent, then pin its card with the “Verified by Concordium” badge. About 40 test CCD in testnet fees.</p>
+      <p className="text-po-grey">Your invoices are issued by an AI-agent identity you own on Concordium’s official CIS-8004 registry. Two wallet approvals: mint the agent, then pin its card with the “Verified by Concordium” badge. About 40 test CCD in testnet fees (about {eurOfCcd(40)}).</p>
       {unbadged && !busy ? (
         <Card className="flex flex-col gap-2">
           <p className="text-po-ink">You already own agent #{unbadged.token_id}, but its badge is not valid yet.</p>
@@ -326,7 +327,7 @@ export function SellPage() {
         <header className="ds-hero ds-hero--slim">
           <p className="ds-crumb"><Link to="/app">Run it</Link> · Become a payee</p>
           <h1 className="ds-h1">Get paid by an AI agent.</h1>
-          <p className="ds-lead">Register from your own wallet, issue an invoice, watch the agent pay it once. You will need about 100 test CCD for network fees on this path (Concordium’s faucet covers it). When the agent pays you, PayOnce covers that fee.</p>
+          <p className="ds-lead">Register from your own wallet, issue an invoice, watch the agent pay it once. You will need about 100 test CCD for network fees on this path (about {eurOfCcd(100)}) (Concordium’s faucet covers it). When the agent pays you, PayOnce covers that fee.</p>
         </header>
         <div className="ds-body ds-body--wide">
           <SellFlow />
