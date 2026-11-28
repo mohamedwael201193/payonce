@@ -433,11 +433,11 @@
   "payee": "3MnunTQaxPtKEqC54zCPysTaxdG96SXAdqBQaj422hSjvxWiUE",
   "agents": 26,
   "invoice_name_used": "Build Engineer FORGE-01",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Build Engineer FORGE-01\".",
-  "evidence_hash": "7b5f0ff3ea2b4685f1c05f0470f9b14eb9761701a44bf9e3f33d798d378bae35"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -895,44 +895,44 @@
   "payee": "3h1jzjv3RZTfyhhMGCtNdPpFV4nV9kHg9MPGmYDKcNgAs5SeST",
   "agents": 1,
   "invoice_name_used": "BotHire Meme Desk",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"BotHire Meme Desk\".",
-  "evidence_hash": "d451ca7295b2b01a63d9dc5825793c76d23f2e30c7b6adb3399b4c82e501beb8"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3hC6uLjLrh2SZ95XrjykJWdxAKpnAnbEGka8vbAgPcwbuCZDo1",
   "agents": 1,
   "invoice_name_used": "Notary",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Notary\".",
-  "evidence_hash": "b4bf0ede282c3e5ec97ea792260576dc7cc62c36c088893dc788a46456c20f8c"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3hoBjtL583DTAT7qY5wVweSu6S6RamX2wQnuSsofexaCkd6E7Y",
   "agents": 12,
   "invoice_name_used": "Spec Analyst CHART-01",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Spec Analyst CHART-01\".",
-  "evidence_hash": "a1799dc115f952abdae6ee1f5dae842e6a58b15b1b12e8ebb5915f39647c31e8"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3hurAcgoAiabk9VR5FqNaUySxW739FG2PcwnmWuhHp8D6jgNFY",
   "agents": 3,
   "invoice_name_used": "VerifiedSeller",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 3) and has presented no name proof, so nothing stands behind \"VerifiedSeller\".",
-  "evidence_hash": "8b4f7f6a9a44ab52a1c72f2b01cf196883923273b7a9eb8fd87d9de385edab0f"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -1065,6 +1065,17 @@
   "book_status": "NotBound",
   "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Web3 Data Buyer\".",
   "evidence_hash": "b9e78f448be280398dc349fb9c04cb568695e51ebcb9330964416ead9f06ce2b"
+ },
+ {
+  "network": "testnet",
+  "payee": "3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ",
+  "agents": 1,
+  "invoice_name_used": "PayOnce QA Studio",
+  "verdict": "NO_MATCH",
+  "identity_kind": "person",
+  "book_status": "NotBound",
+  "reason": "No match: the payee account belongs to \"John Doe\", not \"PayOnce QA Studio\".",
+  "evidence_hash": "259435c6345d6201471a330f495d1cb46eebad7fd0a17de1abf4eef8e818c86a"
  },
  {
   "network": "testnet",
@@ -1313,55 +1324,55 @@
   "payee": "3wh1PY2WnmuXKqhrPCWuz1w8uEr1TGpD6qP7Tgp3jQkb26RtjL",
   "agents": 1,
   "invoice_name_used": "Fuselock Demo Seller",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Fuselock Demo Seller\".",
-  "evidence_hash": "c1ec4a2dbcb80c641a848959a1b76732c590f1ebaa699f30708576764bae0e11"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3whFmR7A1j55fAHfaMdkDckhH21Fr5ybfWm5oNVRGNsqJpeehk",
   "agents": 1,
   "invoice_name_used": "Gig Guard",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Gig Guard\".",
-  "evidence_hash": "ada040c04217b6c912319e62b43605dc59bb54919fb480d4e765752cbbc0bd20"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3xZj2tZLy1vgDT6JMJYsnnVmEY1DzSAUVVzYeuCwNHpw6Xtf7u",
   "agents": 1,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "7f2e1e68a27b90f391fac6e83199d7b51aea8f0966a356c4a1c48d919017cff5"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3xae4xP6wC46DaXPhPEnyVpovsfnWKhhqGFmMi5gaPfqnJAWTf",
   "agents": 1,
   "invoice_name_used": "MRD-UW-01",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"MRD-UW-01\".",
-  "evidence_hash": "ce1d78964cd6f33ba4b2169ae915bc8236f1a66814832ed0bcf6ac8e4c57793e"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "3ygteRAtWchWkgFFzLnRf76kzmyeMgpm4TKPTMDmVxmQYivdDD",
   "agents": 1,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "70a7a7750b4f0f8162a056ae8359233b4cb34a5e7d4f53f76984277188ffc029"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -1432,7 +1443,7 @@
  {
   "network": "testnet",
   "payee": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
-  "agents": 1,
+  "agents": 2,
   "invoice_name_used": "PayOnce Seller",
   "verdict": "UNVERIFIED",
   "identity_kind": "person",
@@ -1445,33 +1456,33 @@
   "payee": "43GQBGRBSet41XhHLwppEacq8eF3BzRrZYhKUG3zYC44jrMwrc",
   "agents": 1,
   "invoice_name_used": "BadgeGate Demo Research Agent",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"BadgeGate Demo Research Agent\".",
-  "evidence_hash": "79ccadb56f2d0b59405d418bfe98ad70279b72b4c2f64b76aabc9db465ae8438"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "43JZTBYtNQmzy9JfG8x7TyTo5hdLhvYd4HR1x4HLyCBpfgTZkt",
   "agents": 2,
   "invoice_name_used": "Concordium Verified Agent",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Concordium Verified Agent\".",
-  "evidence_hash": "b9044f808d93817950760a1819d8f1fbdd514814aa04f963a51a82bb385e81e7"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "43WTW9mXTvFheLNjmsso5hDEJyYTdn8cssFXYDUHruUjqSSpMu",
   "agents": 5,
   "invoice_name_used": "TradeWizard Trade Agent",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"TradeWizard Trade Agent\".",
-  "evidence_hash": "067f6ffbd596155c8cd35c6efc232987526fd1b09c226db58a50ebff41b706f4"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -1577,11 +1588,11 @@
   "payee": "45yYvJK7oc1fpvJhNaU7LmQUnrSdivu4og94ruWYfgXCH5K3mv",
   "agents": 1,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "0b0c1faf9e9535c7ebab54957bd046f4ecd178c47382fa43112b05538114112f"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -1797,11 +1808,11 @@
   "payee": "4DRGyL6GkXQXs8CT7KovczM9SbwVgn8KsKAvQtFt4G4puhXKLc",
   "agents": 1,
   "invoice_name_used": "Alice's shopping agent",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Alice's shopping agent\".",
-  "evidence_hash": "0f78fc54399a6ecc40f2d9e3405f42456e4b139858548fccd37a1bd5d0fff59f"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -1929,11 +1940,11 @@
   "payee": "4JSo6NJzqdvhnmNV75sphe6vZ7eDRwezA8Juv4ZZWfKGspQ7Eq",
   "agents": 8,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "99dcbc13b8ccebd4d4b899e656364f56d6618a1df3fa15ad30366ab3b4b960ef"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -2556,55 +2567,55 @@
   "payee": "4mbNYv2HQ95xoAaQxqztKhXj5F2MJS397stwRNK7keJ5Bf1DkB",
   "agents": 1,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "b65a8366399325c1da7a94233265432a4e48a75ca8316ede5890ca3462e9d023"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "4nQiG4QdeYzVHC4ibEzCPenxLfRFUfkJZQhB6ctDs2Jcd3m7nD",
   "agents": 1,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "b799ab40ca45e6e3977887662e8a53c4fb86a3e4a62d61a7971e8c5b24bf3dc6"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "4nbXzJQtZhjs2xmQPY5fpaS12No88VXPa9CrcbipYeQYYWoLpn",
   "agents": 1,
   "invoice_name_used": "ETH Trend Pullback",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"ETH Trend Pullback\".",
-  "evidence_hash": "07a81987fa135c2f6b3b8d8ee31ae7e90c403b088ead7809e39962c9a73be90a"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "4nd1ApSr1iPwBgdg13ky8BHdVV7BvLqi7vNmXQ1hTEbcC9DXfq",
   "agents": 12,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "c239516386193f8b3a7c6744b6930c3c02677e5c4028d7d5b4755634d23d61e7"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "4not6An1LB2UUTeQKRDgYHUdpFPVHZbSUtuWbMAVGRLPXTjsHx",
   "agents": 1,
   "invoice_name_used": "vet402 S3 demo seller (does not deliver)",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"vet402 S3 demo seller (does not deliver)\".",
-  "evidence_hash": "698435748e692a75d2230842028458947bea86ffb5dddb2be5fbfb9edaffbb61"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
@@ -2699,22 +2710,22 @@
   "payee": "4s5JJxU1VQXeHuPw9wqpq4FJpBXaaDP39JEGbLtfcNKPiAopdG",
   "agents": 4,
   "invoice_name_used": "",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"unknown\".",
-  "evidence_hash": "bca2f940f319c36747dd70f7e8f238aee9327fcae530ed6dec0ffd123e6d47a2"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",
   "payee": "4sPGmfGr257NUVUNo1wdJS8kpMrvw17dSE9Fi8xu8jsATzKLrt",
   "agents": 1,
   "invoice_name_used": "Demo merchant",
-  "verdict": "UNVERIFIED",
-  "identity_kind": "person",
-  "book_status": "NotBound",
-  "reason": "Verification not possible: the payee account is backed by a personal identity (provider 0) and has presented no name proof, so nothing stands behind \"Demo merchant\".",
-  "evidence_hash": "91705f6395260f5981b166428c8133b3a25663b9891f214c28232d2eb9b01f9d"
+  "verdict": "ERROR",
+  "identity_kind": null,
+  "book_status": null,
+  "reason": "http 502",
+  "evidence_hash": null
  },
  {
   "network": "testnet",

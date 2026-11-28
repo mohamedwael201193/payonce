@@ -1,8 +1,8 @@
 {
  "schema": "payonce-census-verification/v1",
- "verified_at_utc": "2026-11-28T08:06:58.740Z",
- "run_by": "api",
- "census_generated_at_utc": "2026-11-28T07:46:14Z",
+ "verified_at_utc": "2026-11-28T08:56:15.982Z",
+ "run_by": "github-actions",
+ "census_generated_at_utc": "2026-11-28T08:56:08Z",
  "seed": 20261128,
  "sample_per_network": 25,
  "node": {
@@ -312,7 +312,7 @@
    ]
   },
   "testnet": {
-   "accounts_in_census": 275,
+   "accounts_in_census": 276,
    "business_accounts_in_census": 10,
    "business_accounts_checked": 10,
    "sample_size": 35,
@@ -412,12 +412,12 @@
      "result": "agree"
     },
     {
-     "account": "3hurAcgoAiabk9VR5FqNaUySxW739FG2PcwnmWuhHp8D6jgNFY",
+     "account": "3iKSW5yYC3ukE4y2smSb3SbCGEa8BzfT8CbLaAfpJjJtGrgcD1",
      "census": [
-      "Digital Trust Solutions TestNet"
+      "Concordium testnet IP"
      ],
      "node": [
-      "Digital Trust Solutions TestNet"
+      "Concordium testnet IP"
      ],
      "business_in_census": false,
      "result": "agree"
@@ -456,7 +456,18 @@
      "result": "agree"
     },
     {
-     "account": "3UicG1GAQtP4QVsY5ine35QtkjtUftom3JcsxoCTDB2T7kqawd",
+     "account": "3UrRJHiUmYPTpac1m1Uo7kQuR71KLwCG2NBV1hmnAE4zPa6ZEZ",
+     "census": [
+      "Concordium testnet IP"
+     ],
+     "node": [
+      "Concordium testnet IP"
+     ],
+     "business_in_census": false,
+     "result": "agree"
+    },
+    {
+     "account": "3wh1PY2WnmuXKqhrPCWuz1w8uEr1TGpD6qP7Tgp3jQkb26RtjL",
      "census": [
       "Concordium testnet IP"
      ],
@@ -478,18 +489,7 @@
      "result": "agree"
     },
     {
-     "account": "3xZj2tZLy1vgDT6JMJYsnnVmEY1DzSAUVVzYeuCwNHpw6Xtf7u",
-     "census": [
-      "Concordium testnet IP"
-     ],
-     "node": [
-      "Concordium testnet IP"
-     ],
-     "business_in_census": false,
-     "result": "agree"
-    },
-    {
-     "account": "3zKuq9cgzYgSs1cXE2ugGq3WkBNkPsAChj1fLSH8HhoQXoNL6s",
+     "account": "3zDfWxwqRi25bUJ7QvNsoZopC5YbqmG1ynqRAd5SASVrFc1dBy",
      "census": [
       "Concordium testnet IP"
      ],
