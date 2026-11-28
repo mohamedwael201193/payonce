@@ -26,7 +26,7 @@ const table = { pay_ccd: -5, register_payable: -28, accept_payee: -32, revoke_pa
 test('attack catalogue: >= 25 attacks, codes compared exactly, accepted attacks fail', async () => {
   const cat = createAttackCatalogue({
     client: () => fakeClient((ep) => table[ep]), book: BOOK, seller: SELLER, buyer: BUYER, token: 1476n,
-    fixtures: { X, Y: aliasOf(X, 1), stranger: STRANGER, staleInvoice: 123, paidInvoice: 122, recorded: { notMature: 'a'.repeat(64) } },
+    fixtures: { X, Y: aliasOf(X, 1), stranger: STRANGER, staleInvoice: 123, paidInvoice: 122, openInvoice: 777000001, recorded: { notMature: 'a'.repeat(64) } },
     check: async ({ legal_name, payee }) => (payee === SELLER && legal_name === 'PayOnce Labs' ? { verdict: 'MATCH', payable: true } : { verdict: legal_name === 'PayOnce Lab' ? 'CLOSE_MATCH' : 'NO_MATCH', payable: false }),
     payTx: async () => { const e = new Error('x'); e.code = 'needs_signed_approval'; throw e; },
     approvals: { request: async () => ({ approval_id: 'f'.repeat(24) }), verify: async () => { const e = new Error('x'); e.code = 'bad_signature'; throw e; } },
@@ -40,8 +40,8 @@ test('attack catalogue: >= 25 attacks, codes compared exactly, accepted attacks 
   assert.equal(by['not-mature'].pass, true); assert.equal(by['not-mature'].tx_hash, 'a'.repeat(64));
   for (const id of ['lookalike-name', 'homoglyph-name', 'lookalike-address-check', 'impostor-account-check', 'click-approval', 'forged-approval-signature']) assert.equal(by[id].pass, true, id);
   assert.equal(r.passed + r.failed, r.total);
-  const open = createAttackCatalogue({ client: () => fakeClient(() => null), book: BOOK, seller: SELLER, buyer: BUYER, token: 1476n, fixtures: { X, Y: aliasOf(X, 1), stranger: STRANGER, staleInvoice: 123, paidInvoice: 122 }, check: async () => ({ verdict: 'MATCH', payable: true }), payTx: async () => ({}), approvals: { request: async () => ({ approval_id: 'f'.repeat(24) }), verify: async () => ({ approved: true }) } });
+  const open = createAttackCatalogue({ client: () => fakeClient(() => null), book: BOOK, seller: SELLER, buyer: BUYER, token: 1476n, fixtures: { X, Y: aliasOf(X, 1), stranger: STRANGER, staleInvoice: 123, paidInvoice: 122, openInvoice: 777000001 }, check: async () => ({ verdict: 'MATCH', payable: true }), payTx: async () => ({}), approvals: { request: async () => ({ approval_id: 'f'.repeat(24) }), verify: async () => ({ approved: true }) } });
   const r2 = await open.run();
-  assert.equal(r2.passed, 0); assert.ok(r2.attacks.every((a) => a.got === 'ACCEPTED' || a.layer === 'api'));
+  assert.equal(r2.passed, 0); assert.deepEqual(r2.attacks.filter((a) => a.layer === 'chain' && a.got !== 'ACCEPTED').map((a) => [a.id, a.got]), []);
   assert.ok(serPayableKey({ seller: SELLER, payable_id: 1 }).length === 40);
 });

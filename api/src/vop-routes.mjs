@@ -145,10 +145,11 @@ const ATTACK_X = '3GPTo1LQbwHcsxPLBmWAVAA4RF6FvbDkzbf7DvLkEKpxWMboHq';
 let attackCache = null; let attackRun = null;
 function attackCatalogue() {
   return createAttackCatalogue({
-    client: () => vClient(), book: DEMO_V3, seller: OWNER_ADDRESS, buyer: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr', token: BigInt(OWNER_TOKEN),
+    client: () => vClient(), book: DEMO_V3, seller: OWNER_ADDRESS, // the payer named on invoice 123 (registered before the demo buyer moved to the badged agent 1488)
+    buyer: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr', token: BigInt(OWNER_TOKEN),
     moduleRef: '8641046eb939a5693731b6d79b227a1a4b356d8cf10308baabca0a93a16b3946',
     fixtures: {
-      X: ATTACK_X, Y: aliasOf(ATTACK_X, 1), stranger: '3LgPU9K2WFg3ghFHXjm2r2Mizi2eqY71ENTWqHZL98h9ueFKMt', staleInvoice: 123, paidInvoice: 122,
+      X: ATTACK_X, Y: aliasOf(ATTACK_X, 1), stranger: '3LgPU9K2WFg3ghFHXjm2r2Mizi2eqY71ENTWqHZL98h9ueFKMt', staleInvoice: 123, paidInvoice: 122, openInvoice: 777000001,
       recorded: { notMature: '6bfe195c14a8d82295b4a127fb3ab634a27761ce92f7f12aee063b9ff0654ced', payTwice: 'd91e7611d894d88092d600e97c83e3c9c08cc9d94a8ca0e423348b92f9ccb021' },
     },
     check: (input) => vopDemo.check(input), payTx: (payee, q, ip) => dashboard().payTx(payee, q, ip), approvals,

@@ -54,6 +54,7 @@ export function createAttackCatalogue(deps) {
     const fx = deps.fixtures;
     const inv = await getPayableV3(deps.client(), seller, fx.staleInvoice, book);
     const paid = await getPayableV3(deps.client(), seller, fx.paidInvoice, book);
+    const open = fx.openInvoice ? await getPayableV3(deps.client(), seller, fx.openInvoice, book) : null;
     const ownerRec = await getPayeeRecord(deps.client(), seller, seller, book);
     const xRec = await getPayeeRecord(deps.client(), seller, fx.X, book);
     const yRec = await getPayeeRecord(deps.client(), seller, fx.Y, book);
@@ -66,6 +67,7 @@ export function createAttackCatalogue(deps) {
       stale_invoice: inv && { id: fx.staleInvoice, payee: inv.payee, payee_version_on_invoice: inv.payee_version, payee_version_now: xRec?.version ?? null, status: inv.status.tag },
       proposed_never_accepted: yRec && { payee: fx.Y, status: yRec.status, version: yRec.version },
       strict_buyer: fx.X,
+      open_invoice: open && { id: fx.openInvoice, expected_payer: open.expected_payer, status: open.status.tag },
     };
 
     const A = [];
@@ -76,7 +78,8 @@ export function createAttackCatalogue(deps) {
     chain('unknown-invoice', 'Pay an invoice number that does not exist', 'buyer agent', [-3], () => dry(buyer, 'pay_ccd', serPayableKey({ seller, payable_id: 9_999_999_999_999n }), 1n), 'Only invoices on the book can be paid.');
     chain('self-pay', 'Seller pays its own invoice (wash / fake volume)', 'seller', [-27], () => dry(seller, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'A seller cannot pay itself.');
     chain('changed-bank-details', 'Payee details changed after the invoice was issued, then the old invoice is paid', 'buyer agent (victim)', [-31], () => dry(buyer, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'The payee was re-bound after this invoice; the invoice carries the old version, so the chain refuses it (the "changed bank details" fraud).');
-    chain('strict-buyer-unapproved-vendor', 'A strict buyer pays a seller it never approved', 'strict buyer', [-19], () => dry(fx.X, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'A buyer that set strict mode pays only approved sellers.');
+    chain('strict-buyer-unapproved-vendor', 'A strict buyer pays a seller it never approved', 'strict buyer', [-19], () => dry(fx.X, 'pay_ccd', serPayableKey({ seller, payable_id: fx.openInvoice }), BigInt(open?.amount ?? 0)), 'A buyer that set strict mode pays only approved sellers.');
+    chain('wrong-payer', 'Someone else pays an invoice locked to the buyer agent', 'outsider', [-21], () => dry(fx.stranger, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'An invoice issued to one payer cannot be settled by another account.');
     // --- invoices to the wrong payee ---
     chain('lookalike-address-invoice', 'Invoice to a lookalike address of the real payee (alias, same first 29 bytes)', 'seller (compromised)', [-28], () => dry(seller, 'register_payable', reg(ownerAlias)), `The lookalike ${ownerAlias.slice(0, 6)}…${ownerAlias.slice(-6)} is not the bound payee address; an invoice to it is refused.`);
     chain('unbound-payee-invoice', 'Invoice to an account that was never proposed', 'seller (compromised)', [-28], () => dry(seller, 'register_payable', reg(fx.stranger)), 'Only a payee that accepted the binding can be invoiced.');

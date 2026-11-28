@@ -28,7 +28,7 @@ const PHASE = process.argv[2] ?? 'status';
 const J = (o) => JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
 const c = vClient();
 const S = await signers();
-// Roles: seller = owner 42jaZZ (agent token 1476); buyer agent = seller2 3ARQvc (single key);
+// Roles: seller = owner 42jaZZ (agent token 1476); buyer agent = badged buyer agent 1488, 4MvdME (was seller2 3ARQvc);
 // "fraud" payee = 4MvdME (seed identity 0/1, credential 1, single key). 3cjnRy is a 2-of-3 multisig account and is
 // not used (its credential index does not match the HD path, and the JS SDK mishandles multisig contract calls).
 const FRAUD_CRED = Number(process.env.FRAUD_CRED ?? 8); // fresh account deployed from the seed (identity 1), 0 CCD
@@ -36,7 +36,8 @@ const HD = ConcordiumHdWallet.fromSeedPhrase((process.env.CONCORDIUM_WALLET_SEED
 const { buildBasicAccountSigner, getAccountAddress } = await import('@concordium/web-sdk');
 const fraudCredId = Buffer.from(HD.getCredentialId(0, 1, FRAUD_CRED, (await (await fetch('https://wallet-proxy.testnet.concordium.com/v0/global')).json()).value)).toString('hex');
 const FRAUD = { address: getAccountAddress(fraudCredId).address, signer: buildBasicAccountSigner(HD.getAccountSigningKey(0, 1, FRAUD_CRED).toString('hex')) };
-const SELLER = S.owner; const BUYER = S.seller2;
+// Buyer agent = the badged CIS-8004 buyer agent 1488 (4MvdME…, allow-listed; decision in HANDOFF_V15). Was seller2 3ARQvc until 28 Nov.
+const SELLER = S.owner; const BUYER = S.sellerB;
 const NAME = 'PayOnce Labs';
 const STANDIN = { account: SELLER.address, legal_name: NAME, country: 'DK', label: 'TESTNET STAND-IN: no Global FinReg company identity issued to PayOnce yet; this name is declared by PayOnce, not proven by a business identity' };
 const relayer = createRelayer({ grpc: async () => c, sponsor: async () => S.owner });

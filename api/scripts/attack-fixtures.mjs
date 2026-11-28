@@ -6,6 +6,8 @@
 //   F3     Y = an alias of X, proposed and deliberately never accepted -> -33/-34 (accept with the wrong anchor/version)
 //          and -28 (invoice to a payee that never accepted).
 //   F4/F5  X funded 1 CCD and set strict (buyer policy) -> X paying any unapproved seller is refused -19.
+//   F6     open invoice 777000001 to the bound real payee with NO expected payer (0.01 CCD), so the strict-buyer
+//          attack reaches the strict check (-19) instead of the expected-payer check (-21).
 // Every step is guarded by chain state (re-running is a no-op), and every tx hash is stored in kv BEFORE it is sent;
 // a step with an unknown outcome is never sent again (the script stops and reports it).
 import {
@@ -15,7 +17,7 @@ import {
 import { vClient } from '../src/consent.mjs';
 import { signers } from '../src/chain-v2.mjs';
 import { kvGet, kvPut } from '../src/store.mjs';
-import { V3, v3Label, getPayeeRecord, getPayableV3, invokeV3, serProposePayee, serAcceptPayee, acct } from '../src/vop-chain.mjs';
+import { V3, v3Label, getPayeeRecord, getPayableV3, invokeV3, serProposePayee, serAcceptPayee, serRegisterPayable, acct } from '../src/vop-chain.mjs';
 import { createRelayer } from '../src/relayer.mjs';
 import { OWNER_TOKEN } from '../src/config.mjs';
 import { createHash } from 'node:crypto';
@@ -138,6 +140,13 @@ try {
     await tracked('f5_strict_x', () => ownTx(X, 'set_strict', Buffer.from([1]), { energy: 5000n }));
   }
   out.X_strict = await strictOf(X.address);
+  // F6: open invoice, no expected payer.
+  const OPEN = 777000001;
+  if (!(await getPayableV3(c, OWNER.address, OPEN))) {
+    await tracked('f6_open_invoice', () => ownTx(OWNER, 'register_payable', serRegisterPayable({ payable_id: OPEN, payee: OWNER.address, amount: 10_000n, asset: 'CCD', due_ms: Date.parse('2027-03-01T00:00:00Z'), doc_hash: createHash('sha256').update('PayOnce attack fixture: open invoice, no expected payer').digest('hex'), agent_token: OWNER_TOKEN, expected_payer: null, legal_ref: null })));
+  }
+  const op = await getPayableV3(c, OWNER.address, OPEN);
+  out.open_invoice = { id: OPEN, status: op?.status?.tag ?? null, expected_payer: op?.expected_payer ?? null };
   out.ok = true;
 } catch (e) {
   out.ok = false; out.error = String(e?.message ?? e);

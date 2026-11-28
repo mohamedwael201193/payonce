@@ -30,7 +30,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const WP = 'https://wallet-proxy.testnet.concordium.com';
 const c = vClient();
 const S = await signers();
-const SELLER = S.owner; const BUYER = S.seller2;
+// Buyer agent = the badged CIS-8004 buyer agent 1488 (4MvdME…, allow-listed; decision in HANDOFF_V15). Was seller2 3ARQvc until 28 Nov.
+const SELLER = S.owner; const BUYER = S.sellerB;
 const NAME = 'PayOnce Labs';
 const STANDIN = { account: SELLER.address, legal_name: NAME, country: 'DK', label: 'TESTNET STAND-IN: no Global FinReg company identity issued to PayOnce yet; this name is declared by PayOnce, not proven by a business identity' };
 const relayer = createRelayer({ grpc: async () => c, sponsor: async () => S.owner });
