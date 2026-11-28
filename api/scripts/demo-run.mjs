@@ -87,8 +87,14 @@ async function freshAccount() {
   const address = sdk.getAccountAddress(cdp.unsignedCdi.credId).address;
   const sig = await sdk.signCredentialTransaction(cdp, hd.getAccountSigningKey(0, 1, cred).toString('hex'));
   const bytes = Buffer.from(sdk.serializeCredentialDeploymentTransactionForSubmission(cdp, [sig]));
-  const s = await fetch(`${WP}/v0/submitRawTransaction`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: bytes });
-  const t = await s.json().catch(() => ({}));
+  // wallet-proxy wants the block item without the leading version byte; a parse error means nothing was submitted,
+  // so the second form is tried only then (never a resubmission of an accepted item).
+  let s; let t = {};
+  for (const body of [bytes.subarray(1), bytes]) {
+    s = await fetch(`${WP}/v0/submitRawTransaction`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body });
+    t = await s.json().catch(() => ({}));
+    if (s.ok || !/Parsing input failed/.test(t.errorMessage ?? '')) break;
+  }
   if (!s.ok || !t.submissionId) throw new Error(`credential deployment not accepted (${s.status} ${J(t).slice(0, 160)})`);
   for (let i = 0; i < 40; i++) {
     await sleep(4000);
