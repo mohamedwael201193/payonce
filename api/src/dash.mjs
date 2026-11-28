@@ -170,10 +170,16 @@ export function createDashboard(deps) {
     const a = addr(account);
     const [rec, cfg] = await Promise.all([chain.getPayee(a), chain.config()]);
     const status = !rec || rec.status === 'Revoked' ? 'NotBound' : rec.status;
+    let tx_hash = null;
+    if (status === 'Bound' && deps.findBindTx) {
+      tx_hash = await deps.findBindTx(a, deps.book ?? deps.bookLabel).catch(() => null);
+      if (tx_hash && !/^[0-9a-f]{64}$/i.test(tx_hash)) tx_hash = null;
+    }
     return {
       account: a, seller, status, version: rec?.version ?? 0, hold_secs: cfg.cooling_off_secs,
       hold_ends_at: status === 'Bound' && rec.mature_at_ms ? iso(rec.mature_at_ms) : null,
       link: `${appBase}/p/${a}`, book: deps.bookLabel, proof_anchor: rec?.identity?.proof_anchor ?? null,
+      tx_hash,
     };
   }
 

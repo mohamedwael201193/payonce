@@ -18,4 +18,10 @@ describe('badge svg', () => {
     assert.equal(badgeKind({ verdict: 'UNVERIFIED' }), 'UNVERIFIED');
     assert.doesNotMatch(badgeSvg('PROVEN'), /Match/);
   });
+  it('the accessible name is a statement, not a question', () => {
+    const svg = badgeSvg('MATCH');
+    assert.match(svg, /The receiving account belongs to the name on the invoice\./);
+    assert.doesNotMatch(svg, /invoice\?/);
+    assert.match(badgeSvg('CLOSE_MATCH'), /close to the verified name, not the same\./);
+  });
 });

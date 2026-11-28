@@ -117,4 +117,9 @@ describe('badge svg', () => {
     expect(badgeMarkdown(A)).toContain(`/p/${A}`)
     expect(badgeMarkdown(A)).toContain('/api/badge/')
   })
+  it('the accessible name is a statement, not a question', () => {
+    expect(badgeSvg('MATCH')).toContain('The receiving account belongs to the name on the invoice.')
+    expect(badgeSvg('MATCH')).not.toMatch(/invoice\?/)
+    expect(badgeSvg('CLOSE_MATCH')).toContain('close to the verified name, not the same.')
+  })
 })

@@ -104,13 +104,14 @@ export function recallBindTx(account: string): string | null {
 
 /** After Sent: follows the payee book itself (Bound, then the hold, then the real check) so the page shows what the chain did. */
 export function BindProgress({ account, name, txHash }: { account: string; name: string; txHash: string | null }) {
-  const tx = useTxStatus(txHash)
   const statusQ = useQuery({
     queryKey: ['bind-status', account],
     queryFn: () => dashApi.payeeStatus(account),
     refetchInterval: (q) => (q.state.data?.status === 'Bound' ? false : 3000),
   })
   const st = statusQ.data
+  const hash = txHash || (st?.tx_hash && /^[0-9a-f]{64}$/i.test(st.tx_hash) ? st.tx_hash : null)
+  const tx = useTxStatus(hash)
   const endsAt = st?.status === 'Bound' && st.hold_ends_at ? Date.parse(st.hold_ends_at) : null
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -127,14 +128,15 @@ export function BindProgress({ account, name, txHash }: { account: string; name:
   })
   return (
     <div className="ds-run" data-testid="bind-progress">
-      {txHash ? <FullTx hash={txHash} label="accept_payee transaction" /> : null}
+      {bound ? <p className="ds-note" data-testid="bound-label"><b>Bound</b> by your signature.</p> : null}
+      {hash ? <FullTx hash={hash} label="accept_payee transaction" /> : null}
       {tx.phase === 'refused' ? (
         <p className="ds-err" role="alert">The chain refused this transaction{tx.reject ? `: ${tx.reject.name} (${tx.reject.code})` : ''}. Nothing changed. Try again.</p>
       ) : !bound ? (
-        <p className="ds-note" role="status">{txHash ? 'Sent. Waiting for the chain to record it (usually under a minute)…' : 'Looking up your payee record…'}</p>
+        <p className="ds-note" role="status">{hash ? 'Sent. Waiting for the chain to record it (usually under a minute)…' : 'Looking up your payee record…'}</p>
       ) : holding ? (
         <>
-          <p className="ds-note">Bound by your signature. The hold has to finish before an agent will pay you.</p>
+          <p className="ds-note">The hold has to finish before an agent will pay you.</p>
           <HoldRing endsAt={st!.hold_ends_at!} totalSecs={st!.hold_secs || 90} />
         </>
       ) : checkQ.data ? (
@@ -143,7 +145,7 @@ export function BindProgress({ account, name, txHash }: { account: string; name:
           {reasonFor(checkQ.data) ? <p className="ds-note">{reasonFor(checkQ.data)}</p> : null}
         </>
       ) : (
-        <p className="ds-note" role="status">Bound and the hold is over. Running the check…</p>
+        <p className="ds-note" role="status">The hold is over. Running the check…</p>
       )}
     </div>
   )
@@ -154,9 +156,16 @@ function checksOf(c: CheckPayee) {
     account_exists: 'Account exists',
     account_identity: 'Backed by an identity',
     name_proof: 'Name proven by the payee',
+    proof_valid: 'Name proven by the payee',
     name_match: 'Name matches the invoice',
+    legal_name: 'Name matches the invoice',
+    book_name_matches_invoice: 'Name matches the invoice',
     payee_book_bound: 'Bound by the payee’s signature',
     cooling_off_over: 'Hold finished',
+    proof_anchor: 'The proof matches the book',
+    proof_belongs_to_payee: 'The proof belongs to this account',
+    proof_issuer: 'The proof is from an identity provider',
+    book_name_matches_proof: 'The book name matches the proof',
   }
   return c.checks.map((x) => ({ ok: x.ok, text: plain[x.id] ?? x.detail }))
 }
@@ -164,6 +173,9 @@ function checksOf(c: CheckPayee) {
 export function stampFor(check: CheckPayee): { verdict: CheckPayee['verdict']; word?: string; tone?: 'ok' | 'warn' | 'bad'; sub?: string; shown: string } {
   if (check.verdict === 'MATCH' && !check.payable) {
     return { verdict: check.verdict, word: 'Not bound', tone: 'warn', sub: check.verified_name ?? 'Name matches, but this account is not a payee yet', shown: 'NOT_BOUND' }
+  }
+  if (check.verdict === 'CLOSE_MATCH') {
+    return { verdict: check.verdict, word: 'Close match', tone: 'warn', sub: check.verified_name ? `Did you mean “${check.verified_name}”?` : undefined, shown: 'CLOSE_MATCH' }
   }
   return { verdict: check.verdict, sub: check.verified_name ?? undefined, shown: check.verdict }
 }
@@ -174,14 +186,24 @@ export function reasonFor(check: CheckPayee): string | null {
   if (check.verdict === 'MATCH' && !check.payable) {
     return 'The name matches, but this account is not a payee yet. It must sign the payee book and finish the hold before PayOnce will pay it.'
   }
+  if (check.verdict === 'CLOSE_MATCH') {
+    const name = check.verified_name
+    return name
+      ? `Close match. Did you mean “${name}”? The name on the invoice is close to the verified name, not the same. Confirm with the payer before paying.`
+      : (check.reasons[0] ?? null)
+  }
   return check.reasons[0] ?? null
 }
 
 export function VerdictBlock({ check }: { check: CheckPayee }) {
   const st = stampFor(check)
+  const why = reasonFor(check)
   return (
     <div className="ds-verdict" data-testid="verdict" data-verdict={st.shown}>
-      <Stamp verdict={st.verdict} word={st.word} tone={st.tone} sub={st.sub} />
+      <div className="ds-verdict__stamp">
+        <Stamp verdict={st.verdict} word={st.word} tone={st.tone} sub={st.sub} />
+        {why ? <p className="ds-note ds-verdict__why">{why}</p> : null}
+      </div>
       <CheckTicks items={checksOf(check)} />
     </div>
   )
@@ -232,6 +254,7 @@ function Flow() {
   const [bindAt, setBindAt] = useState(0)
   const bindSt = useTxStatus(bindTx)
   const [bound, setBound] = useState(false)
+  const [statusHash, setStatusHash] = useState<string | null>(null)
   const [invoice, setInvoice] = useState('')
   const [job, setJob] = useState<Async<GetPaidJob>>({ s: 'idle' })
   const [redir, setRedir] = useState<Async<RedirectResult>>({ s: 'idle' })
@@ -256,7 +279,11 @@ function Flow() {
   useEffect(() => { if (acct && !bindTx) { const h = recallBindTx(acct); if (h) setBindTx(h) } }, [acct]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!acct) return
-    dashApi.payeeStatus(acct).then((p) => alive.current && p.status === 'Bound' && setBound(true)).catch(() => {})
+    dashApi.payeeStatus(acct).then((p) => {
+      if (!alive.current) return
+      if (p.status === 'Bound') setBound(true)
+      if (p.tx_hash && /^[0-9a-f]{64}$/i.test(p.tx_hash)) setStatusHash(p.tx_hash)
+    }).catch(() => {})
   }, [acct])
   useEffect(() => {
     if (proof && !invoice) setInvoice(`Invoice to: PayOnce reference payer\nFrom: ${proof.name}\nPay to: ${proof.account}\nAmount: 1 CCD`)
@@ -423,6 +450,8 @@ function Flow() {
   const balance = bal.data?.balance_ccd ?? null
   const fakePayee = useMemo(() => (acct ? lookalike(acct) : null) ?? FAKE_PAYEE, [acct])
 
+  const shownBindHash = bindTx || statusHash || (acct ? recallBindTx(acct) : null)
+
   let card: React.ReactNode
   switch (step) {
     case 0:
@@ -585,7 +614,13 @@ function Flow() {
       card = (
         <Card k="c5" title="Your record">
           {need}
-          <State a={record}>{(items) => items.length === 0 ? <p className="ds-note">Nothing yet.</p> : (
+          {bound || shownBindHash ? (
+            <div className="ds-run">
+              <p className="ds-note" data-testid="bound-label"><b>Bound</b> by your signature.</p>
+              {shownBindHash ? <FullTx hash={shownBindHash} label="accept_payee transaction" /> : <p className="ds-note">Looking up the bind transaction…</p>}
+            </div>
+          ) : null}
+          <State a={record}>{(items) => items.length === 0 ? (bound || shownBindHash ? null : <p className="ds-note">Nothing yet.</p>) : (
             <ul className="ds-record">{items.map((r) => (
               <li key={`${r.at}-${r.role}-${r.counterparty}-${r.tx_hash ?? 'none'}`}><span className={`ds-dot ds-dot--${r.role}`} /><b>{r.role === 'received' ? '+' : r.role === 'paid' ? '−' : '×'}{r.amount_display}</b><span>{short(r.counterparty)}</span><span>{r.verdict.replace('_', ' ').toLowerCase()}</span>{r.tx_hash ? <Tx hash={r.tx_hash} label="tx" /> : <span>nothing sent</span>}</li>
             ))}</ul>

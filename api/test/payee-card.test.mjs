@@ -79,3 +79,15 @@ test('the primary book wins when it is Bound; extra books are only a fallback', 
   assert.equal(c.bound.book ?? null, null);
   assert.equal((await cards.check(ACC, 'x')).verdict, 'MATCH');
 });
+
+test('a bound payee includes the accept_payee hash from findBindTx', async () => {
+  const HASH = 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701';
+  const cards = createPayeeCards({
+    kv: { get: async () => null }, vop: { check: async () => ({ verdict: 'MATCH', reasons: [] }) },
+    readBook: async () => ({ status: 'Bound', version: 1, mature_at_ms: NOW - 1, identity: { kind: 2 } }),
+    readAccount: async () => ({ exists: true }), bookSellers: [BOOK], now: () => NOW,
+    findBindTx: async (account) => { assert.equal(account, ACC); return HASH; },
+  });
+  const c = await cards.card(ACC);
+  assert.equal(c.bound.tx_hash, HASH);
+});

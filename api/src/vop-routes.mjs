@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
 import { V3, DEMO_V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
+import { createCcdscan, cachedBindTxFinder } from './ccdscan.mjs';
 import { createDashboard, DashError } from './dash.mjs';
 import { createDashChain } from './dash-chain.mjs';
 import { createLedger } from './vop-ledger.mjs';
@@ -167,12 +168,15 @@ async function attackScorecard(fresh) {
   attackRun ??= attackCatalogue().run().then(async (v) => { attackCache = { at: Date.now(), value: v }; await kvPut('proof', 'attacks:latest', v).catch(() => {}); return v; }).finally(() => { attackRun = null; });
   return attackRun;
 }
+const ccdscan = createCcdscan();
+const findBindTx = cachedBindTxFinder((account, book) => ccdscan.findAcceptPayeeTx(account, book), { get: kvGet, put: kvPut });
 const dashDeps = {
   kv: { get: kvGet, put: kvPut, list: kvList },
   hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit),
   vop: vopDemo, seller: OWNER_ADDRESS, payer: null, agentToken: OWNER_TOKEN, book: DEMO_V3, bookLabel: v3Label(DEMO_V3),
   appBase: process.env.PAYONCE_APP_URL ?? 'https://payonce-tau.vercel.app',
   chain: createDashChain({ client: () => vClient(), signers, book: DEMO_V3, seller: OWNER_ADDRESS }),
+  findBindTx,
   ledger, approvals,
 };
 let dashboardP = null;
@@ -219,7 +223,8 @@ export const cards = createPayeeCards({
   readAccount: async (a) => { const id = await accountIdentity(retryingReads(vClient()), a); return { exists: !!id?.exists }; },
   bookSellers: BOOK_SELLERS,
   // visitors bind on the 90 s demo book from the dashboard: /p reads it too when the live book has no Bound record
-  extraBooks: [{ label: v3Label(DEMO_V3), bookSellers: BOOK_SELLERS, vop: vopDemo, readBook: (seller, payee) => getPayeeRecord(retryingReads(vClient()), seller, payee, DEMO_V3) }],
+  extraBooks: [{ label: v3Label(DEMO_V3), book: DEMO_V3, bookSellers: BOOK_SELLERS, vop: vopDemo, readBook: (seller, payee) => getPayeeRecord(retryingReads(vClient()), seller, payee, DEMO_V3) }],
+  findBindTx,
   appBase: APP_BASE, apiBase: API_BASE,
 });
 

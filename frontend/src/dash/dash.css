@@ -264,3 +264,8 @@
 .ds-fulltx { display: grid; gap: 4px; margin: 10px 0; }
 .ds-fulltx small { color: var(--po-muted, #5b6470); }
 .ds-fulltx__hash { overflow-wrap: anywhere; word-break: break-all; font-size: 12px; line-height: 1.4; user-select: all; }
+
+.ds-verdict__stamp { display: grid; gap: 10px; align-content: start; max-width: 28rem; }
+.ds-verdict__why { max-width: 28rem; }
+.ds-ticks--skeleton { min-height: 240px; width: min(100%, 22rem); }
+.ds-ticks--skeleton li { height: 20px; border-radius: 6px; background: var(--po-sunken); opacity: .7; }

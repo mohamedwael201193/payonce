@@ -205,7 +205,7 @@ export function decideVop({ invoice, account, proof = null, book = null, nowMs =
   }
   out.verdict = verdict;
   if (verdict === VERDICT.MATCH) reasons.push(`Match: the payee account belongs to the verified ${out.identity_kind === 'business' ? 'business' : 'person'} "${provenName}"${provenCountry ? ` (${provenCountry})` : ''}.`);
-  else if (verdict === VERDICT.CLOSE_MATCH) reasons.push(`Close match: the verified legal name is "${provenName}". Confirm with the payer before paying.`);
+  else if (verdict === VERDICT.CLOSE_MATCH) reasons.push(`Close match. Did you mean "${provenName}"? The name on the invoice is close to the verified name, not the same. Confirm with the payer before paying.`);
   else reasons.push(`No match: the payee account belongs to "${provenName}"${provenCountry ? ` (${provenCountry})` : ''}, not "${invoice.legal_name}".`);
   let bookAgrees = true;
   if (book?.identity?.legal_name_hash) {

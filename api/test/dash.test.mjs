@@ -171,7 +171,27 @@ test('payee status: NotBound / Bound with hold end and link', async () => {
   chain.payees.set(ME, { status: 'Bound', version: 2, identity: { proof_anchor: 'c'.repeat(64) }, mature_at_ms: t });
   s = await d.payeeStatus(ME);
   assert.equal(s.status, 'Bound'); assert.equal(s.version, 2); assert.equal(s.hold_ends_at, new Date(t).toISOString());
+  assert.equal(s.tx_hash, null);
 });
+
+test('payee status includes the accept_payee hash when findBindTx can see it', async () => {
+  const HASH = 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701';
+  const kv = memKv(); const chain = fakeChain(); const vop = fakeVop(chain);
+  const d = createDashboard({
+    kv, chain, vop, seller: SELLER, payer: PAYER, agentToken: 1476n, bookLabel: '<13173,0>', book: { index: 13173n, subindex: 0n, name: 'payable_registry_v3' },
+    payCcdSchema: 'FAACAAAABgAAAHNlbGxlcgsKAAAAcGF5YWJsZV9pZAU=', sleep: async () => {}, appBase: 'https://app.test',
+    hitWindow: async () => ({ allowed: true }),
+    findBindTx: async (account, book) => { assert.equal(account, ME); assert.equal(bookAsOrLabel(book), '<13173,0>'); return HASH; },
+  });
+  chain.payees.set(ME, { status: 'Bound', version: 1, identity: { proof_anchor: 'c'.repeat(64) }, mature_at_ms: Date.now() - 1 });
+  const s = await d.payeeStatus(ME);
+  assert.equal(s.tx_hash, HASH);
+});
+function bookAsOrLabel(book) {
+  if (typeof book === 'string') return book;
+  return `<${book.index},${book.subindex ?? 0}>`;
+}
+
 
 test('getpaid: not bound -> 409; bound -> hold -> ack -> register -> pay -> paid, recorded as received', async () => {
   const { d, chain, kv } = setup();

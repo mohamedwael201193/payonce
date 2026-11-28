@@ -10,7 +10,7 @@ import { VopError } from './vop-service.mjs';
 
 const ADDR = /^[1-9A-HJ-NP-Za-km-z]{50}$/;
 
-export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, extraBooks = [], now = Date.now, appBase = '', apiBase = '' }) {
+export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, extraBooks = [], findBindTx, now = Date.now, appBase = '', apiBase = '' }) {
   function need(account) {
     if (!ADDR.test(String(account ?? ''))) throw new VopError(400, 'bad_address', 'That is not a Concordium account address.');
   }
@@ -20,7 +20,7 @@ export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, 
     const [acct, proof] = await Promise.all([readAccount(account).catch(() => null), kv.get('payee_proof', account).catch(() => null)]);
     let bound = null;
     let via = null; // the extra book the record came from (null = the primary book)
-    const books = [{ label: null, sellers: bookSellers, read: readBook, vop }, ...extraBooks.map((b) => ({ label: b.label ?? null, sellers: b.bookSellers ?? bookSellers, read: b.readBook, vop: b.vop }))];
+    const books = [{ label: null, sellers: bookSellers, read: readBook, vop, bookAddr: null }, ...extraBooks.map((b) => ({ label: b.label ?? null, sellers: b.bookSellers ?? bookSellers, read: b.readBook, vop: b.vop, bookAddr: b.book ?? b.label ?? null }))];
     for (const b of books) {
       for (const seller of b.sellers) {
         const rec = await b.read(seller, account).catch(() => null);
@@ -32,6 +32,10 @@ export function createPayeeCards({ kv, vop, readBook, readAccount, bookSellers, 
         }
       }
       if (bound?.status === 'Bound') break;
+    }
+    if (bound && findBindTx) {
+      const hash = await findBindTx(account, via?.bookAddr ?? bound.book ?? null).catch(() => null);
+      if (hash && /^[0-9a-f]{64}$/i.test(hash)) bound.tx_hash = hash;
     }
     const verified = Boolean(proof?.name);
     const name = proof?.name ?? null;

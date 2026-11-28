@@ -113,6 +113,30 @@ describe('/p/<account>', () => {
     expect(screen.queryByText(/^Match: the payee account belongs/)).toBeNull()
     expect(screen.getByText(/not a payee yet/i)).toBeInTheDocument()
   })
+
+  it('Close match stamp uses the EU did-you-mean wording', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+      if (u.includes('/api/payee/')) return json({ account: A, seller: S, status: 'Bound', version: 1, hold_secs: 90, hold_ends_at: new Date(0).toISOString(), link: '', tx_hash: 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701' })
+      if (/\/api\/p\/[^/]+$/.test(u)) return json({ account: A, exists: true, verified: true, name: 'Elin Berglund', kind: 'person', proof: { version: 'v1' }, bound: { status: 'Bound', hold_over: true, tx_hash: 'c3a4ef722f4917b0b32e6b26106aed19ed7dec77c6c554702391bb4c008cf701' }, label: 'Elin Berglund', testnet_note: '', links: {} })
+      return json({
+        verdict: 'CLOSE_MATCH', payable: false, verified_name: 'Elin Berglund', identity_kind: 'person', standin: false,
+        reasons: ['Close match. Did you mean "Elin Berglund"? The name on the invoice is close to the verified name, not the same. Confirm with the payer before paying.'],
+        checks: [{ id: 'legal_name', ok: false, detail: 'invoice "Elin Berglun" vs proven "Elin Berglund" (CLOSE_MATCH, similarity 0.96)' }],
+        subject: { contract: '<13173,0>', seller: S, payee: A, invoice_name: 'Elin Berglun', book: { status: 'Bound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '',
+      })
+    }))
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[`/p/${A}`]}><Routes><Route path="/p/:account" element={<PayeePage />} /></Routes></MemoryRouter>
+      </QueryClientProvider>,
+    )
+    const verdict = await screen.findByTestId('verdict')
+    expect(verdict).toHaveAttribute('data-verdict', 'CLOSE_MATCH')
+    expect(verdict).toHaveTextContent('Close match')
+    expect(verdict).toHaveTextContent(/Did you mean/)
+    expect(verdict).toHaveTextContent('Elin Berglund')
+    expect(screen.queryByRole('link', { name: 'Pay with wallet' })).toBeNull()
+  })
 })
 
 import { BindProgress, FullTx, CCDSCAN_TX, recallBindTx, rememberBindTx } from './DashPage'
@@ -149,8 +173,20 @@ describe('accept_payee progress (QA R3c)', () => {
     route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() + 60_000).toISOString() }))
     wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={TXH} />)
     expect(await screen.findByRole('timer')).toBeInTheDocument()
-    expect(screen.getByText(/Bound by your signature/i)).toBeInTheDocument()
+    expect(screen.getByTestId("bound-label")).toHaveTextContent(/Bound by your signature/i)
     expect(screen.queryByText('Match', { selector: '.ds-stamp__word' })).toBeNull()
+  })
+
+  it('an already-bound account shows Bound and the accept_payee hash from the API, with no local hash', async () => {
+    route(stRec({ status: 'Bound', hold_ends_at: new Date(Date.now() - 1000).toISOString(), tx_hash: TXH }), {
+      verdict: 'MATCH', payable: true, verified_name: 'Elin Berglund', identity_kind: 'person', standin: false, reasons: [],
+      checks: [{ id: 'payee_book_bound', ok: true, detail: '' }, { id: 'cooling_off_over', ok: true, detail: '' }],
+      subject: { contract: '<13173,0>', seller: S, payee: ACC, invoice_name: 'Elin Berglund', book: { status: 'Bound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '',
+    })
+    wrap(<BindProgress account={ACC} name="Elin Berglund" txHash={null} />)
+    expect(await screen.findByText(TXH)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /CCDScan/ })).toHaveAttribute('href', CCDSCAN_TX + TXH)
+    expect(screen.getByTestId('bound-label')).toHaveTextContent(/Bound/)
   })
 
   it('Bound and hold over: runs the real check and shows green Match only when payable', async () => {

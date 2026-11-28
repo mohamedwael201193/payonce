@@ -10,8 +10,6 @@ import { walletApi } from '../wallet/api'
 import { VERDICT_TEXT, type Verdict } from './contracts'
 import { sharedEnds } from './lookalike'
 
-const EASE = [0.16, 1, 0.3, 1] as const
-
 export function Stamp({ verdict, sub, word, tone }: { verdict: Verdict; sub?: string; word?: string; tone?: 'ok' | 'warn' | 'bad' }) {
   const still = useReducedMotion()
   const v = VERDICT_TEXT[verdict]
@@ -29,17 +27,14 @@ export function Stamp({ verdict, sub, word, tone }: { verdict: Verdict; sub?: st
   )
 }
 
-export function CheckTicks({ items, step = 0.32 }: { items: { ok: boolean; text: string }[]; step?: number }) {
+export function CheckTicks({ items, step = 0.06 }: { items: { ok: boolean; text: string }[]; step?: number }) {
   const still = useReducedMotion()
   return (
-    <ul className="ds-ticks">
+    <ul className="ds-ticks" style={{ minHeight: items.length * 30 }}>
       {items.map((c, i) => (
         <motion.li
-          key={c.text}
+          key={`${c.text}-${i}`}
           className={c.ok ? 'is-ok' : 'is-bad'}
-          initial={still ? false : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * step, duration: 0.35, ease: EASE }}
         >
           <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden>
             <motion.circle cx="10" cy="10" r="9" fill="none" strokeWidth="1.6" pathLength={1} strokeDasharray="1 1" initial={still ? false : { strokeDashoffset: 1 }} animate={{ strokeDashoffset: 0 }} transition={{ delay: i * step, duration: 0.4 }} />

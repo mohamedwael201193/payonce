@@ -81,6 +81,8 @@ export interface PayeeStatus {
   link: string
   book?: string
   proof_anchor?: string | null
+  /** accept_payee hash on this book, when known (from chain, not only the signing browser) */
+  tx_hash?: string | null
 }
 
 /** PLANNED (WS3): POST /api/invoices/parse { text } */
@@ -176,7 +178,7 @@ export interface PayeeCard {
   name: string | null
   kind: 'person' | 'business' | null
   proof: { version: string; verified_at: string; issuer: string | null; vra_tx: string | null; vaa_tx: string | null } | null
-  bound: { status: string; seller?: string; hold_over?: boolean; version?: number } | null
+  bound: { status: string; seller?: string; hold_over?: boolean; version?: number; book?: string; tx_hash?: string | null } | null
   label: string
   testnet_note: string
   links: { page: string; check_payee: string; card_json: string; pay_with_wallet: string }
@@ -264,7 +266,7 @@ export interface PreparedSponsoredToken {
 /** LIVE (WS1): GET /api/record/:account */
 export interface RecordItem {
   at: string
-  role: 'received' | 'paid' | 'refused'
+  role: 'received' | 'paid' | 'refused' | 'bound'
   counterparty: string
   amount_display: string
   verdict: Verdict

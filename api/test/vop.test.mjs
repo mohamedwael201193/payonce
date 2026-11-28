@@ -24,6 +24,9 @@ test('name match: one matcher, EPC-style verdicts', () => {
   assert.equal(compareLegalNames('Müller Bau GmbH', 'Mueller Bau GmbH').result, VERDICT.MATCH);
   assert.equal(compareLegalNames('Acme GmbH', 'Acme Holding GmbH').result, VERDICT.CLOSE_MATCH);
   assert.equal(compareLegalNames('Acme GmbH', 'Evil Ltd').result, VERDICT.NO_MATCH);
+  assert.equal(compareLegalNames('Elin Berglund', 'Elin Berglun').result, VERDICT.CLOSE_MATCH);
+  assert.equal(compareLegalNames('Elin Berglund', 'Ellen Berglund').result, VERDICT.CLOSE_MATCH);
+  assert.equal(compareLegalNames('Elin Berglund', 'E. Berglund').result, VERDICT.NO_MATCH);
   assert.equal(normalizeLegalName('Studio Nour Ltd'), normalizeLegalName('NOUR STUDIO'));
   assert.equal(legalNameHash('Acme GmbH'), legalNameHash('ACME G.m.b.H.'));
   assert.notEqual(legalNameHash('Acme GmbH'), legalNameHash('Acme Holding GmbH'));
@@ -62,6 +65,7 @@ test('decide: different business name -> NO_MATCH', () => {
 test('decide: close match is never payable', () => {
   const r = decideVop({ invoice: { legal_name: 'Acme GmbH' }, account: acct(), proof: proof({ legalName: 'Acme Holding GmbH' }), book: book(), nowMs: NOW });
   assert.equal(r.verdict, VERDICT.CLOSE_MATCH); assert.equal(r.payable, false);
+  assert.match(r.reasons[0], /Did you mean "Acme Holding GmbH"/);
 });
 test('decide: proof from a credential of ANOTHER account -> UNVERIFIED', () => {
   const r = decideVop({ invoice: { legal_name: 'Acme GmbH' }, account: acct(), proof: proof({ legalName: 'Acme GmbH' }, 4, { facts: { credIds: ['b'.repeat(96)], idpIndexes: [4], revealed: { legalName: 'Acme GmbH' }, given: {} } }), book: book(), nowMs: NOW });

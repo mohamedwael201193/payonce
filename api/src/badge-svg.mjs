@@ -32,7 +32,16 @@ export function badgeSvg(kind) {
   const word = BADGE_WORD[kind] ?? BADGE_WORD.UNVERIFIED;
   const c = COLOR[kind] ?? COLOR.UNVERIFIED;
   const w = Math.max(196, 86 + word.length * 8 + 24);
-  const label = `PayOnce: ${word}. The receiving account belongs to the name on the invoice? Testnet.`;
+  const statements = {
+    MATCH: 'The receiving account belongs to the name on the invoice.',
+    CLOSE_MATCH: 'The name on the invoice is close to the verified name, not the same.',
+    NO_MATCH: 'The receiving account does not belong to the name on the invoice.',
+    UNVERIFIED: 'The receiving account could not be verified as belonging to the name on the invoice.',
+    NOT_BOUND: 'The name matches, but this account is not a payee yet.',
+    PROVEN: 'This account has proven a name.',
+    UNPROVEN: 'This account has not proven a name.',
+  };
+  const label = `PayOnce: ${word}. ${statements[kind] ?? statements.UNVERIFIED} Testnet.`;
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="28" role="img" aria-label="${esc(label)}">
   <title>${esc(label)}</title>
