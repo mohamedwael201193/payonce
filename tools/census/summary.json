@@ -1,0 +1,49 @@
+{
+ "mainnet": {
+  "agents_total": 5501,
+  "active": 5492,
+  "card_fetch_200": 4773,
+  "card_hash_matches": 4714,
+  "badge_present": 4150,
+  "badge_valid_official": 1995,
+  "agent_wallet_set": 4380,
+  "card_mentions_x402": 323,
+  "card_mentions_payment": 853,
+  "valid_badge_and_wallet": 1597,
+  "owner_business_id": 6,
+  "payee_business_id": 6,
+  "vop_pass_today": 5,
+  "distinct_owners": 115,
+  "distinct_owners_business_id": 1,
+  "owner_idp_breakdown_by_owner": {
+   "Digital Trust Solutions": 85,
+   "Notabene": 29,
+   "Global FinReg": 1
+  },
+  "idp_unresolved_accounts": 0
+ },
+ "testnet": {
+  "agents_total": 1553,
+  "active": 1265,
+  "card_fetch_200": 980,
+  "card_hash_matches": 915,
+  "badge_present": 889,
+  "badge_valid_official": 214,
+  "agent_wallet_set": 1368,
+  "card_mentions_x402": 152,
+  "card_mentions_payment": 158,
+  "valid_badge_and_wallet": 188,
+  "owner_business_id": 47,
+  "payee_business_id": 29,
+  "vop_pass_today": 3,
+  "distinct_owners": 239,
+  "distinct_owners_business_id": 10,
+  "owner_idp_breakdown_by_owner": {
+   "Concordium testnet IP": 221,
+   "Global FinReg Testnet": 10,
+   "Digital Trust Solutions TestNet": 8
+  },
+  "idp_unresolved_accounts": 0
+ },
+ "generated_at_utc": "2026-11-28T07:07:21Z"
+}

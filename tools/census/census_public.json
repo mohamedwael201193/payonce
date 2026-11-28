@@ -1,0 +1,132 @@
+{
+ "schema": "payonce-vop-census/v1",
+ "generated_at_utc": "2026-11-28T07:26:34Z",
+ "method": "tools/census/METHOD.md",
+ "vop_rule": "badge valid (official check) AND agentWallet set AND payee account holds a business identity (Global FinReg)",
+ "networks": {
+  "mainnet": {
+   "agents_total": 5501,
+   "active": 5492,
+   "badge_valid_official": 1995,
+   "agents_that_pass_vop_today": 5,
+   "pct_pass_vop_today": 0.09,
+   "valid_badge_but_payee_has_only_personal_identity_or_none": 1990,
+   "payee_equals_owner_default": 4379,
+   "payee_not_set": 1121,
+   "owner_ne_payee": 1,
+   "owner_business_but_payee_personal": 0,
+   "distinct_owners": 115,
+   "distinct_owners_with_business_id": 1,
+   "cards_mentioning_x402_text": 323,
+   "owner_identity_provider_breakdown": {
+    "Digital Trust Solutions": 85,
+    "Notabene": 29,
+    "Global FinReg": 1
+   }
+  },
+  "testnet": {
+   "agents_total": 1553,
+   "active": 1265,
+   "badge_valid_official": 214,
+   "agents_that_pass_vop_today": 3,
+   "pct_pass_vop_today": 0.19,
+   "valid_badge_but_payee_has_only_personal_identity_or_none": 211,
+   "payee_equals_owner_default": 1327,
+   "payee_not_set": 185,
+   "owner_ne_payee": 41,
+   "owner_business_but_payee_personal": 3,
+   "distinct_owners": 239,
+   "distinct_owners_with_business_id": 10,
+   "cards_mentioning_x402_text": 152,
+   "owner_identity_provider_breakdown": {
+    "Concordium testnet IP": 221,
+    "Global FinReg Testnet": 10,
+    "Digital Trust Solutions TestNet": 8
+   }
+  }
+ },
+ "check_payee_live_on_testnet_payees": {
+  "accounts_checked": 248,
+  "verdicts": {
+   "UNVERIFIED": 248
+  },
+  "note": "invoice name used = the agent card name; MATCH needs a payee-book binding with a proven legal name, which no account outside PayOnce has"
+ },
+ "x402_sellers": {
+  "concordium_endpoints_checked": 5,
+  "rows": [
+   {
+    "endpoint": "https://api.sentinelagent.pro/x402/verdict",
+    "network": "testnet",
+    "payTo": "4XB5Fr1jgcp9SuqTQQwyfiY7L6CncUQuvG1dY83ASpN9S4ZDhh",
+    "amount": "1000000",
+    "asset": "CCD",
+    "registry_agents_for_payTo": "981,982,983,984,985,986,987,988,989",
+    "owner_ne_payTo": false,
+    "payTo_idp": "Concordium testnet IP",
+    "payTo_business_id": false,
+    "check_payee_verdict": "UNVERIFIED"
+   },
+   {
+    "endpoint": "https://api.sentinelagent.pro/x402/verdict",
+    "network": "testnet",
+    "payTo": "47jp7qLdXqug9E2f4o32YMRLY8SyftB67gVqEbvx1YKbfq29nw",
+    "amount": "10000",
+    "asset": "EUDemo",
+    "registry_agents_for_payTo": "",
+    "owner_ne_payTo": false,
+    "payTo_idp": "Concordium testnet IP",
+    "payTo_business_id": false,
+    "check_payee_verdict": "UNVERIFIED"
+   },
+   {
+    "endpoint": "https://mainsmarker.sites.tab.bot/x402/review",
+    "network": "testnet",
+    "payTo": "4J2SFgeVrLHVqPkb3dczpYKP99wFMm7FDFp3fEPwXMff3ieLi2",
+    "amount": "500000",
+    "asset": "CCD",
+    "registry_agents_for_payTo": "990",
+    "owner_ne_payTo": false,
+    "payTo_idp": "Concordium testnet IP",
+    "payTo_business_id": false,
+    "check_payee_verdict": "UNVERIFIED"
+   },
+   {
+    "endpoint": "https://veriflow-yrhp.onrender.com/signal/BTC",
+    "network": "testnet",
+    "payTo": "3WSAJwTZqVRypnGMkUjW28QDES8h1FUBoCwrzQ1rdN35NGavf8",
+    "amount": "1000000",
+    "asset": "CCD",
+    "registry_agents_for_payTo": "1313,1545",
+    "owner_ne_payTo": true,
+    "payTo_idp": "Concordium testnet IP",
+    "payTo_business_id": false,
+    "check_payee_verdict": "UNVERIFIED"
+   },
+   {
+    "endpoint": "https://veriflow-yrhp.onrender.com/signal/ETH",
+    "network": "testnet",
+    "payTo": "3WSAJwTZqVRypnGMkUjW28QDES8h1FUBoCwrzQ1rdN35NGavf8",
+    "amount": "1000000",
+    "asset": "CCD",
+    "registry_agents_for_payTo": "1313,1545",
+    "owner_ne_payTo": true,
+    "payTo_idp": "Concordium testnet IP",
+    "payTo_business_id": false,
+    "check_payee_verdict": "UNVERIFIED"
+   }
+  ],
+  "payTo_not_in_registry": 1,
+  "payTo_with_business_identity": 0,
+  "endpoints_probed": 17,
+  "answering_402": 8,
+  "non_concordium_402_networks": {
+   "eip155": 26,
+   "solana": 4,
+   "xrpl": 8,
+   "algorand": 4,
+   "stellar": 4,
+   "near": 3
+  }
+ }
+}

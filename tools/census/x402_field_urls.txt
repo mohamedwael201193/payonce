@@ -1,0 +1,10 @@
+https://buy.fizzl.eu/v1/buy
+https://mainsmarker.sites.tab.bot/x402/review
+https://viale.nerom.site/shops/1527/quote
+https://viale.nerom.site/shops/1526/buy
+https://viale.nerom.site/shops/1527/buy
+https://viale.nerom.site/shops/1543/buy
+https://x402-doctor.fizzl.eu/api/v1/preflight
+https://x402-doctor.fizzl.eu/api/v1/diagnose
+https://x402-doctor.fizzl.eu/api/v1/fix
+https://ichimoku-signal.fizzl.eu
