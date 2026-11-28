@@ -7,14 +7,16 @@
 import { OpenError, isAddress, microToCcd } from './open-sellers.mjs';
 
 export const DESK_POLICY = Object.freeze({
-  faucetMicro: 2_000_000n, // 2 CCD: covers an agent registration (2 tx), listing, an invoice and a 0.5 CCD payment
-  faucetSkipAboveMicro: 5_000_000n,
-  faucetPerDay: 40,
+  // Testnet fees are several CCD per contract update (measured 28 Nov: pay_ccd 20.6 CCD, refused retry 5.6 CCD), so
+  // the starter drop covers the become-a-payee flow (about 5 updates) plus a 0.5 CCD payment.
+  faucetMicro: 150_000_000n,
+  faucetSkipAboveMicro: 100_000_000n,
+  faucetPerDay: 25,
   faucetPerIpPerDay: 3,
   invoicesPerPayerPerDay: 3,
   invoicesPerIpPerHour: 6,
   invoicesPerDay: 60,
-  lowBalanceMicro: 1_500_000n,
+  lowBalanceMicro: 100_000_000n,
   payMaxEnergy: 6000,
 });
 

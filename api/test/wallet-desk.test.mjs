@@ -57,13 +57,13 @@ test('faucet: once per account, never to internal or funded accounts', async () 
   const { desk, sent, balances } = make();
   const r = await desk.faucet(V, '1.1.1.1');
   assert.equal(r.sent, true);
-  assert.deepEqual(sent, [{ to: V, micro: 2_000_000n }]);
+  assert.deepEqual(sent, [{ to: V, micro: 150_000_000n }]);
   const again = await desk.faucet(V, '1.1.1.1');
   assert.equal(again.sent, false);
   assert.equal(again.reason, 'already_sent');
   await assert.rejects(desk.faucet(B, '1.1.1.1'), /own demo accounts/);
   const rich = '4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin';
-  balances.set(rich, 50_000_000n);
+  balances.set(rich, 500_000_000n);
   assert.equal((await desk.faucet(rich, '1.1.1.2')).reason, 'already_funded');
   assert.equal(sent.length, 1);
 });

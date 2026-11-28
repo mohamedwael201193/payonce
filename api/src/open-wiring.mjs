@@ -26,6 +26,21 @@ import {
   REGISTRY, CIS8004_OFFICIAL, PAYER_ADDRESS, PAYEE_CCD, PAYEE_EUDEMO, OWNER_ADDRESS, SELLER2_ADDRESS, EXPLORER_TX, PORT, ENV,
 } from './config.mjs';
 
+
+/** Balance from Concordium's public testnet wallet-proxy: micro-CCD as BigInt, null when the account does not exist. */
+async function proxyBalanceMicro(addr) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch(`https://wallet-proxy.testnet.concordium.com/v0/accBalance/${addr}`, { signal: ctl.signal });
+    if (!r.ok) return undefined;
+    const j = await r.json();
+    const b = j?.currentBalance ?? j?.finalizedBalance;
+    if (!b) return null;
+    return BigInt(b.accountAtDisposal ?? b.accountAmount);
+  } finally { clearTimeout(t); }
+}
+
 export const API_PUBLIC_BASE = (ENV.PAYONCE_PUBLIC_API_BASE ?? 'https://payonce-api-n98a.onrender.com').replace(/\/$/, '');
 const hex = (b) => Buffer.from(b).toString('hex');
 
@@ -211,6 +226,9 @@ export const desk = createWalletDesk({
         return BigInt(microCcdOf(info.accountAvailableBalance ?? info.accountAmount));
       } catch (e) {
         if (/not found|NOT_FOUND|account or block not found/i.test(String(e?.message ?? e))) return null;
+        // Node busy or rate-limited (429): read the same balance from Concordium's public wallet-proxy instead.
+        const viaProxy = await proxyBalanceMicro(addr).catch(() => undefined);
+        if (viaProxy !== undefined) return viaProxy;
         throw e;
       }
     },
