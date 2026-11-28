@@ -53,7 +53,7 @@ jobs:
         run: >
           node --test test/unit.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
           test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
-          test/vop-mainnet-census.test.mjs test/census-verify.test.mjs test/vop-anchor.test.mjs test/status.test.mjs test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs test/dash.test.mjs test/ledger-approvals.test.mjs test/x402-client.test.mjs test/x402-seller.test.mjs test/a2a.test.mjs test/payee-card.test.mjs test/node-retry.test.mjs test/invoice-parse.test.mjs
+          test/vop-mainnet-census.test.mjs test/census-verify.test.mjs test/vop-anchor.test.mjs test/status.test.mjs test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs test/dash.test.mjs test/ledger-approvals.test.mjs test/vop-attacks.test.mjs test/x402-client.test.mjs test/x402-seller.test.mjs test/a2a.test.mjs test/payee-card.test.mjs test/node-retry.test.mjs test/invoice-parse.test.mjs
 
   agent:
     name: agent + check_payee package tests

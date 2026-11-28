@@ -36,6 +36,7 @@ import { V3, DEMO_V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayabl
 import { createDashboard, DashError } from './dash.mjs';
 import { createDashChain } from './dash-chain.mjs';
 import { createLedger } from './vop-ledger.mjs';
+import { createAttackCatalogue, aliasOf } from './vop-attacks.mjs';
 import { createApprovals, ApprovalError } from './approvals.mjs';
 import { sendRegisterData, txStatus } from './vop-anchor-wiring.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
@@ -138,6 +139,26 @@ function logCheck(r, input) {
   ledger.append({ kind: 'check', book: r.subject?.contract ?? null, seller: r.subject?.seller ?? null, payee: r.subject?.payee ?? null, verdict: r.verdict, payable: !!r.payable, evidence_hash: r.evidence_hash, checked_at: r.checked_at })
     .then(() => ledger.anchorHead()).catch(() => {});
   return r;
+}
+// ---- G13 live attack catalogue on the demo book (fixtures: api/scripts/attack-fixtures.mjs) ----
+const ATTACK_X = '3GPTo1LQbwHcsxPLBmWAVAA4RF6FvbDkzbf7DvLkEKpxWMboHq';
+let attackCache = null; let attackRun = null;
+function attackCatalogue() {
+  return createAttackCatalogue({
+    client: () => vClient(), book: DEMO_V3, seller: OWNER_ADDRESS, buyer: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr', token: BigInt(OWNER_TOKEN),
+    moduleRef: '8641046eb939a5693731b6d79b227a1a4b356d8cf10308baabca0a93a16b3946',
+    fixtures: {
+      X: ATTACK_X, Y: aliasOf(ATTACK_X, 1), stranger: '3LgPU9K2WFg3ghFHXjm2r2Mizi2eqY71ENTWqHZL98h9ueFKMt', staleInvoice: 123, paidInvoice: 122,
+      recorded: { notMature: '6bfe195c14a8d82295b4a127fb3ab634a27761ce92f7f12aee063b9ff0654ced', payTwice: 'd91e7611d894d88092d600e97c83e3c9c08cc9d94a8ca0e423348b92f9ccb021' },
+    },
+    check: (input) => vopDemo.check(input), payTx: (payee, q, ip) => dashboard().payTx(payee, q, ip), approvals,
+  });
+}
+async function attackScorecard(fresh) {
+  if (!fresh && attackCache && Date.now() - attackCache.at < 10 * 60_000) return attackCache.value;
+  if (!fresh && !attackCache) { const k = await kvGet('proof', 'attacks:latest').catch(() => null); if (k && Date.now() - Date.parse(k.generated_at) < 10 * 60_000) { attackCache = { at: Date.parse(k.generated_at), value: k }; return k; } }
+  attackRun ??= attackCatalogue().run().then(async (v) => { attackCache = { at: Date.now(), value: v }; await kvPut('proof', 'attacks:latest', v).catch(() => {}); return v; }).finally(() => { attackRun = null; });
+  return attackRun;
 }
 const dashDeps = {
   kv: { get: kvGet, put: kvPut, list: kvList },
@@ -388,6 +409,8 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
+    // ---- G13 live attack catalogue ----
+    ['GET', /^\/api\/proof\/attacks$/, wrap(async (req) => { const fresh = qs(req).fresh === '1'; await limited(fresh ? 'attacks:fresh' : 'attacks:get', fresh ? 2 : 60)(req); return attackScorecard(fresh); })],
     // ---- G11 wallet-signed approvals ----
     ['POST', /^\/api\/approvals\/request$/, wrap(async (req) => { await limited('approval:req', 6)(req); return approvals.request(await readBody(req, 8192), clientIp(req)); })],
     ['POST', /^\/api\/approvals\/([0-9a-f]{24})\/verify$/, wrap(async (req, res, m) => { await limited('approval:verify', 12)(req); return approvals.verify(m[1], await readBody(req, 8192)); })],
