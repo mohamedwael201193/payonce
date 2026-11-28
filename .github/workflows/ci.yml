@@ -117,7 +117,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.85.0"
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown, wasm32v1-none
       - name: Install cargo-concordium 5.0.0
         run: cargo install cargo-concordium --version 5.0.0 --locked
       - name: v2 registry tests
