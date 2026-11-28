@@ -10,6 +10,7 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { grpcWebProxy } from '../../tools/grpcweb-proxy/server.mjs';
 import { readFileSync } from 'node:fs';
 import { CredentialRegistrationId } from '@concordium/web-sdk';
 import { backend } from './backend.mjs';
@@ -1803,6 +1804,9 @@ const routes = [
 ];
 
 const server = createServer(async (req, res) => {
+  // Testnet-only gRPC-web relay for sandboxes that cannot reach the node on :20000
+  // (e.g. the Concordium Wallet "Custom network" node address). Independent of the store.
+  if (grpcWebProxy(req, res)) return;
   try {
     await ready();
   } catch (e) {

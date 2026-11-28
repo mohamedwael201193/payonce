@@ -56,20 +56,19 @@ function cors(req, res) {
 const fail = (res, code, msg) => { if (!res.headersSent) res.writeHead(code, { 'content-type': 'text/plain' }); res.end(msg); };
 
 let inflight = 0;
-const server = http.createServer((req, res) => {
-  cors(req, res);
+// Returns true when the request was handled (it targets /concordium.v2.Queries/*), false otherwise,
+// so a host server (payonce-api) can mount this in front of its own routes.
+export function grpcWebProxy(req, res) {
   const url = (req.url || '').split('?')[0];
-  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-  if (req.method === 'GET' && (url === '/' || url === '/healthz')) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, service: 'payonce-ccd-grpcweb-proxy', network: 'concordium-testnet', upstream: UPSTREAM, allowed: '/concordium.v2.Queries/*' }));
-  }
-  if (req.method !== 'POST' || !PATH_RE.test(url)) return fail(res, 404, 'only POST /concordium.v2.Queries/<Method>');
+  if (!url.startsWith('/concordium.v2.')) return false;
+  cors(req, res);
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return true; }
+  if (req.method !== 'POST' || !PATH_RE.test(url)) { fail(res, 404, 'only POST /concordium.v2.Queries/<Method>'); return true; }
   const ct = String(req.headers['content-type'] || '');
-  if (!/^application\/grpc-web/.test(ct)) return fail(res, 415, 'grpc-web content-type required');
+  if (!/^application\/grpc-web/.test(ct)) { fail(res, 415, 'grpc-web content-type required'); return true; }
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',').pop().trim();
-  if (!allowed(ip)) { res.setHeader('retry-after', '1'); return fail(res, 429, 'rate limited'); }
-  if (inflight >= MAX_INFLIGHT) return fail(res, 503, 'busy');
+  if (!allowed(ip)) { res.setHeader('retry-after', '1'); fail(res, 429, 'rate limited'); return true; }
+  if (inflight >= MAX_INFLIGHT) { fail(res, 503, 'busy'); return true; }
   inflight++;
   let done = false;
   const finish = () => { if (!done) { done = true; inflight--; } };
@@ -79,7 +78,7 @@ const server = http.createServer((req, res) => {
   const headers = { ':method': 'POST', ':path': url };
   for (const h of FWD_HEADERS) if (req.headers[h]) headers[h] = req.headers[h];
   let up;
-  try { up = getSession().request(headers); } catch { return fail(res, 502, 'upstream unavailable'); }
+  try { up = getSession().request(headers); } catch { fail(res, 502, 'upstream unavailable'); return true; }
   const timer = setTimeout(() => { up.close(http2.constants.NGHTTP2_CANCEL); res.end(); }, MAX_STREAM_MS);
   up.on('response', (h) => {
     const out = {};
@@ -87,9 +86,6 @@ const server = http.createServer((req, res) => {
     res.writeHead(Number(h[':status']) || 200, out);
   });
   up.on('data', (c) => res.write(c));
-  up.on('trailers', (t) => { // trailers-only / HTTP trailers: surface for non-grpc-web fallbacks
-    if (!res.headersSent) return;
-  });
   up.on('end', () => { clearTimeout(timer); res.end(); });
   up.on('error', () => { clearTimeout(timer); fail(res, 502, 'upstream error'); });
   res.on('close', () => { clearTimeout(timer); try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} });
@@ -100,7 +96,21 @@ const server = http.createServer((req, res) => {
   });
   req.on('end', () => up.end());
   req.on('error', () => { try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} });
-});
-server.requestTimeout = 0;
-server.headersTimeout = 20_000;
-server.listen(PORT, '0.0.0.0', () => console.log(`grpcweb proxy :${PORT} -> ${UPSTREAM}`));
+  return true;
+}
+
+import { pathToFileURL } from 'node:url';
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const server = http.createServer((req, res) => {
+    if (grpcWebProxy(req, res)) return;
+    const url = (req.url || '').split('?')[0];
+    if (req.method === 'GET' && (url === '/' || url === '/healthz')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, service: 'payonce-ccd-grpcweb-proxy', network: 'concordium-testnet', upstream: UPSTREAM }));
+    }
+    fail(res, 404, 'only POST /concordium.v2.Queries/<Method>');
+  });
+  server.requestTimeout = 0;
+  server.headersTimeout = 20_000;
+  server.listen(PORT, '0.0.0.0', () => console.log(`grpcweb proxy :${PORT} -> ${UPSTREAM}`));
+}
