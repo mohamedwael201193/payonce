@@ -67,7 +67,7 @@ describe('HumanGate', () => {
 })
 
 describe('AgeGate', () => {
-  it('says "not live yet" with the route when the age-proof route is not shipped, and never fakes a result', async () => {
+  it('asks to connect a wallet rather than claiming success, and never fakes a result', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ error: { code: 'not_found', message: 'No route' } }, 404)))
     const onVerified = vi.fn()
     wrap(<AgeGate sellerId="adult" onVerified={onVerified} />)

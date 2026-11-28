@@ -2,7 +2,7 @@
 // EXISTS = live on payonce-api today. PLANNED = WS1/WS3 implement exactly this shape
 // (copied into payonce-private HANDOFF_V12). The UI treats a 404 from a PLANNED route
 // as "not shipped yet" and says so; it never fakes a result.
-// WS1 (payonce-private HANDOFF_V14): every WS1 route below except age-proof is LIVE on the v3 DEMO book <13173,0>
+// WS1 (payonce-private HANDOFF_V14, V16): every WS1 route below, age-proof included, is LIVE on the v3 DEMO book <13173,0>
 // (90 s hold). Changes are optional fields only, except: checkPayee and prepare send book=demo (the dashboard's
 // payees live on the demo book), payLinkTx can pass the invoice name, and PayLinkTx.acknowledge, when not null,
 // must be signed (sponsored, via prepare) before the payment, or the chain refuses -30 PayeeNotAcknowledged.
@@ -222,8 +222,9 @@ export interface Census {
     POST /api/wallet/age-proof/request { account, seller_id } -> { request_id, v1?, v0? }
     POST /api/wallet/age-proof/verify  { request_id, version, presentation } -> { verified, vaa_tx|null }.
     The existing /api/age-proof/v1 is a hosted check with one PayOnce testnet credential; it is not the visitor's proof. */
-export interface AgeRequest { request_id: string; v1?: unknown; v0?: { challenge: string; statements: unknown } }
-export interface AgeVerified { verified: boolean; vaa_tx: string | null }
+/** LIVE (WS1): the visitor's own wallet proves 18+. v1 = anchored V&A V1 request (vra_tx), v0 = Web3 ID fallback. */
+export interface AgeRequest { request_id: string; v1?: unknown; v0?: { challenge: string; statements: unknown }; vra_tx?: string; expires_at?: string; proves?: string }
+export interface AgeVerified { verified: boolean; vaa_tx: string | null; valid_for_seconds?: number; checks?: { id: string; label: string; status: 'ok' | 'fail'; detail: string }[] }
 
 /** LIVE (WS1): GET /api/p/:account/pay-tx?payer=&amount_micro=[&name=][&approved=1] -> the exact pay transaction for the payer's wallet.
     Refuses NO_MATCH always. CLOSE_MATCH / UNVERIFIED only with approved=1 (the human decided; the contract's acknowledge_payee accepts CLOSE_MATCH,
@@ -350,9 +351,9 @@ export const dashApi = {
   census: () => walletApi<Census>('/api/census'),
   // PLANNED (WS1)
   ageRequest: (account: string, sellerId: string) =>
-    planned<AgeRequest>('POST /api/wallet/age-proof/request', '/api/wallet/age-proof/request', { method: 'POST', body: { account, seller_id: sellerId } }),
+    walletApi<AgeRequest>('/api/wallet/age-proof/request', { method: 'POST', body: { account, seller_id: sellerId } }),
   ageVerify: (requestId: string, version: string, presentation: string) =>
-    planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
+    walletApi<AgeVerified>('/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
   /** CLOSE_MATCH needs approvalId (approvalRequest -> wallet signMessage -> approvalVerify). approved=true alone is
       answered 409 needs_signed_approval (WS1 G11: a click is not evidence). */
   payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string, approvalId?: string | null, rail: 'ccd' | 'eudemo' = 'ccd') =>

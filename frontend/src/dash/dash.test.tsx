@@ -45,8 +45,16 @@ describe('flag', () => {
 describe('planned routes', () => {
   it('a 404 on a route that is not shipped becomes NotShipped, naming the route', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ error: { code: 'not_found', message: 'No route' } }, 404)))
-    await expect(dashApi.ageRequest(A, 'adult')).rejects.toBeInstanceOf(NotShipped)
-    await expect(dashApi.ageRequest(A, 'adult')).rejects.toThrow('POST /api/wallet/age-proof/request')
+    await expect(dashApi.parseInvoice('x')).rejects.toBeInstanceOf(NotShipped)
+    await expect(dashApi.parseInvoice('x')).rejects.toThrow('POST /api/invoices/parse')
+  })
+  it('the age-proof routes are live: request and verify post to the real API', async () => {
+    const f = vi.fn(async () => json({ request_id: 'r1', v1: {}, v0: { challenge: 'c', statements: [] }, verified: true, vaa_tx: null }))
+    vi.stubGlobal('fetch', f)
+    await dashApi.ageRequest(A, 'adult')
+    await dashApi.ageVerify('r1', 'v1', '{}')
+    expect((f.mock.calls[0] as unknown as [string])[0]).toContain('/api/wallet/age-proof/request')
+    expect(JSON.parse((f.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ request_id: 'r1', version: 'v1' })
   })
   it('relay prepare sends the parameter as hex', async () => {
     const f = vi.fn(async () => json({ mode: 'sponsor-first', transaction: {}, sender: A, sponsor: S, fee_paid_by: S, expires_at: '', schema: null }))

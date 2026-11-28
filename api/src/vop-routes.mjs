@@ -39,7 +39,10 @@ import { createDashChain } from './dash-chain.mjs';
 import { createLedger } from './vop-ledger.mjs';
 import { createAttackCatalogue, aliasOf } from './vop-attacks.mjs';
 import { createFees } from './fees.mjs';
+import { createWalletAge, AgeError } from './wallet-age.mjs';
+import { ageWiring } from './wallet-age-wiring.mjs';
 const fees = createFees();
+export const walletAge = createWalletAge({ kv: { get: kvGet, put: kvPut }, hitWindow: (k, w, l) => hitWindowRef(k, w, l), ...ageWiring });
 import { createApprovals, ApprovalError } from './approvals.mjs';
 import { sendRegisterData, txStatus } from './vop-anchor-wiring.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
@@ -301,7 +304,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof AnchorError) return apiError(res, e.status, e.code, 'app', e.message, { retryable: e.retryable === true, ...(e.retry_after_s ? { retry_after_s: e.retry_after_s } : {}), ...(e.evidence_hash ? { evidence_hash: e.evidence_hash } : {}) });
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
-      if (e instanceof DashError || e instanceof ApprovalError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
+      if (e instanceof DashError || e instanceof ApprovalError || e instanceof AgeError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
     }
@@ -413,6 +416,9 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
+    // ---- visitor-wallet 18+ proof (the visitor's own credential) ----
+    ['POST', /^\/api\/wallet\/age-proof\/request$/, wrap(async (req) => walletAge.request(await readBody(req, 4096), clientIp(req)))],
+    ['POST', /^\/api\/wallet\/age-proof\/verify$/, wrap(async (req) => walletAge.verify(await readBody(req, 256 * 1024), clientIp(req)))],
     // ---- G19 fees: measured NRG x the chain's live exchange-rate parameters ----
     ['GET', /^\/api\/fees$/, wrap(async (req) => { await limited('fees', 60)(req); return fees.table(); })],
     // ---- G13 live attack catalogue ----
