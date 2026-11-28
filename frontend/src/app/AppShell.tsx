@@ -3,7 +3,7 @@
 // navigation reloads the document. One chrome per breakpoint: a sidebar at
 // 1024px and up, a top bar plus a bottom tab bar below it. Only the active
 // breakpoint's chrome is in the DOM, so every nav landmark appears once.
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
 import {
@@ -22,8 +22,18 @@ import {
 import { LogoMark } from '../components/Logo'
 import { useHealth } from '../hooks/useApi'
 import { useAppData, useFlag, useIsDesktop } from './hooks'
-import { SourceTag, Sheet } from './ui'
+import { SourceTag, Sheet, Skeleton } from './ui'
 import './app.css'
+
+/** Shown for the moment a page's own chunk is loading (first visit only). */
+function PageFallback() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading the page" data-testid="page-fallback">
+      <Skeleton className="h-10 w-2/3" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  )
+}
 
 interface NavItem {
   to: string
@@ -288,7 +298,9 @@ export function AppShell() {
             id="main"
             className="mx-auto w-full min-w-0 max-w-[1120px] flex-1 px-4 py-6 pb-28 sm:px-8 lg:px-12 lg:py-10 lg:pb-14"
           >
-            <Outlet />
+            <Suspense fallback={<PageFallback />}>
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

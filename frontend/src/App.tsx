@@ -3,14 +3,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { OverviewPage } from './app/pages/OverviewPage'
-import { PayPage } from './app/pages/PayPage'
-import { InvoicesPage } from './app/pages/InvoicesPage'
-import { ReceiptPage } from './app/pages/ReceiptPage'
-import { BreakPage } from './app/pages/BreakPage'
-import { AgentPage } from './app/pages/AgentPage'
-import { JudgesPage } from './app/pages/JudgesPage'
-import { X402Page } from './app/pages/X402Page'
-import { AgeProofPage } from './pages/AgeProofPage'
+
+// Code splitting: the shell and the overview (the /app landing screen) ship in the
+// main chunk; every other page is its own chunk, fetched on first visit. The
+// agent page carries the bundled run record (~50 kB of JSON), so /app no longer
+// downloads it up front.
+function page<K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) {
+  return lazy(() => load().then((m) => ({ default: m[name] })))
+}
+const PayPage = page(() => import('./app/pages/PayPage'), 'PayPage')
+const InvoicesPage = page(() => import('./app/pages/InvoicesPage'), 'InvoicesPage')
+const ReceiptPage = page(() => import('./app/pages/ReceiptPage'), 'ReceiptPage')
+const BreakPage = page(() => import('./app/pages/BreakPage'), 'BreakPage')
+const AgentPage = page(() => import('./app/pages/AgentPage'), 'AgentPage')
+const JudgesPage = page(() => import('./app/pages/JudgesPage'), 'JudgesPage')
+const X402Page = page(() => import('./app/pages/X402Page'), 'X402Page')
+const AgeProofPage = page(() => import('./pages/AgeProofPage'), 'AgeProofPage')
 
 // The landing lives in src/landing and is the only route outside the app
 // shell. It is loaded on demand, so /app visitors never download it.
@@ -130,7 +138,7 @@ function LandingRoute() {
   const id = legacyPayable(params)
   if (id) return <Navigate to={`/app/pay/${encodeURIComponent(legacySeller(params))}/${id}`} replace />
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#faf6ef' }} aria-busy="true" />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f1f3f8' }} aria-busy="true" />}>
       <LandingPage />
     </Suspense>
   )

@@ -6,10 +6,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Address } from '../Address'
 import { CopyButton, ExplorerTx, KeyValue, Notice, PageHeader, Skeleton, StatusPill, Button, useExplorerBase } from '../ui'
-import { useDocumentTitle } from '../hooks'
+import { markMilestone, useDocumentTitle } from '../hooks'
 import { clockUtc } from '../format'
 import recordedJson from '../data/agentRun.json'
 import {
+  correctionText,
+  groundProse,
   groupChecks,
   hostileLabel,
   isAgentRun,
@@ -267,6 +269,9 @@ export function AgentPage() {
   useDocumentTitle('Agent pays')
   const { run, source, refetch } = useLatestRun()
   const explorer = useExplorerBase()
+  useEffect(() => {
+    if (run) markMilestone('agent')
+  }, [run])
   const mcpCurl = `curl -s -X POST ${PUBLIC_API}/mcp -H 'content-type: application/json' \\\n  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`
   const stdioConfig = `{\n  "mcpServers": {\n    "payonce": {\n      "command": "node",\n      "args": ["agent/mcp-server/server.mjs"],\n      "env": { "PAYONCE_API_URL": "${PUBLIC_API}" }\n    }\n  }\n}`
 
@@ -363,11 +368,21 @@ export function AgentPage() {
             <section aria-label="What the model said" className="po-card p-5 sm:p-6" data-testid="agent-model-prose">
               <details>
                 <summary className="cursor-pointer text-xl font-medium text-po-ink">What the model said</summary>
-                <p className="mt-2 text-sm text-po-grey">This is the model&apos;s own wording, shown as it wrote it. It can be wrong, for example about amounts. Every amount, verdict and transaction above comes from the API, not from this text.</p>
+                <p className="mt-2 text-sm text-po-grey">This is the model&apos;s own wording, shown as it wrote it. It can be wrong, for example about amounts or about whether an invoice was paid. Every amount, verdict and transaction above comes from the API, not from this text; a sentence that contradicts the run record is marked with what the record shows.</p>
                 <ol className="mt-3 flex flex-col gap-2 text-[15px] text-po-ink">
-                  {run.transcript.filter((e) => e.source === 'model_prose' && e.text).map((e) => (
-                    <li key={e.seq} className="[overflow-wrap:anywhere]">{e.text}</li>
-                  ))}
+                  {run.transcript.filter((e) => e.source === 'model_prose' && e.text).map((e) => {
+                    const fixes = groundProse(e.text ?? '', run)
+                    return (
+                      <li key={e.seq} className="[overflow-wrap:anywhere]">
+                        {e.text}
+                        {fixes.map((c) => (
+                          <span key={`${c.payable_id}-${c.text}`} className="mt-1 block rounded-[6px] border border-po-warn-line bg-po-warn-bg px-2 py-1 text-[13px] text-po-warn" data-testid="prose-correction">
+                            {correctionText(c, run)}
+                          </span>
+                        ))}
+                      </li>
+                    )
+                  })}
                 </ol>
               </details>
             </section>

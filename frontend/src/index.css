@@ -19,15 +19,15 @@
   --color-cloud-shadow-deep: #fdba74;
   --color-peach-rim: #fff7ed;
 
-  /* Page and surfaces — warm cream paper, video §3 */
-  --color-paper: #faf6ef;
-  --color-paper-2: #f3ead9;
+  /* Page and surfaces — v10 cool neutrals (same family as /app, src/app/tokens.css) */
+  --color-paper: #f1f3f8;
+  --color-paper-2: #e6eaf2;
   --color-card: #ffffff;
-  --color-line: #e7ddcb;
-  --color-ink: #171310;
-  --color-body: #4a4238;
-  --color-muted: #6b5d4f;
-  --color-ink-dark-bg: #171310;
+  --color-line: #d9dee8;
+  --color-ink: #0E1219;
+  --color-body: #2f3747;
+  --color-muted: #475066;
+  --color-ink-dark-bg: #0E1219;
 
   /* Accent and status — burnt-orange brand (was teal) */
   --color-brand-600: #b4430f;
@@ -172,7 +172,7 @@ body {
     0 1px 0 #7c2d12;
 }
 .btn-ember:focus-visible {
-  outline: 3px solid #171310;
+  outline: 3px solid #0E1219;
   outline-offset: 2px;
 }
 .btn-ember:disabled,
@@ -198,7 +198,7 @@ body {
   padding: 0.75rem 1.75rem;
   font-size: 15px;
   font-weight: 600;
-  color: #171310;
+  color: #0E1219;
   background: rgba(255, 255, 255, 0.88);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -285,7 +285,7 @@ body {
   background: rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid #e7ddcb;
+  border: 1px solid #d9dee8;
   border-radius: 20px;
   box-shadow: 0 24px 60px rgba(23, 19, 16, 0.12);
 }

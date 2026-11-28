@@ -229,7 +229,7 @@ export function useFlag(name: string): [string | null, (v: string | null) => voi
 }
 
 /** Mark a StartHere milestone from anywhere (pay flow, receipt page). */
-export function markMilestone(name: 'verified' | 'paid' | 'receipt'): void {
+export function markMilestone(name: 'verified' | 'paid' | 'receipt' | 'agent'): void {
   writeFlag(`step.${name}`, '1')
 }
 

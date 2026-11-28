@@ -85,3 +85,31 @@ test('hosted /mcp: initialize answers with the server info and a batch gets a ba
   assert.equal(init.body.length, 1);
   assert.equal(init.body[0].result.serverInfo.name, 'payonce-mcp');
 });
+
+test('GET /api/agent/latest without a live run serves the newest recorded run by finished_at, not by file name', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dataDir = mkdtempSync(join(tmpdir(), 'payonce-latest-')); // no agent-run-latest.json here
+  const deps = {
+    sendJson: (res, status, body) => { res.status = status; res.body = body; },
+    apiError: (res, status, code) => { res.status = status; res.body = { error: code }; },
+    readBody: async () => ({}), hitWindow: async () => ({ allowed: true }), clientIp: () => '127.0.0.1', payerNeedsRefillQuiet: async () => false,
+  };
+  const api = createAgentApi({ deps, port: 1, env: { PAYONCE_DATA_DIR: dataDir } });
+  const res = {};
+  await api.handleLatest({ headers: {} }, res);
+  assert.equal(res.status, 200);
+  assert.equal(res.body._source.kind, 'recorded');
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const dir = new URL('../../qa/out/', import.meta.url);
+  const newest = readdirSync(dir)
+    .filter((f) => /^agent-run-.*\.json$/.test(f))
+    .map((f) => JSON.parse(readFileSync(new URL(f, dir), 'utf8')))
+    .filter((r) => r.schema === 'payonce.agent-run/1')
+    .map((r) => r.finished_at)
+    .sort()
+    .at(-1);
+  assert.equal(res.body.finished_at, newest);
+  assert.notEqual(res.body._source.file, 'qa/out/agent-run-2026-11-28.json', 'the name-sorted pick was the older scripted run');
+});

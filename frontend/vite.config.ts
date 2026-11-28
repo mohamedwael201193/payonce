@@ -20,4 +20,20 @@ export default defineConfig({
   preview: {
     port: 4173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks: they change only when a dependency changes, so a
+        // redeploy of our own code does not make returning visitors fetch React again.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run)[\\/]/.test(id)) return 'vendor-react'
+          if (id.includes('@tanstack')) return 'vendor-query'
+          if (/framer-motion|motion-dom|motion-utils/.test(id)) return 'vendor-motion'
+          if (id.includes('lucide-react')) return 'vendor-icons'
+          return undefined
+        },
+      },
+    },
+  },
 })

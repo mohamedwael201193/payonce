@@ -91,10 +91,16 @@ export function createAgentApi({ deps, port, env = process.env }) {
 
   function latestRecorded() {
     try {
-      const files = readdirSync(recordedDir).filter((f) => /^agent-run-.*\.json$/.test(f)).sort();
-      if (!files.length) return null;
-      const f = files.at(-1);
-      return { ...JSON.parse(readFileSync(join(recordedDir, f), 'utf8')), _source: { kind: 'recorded', file: `qa/out/${f}` } };
+      // The newest run by its own finished_at, not by file name: a name sort put the scripted
+      // "agent-run-2026-11-28.json" after the later NEAR AI runs ("-" sorts before ".").
+      const runs = readdirSync(recordedDir)
+        .filter((f) => /^agent-run-.*\.json$/.test(f))
+        .map((f) => { try { return { f, r: JSON.parse(readFileSync(join(recordedDir, f), 'utf8')) }; } catch { return null; } })
+        .filter((x) => x && x.r && x.r.schema === 'payonce.agent-run/1');
+      if (!runs.length) return null;
+      runs.sort((a, b) => String(a.r.finished_at ?? '').localeCompare(String(b.r.finished_at ?? '')) || a.f.localeCompare(b.f));
+      const { f, r } = runs.at(-1);
+      return { ...r, _source: { kind: 'recorded', file: `qa/out/${f}` } };
     } catch { return null; }
   }
   function latestLive() {

@@ -44,7 +44,7 @@ export function Hero() {
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[80px]"
         aria-hidden="true"
-        style={{ background: 'linear-gradient(180deg, rgba(250,246,239,0) 0%, #FAF6EF 100%)' }}
+        style={{ background: 'linear-gradient(180deg, rgba(250,246,239,0) 0%, #F1F3F8 100%)' }}
       />
       <div className="relative z-10">
         <AppHeader dark />

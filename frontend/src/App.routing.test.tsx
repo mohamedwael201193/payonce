@@ -369,7 +369,7 @@ describe('overview', () => {
   })
 
   it('StartHere ticks from local flags and can be dismissed', async () => {
-    window.localStorage.setItem('po.step.verified', '1')
+    window.localStorage.setItem('po.step.agent', '1')
     const user = userEvent.setup()
     renderAt('/app')
     await screen.findByText('1 of 3 done.')

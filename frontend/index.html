@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="PayOnce — every invoice becomes a payable on Concordium testnet: paid exactly once, only to the account the supplier put on chain. Receipts verify without an account."
+      content="PayOnce — an AI agent pays your invoice inbox on Concordium testnet: fake invoices are refused before money moves, real ones are paid exactly once, only to the account the supplier put on chain."
     />
     <script>if(location.pathname==="/"){var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/assets/hero-sky.webp";l.setAttribute("fetchpriority","high");document.head.appendChild(l)}</script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>PayOnce — Pay each invoice once, on chain (Concordium testnet)</title>
+    <title>PayOnce — The agent pays your inbox, exactly once (Concordium testnet)</title>
     <style>
       /* First-paint hero: plain HTML + CSS, painted before any script runs. The
          landing replaces it with the same words as soon as it has mounted. */
@@ -17,19 +17,20 @@
       #po-boot[hidden]{display:none}
       #po-boot .b-nav{display:flex;align-items:center;justify-content:space-between;padding:20px clamp(20px,4vw,56px)}
       #po-boot .b-brand{color:#fff;font-weight:600;font-size:20px;text-decoration:none}
-      #po-boot .b-open{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:999px;background:#fff;color:#181914;font-weight:500;font-size:16px;text-decoration:none}
+      #po-boot .b-open{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:999px;background:#fff;color:#0e1219;font-weight:500;font-size:16px;text-decoration:none}
       #po-boot .b-copy{display:flex;flex-direction:column;align-items:center;text-align:center;padding:clamp(48px,9vw,92px) clamp(20px,4vw,56px) 0}
-      #po-boot h1{margin:0;font-weight:500;font-size:clamp(46px,7vw,92px);line-height:1.02;letter-spacing:-.035em;text-shadow:0 2px 30px rgba(110,20,0,.18)}
-      #po-boot p{margin:24px 0 0;max-width:30ch;font-size:clamp(17px,1.5vw,20px);line-height:1.45;text-shadow:0 1px 16px rgba(110,20,0,.3)}
+      #po-boot h1{margin:0;font-weight:500;font-size:clamp(40px,5.6vw,76px);line-height:1.02;letter-spacing:-.035em;text-shadow:0 2px 30px rgba(110,20,0,.18)}
+      #po-boot p{margin:24px 0 0;max-width:40ch;font-size:clamp(17px,1.5vw,20px);line-height:1.45;text-shadow:0 1px 16px rgba(110,20,0,.3)}
       #po-boot .b-cta{margin-top:32px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
       #po-boot .b-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:999px;font-weight:500;font-size:16px;text-decoration:none;border:1px solid transparent}
-      #po-boot .b-btn1{background:#fff;color:#181914}
+      #po-boot .b-btn1{background:#fff;color:#0e1219}
+      #po-boot .b-how{align-self:center;color:#fff;font-weight:500;font-size:15px;text-underline-offset:4px}
       #po-boot .b-btn2{background:rgba(40,10,0,.3);border-color:rgba(255,255,255,.42);color:#fff}
     </style>
   </head>
   <body>
     <noscript>
-      <div style="max-width: 640px; margin: 48px auto; padding: 0 16px; font-family: system-ui, sans-serif; color: #171310;">
+      <div style="max-width: 640px; margin: 48px auto; padding: 0 16px; font-family: system-ui, sans-serif; color: #0E1219;">
         <h1 style="font-size: 24px;">PayOnce needs JavaScript</h1>
         <p style="margin-top: 12px; line-height: 1.5;">
           This page verifies invoices against the Concordium testnet in your browser — it cannot run without
@@ -41,9 +42,9 @@
     <div id="po-boot" hidden>
       <div class="b-nav"><a class="b-brand" href="/">PayOnce</a><a class="b-open" href="/app">Open the app</a></div>
       <div class="b-copy">
-        <h1>Every invoice,<br />paid once.</h1>
-        <p>PayOnce checks each invoice against the chain before any money moves.</p>
-        <div class="b-cta"><a class="b-btn b-btn1" href="/app/pay">Pay a live invoice</a><a class="b-btn b-btn2" href="#how">See how it works</a></div>
+        <h1>The agent pays your inbox.<br />Safely, exactly once.</h1>
+        <p>Each invoice is checked against the chain before money moves: a changed payee, an edited file or an unknown seller is refused. The rest are paid once.</p>
+        <div class="b-cta"><a class="b-btn b-btn1" href="/app/agent">Watch the agent pay</a><a class="b-btn b-btn2" href="/app/break">Try to break it</a><a class="b-how" href="#how">See how it works</a></div>
       </div>
     </div>
     <script>if(location.pathname==='/'){document.getElementById('po-boot').hidden=false}</script>

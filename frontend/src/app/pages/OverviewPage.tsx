@@ -93,7 +93,7 @@ export function OverviewPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Overview"
-        lead="Every invoice here can be paid once, and only to the account the seller put on chain. Testnet only."
+        lead="The agent pays your invoice inbox: each invoice is checked against the chain before money moves, and is paid once, only to the account the seller put on chain. Testnet only."
         actions={
           <>
             <SourceTag source={data.source} asOf={data.asOf} />

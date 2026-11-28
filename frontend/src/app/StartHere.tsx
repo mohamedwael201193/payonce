@@ -1,5 +1,5 @@
 // StartHere: three steps, ticked from what actually happened in this
-// browser (a check that came back, a payment that finished, a receipt that
+// browser (the agent's run was opened, a payment that finished, a receipt that
 // was opened). One primary action: the first step that is not done. It
 // hides itself when all three are done, or when dismissed.
 import { Link } from 'react-router-dom'
@@ -12,7 +12,7 @@ import { useFlag } from './hooks'
 import { ButtonLink, Card } from './ui'
 
 export function StartHere({ items }: { items: InvoiceItem[] }) {
-  const [verified] = useFlag('step.verified')
+  const [agent] = useFlag('step.agent')
   const [paid] = useFlag('step.paid')
   const [receipt] = useFlag('step.receipt')
   const [dismissed, setDismissed] = useFlag('start.hidden')
@@ -23,16 +23,16 @@ export function StartHere({ items }: { items: InvoiceItem[] }) {
 
   const steps = [
     {
-      done: verified === '1',
-      title: 'Check an invoice',
-      text: 'Read it against the chain. Nothing is paid.',
-      cta: 'Check an invoice',
-      to: payTo,
+      done: agent === '1',
+      title: 'Watch the agent pay its inbox',
+      text: 'Its last real run: what it refused before any money moved, and what it paid once.',
+      cta: 'Watch the agent',
+      to: '/app/agent',
     },
     {
       done: paid === '1',
-      title: 'Pay a test invoice',
-      text: 'One payment on testnet, no wallet needed.',
+      title: 'Pay a test invoice yourself',
+      text: 'The same checks, one payment on testnet, no wallet needed.',
       cta: 'Pay a test invoice',
       to: payTo,
     },

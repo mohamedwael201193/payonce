@@ -120,3 +120,82 @@ export function refusedByLayer(by: string | null | undefined): string {
   if (/API/i.test(by)) return 'PayOnce API'
   return by
 }
+
+// ---- grounding the model's prose in the run record ----------------------
+// The model writes free text; the run record (decisions, txs, post-run notes)
+// is the authority. A sentence that names a payable and says the opposite of
+// what the record shows (e.g. "1503 remains actionable" when 1503 was paid) is
+// marked with the recorded outcome, so the page never lets prose overrule data.
+
+export type SettledOutcome = 'paid' | 'refused' | 'held' | 'other'
+
+/** The outcome the run record shows for one payable id, counting a confirm finished after the run. */
+export function recordedOutcome(run: Pick<AgentRun, 'decisions' | 'post_run_notes'>, id: number): SettledOutcome | null {
+  const d = run.decisions.filter((x) => x.payable_id === id)
+  const note = run.post_run_notes?.find((n) => n.payable_id === id && n.confirm_tx)
+  if (note) return 'paid'
+  if (!d.length) return null
+  if (d.some((x) => x.outcome === 'paid')) return 'paid'
+  if (d.some((x) => x.outcome === 'refused')) return 'refused'
+  if (d.some((x) => x.outcome === 'held')) return 'held'
+  return 'other'
+}
+
+export interface ProseCorrection {
+  payable_id: number
+  says: 'not_paid' | 'paid'
+  record: SettledOutcome
+  text: string
+}
+
+const NOT_PAID_RE =
+  /\b(remains?|is still|still|stays?)\s+(actionable|open|unpaid|outstanding|pending|due|reserved)\b|\bnot\s+(yet\s+)?(been\s+)?paid\b|\b(was|wasn't|is|isn't)\s+not\s+paid\b|\bunpaid\b|\blimbo\b|\bstill needs? (to be )?pa(id|ying)\b/i
+const PAID_RE = /\b(was|is|got|has been|have been)\s+(successfully\s+)?(paid|settled)\b|\bpaid\s+(successfully|in full)\b/i
+const REFUSAL_RE = /\b(refus|reject|block|declin|not\s+pa|unpaid|skip)/i
+
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function idsIn(sentence: string, known: Set<number>): number[] {
+  const out = new Set<number>()
+  for (const m of sentence.matchAll(/(?:payable|invoice|#)\s*#?\s*(\d{1,6})\b/gi)) out.add(Number(m[1]))
+  for (const m of sentence.matchAll(/\b(\d{3,6})\b/g)) if (known.has(Number(m[1]))) out.add(Number(m[1]))
+  return [...out].filter((n) => known.has(n))
+}
+
+/** Sentences in a piece of model prose that contradict the run record, one entry per (sentence, payable). */
+export function groundProse(text: string, run: Pick<AgentRun, 'decisions' | 'post_run_notes'>): ProseCorrection[] {
+  const known = new Set<number>(run.decisions.map((d) => d.payable_id).filter((n): n is number => typeof n === 'number'))
+  for (const n of run.post_run_notes ?? []) known.add(n.payable_id)
+  const out: ProseCorrection[] = []
+  for (const s of splitSentences(text)) {
+    const ids = idsIn(s, known)
+    if (!ids.length) continue
+    // Only judge a sentence about one payable; a list sentence mixes outcomes and stays as written.
+    if (ids.length > 1) continue
+    const id = ids[0]
+    const record = recordedOutcome(run, id)
+    if (!record) continue
+    if (record === 'paid' && NOT_PAID_RE.test(s)) out.push({ payable_id: id, says: 'not_paid', record, text: s })
+    else if (record === 'refused' && PAID_RE.test(s) && !REFUSAL_RE.test(s)) out.push({ payable_id: id, says: 'paid', record, text: s })
+  }
+  return out
+}
+
+/** One plain line for a correction, built only from the run record. */
+export function correctionText(c: ProseCorrection, run: Pick<AgentRun, 'decisions' | 'post_run_notes'>): string {
+  if (c.record === 'paid') {
+    const note = run.post_run_notes?.find((n) => n.payable_id === c.payable_id && n.confirm_tx)
+    const d = run.decisions.find((x) => x.payable_id === c.payable_id && x.outcome === 'paid')
+    const v = d?.receipt?.verifier_reread
+    const proof = v ? `, verifier ${v.passed}/${v.total}` : ''
+    return note
+      ? `Run record: payable ${c.payable_id} was paid; its confirm finished after the run (${note.confirm_tx?.slice(0, 8)}…).`
+      : `Run record: payable ${c.payable_id} was paid${proof}. The model's sentence is wrong about this.`
+  }
+  return `Run record: payable ${c.payable_id} was refused and nothing was paid. The model's sentence is wrong about this.`
+}

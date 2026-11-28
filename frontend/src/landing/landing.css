@@ -14,27 +14,33 @@
   --po-sky-3: #fa8d37;
   --po-sky-4: #f5a56e;
   /* Paper, ink, grey, hairline */
-  --po-paper: #efede4;
-  --po-paper-2: #e7e4d8;
-  --po-card: #fbfaf5;
-  --po-ink: #181914;
-  --po-ink-2: #23241d;
-  --po-grey: #646158;
-  --po-hair: #d0cdc2;
-  --po-hair-dark: #3a3b33;
-  --po-on-dark: #efede4;
-  --po-on-dark-grey: #b3b0a3;
+  --po-paper: #f1f3f8;
+  --po-paper-2: #e6eaf2;
+  --po-card: #ffffff;
+  --po-ink: #0e1219;
+  --po-ink-2: #161b26;
+  --po-grey: #475066;
+  --po-hair: #d9dee8;
+  --po-hair-dark: #2a3243;
+  --po-on-dark: #f1f3f8;
+  --po-on-dark-grey: #bac2d2;
   /* Accent: fills and large type everywhere, text only where 4.5:1 holds */
   --po-accent: #e8541a;
-  --po-accent-text: #b23c0c;
+  --po-accent-text: #b03a08;
   /* Status */
-  --po-ok: #1b6b3a;
-  --po-ok-bg: #dcefe2;
+  --po-ok: #0b6b3a;
+  --po-ok-bg: #ddf3e5;
+  --po-ok-line: #9bd4b0;
   --po-bad: #b42318;
-  --po-bad-bg: #f7e0dc;
+  --po-bad-bg: #fde7e4;
   --po-bad-on-dark: #ff9d8f;
   --po-ok-on-dark: #8fdcab;
   --po-white: #ffffff;
+  /* Cool neutrals for chips, panel surfaces and table rules (v10, same family as /app) */
+  --po-chip: #e9edf4;
+  --po-panel: #ffffff;
+  --po-rule: #d9dee8;
+  --po-rule-soft: #e9edf4;
   /* Type */
   --po-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --po-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -43,7 +49,7 @@
   --po-r-1: 10px;
   --po-r-2: 16px;
   --po-r-3: 24px;
-  --po-shadow-1: 0 1px 2px rgba(24, 25, 20, 0.06), 0 8px 24px rgba(24, 25, 20, 0.06);
+  --po-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.07);
   --po-shadow-2: 0 2px 4px rgba(60, 20, 0, 0.1), 0 30px 80px rgba(80, 20, 0, 0.28);
   --po-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --po-ease-io: cubic-bezier(0.65, 0, 0.35, 1);
@@ -275,7 +281,7 @@ html.lenis body {
 }
 .po-tag--live {
   color: var(--po-ok);
-  border-color: #a9cfb7;
+  border-color: var(--po-ok-line);
   background: var(--po-ok-bg);
 }
 .po-tag--dark {
@@ -314,7 +320,7 @@ html.lenis body {
   height: 24px;
   padding: 0 9px;
   border-radius: 7px;
-  background: #ecebe3;
+  background: var(--po-chip);
   color: var(--po-ink);
   font-size: 12.5px;
   font-weight: 500;
@@ -334,8 +340,12 @@ html.lenis body {
   color: var(--po-ok);
 }
 .po-status--unpaid {
-  background: #ecebe3;
+  background: var(--po-chip);
   color: var(--po-ink);
+}
+.po-status--refused {
+  background: var(--po-bad-bg);
+  color: var(--po-bad);
 }
 
 /* Nav */
@@ -532,7 +542,7 @@ html.lenis body {
 .po-h1 {
   font-family: var(--po-display);
   font-weight: 500;
-  font-size: clamp(46px, 7vw, 92px);
+  font-size: clamp(40px, 5.6vw, 76px);
   line-height: 1.02;
   letter-spacing: -0.035em;
   color: var(--po-white);
@@ -540,7 +550,7 @@ html.lenis body {
 }
 .po-lead {
   margin-top: 24px;
-  max-width: 30ch;
+  max-width: 40ch;
   font-size: clamp(17px, 1.5vw, 20px);
   line-height: 1.45;
   color: var(--po-white);
@@ -581,7 +591,7 @@ html.lenis body {
 
 /* Hero panel: real UI */
 .po-panel {
-  background: #fdfdfb;
+  background: var(--po-panel);
   color: var(--po-grey);
   border-radius: var(--po-r-2) var(--po-r-2) 0 0;
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -613,9 +623,9 @@ html.lenis body {
 }
 .po-panel__main,
 .po-card {
-  border: 1px solid #e6e4da;
+  border: 1px solid var(--po-rule);
   border-radius: 12px;
-  background: #fdfdfb;
+  background: var(--po-panel);
 }
 .po-panel__main {
   padding: 14px 16px 6px;
@@ -646,7 +656,7 @@ html.lenis body {
   font-family: var(--po-body);
   font-size: 12.5px;
   letter-spacing: 0;
-  background: #ecebe3;
+  background: var(--po-chip);
   border-radius: 6px;
   padding: 1px 6px;
   color: var(--po-ink);
@@ -662,11 +672,11 @@ html.lenis body {
   font-size: 12.5px;
   color: var(--po-grey);
   padding: 8px 8px 8px 0;
-  border-bottom: 1px solid #e6e4da;
+  border-bottom: 1px solid var(--po-rule);
 }
 .po-table td {
   padding: 8px 8px 8px 0;
-  border-bottom: 1px solid #efede6;
+  border-bottom: 1px solid var(--po-rule-soft);
   color: var(--po-ink);
   white-space: nowrap;
 }
@@ -722,7 +732,7 @@ html.lenis body {
 }
 .po-gauge__track {
   fill: none;
-  stroke: #e6e4da;
+  stroke: var(--po-rule);
   stroke-width: 9;
   stroke-linecap: round;
 }
@@ -1881,4 +1891,154 @@ html.lenis body {
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--po-grey);
+}
+
+/* Hero inbox: the agent's last run, refusals first (v10, 28 Nov) */
+.po-inbox {
+  display: flex;
+  flex-direction: column;
+}
+.po-inbox__wait {
+  padding: 24px 18px;
+  color: var(--po-grey);
+}
+.po-inbox__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 12px 18px 4px;
+  list-style: none;
+  font-size: 13.5px;
+  color: var(--po-ink);
+}
+.po-inbox__steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.po-inbox__steps b {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--po-ink);
+  color: var(--po-white);
+  font-size: 12px;
+  font-weight: 600;
+  flex: none;
+}
+.po-inbox__list {
+  margin: 8px 0 0;
+  padding: 0 18px;
+  list-style: none;
+}
+.po-inbox__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--po-rule-soft);
+}
+.po-inbox__row:last-child {
+  border-bottom: 0;
+}
+.po-inbox__row--refused {
+  box-shadow: inset 3px 0 0 var(--po-bad);
+  padding-left: 12px;
+  margin-left: -12px;
+}
+.po-inbox__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.po-inbox__who strong {
+  color: var(--po-ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+.po-inbox__who span {
+  color: var(--po-grey);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.po-inbox__verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13.5px;
+}
+.po-inbox__why {
+  color: var(--po-ink);
+}
+.po-inbox__link {
+  color: var(--po-accent-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.po-inbox__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--po-rule);
+  font-size: 13px;
+  color: var(--po-grey);
+}
+.po-inbox__foot a {
+  color: var(--po-accent-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .po-inbox__steps {
+    grid-template-columns: 1fr;
+  }
+  .po-inbox__row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+.po-hero__how {
+  align-self: center;
+  color: var(--po-white);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-shadow: 0 1px 12px rgba(110, 20, 0, 0.35);
+}
+.po-hero__how:focus-visible {
+  outline: 2px solid var(--po-white);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* The inbox panel is read in full: it grows with its rows, and the front clouds
+   overlap only the padding below the badges, never a row. */
+.po-hero__panel--inbox {
+  height: auto;
+  margin-top: clamp(28px, 3.5vw, 44px);
+  padding-bottom: clamp(150px, 15vw, 200px);
+}
+.po-hero__panel--inbox .po-panel {
+  border-radius: var(--po-r-2);
+}
+.po-hero__panel--inbox .po-ident {
+  width: 100%;
+  margin-top: 16px;
+}
+.po-hero__panel--inbox .po-ident__note,
+.po-hero__panel--inbox .po-ident__note a {
+  color: var(--po-ink);
+  text-shadow: none;
 }

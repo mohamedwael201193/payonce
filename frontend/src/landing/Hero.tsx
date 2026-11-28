@@ -7,9 +7,10 @@ import { formatDay, formatStamp, headline, type LandingData } from './data'
 import { inScope } from '../lib/dashboard'
 import { goTo } from './scroll'
 import { HeroIdentity } from './HeroIdentity'
+import { AgentInboxPanel } from './AgentInbox'
 
-export const HERO_H1 = 'Every invoice,\npaid once.'
-export const HERO_LEAD = 'PayOnce checks each invoice against the chain before any money moves.'
+export const HERO_H1 = 'The agent pays your inbox.\nSafely, exactly once.'
+export const HERO_LEAD = 'Each invoice is checked against the chain before money moves: a changed payee, an edited file or an unknown seller is refused. The rest are paid once.'
 
 function Arrow() {
   return (
@@ -205,14 +206,17 @@ export function Hero({ data }: { data: LandingData }) {
           transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
         >
           <Magnetic>
-            <Link to="/app/pay" className="po-btn po-btn--light">
-              Pay a live invoice
+            <Link to="/app/agent" className="po-btn po-btn--light">
+              Watch the agent pay
               <Arrow />
             </Link>
           </Magnetic>
+          <Link to="/app/break" className="po-btn po-btn--ghost">
+            Try to break it
+          </Link>
           <a
             href="#how"
-            className="po-btn po-btn--ghost"
+            className="po-hero__how"
             onClick={(e) => {
               if (goTo('#how')) e.preventDefault()
             }}
@@ -233,15 +237,15 @@ export function Hero({ data }: { data: LandingData }) {
             {source === 'snapshot' ? `, as of ${formatStamp(at)}` : ''}
           </span>
         </motion.p>
-        <HeroIdentity />
       </div>
-      <motion.div className="po-hero__panel" style={{ y: still ? 0 : sink }}>
+      <motion.div className="po-hero__panel po-hero__panel--inbox" style={{ y: still ? 0 : sink }}>
         <motion.div
           initial={still ? false : { opacity: 0, y: 48 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.1, ease: EASE, delay: 0.55 }}
         >
-          <HeroPanel data={data} />
+          <AgentInboxPanel />
+          <HeroIdentity />
         </motion.div>
       </motion.div>
       <div className="po-hero__front" aria-hidden>

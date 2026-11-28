@@ -23,24 +23,34 @@ afterEach(() => vi.unstubAllGlobals())
 const mount = () => render(<MemoryRouter><LandingPage /></MemoryRouter>)
 
 describe('landing', () => {
-  it('renders the hero, nine sections and the panel from the snapshot', () => {
+  it('renders the hero, nine sections and the agent inbox panel', () => {
     mount()
-    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('Every invoice, paid once.')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName('The agent pays your inbox. Safely, exactly once.')
     for (const id of ['how', 'tamper', 'break', 'proof', 'judges', 'faq']) expect(document.getElementById(id)).not.toBeNull()
-    expect(screen.getByTestId('hero-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-inbox')).toBeInTheDocument()
   })
 
-  it('labels the snapshot as recorded, with its timestamp, until live data arrives', async () => {
+  it('offline, the inbox falls back to the bundled run, labelled recorded, refusals first', async () => {
     mount()
-    const panel = screen.getByTestId('hero-panel')
-    expect(within(panel).getByText(/Recorded snapshot, \d+ \w+ \d{4} \d\d:\d\d UTC/)).toBeInTheDocument()
-    expect(within(panel).getByText(String(headline(SNAPSHOT.stats).total))).toBeInTheDocument()
+    const rows = await screen.findAllByTestId('inbox-row')
+    expect(rows.length).toBeGreaterThan(2)
+    const panel = screen.getByTestId('hero-inbox')
+    expect(within(panel).getByText(/^Agent run, \d+ \w+ \d\d:\d\d UTC$/)).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Refused')).toBeInTheDocument()
+    expect(within(rows.at(-1)!).getByText('Paid once')).toBeInTheDocument()
+    expect(within(panel).getByRole('link', { name: 'Open the full run' })).toHaveAttribute('href', '/app/agent')
+  })
+
+  it('the hero status line still carries the snapshot numbers', () => {
+    mount()
+    expect(screen.getByText(new RegExp(`Testnet: ${headline(SNAPSHOT.stats).paid} of ${headline(SNAPSHOT.stats).total}`))).toBeInTheDocument()
   })
 
   it('points CTAs at the right routes', () => {
     mount()
     const hrefs = (name: RegExp) => screen.getAllByRole('link', { name }).map((a) => a.getAttribute('href'))
-    expect(hrefs(/Pay a live invoice/)).toContain('/app/pay')
+    expect(hrefs(/^Watch the agent pay/)).toEqual(['/app/agent'])
+    expect(hrefs(/^Try to break it$/)).toContain('/app/break')
     expect(hrefs(/^See how it works$/)).toEqual(['#how'])
     expect(hrefs(/judges/i).every((h) => h === '/app/judges')).toBe(true)
     expect(hrefs(/Try to break it yourself/)).toEqual(['/app/break'])
