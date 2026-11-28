@@ -1,4 +1,4 @@
-/* PayOnce app visual language (v9). Everything under /app/* lives inside
+/* PayOnce app visual language (v9, colours v10: see tokens.css). Everything under /app/* lives inside
    .po-app and reads these tokens. Paper ground, ink text, a grey body, and
    orange used only as an accent on fills (never for small text: the text
    accent is the darker --po-accent-ink, checked at 4.5:1 on paper).
@@ -6,30 +6,10 @@
    only, one ease. Nothing in the app starts at opacity 0. */
 
 .po-app {
-  --po-paper: #e6e3d6;
-  --po-surface: #fefdf9;
-  --po-sunken: #f1eee3;
-  --po-rail: #dad6c5;
-  --po-ink: #181914;
-  --po-grey: #4b483f;
-  --po-line: #c6c2ae;
-  --po-line-strong: #86826d;
-  --po-accent: #e8541a;
-  --po-accent-ink: #a8380a;
-  --po-ok: #17512f;
-  --po-ok-bg: #d3eada;
-  --po-bad: #8f2315;
-  --po-bad-bg: #f7d9d2;
-  --po-warn: #6a4500;
-  --po-warn-bg: #f4e3b0;
-  --po-info: #1d4a73;
-  --po-info-bg: #d8e5f1;
   --po-r-1: 10px;
   --po-r-2: 16px;
   --po-r-3: 24px;
-  --po-shadow-1: 0 1px 2px rgba(24, 25, 20, 0.1), 0 8px 24px rgba(24, 25, 20, 0.09);
   --po-r-btn: 12px;
-  --po-shadow-2: 0 2px 4px rgba(24, 25, 20, 0.06), 0 18px 48px rgba(24, 25, 20, 0.14);
   --po-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --po-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
 
@@ -147,9 +127,9 @@
 .po-app .po-btn-danger {
   --btn-bg: var(--po-bad);
   --btn-bd: var(--po-bad);
-  --btn-fg: #ffffff;
-  --btn-fill: #5e170c;
-  --btn-fg-hover: #ffffff;
+  --btn-fg: var(--po-white);
+  --btn-fill: var(--po-bad-deep);
+  --btn-fg-hover: var(--po-white);
 }
 .po-app .po-btn[aria-disabled='true'],
 .po-app .po-btn:disabled {
@@ -237,8 +217,8 @@ textarea.po-input {
   white-space: nowrap;
   border: 1px solid transparent;
 }
-.po-tag-live { background: var(--po-ok-bg); color: var(--po-ok); border-color: #a9d3b6; }
-.po-tag-recorded { background: var(--po-warn-bg); color: var(--po-warn); border-color: #dcc47a; }
+.po-tag-live { background: var(--po-ok-bg); color: var(--po-ok); border-color: var(--po-ok-line); }
+.po-tag-recorded { background: var(--po-warn-bg); color: var(--po-warn); border-color: var(--po-warn-line); }
 .po-tag-illustration { background: var(--po-sunken); color: var(--po-ink); border-color: var(--po-line); }
 .po-app .po-live-dot {
   width: 7px;
@@ -254,7 +234,7 @@ textarea.po-input {
 /* ---- loading ---- */
 .po-app .po-skel {
   display: block;
-  background: linear-gradient(90deg, #dcd8c6, #ebe8dc, #dcd8c6);
+  background: linear-gradient(90deg, var(--po-skel-a), var(--po-skel-b), var(--po-skel-a));
   background-size: 200% 100%;
   border-radius: 8px;
   animation: po-skel 1.4s linear infinite;
@@ -350,10 +330,10 @@ textarea.po-input {
   border: 1px solid transparent;
   white-space: nowrap;
 }
-.po-chip-ok { background: var(--po-ok-bg); color: var(--po-ok); border-color: #a9d3b6; }
-.po-chip-bad { background: var(--po-bad-bg); color: var(--po-bad); border-color: #e6aea3; }
-.po-chip-warn { background: var(--po-warn-bg); color: var(--po-warn); border-color: #dcc47a; }
-.po-chip-info { background: var(--po-info-bg); color: var(--po-info); border-color: #aac4de; }
+.po-chip-ok { background: var(--po-ok-bg); color: var(--po-ok); border-color: var(--po-ok-line); }
+.po-chip-bad { background: var(--po-bad-bg); color: var(--po-bad); border-color: var(--po-bad-line); }
+.po-chip-warn { background: var(--po-warn-bg); color: var(--po-warn); border-color: var(--po-warn-line); }
+.po-chip-info { background: var(--po-info-bg); color: var(--po-info); border-color: var(--po-info-line); }
 .po-chip-neutral { background: var(--po-sunken); color: var(--po-ink); border-color: var(--po-line); }
 
 .po-app .po-num {
@@ -364,7 +344,7 @@ textarea.po-input {
 .po-app .po-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(24, 25, 20, 0.5);
+  background: var(--po-scrim);
   z-index: 60;
 }
 

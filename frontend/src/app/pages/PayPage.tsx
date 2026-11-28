@@ -632,7 +632,7 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
               <summary className="inline-flex min-h-[44px] cursor-pointer items-center text-[15px] font-medium text-po-accent-ink">
                 Show the exact request
               </summary>
-              <pre className="mt-2 overflow-x-auto rounded-[10px] bg-po-ink p-3 font-mono text-xs text-po-paper">{rawPayload}</pre>
+              <pre className="mt-2 overflow-x-auto rounded-[10px] bg-po-ink p-3 font-mono text-xs text-po-white">{rawPayload}</pre>
               <div className="mt-2">
                 <CopyButton value={rawPayload} label="request" />
               </div>

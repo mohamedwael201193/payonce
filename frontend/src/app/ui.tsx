@@ -370,7 +370,7 @@ export function Sheet({
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
           <motion.div
             key="scrim"
-            className="absolute inset-0 bg-[rgba(24,25,20,0.5)]"
+            className="absolute inset-0 bg-[var(--po-scrim)]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

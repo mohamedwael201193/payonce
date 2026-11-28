@@ -1,0 +1,83 @@
+/* PayOnce app colour system (v10): the ONE place raw colours for /app/* live.
+   Everything else (app.css, components, Tailwind utilities) reads var(--po-*).
+   src/app/tokens.ts mirrors these values and tokens.test.ts fails if they drift.
+
+   Look: a cool grey ground (--po-paper) under pure white cards (--po-surface)
+   with a 1px hairline and a soft cool shadow, so every card reads as a raised
+   object. A deep ink sidebar anchors the layout. Orange (the hero accent) is
+   for primary buttons, the active nav pill, focus rings and the live dot only;
+   orange text uses the darker --po-accent-ink. Status colours are used for
+   meaning only: paid green, refused red, pending amber, info blue. */
+
+.po-app {
+  /* ground and surfaces */
+  --po-paper: #f1f3f8;
+  --po-surface: #ffffff;
+  --po-sunken: #eef1f7;
+  --po-rail: #0e1219;
+  --po-ink: #0e1219;
+  --po-grey: #475066;
+  --po-line: #d9dee8;
+  --po-line-strong: #7c869b;
+  --po-white: #ffffff;
+  /* brand accent: fills and focus only */
+  --po-accent: #e8541a;
+  --po-accent-ink: #b03a08;
+  /* status: paid, refused, pending, info (text / tint / border) */
+  --po-ok: #0b6b3a;
+  --po-ok-bg: #ddf3e5;
+  --po-ok-line: #9bd4b0;
+  --po-bad: #b42318;
+  --po-bad-bg: #fde7e4;
+  --po-bad-line: #f2a9a1;
+  --po-bad-deep: #6e1a12;
+  --po-warn: #8a4a00;
+  --po-warn-bg: #fef0cc;
+  --po-warn-line: #edc96b;
+  --po-info: #1e4f94;
+  --po-info-bg: #e4eefc;
+  --po-info-line: #a9c6ee;
+  /* dark sidebar */
+  --po-nav-fg: #bac2d2;
+  --po-nav-hover: #1b2130;
+  --po-nav-line: #2a3243;
+  /* loading and overlays */
+  --po-skel-a: #e3e7ef;
+  --po-skel-b: #f1f3f8;
+  --po-scrim: rgba(14, 18, 25, 0.55);
+  /* elevation: cool, low-alpha, two steps */
+  --po-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 20px rgba(16, 24, 40, 0.07);
+  --po-shadow-2: 0 2px 4px rgba(16, 24, 40, 0.06), 0 18px 48px rgba(16, 24, 40, 0.14);
+}
+
+/* Tailwind utilities (bg-po-paper, text-po-ink, border-po-line, ...). `inline`
+   makes each utility read the variable where it is used. */
+@theme inline {
+  --color-po-paper: var(--po-paper);
+  --color-po-surface: var(--po-surface);
+  --color-po-sunken: var(--po-sunken);
+  --color-po-rail: var(--po-rail);
+  --color-po-ink: var(--po-ink);
+  --color-po-grey: var(--po-grey);
+  --color-po-line: var(--po-line);
+  --color-po-line-strong: var(--po-line-strong);
+  --color-po-white: var(--po-white);
+  --color-po-accent: var(--po-accent);
+  --color-po-accent-ink: var(--po-accent-ink);
+  --color-po-ok: var(--po-ok);
+  --color-po-ok-bg: var(--po-ok-bg);
+  --color-po-ok-line: var(--po-ok-line);
+  --color-po-bad: var(--po-bad);
+  --color-po-bad-bg: var(--po-bad-bg);
+  --color-po-bad-line: var(--po-bad-line);
+  --color-po-bad-deep: var(--po-bad-deep);
+  --color-po-warn: var(--po-warn);
+  --color-po-warn-bg: var(--po-warn-bg);
+  --color-po-warn-line: var(--po-warn-line);
+  --color-po-info: var(--po-info);
+  --color-po-info-bg: var(--po-info-bg);
+  --color-po-info-line: var(--po-info-line);
+  --color-po-nav-fg: var(--po-nav-fg);
+  --color-po-nav-hover: var(--po-nav-hover);
+  --color-po-nav-line: var(--po-nav-line);
+}

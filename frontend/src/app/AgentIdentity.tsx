@@ -144,7 +144,7 @@ export function OwnerProofPanel() {
       <p className="text-[15px] text-po-grey">
         Re-check it without us (reads the public testnet node, no keys):
       </p>
-      <pre className="overflow-x-auto rounded-[10px] bg-po-ink p-4 font-mono text-[13px] leading-relaxed text-po-paper">{`cd backend && npm ci\nnode scripts/verify-owner-proof.mjs https://payonce-tau.vercel.app/proofs/owner-proof.json`}</pre>
+      <pre className="overflow-x-auto rounded-[10px] bg-po-ink p-4 font-mono text-[13px] leading-relaxed text-po-white">{`cd backend && npm ci\nnode scripts/verify-owner-proof.mjs https://payonce-tau.vercel.app/proofs/owner-proof.json`}</pre>
       <p className="text-[15px] text-po-grey">
         The record is <a className="font-medium text-po-accent-ink underline decoration-po-line-strong" href="/proofs/owner-proof.json">/proofs/owner-proof.json</a>. Honest limits:
       </p>

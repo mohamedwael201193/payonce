@@ -39,9 +39,10 @@ function ratio(fg, bg) {
 let failed = 0
 for (const p of pairs) {
   const r = ratio(p.fg, p.bg)
-  const ok = r >= 4.5
+  const need = /border|ring/.test(p.name) ? 3 : 4.5 // non-text UI (WCAG 1.4.11) needs 3:1
+  const ok = r >= need
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${r.toFixed(2)}:1  ${p.name} (${p.fg} on ${p.bg})`)
 }
-console.log(`${pairs.length - failed}/${pairs.length} pairs pass WCAG AA (>= 4.5:1).`)
+console.log(`${pairs.length - failed}/${pairs.length} pairs pass WCAG AA (4.5:1 text, 3:1 borders and rings).`)
 if (failed > 0) process.exit(1)

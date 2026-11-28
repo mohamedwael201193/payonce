@@ -144,7 +144,7 @@ export function X402Page() {
             <p className="text-[15px] text-po-grey">
               The recorded run had the invoice file, so its document check passed (14 of 14). That test file was not kept in the repo, so a fresh run prints <code className="po-hash">ALL RUNNABLE CHECKS PASS (13/14)</code> with the document check reported as not run, never as passed. Run it yourself (read-only, no keys):
             </p>
-            <pre className="overflow-x-auto rounded-[10px] bg-po-ink p-4 font-mono text-[13px] leading-relaxed text-po-paper">{`cd api && npm ci && cd ../backend && npm ci && cd ../api\n${cmd}`}</pre>
+            <pre className="overflow-x-auto rounded-[10px] bg-po-ink p-4 font-mono text-[13px] leading-relaxed text-po-white">{`cd api && npm ci && cd ../backend && npm ci && cd ../api\n${cmd}`}</pre>
             <div>
               <CopyButton value={cmd} label="verifier command" />
             </div>
