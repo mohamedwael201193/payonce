@@ -3,6 +3,7 @@
 //   POST /api/vop/proofs        { payee, presentation, version }  keyless verify + store by anchor
 //   GET  /api/vop/proofs/:anchor                                  the stored presentation (re-verifiable)
 //   GET  /api/vop/payee?seller=&payee=                            the raw payee-book record
+//   GET  /api/vop/payable?seller=&id=                             a v3 payable (payee + payee_version from chain)
 //   GET  /api/vop/config                                          contract, codes, verdicts
 //   GET  /api/relay/config                                        what the relayer sponsors
 //   POST /api/relay/build       { sender, entrypoint, parameter | kind:'token', recipient, amount, memo }
@@ -11,7 +12,7 @@
 import { VerifiablePresentationV1 } from '@concordium/web-sdk';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
-import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3 } from './vop-chain.mjs';
+import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3 } from './vop-chain.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
 import { vClient, VERIFIER_URL } from './consent.mjs';
 import { signers } from './chain-v2.mjs';
@@ -81,6 +82,11 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       await limited('vop:payee', 30)(req); const q = qs(req);
       if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(q.seller ?? '') || !/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(q.payee ?? '')) throw new VopError(400, 'bad_address', 'seller and payee are account addresses.');
       return { contract: v3Label(), record: await getPayeeRecord(vClient(), q.seller, q.payee) };
+    })],
+    ['GET', /^\/api\/vop\/payable$/, wrap(async (req) => {
+      await limited('vop:payable', 60)(req); const q = qs(req);
+      if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(q.seller ?? '') || !/^\d{1,19}$/.test(q.id ?? '')) throw new VopError(400, 'bad_key', 'seller (account) and id (integer) are required.');
+      return { contract: v3Label(), payable: await getPayableV3(vClient(), q.seller, q.id) };
     })],
     ['GET', /^\/api\/relay\/config$/, wrap(() => relayer.config())],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],

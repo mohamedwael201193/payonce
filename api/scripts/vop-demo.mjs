@@ -145,6 +145,14 @@ if (PHASE === 'fraud-attempt') {
   await done();
 }
 
+if (PHASE === 'register-legit') {
+  const id = 2;
+  let p = await getPayableV3(c, SELLER.address, id);
+  if (!p) out.register = await direct(SELLER, 'register_payable', serRegisterPayable({ payable_id: id, payee: SELLER.address, amount: 1_000_000n, asset: 'CCD', due_ms: Date.now() + 7 * 864e5, doc_hash: sha256Hex(`payonce-vop-demo invoice ${NAME} #2`), agent_token: OWNER_TOKEN, expected_payer: BUYER.address, legal_ref: null }));
+  out.payable = await getPayableV3(c, SELLER.address, id);
+  await done();
+}
+
 if (PHASE === 'legit') {
   const chk = await vop.check({ seller: SELLER.address, payee: SELLER.address, legal_name: NAME, buyer: BUYER.address });
   out.check = { verdict: chk.verdict, payable: chk.payable, standin: chk.standin, evidence_hash: chk.evidence_hash, reasons: chk.reasons, checks: chk.checks, buyer_ack: chk.buyer_ack };
