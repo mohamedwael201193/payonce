@@ -25,3 +25,8 @@ Rule for the agent: pay only on MATCH. A person decides on CLOSE_MATCH and on "v
 Testnet names are self-asserted mock identities; the chain does not verify the zero-knowledge proof, a keyless verifier does.
 
 Env: `PAYONCE_MCP_URL` to point at another deployment. Source: github.com/mohamedwael201193/payonce/tree/main/packages/payonce-mcp. Apache-2.0.
+
+## Official MCP Registry
+
+Listed as [`io.github.mohamedwael201193/payonce-check-payee`](https://registry.modelcontextprotocol.io/?q=io.github.mohamedwael201193%2Fpayonce-check-payee) (v0.1.2). Hosted MCP at `https://payonce-api-n98a.onrender.com/mcp`, or local stdio via `npx -y payonce-mcp`.
+

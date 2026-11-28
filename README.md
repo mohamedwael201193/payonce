@@ -76,7 +76,7 @@ GitHub Action (fails the step unless the payee matches):
 
 Agent-to-agent: `POST https://payonce-api-n98a.onrender.com/a2a` (JSON-RPC `message/send`, card at `/.well-known/agent.json`).
 Pay-per-check over x402 on testnet: `GET /api/x402/check-payee?payee=<account>&name=<name>` answers 402 (0.01 CCD, fee sponsored), then the verdict after payment.
-Packages: [payonce-check-payee](https://www.npmjs.com/package/payonce-check-payee) · [payonce-mcp](https://www.npmjs.com/package/payonce-mcp).
+Packages: [payonce-check-payee](https://www.npmjs.com/package/payonce-check-payee) · [payonce-mcp](https://www.npmjs.com/package/payonce-mcp). Official MCP Registry: [io.github.mohamedwael201193/payonce-check-payee](https://registry.modelcontextprotocol.io/?q=io.github.mohamedwael201193%2Fpayonce-check-payee) (v0.1.2).
 
 ## Verify it yourself
 

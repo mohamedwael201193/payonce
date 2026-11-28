@@ -49,6 +49,9 @@ answers `402` (0.01 CCD, native, fee sponsored by PayOnce), then returns the ver
 
 ## MCP
 
+Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.mohamedwael201193%2Fpayonce-check-payee) as `io.github.mohamedwael201193/payonce-check-payee` (v0.1.2).
+
+
 Local stdio: `npx -y payonce-mcp` (a bridge to the hosted server, read-only).
 
 The hosted MCP server (Streamable HTTP, read-only) at `https://payonce-api-n98a.onrender.com/mcp` lists `check_payee`,
