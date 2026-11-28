@@ -184,6 +184,7 @@ export interface Census {
   vop_rule: string
   networks: { mainnet: CensusNet; testnet: CensusNet }
   check_payee_live_on_testnet_payees: { accounts_checked: number; verdicts: Record<string, number>; note: string }
+  check_payee_live_on_mainnet_payees?: { mode: string; accounts_checked: number; verdicts: Record<string, number>; note: string; payable?: number; accounts_with_business_identity?: number }
   x402_sellers: {
     concordium_endpoints_checked: number
     rows: { endpoint: string; network: string; payTo: string; amount: string; asset: string; check_payee_verdict: Verdict; payTo_business_id: boolean }[]

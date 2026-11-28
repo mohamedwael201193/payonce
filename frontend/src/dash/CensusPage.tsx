@@ -70,6 +70,7 @@ export function CensusPage() {
   const q = useQuery({ queryKey: ['census'], queryFn: dashApi.census, staleTime: 5 * 60_000 })
   const c = q.data
   const d = c?.networks[net]
+  const live = net === 'testnet' ? c?.check_payee_live_on_testnet_payees : c?.check_payee_live_on_mainnet_payees
   return (
     <div className="ds ds-census" data-testid="census">
       <header className="ds-hero ds-hero--slim">
@@ -102,16 +103,16 @@ export function CensusPage() {
               </div>
             </section>
 
-            {net === 'testnet' ? (
+            {live ? (
               <section className="ds-card">
                 <h2 className="ds-h2">We ran the check on them</h2>
-                <p className="ds-note">PayOnce’s <code>check_payee</code> on {n(c.check_payee_live_on_testnet_payees.accounts_checked)} testnet payees, using each agent’s card name as the invoice name.</p>
+                <p className="ds-note">PayOnce’s <code>check_payee</code> on {n(live.accounts_checked)} {net} payee accounts, using each agent’s card name as the invoice name.{net === 'mainnet' ? ' Mainnet is identity-only: it can never answer Match.' : ''}</p>
                 <ul className="ds-verdicts">
-                  {Object.entries(c.check_payee_live_on_testnet_payees.verdicts).map(([v, k]) => (
+                  {Object.entries(live.verdicts).map(([v, k]) => (
                     <li key={v}><b className="tabular">{n(k)}</b><span>{VERDICT_TEXT[v as keyof typeof VERDICT_TEXT]?.word ?? v}</span></li>
                   ))}
                 </ul>
-                <p className="ds-note">{c.check_payee_live_on_testnet_payees.note}</p>
+                <p className="ds-note">{live.note}</p>
               </section>
             ) : null}
 
