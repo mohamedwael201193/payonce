@@ -5,6 +5,7 @@ export const BADGE_WORD = {
   CLOSE_MATCH: 'Close match',
   NO_MATCH: 'No match',
   UNVERIFIED: 'Not possible',
+  NOT_BOUND: 'Not bound',
   PROVEN: 'Name proven',
   UNPROVEN: 'Unverified payee',
 };
@@ -13,11 +14,15 @@ const COLOR = {
   CLOSE_MATCH: { bg: '#fff4e0', ink: '#9a5b00' },
   NO_MATCH: { bg: '#fdecea', ink: '#b42318' },
   UNVERIFIED: { bg: '#eef0f3', ink: '#3d4450' },
+  NOT_BOUND: { bg: '#fff4e0', ink: '#9a5b00' },
   PROVEN: { bg: '#eef0f3', ink: '#0e1219' },
   UNPROVEN: { bg: '#eef0f3', ink: '#3d4450' },
 };
 
-export function badgeKind({ verdict, verified, named }) {
+export function badgeKind({ verdict, payable, verified, named }) {
+  // Green Match only when the book has a Bound, matured payee and the name matches.
+  if (verdict === 'MATCH' && payable) return 'MATCH';
+  if (verdict === 'MATCH') return 'NOT_BOUND';
   if (verdict) return verdict;
   if (named && verified) return 'PROVEN';
   return 'UNPROVEN';

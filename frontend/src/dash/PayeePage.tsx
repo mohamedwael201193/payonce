@@ -18,6 +18,7 @@ export function PayeePage() {
   const ok = ACCOUNT.test(account)
   useDocumentTitle(ok ? `Payee ${midTruncate(account, 6, 6)}` : 'Payee')
   const cardQ = useQuery({ queryKey: ['payee-card', account], enabled: ok, queryFn: () => dashApi.payeeCard(account) })
+  const bookQ = useQuery({ queryKey: ['payee-book', account], enabled: ok, queryFn: () => dashApi.payeeStatus(account) })
   const card = cardQ.data ?? null
   const proof = card?.verified ? card : null
   const [name, setName] = useState('')
@@ -25,7 +26,7 @@ export function PayeePage() {
   const asked = name.trim() || card?.name || ''
   const checkQ = useQuery({
     queryKey: ['check-payee', account, asked],
-    enabled: ok && !cardQ.isLoading && asked.length > 0,
+    enabled: ok && asked.length > 0,
     queryFn: () => dashApi.payeeCheck(account, asked),
   })
   const [json, setJson] = useState(false)
@@ -44,7 +45,7 @@ export function PayeePage() {
         <section className="ds-card">
           <div className="ds-kv">
             <span>Name proof</span><b>{cardQ.isLoading ? '…' : card?.proof ? `${card.kind === 'business' ? 'Company' : 'Person'} · ${card.proof.version.toUpperCase()}` : 'None'}</b>
-            <span>Payee book</span><b>{c ? c.subject.book.status : card?.bound?.status ?? '…'}</b>
+            <span>Payee book</span><b>{c?.subject.book.status ?? card?.bound?.status ?? bookQ.data?.status ?? (bookQ.isLoading || cardQ.isLoading ? 'Looking up…' : 'NotBound')}</b>
           </div>
           <form className="ds-form" onSubmit={(e) => { e.preventDefault(); setName(draft) }}>
             <label className="ds-field"><span>Name on your invoice</span><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={card?.name ?? 'The name you were told to pay'} /></label>

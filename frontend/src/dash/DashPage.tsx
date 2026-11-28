@@ -89,22 +89,30 @@ function checksOf(c: CheckPayee) {
   return c.checks.map((x) => ({ ok: x.ok, text: plain[x.id] ?? x.detail }))
 }
 
+export function stampFor(check: CheckPayee): { verdict: CheckPayee['verdict']; word?: string; tone?: 'ok' | 'warn' | 'bad'; sub?: string; shown: string } {
+  if (check.verdict === 'MATCH' && !check.payable) {
+    return { verdict: check.verdict, word: 'Not bound', tone: 'warn', sub: check.verified_name ?? 'Name matches, but this account is not a payee yet', shown: 'NOT_BOUND' }
+  }
+  return { verdict: check.verdict, sub: check.verified_name ?? undefined, shown: check.verdict }
+}
+
 export function VerdictBlock({ check }: { check: CheckPayee }) {
+  const st = stampFor(check)
   return (
-    <div className="ds-verdict" data-testid="verdict" data-verdict={check.verdict}>
-      <Stamp verdict={check.verdict} sub={check.verified_name ?? undefined} />
+    <div className="ds-verdict" data-testid="verdict" data-verdict={st.shown}>
+      <Stamp verdict={st.verdict} word={st.word} tone={st.tone} sub={st.sub} />
       <CheckTicks items={checksOf(check)} />
     </div>
   )
 }
 
-function Rail({ step, done, go }: { step: number; done: boolean[]; go: (n: number) => void }) {
+function Rail({ step, done, go, canGo }: { step: number; done: boolean[]; go: (n: number) => void; canGo: (n: number) => boolean }) {
   const still = useReducedMotion()
   return (
     <ol className="ds-rail" aria-label="Progress">
       {STEPS.map((s, i) => (
         <li key={s.key} className={`${i === step ? 'is-now' : ''} ${done[i] ? 'is-done' : ''} ${i === 4 ? 'is-split' : ''}`}>
-          <button onClick={() => go(i)} aria-current={i === step ? 'step' : undefined}>
+          <button onClick={() => canGo(i) && go(i)} disabled={!canGo(i)} aria-current={i === step ? 'step' : undefined}>
             <span className="ds-rail__dot">{done[i] ? '✓' : i}</span>
             <span className="ds-rail__label">{s.label}</span>
           </button>
@@ -171,22 +179,39 @@ function Flow() {
     if (proof && !invoice) setInvoice(`Invoice to: PayOnce reference payer\nFrom: ${proof.name}\nPay to: ${proof.account}\nAmount: 1 CCD`)
   }, [proof]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const done = [!!acct, !!proof, bound, job.s === 'done' && job.v.stage === 'paid', outSt.phase === 'finalized', record.s === 'done']
+  const done = [!!acct, !!proof, bound, job.s === 'done' && job.v.stage === 'paid', outSt.phase === 'finalized', record.s === 'done' && record.v.length > 0]
 
+  const proveGen = useRef(0)
   async function proveName() {
     if (!w.session || !acct) return
+    const my = ++proveGen.current
     try {
-      setProve({ s: 'busy', note: w.session.kind === 'browser' ? 'Anchoring the request on chain…' : 'Preparing the request…' })
+      setProve({ s: 'busy', note: w.session.kind === 'browser' ? 'Anchoring the request on chain… If the wallet already shows Approve, wait until this line changes before tapping it.' : 'Preparing the request…' })
       const req = await walletApi<{ request_id: string; v1?: unknown; v0: { challenge: string; statements: unknown } }>('/api/wallet/payee-proof/request', { method: 'POST', body: { account: acct, kind, wallet: w.session.kind } })
-      setProve({ s: 'busy', note: 'Approve in your wallet. Only the name is shared.' })
-      const out = await w.session.requestProof({ v1: req.v1, v0: req.v0 })
+      if (my !== proveGen.current) return
+      setProve({ s: 'busy', note: 'Approve in the Concordium Wallet window or tab. Only the name is shared. If nothing happens, look for a wallet tab in the browser.' })
+      const out = await Promise.race([
+        w.session.requestProof({ v1: req.v1, v0: req.v0 }),
+        new Promise<never>((_, rej) => {
+          window.setTimeout(() => rej(new Error('The wallet did not answer in 90 seconds. Close the wallet tab and try again.')), 90_000)
+        }),
+      ])
+      if (my !== proveGen.current) return
       setProve({ s: 'busy', note: 'Checking the proof…' })
       const v = await walletApi<{ verified: boolean }>('/api/wallet/payee-proof/verify', { method: 'POST', body: { request_id: req.request_id, version: out.version, presentation: out.presentation } })
+      if (my !== proveGen.current) return
       if (!v.verified) return setProve({ s: 'error', msg: 'The proof did not verify.' })
       await qc.invalidateQueries({ queryKey: ['payee-proof', acct] })
       setProve({ s: 'done', v: true })
       setStep(2)
-    } catch (e) { setProve(errOf(e)) }
+    } catch (e) {
+      if (my !== proveGen.current) return
+      setProve(errOf(e))
+    }
+  }
+  function cancelProve() {
+    proveGen.current += 1
+    setProve({ s: 'idle' })
   }
 
   async function becomePayee() {
@@ -320,7 +345,7 @@ function Flow() {
       card = (
         <Card k="c0" title="Connect your wallet">
           <RunConnect />
-          <p className="ds-note">No fee to connect, prove your name or become a payee — PayOnce pays those. You need some test CCD only if you later pay someone from this wallet (Concordium’s faucet). Concordium Wallet (browser) 2.10+ or CryptoX (Android). <a href="https://docs.concordium.com/" target="_blank" rel="noreferrer">No testnet identity? Guide</a></p>
+          <p className="ds-note">No fee to connect, prove your name or become a payee — PayOnce pays those. You need some test CCD only if you later pay someone from this wallet (<a href="https://developer.concordium.software/en/mainnet/net/guides/accounts-wallets.html" target="_blank" rel="noreferrer">Concordium’s testnet faucet</a>). Concordium Wallet (browser) 2.10+ or CryptoX (Android). <a href="https://developer.concordium.software/en/mainnet/net/guides/create-identity.html" target="_blank" rel="noreferrer">No testnet identity? Guide</a></p>
           {acct ? <button className="ds-btn" onClick={() => setStep(proof ? 2 : 1)}>Continue</button> : null}
         </Card>
       )
@@ -339,6 +364,7 @@ function Flow() {
                 ))}
               </div>
               <button className="ds-btn" disabled={!acct || prove.s === 'busy'} onClick={() => void proveName()}>Prove my name</button>
+              {prove.s === 'busy' ? <button className="ds-btn ds-btn--ghost" type="button" onClick={cancelProve}>Cancel and try again</button> : null}
               <State a={prove} />
               <p className="ds-note">Shares the name only, never the ID number. Testnet names are mock identities.</p>
             </>
@@ -490,7 +516,7 @@ function Flow() {
       <header className="ds-hero">
         <h1 className="ds-h1">Get paid. Then pay.</h1>
         <p className="ds-lead">Your wallet, your name, real testnet money.</p>
-        <Rail step={step} done={done} go={setStep} />
+        <Rail step={step} done={done} go={setStep} canGo={(n) => n < 3 || bound} />
       </header>
       <div className="ds-body">
         <AnimatePresence mode="wait">{card}</AnimatePresence>

@@ -283,7 +283,7 @@ async function badgeFor(account, q) {
   const name = String(q?.name ?? q?.legal_name ?? '').trim();
   if (name) {
     const r = await cards.check(account, name);
-    return badgeSvg(badgeKind({ verdict: r.verdict }));
+    return badgeSvg(badgeKind({ verdict: r.verdict, payable: r.payable }));
   }
   const c = await cards.card(account);
   return badgeSvg(badgeKind({ verified: c.verified, named: Boolean(c.name) }));

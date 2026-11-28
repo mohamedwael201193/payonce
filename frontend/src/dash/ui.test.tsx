@@ -102,7 +102,10 @@ describe('lookalike', () => {
 
 describe('badge svg', () => {
   it('only Match uses the green pass colour', () => {
+    expect(badgeKind({ verdict: 'MATCH', payable: true })).toBe('MATCH')
+    expect(badgeKind({ verdict: 'MATCH', payable: false })).toBe('NOT_BOUND')
     expect(badgeColors('MATCH').bg).toBe('#e8f6ee')
+    expect(badgeColors('NOT_BOUND').bg).not.toBe(badgeColors('MATCH').bg)
     for (const k of ['CLOSE_MATCH', 'NO_MATCH', 'UNVERIFIED', 'PROVEN', 'UNPROVEN'] as const) {
       expect(badgeColors(k).bg).not.toBe('#e8f6ee')
       expect(badgeSvg(k)).toContain(k === 'CLOSE_MATCH' ? 'Close match' : k === 'NO_MATCH' ? 'No match' : k === 'UNVERIFIED' ? 'Not possible' : k === 'PROVEN' ? 'Name proven' : 'Unverified payee')

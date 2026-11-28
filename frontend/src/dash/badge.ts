@@ -5,11 +5,12 @@ import type { Verdict } from './contracts'
 export const BADGE_API = 'https://payonce-api-n98a.onrender.com'
 export const BADGE_PAGE = 'https://payonce-tau.vercel.app'
 
-export const BADGE_WORD: Record<Verdict | 'PROVEN' | 'UNPROVEN', string> = {
+export const BADGE_WORD: Record<Verdict | 'NOT_BOUND' | 'PROVEN' | 'UNPROVEN', string> = {
   MATCH: 'Match',
   CLOSE_MATCH: 'Close match',
   NO_MATCH: 'No match',
   UNVERIFIED: 'Not possible',
+  NOT_BOUND: 'Not bound',
   PROVEN: 'Name proven',
   UNPROVEN: 'Unverified payee',
 }
@@ -19,6 +20,7 @@ const COLOR: Record<string, { fg: string; bg: string; ink: string }> = {
   CLOSE_MATCH: { fg: '#9a5b00', bg: '#fff4e0', ink: '#9a5b00' },
   NO_MATCH: { fg: '#b42318', bg: '#fdecea', ink: '#b42318' },
   UNVERIFIED: { fg: '#5b6472', bg: '#eef0f3', ink: '#3d4450' },
+  NOT_BOUND: { fg: '#9a5b00', bg: '#fff4e0', ink: '#9a5b00' },
   PROVEN: { fg: '#0e1219', bg: '#eef0f3', ink: '#0e1219' },
   UNPROVEN: { fg: '#5b6472', bg: '#eef0f3', ink: '#3d4450' },
 }
@@ -30,7 +32,9 @@ export function badgeColors(kind: BadgeKind) {
   return COLOR[kind] ?? COLOR.UNVERIFIED
 }
 
-export function badgeKind(input: { verdict?: Verdict | null; verified?: boolean; named?: boolean }): BadgeKind {
+export function badgeKind(input: { verdict?: Verdict | null; payable?: boolean; verified?: boolean; named?: boolean }): BadgeKind {
+  if (input.verdict === 'MATCH' && input.payable) return 'MATCH'
+  if (input.verdict === 'MATCH') return 'NOT_BOUND'
   if (input.verdict) return input.verdict
   if (input.named && input.verified) return 'PROVEN'
   return 'UNPROVEN'

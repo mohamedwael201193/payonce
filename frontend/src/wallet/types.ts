@@ -44,7 +44,7 @@ export function walletErrorText(e: unknown): string {
   if (/rejected by the node|not accepted|invalid signature|signature/i.test(msg)) return 'The network refused to accept this transaction (it was never included, nothing was spent). If your account needs several signatures, use a single-key account.'
   if (/user rejected|rejected by user|reject|denied|cancel|declin|closed/i.test(msg)) return 'You cancelled in the wallet. Nothing was sent.'
   if (/locked/i.test(msg)) return 'Your wallet is locked. Unlock it and try again.'
-  if (/not allowlisted|not connected/i.test(msg)) return 'This site is not connected to your wallet yet. Connect again and approve PayOnce.'
+  if (/not whitelist|not allowlist|not connected/i.test(msg)) return 'Concordium Wallet does not have this site on the allowlist for this account. Disconnect, then Connect again. If it still fails, remove this site from the wallet’s allowlist and connect once more.'
   if (/insufficient|not enough|amount too large|balance/i.test(msg)) return 'Your account does not have enough test CCD for this step. Get test CCD first.'
   if (/timeout|timed out/i.test(msg)) return 'The wallet did not answer in time. Open it and try again.'
   return msg ? `The wallet said: ${msg.slice(0, 200)}` : 'The wallet did not complete the request.'

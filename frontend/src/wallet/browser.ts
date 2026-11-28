@@ -38,8 +38,12 @@ function session(api: Api, account: string, chainOk: boolean | null): WalletSess
     async sendSponsored(transaction: unknown, schemaBase64: string | null) {
       const send = (api as { sendSponsoredTransaction?: unknown }).sendSponsoredTransaction
       if (typeof send !== 'function') throw new WalletTooOld()
+      // Wallet 2.12.x runIfAccountIsAllowlisted does allowlist[origin].includes(payload.accountAddress).
+      // sendSponsoredTransaction (unlike sendTransaction / signMessage) does not call AccountAddress.toBase58,
+      // so an AccountAddress object never matches the stored base58 strings and the wallet returns
+      // "Site is not whitelisted" with no popup. Always pass the base58 string.
       return (api.sendSponsoredTransaction as (a: unknown, t: unknown, s?: unknown) => Promise<string>)(
-        AccountAddress.fromBase58(account),
+        account,
         Transaction.signableFromJSON(transaction),
         schemaBase64 ? { type: 'ModuleSchema', value: schemaBase64 } : undefined,
       )

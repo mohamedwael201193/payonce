@@ -12,18 +12,18 @@ import { sharedEnds } from './lookalike'
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
-export function Stamp({ verdict, sub }: { verdict: Verdict; sub?: string }) {
+export function Stamp({ verdict, sub, word, tone }: { verdict: Verdict; sub?: string; word?: string; tone?: 'ok' | 'warn' | 'bad' }) {
   const still = useReducedMotion()
   const v = VERDICT_TEXT[verdict]
   return (
     <motion.div
-      className={`ds-stamp ds-stamp--${v.tone}`}
+      className={`ds-stamp ds-stamp--${tone ?? v.tone}`}
       role="status"
       initial={still ? false : { scale: 2.2, opacity: 0, rotate: -14 }}
       animate={{ scale: 1, opacity: 1, rotate: -6 }}
       transition={still ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 22, mass: 0.9, delay: 0.15 }}
     >
-      <span className="ds-stamp__word">{v.word}</span>
+      <span className="ds-stamp__word">{word ?? v.word}</span>
       {sub ? <span className="ds-stamp__sub">{sub}</span> : null}
     </motion.div>
   )

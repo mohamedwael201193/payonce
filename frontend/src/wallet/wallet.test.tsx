@@ -13,6 +13,7 @@ vi.mock('./browser', () => ({
 
 describe('wallet helpers', () => {
   it('turns wallet errors into plain words', () => {
+    expect(walletErrorText(new Error('Site is not whitelisted'))).toMatch(/allowlist/)
     expect(walletErrorText(new Error('User rejected the request'))).toMatch(/cancelled/)
     expect(walletErrorText(new Error('Wallet is locked'))).toMatch(/locked/)
     expect(walletErrorText(new Error('insufficient funds'))).toMatch(/test CCD/)
