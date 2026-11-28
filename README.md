@@ -31,16 +31,20 @@ Payments run in **CCD or EUDemo** (the testnet euro PLT), with the same payee ch
 | Part | Status (28 Nov 2026) |
 | --- | --- |
 | `/demo` on the v3 demo book [`<13173,0>`](https://ccdexplorer.io/testnet/instance/13173/0) (90 s cooling-off; a production book would be 24 h+, set at init) | Live. Fresh runs up to 30/day. Stand-in invoice name: “PayOnce Labs” (labelled). |
-| Payee book v3 [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) (600 s cooling-off), verifiable module `8641046e…` | Deployed. The dashboard uses the 90 s demo book. |
-| Payable registry v2 [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) | Still serves the Run-it page (`/app` without `?dash=1`). Not a verified build on CCDExplorer. |
+| Payee book v3 [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) (600 s cooling-off) and the demo book, both on module [`8641046e…`](https://ccdexplorer.io/testnet/module/8641046eb939a5693731b6d79b227a1a4b356d8cf10308baabca0a93a16b3946) | **Live and verified.** CCDExplorer shows the module as Verified. CI checks on every push that source == deployed module: the archive matches `src/`, the module hash matches the ref, the node serves those bytes and both books run it (`verify-v3-module`), and a rebuild in Concordium's pinned image reproduces it (`verify-v3-build`). |
+| Payable registry v2 [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) | **Superseded by v3** (no payee book). Kept only for the older Run-it page (`/app` without `?dash=1`). Not a verified build. |
 | `check_payee` (`GET /api/vop/check`, `/api/check-payee`) | Live, testnet full check; `network=mainnet` is identity-only (never Match, never payable). |
-| Dashboard routes (`/api/payee/propose`, `/api/getpaid`, `/api/p/:account/pay-tx`, `/api/record/:account`) | Live on the demo book. Close match needs `approved=1`. Not possible cannot be acknowledged and is refused. |
+| Dashboard routes (`/api/payee/propose`, `/api/getpaid`, `/api/p/:account/pay-tx`, `/api/record/:account`) | Live on the demo book. Close match needs a wallet-signed approval (`approval=<id>`); `approved=1` alone is refused. Not possible cannot be acknowledged and is refused. |
 | Census of the official registry (`GET /api/census`, [/app/proof/census](https://payonce-tau.vercel.app/app/proof/census)) | Snapshot 28 Nov 2026, 07:26 UTC: at most 5 of 5,501 mainnet agents, and 3 of 1,553 on testnet, meet the *preconditions* of a payee check (an upper bound). |
 | x402 services run by other teams | Listed, probed (free), and payable by a capped reference buyer on Match only. |
 | PayOnce sells `check_payee` over x402 | Live: `GET /api/x402/check-payee?payee=&name=` answers 402 (0.01 CCD, fee sponsored), then the verdict. A2A `message/send` at `/a2a`. CLI/MCP: `npx payonce-check-payee`, `npx payonce-mcp`. |
 | EUDemo rail | The guard runs in our API before the transfer. The contract cannot see tokens. |
 | 18+ check | Hosted prover with one PayOnce testnet credential, not the visitor’s wallet. Visitor wallet routes are not live. |
-| Human approval of a Close match | A click on the page, with a consent box. A wallet-signed approval is not live yet. |
+| Human approval of a Close match | Server side live: the payer's wallet signs a message naming the payee, name, amount, verdict evidence hash, invoice hash and expiry (`POST /api/approvals/request`, `/api/approvals/:id/verify`). It is checked against the account keys on chain, hash-chained into the receipt ledger and anchored. The page still shows the click until the dashboard wires the wallet signature. |
+| Red team: live attack catalogue (`GET /api/proof/attacks`, [scorecard file](docs/proof/)) | 30/30 attacks refused with the expected code, 18 distinct on-chain refusal codes (-2 … -36): node dry runs of the exact attacker transactions plus re-read finalized refusals and API attacks. Re-run with `?fresh=1`. |
+| False-green benchmark (`GET /api/proof/false-green`, [cases](docs/proof/false-green-seed-20261128.json)) | 0 false MATCH, 0 false payable in 1,011 impostor checks (lookalike names, homoglyphs, lookalike and alias addresses), seed 20261128, through the production checker with live chain facts. |
+| Verdict receipts (`GET /api/vop/ledger`, `/head`, `/verify`) | Hash-chained; the head is anchored with registerData `PVOH1` at most every 6 h and after each signed approval. `/verify` recomputes the chain and reads every anchor back. |
+| Fees (`GET /api/fees`, [docs/FEES.md](docs/FEES.md)) | About €0.095 per paid invoice (register + sponsored pay). The buyer pays only the amount; checks are free. Measured on testnet, same EUR peg as mainnet. |
 | Outside users | No visitor outside us has completed “become a payee” yet. |
 | Protocol-Level Locks (PLL) | NO-GO for a live demo (DevNet-only, no public IdP, wire format still moving). See `tools/census/PLL_SPIKE.md`. |
 
