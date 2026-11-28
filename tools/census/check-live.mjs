@@ -49,8 +49,8 @@ claim('L8', 'The 18+ check anchors (request 0cd44ea0…, result bf5a7bf4…) are
   const bs = await Promise.all(['0cd44ea04e380c1bfd23b2fc8c79a7474ac6088d34dedf7159499320be7b8ca2', 'bf5a7bf445b53d4b2e62407f55639f2f0b897bc983f223f2cb0491c605c1bb19'].map(finalized));
   return { ok: bs.every((b) => b.status === 'finalized' && b.outcome === 'success' && b.registeredData), detail: bs.map((b) => b.status).join(',') };
 });
-claim('L9', 'Three PayOnce agents hold a valid official Concordium badge (1476, 1506, 1488)', async () => {
-  const toks = ['JyP9XawpXHMjTN5ocrA5a', 'JyP9Y9nGU4KaM7DBDXRgm', 'JyP9Xp5bhbLsQrw7yTyph'];
+claim('L9', 'Four PayOnce agents hold a valid official Concordium badge (1476, 1506, 1488, 1554)', async () => {
+  const toks = ['JyP9XawpXHMjTN5ocrA5a', 'JyP9Y9nGU4KaM7DBDXRgm', 'JyP9Xp5bhbLsQrw7yTyph', 'JyP9UE8M6sTcxSaorAr8W'];
   const rs = await Promise.all(toks.map((t) => retry(() => j(`${REG}/v1/check-badge/${t}?network=testnet`))));
   const ok = rs.map((r) => r.body?.agents?.[0]?.badge_valid === true || r.body?.badge_valid === true);
   return { ok: ok.every(Boolean), detail: ok.join(',') };

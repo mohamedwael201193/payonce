@@ -28,8 +28,8 @@ describe('parseBadgeCheck', () => {
 })
 
 describe('agents', () => {
-  it('lists the two sellers and the payer on the official registry tokens', () => {
-    expect(AGENTS.map((a) => a.token)).toEqual([1476, 1506, 1488])
+  it('lists the two sellers, the payer and the check_payee service on the official registry tokens', () => {
+    expect(AGENTS.map((a) => a.token)).toEqual([1476, 1506, 1488, 1554])
     expect(badgeCheckUrl(AGENTS[0].badge)).toBe('https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a?network=testnet')
   })
 })

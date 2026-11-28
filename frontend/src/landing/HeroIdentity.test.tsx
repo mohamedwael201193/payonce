@@ -13,8 +13,8 @@ describe('hero identity', () => {
   it('shows the three agents with no verdict before any check', () => {
     render(<MemoryRouter><HeroIdentity /></MemoryRouter>)
     const items = screen.getAllByTestId('hero-agent')
-    expect(items).toHaveLength(3)
-    expect(items.map((i) => /#(\d+)/.exec(i.textContent ?? '')?.[1])).toEqual(['1476', '1506', '1488'])
+    expect(items).toHaveLength(4)
+    expect(items.map((i) => /#(\d+)/.exec(i.textContent ?? '')?.[1])).toEqual(['1476', '1506', '1488', '1554'])
     expect(document.body.textContent).not.toMatch(/Verified by Concordium/)
   })
 

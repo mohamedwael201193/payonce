@@ -43,6 +43,12 @@ export function AgentBadgeCard({ agent }: { agent: AgentIdentity }) {
             <Address value={agent.badge} kind="hash" label={`${agent.name} badge address`} explorer={false} />
           </dd>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <dt className="text-po-grey">agentWallet, signed by that wallet</dt>
+          <dd className="min-w-0">
+            <ExplorerTx hash={agent.walletTx} />
+          </dd>
+        </div>
       </dl>
       <p className="min-h-[24px] text-[15px] text-po-ink" role="status" aria-live="polite" data-testid="badge-result">
         {text}
@@ -64,7 +70,7 @@ export function AgentBadgeCard({ agent }: { agent: AgentIdentity }) {
 
 export function AgentBadges() {
   return (
-    <ul className="grid items-stretch gap-4 md:grid-cols-3" aria-label="PayOnce agents on the official registry">
+    <ul className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="PayOnce agents on the official registry">
       {AGENTS.map((a) => (
         <li key={a.key} className="h-full">
           <AgentBadgeCard agent={a} />

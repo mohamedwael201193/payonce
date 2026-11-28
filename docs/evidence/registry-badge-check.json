@@ -1,0 +1,218 @@
+{
+  "checked_at_utc": "2026-11-28T08:36:31Z",
+  "endpoint": "https://agent-registry-mcp.concordium.com/v1/check-badge/{badge}?network=testnet",
+  "agents": [
+    {
+      "token": 1476,
+      "badge": "JyP9XawpXHMjTN5ocrA5a",
+      "badge_valid": true,
+      "checks_passed": "15/15",
+      "issues": [],
+      "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v3.json",
+      "card_sha256": "e057593405962beb4bfe62422d84ea36a066dcaf6de4401e992ce9a72e9a9187",
+      "on_chain_metadata_hash": "e057593405962beb4bfe62422d84ea36a066dcaf6de4401e992ce9a72e9a9187",
+      "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "agent_wallet": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "wallet_set_nonce": 1,
+      "raw": {
+        "token_id": 1476,
+        "token_address": "JyP9XawpXHMjTN5ocrA5a",
+        "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v3.json",
+        "http_status": 200,
+        "card_sha256": "e057593405962beb4bfe62422d84ea36a066dcaf6de4401e992ce9a72e9a9187",
+        "on_chain": {
+          "owner_account": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+          "status": "Active",
+          "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v3.json",
+          "metadata_hash_hex": "e057593405962beb4bfe62422d84ea36a066dcaf6de4401e992ce9a72e9a9187"
+        },
+        "checks": {
+          "on_chain_agent_found": true,
+          "status_active": true,
+          "has_agent_uri": true,
+          "card_fetched": true,
+          "hash_matches_on_chain": true,
+          "badge_present": true,
+          "badge_embedding": "extension",
+          "badge_well_formed": true,
+          "token_address_matches": true,
+          "owner_matches": true,
+          "contracts_match": true,
+          "verify_present": true,
+          "extension_conformant": true,
+          "verification_present": true,
+          "verify_url_matches": true
+        },
+        "badge_valid": true,
+        "issues": [],
+        "network": "testnet",
+        "expected": {
+          "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+          "contracts": {
+            "cis8004": "12802,0",
+            "cis8": "12801,0"
+          }
+        }
+      }
+    },
+    {
+      "token": 1488,
+      "badge": "JyP9Xp5bhbLsQrw7yTyph",
+      "badge_valid": true,
+      "checks_passed": "15/15",
+      "issues": [],
+      "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json",
+      "card_sha256": "0b1dffb57bf40d4f23ad3ed9cf4e32a97ff7fc7901ce62e3218facb14e7da8aa",
+      "on_chain_metadata_hash": "0b1dffb57bf40d4f23ad3ed9cf4e32a97ff7fc7901ce62e3218facb14e7da8aa",
+      "owner": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "agent_wallet": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+      "wallet_set_nonce": 1,
+      "raw": {
+        "token_id": 1488,
+        "token_address": "JyP9Xp5bhbLsQrw7yTyph",
+        "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json",
+        "http_status": 200,
+        "card_sha256": "0b1dffb57bf40d4f23ad3ed9cf4e32a97ff7fc7901ce62e3218facb14e7da8aa",
+        "on_chain": {
+          "owner_account": "4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs",
+          "status": "Active",
+          "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json",
+          "metadata_hash_hex": "0b1dffb57bf40d4f23ad3ed9cf4e32a97ff7fc7901ce62e3218facb14e7da8aa"
+        },
+        "checks": {
+          "on_chain_agent_found": true,
+          "status_active": true,
+          "has_agent_uri": true,
+          "card_fetched": true,
+          "hash_matches_on_chain": true,
+          "badge_present": true,
+          "badge_embedding": "extension",
+          "badge_well_formed": true,
+          "token_address_matches": true,
+          "owner_matches": true,
+          "contracts_match": true,
+          "verify_present": true,
+          "extension_conformant": true,
+          "verification_present": true,
+          "verify_url_matches": true
+        },
+        "badge_valid": true,
+        "issues": [],
+        "network": "testnet",
+        "expected": {
+          "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+          "contracts": {
+            "cis8004": "12802,0",
+            "cis8": "12801,0"
+          }
+        }
+      }
+    },
+    {
+      "token": 1506,
+      "badge": "JyP9Y9nGU4KaM7DBDXRgm",
+      "badge_valid": true,
+      "checks_passed": "15/15",
+      "issues": [],
+      "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v3.json",
+      "card_sha256": "97f647d17438a2ae81e1acc225b00c29bc1ef70c61516348a88f277abf76ebf3",
+      "on_chain_metadata_hash": "97f647d17438a2ae81e1acc225b00c29bc1ef70c61516348a88f277abf76ebf3",
+      "owner": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "agent_wallet": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+      "wallet_set_nonce": 1,
+      "raw": {
+        "token_id": 1506,
+        "token_address": "JyP9Y9nGU4KaM7DBDXRgm",
+        "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v3.json",
+        "http_status": 200,
+        "card_sha256": "97f647d17438a2ae81e1acc225b00c29bc1ef70c61516348a88f277abf76ebf3",
+        "on_chain": {
+          "owner_account": "3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr",
+          "status": "Active",
+          "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v3.json",
+          "metadata_hash_hex": "97f647d17438a2ae81e1acc225b00c29bc1ef70c61516348a88f277abf76ebf3"
+        },
+        "checks": {
+          "on_chain_agent_found": true,
+          "status_active": true,
+          "has_agent_uri": true,
+          "card_fetched": true,
+          "hash_matches_on_chain": true,
+          "badge_present": true,
+          "badge_embedding": "extension",
+          "badge_well_formed": true,
+          "token_address_matches": true,
+          "owner_matches": true,
+          "contracts_match": true,
+          "verify_present": true,
+          "extension_conformant": true,
+          "verification_present": true,
+          "verify_url_matches": true
+        },
+        "badge_valid": true,
+        "issues": [],
+        "network": "testnet",
+        "expected": {
+          "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+          "contracts": {
+            "cis8004": "12802,0",
+            "cis8": "12801,0"
+          }
+        }
+      }
+    },
+    {
+      "token": 1554,
+      "badge": "JyP9UE8M6sTcxSaorAr8W",
+      "badge_valid": true,
+      "checks_passed": "15/15",
+      "issues": [],
+      "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v1.json",
+      "card_sha256": "550a0f6c3caa302b7b08cf12cbbb77bda10703b31755976ae9aa63c00981e707",
+      "on_chain_metadata_hash": "550a0f6c3caa302b7b08cf12cbbb77bda10703b31755976ae9aa63c00981e707",
+      "owner": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "agent_wallet": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+      "wallet_set_nonce": 1,
+      "raw": {
+        "token_id": 1554,
+        "token_address": "JyP9UE8M6sTcxSaorAr8W",
+        "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v1.json",
+        "http_status": 200,
+        "card_sha256": "550a0f6c3caa302b7b08cf12cbbb77bda10703b31755976ae9aa63c00981e707",
+        "on_chain": {
+          "owner_account": "42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB",
+          "status": "Active",
+          "agent_uri": "https://payonce-tau.vercel.app/.well-known/registry/payonce-check-payee.v1.json",
+          "metadata_hash_hex": "550a0f6c3caa302b7b08cf12cbbb77bda10703b31755976ae9aa63c00981e707"
+        },
+        "checks": {
+          "on_chain_agent_found": true,
+          "status_active": true,
+          "has_agent_uri": true,
+          "card_fetched": true,
+          "hash_matches_on_chain": true,
+          "badge_present": true,
+          "badge_embedding": "extension",
+          "badge_well_formed": true,
+          "token_address_matches": true,
+          "owner_matches": true,
+          "contracts_match": true,
+          "verify_present": true,
+          "extension_conformant": true,
+          "verification_present": true,
+          "verify_url_matches": true
+        },
+        "badge_valid": true,
+        "issues": [],
+        "network": "testnet",
+        "expected": {
+          "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+          "contracts": {
+            "cis8004": "12802,0",
+            "cis8": "12801,0"
+          }
+        }
+      }
+    }
+  ]
+}

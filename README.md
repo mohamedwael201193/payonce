@@ -17,6 +17,13 @@ Open [/demo](https://payonce-tau.vercel.app/demo). Six screens, one button each:
 
 Then, if you have a Concordium testnet wallet (Browser Wallet 2.10+ or CryptoX Android): [/app?dash=1](https://payonce-tau.vercel.app/app?dash=1) is the dashboard (prove your name, become a payee, get paid, pay someone with a verdict). [/app](https://payonce-tau.vercel.app/app) without the flag is the original Run-it page on payable registry v2.
 
+
+## On the official Agent Registry
+
+Four PayOnce agents hold a **valid Concordium badge** on the official CIS-8004 registry `<12802,0>` (testnet). Concordium's own check returns `badge_valid: true`, 15/15, no issues. Each agentWallet is bound by that wallet's own signature:
+Seller **#1476** `JyP9XawpXHMjTN5ocrA5a` · Buyer **#1488** `JyP9Xp5bhbLsQrw7yTyph` · Seller 2 **#1506** `JyP9Y9nGU4KaM7DBDXRgm` · check_payee service **#1554** `JyP9UE8M6sTcxSaorAr8W`.
+The cards are hosted on our domain under `/.well-known/registry/`. Transactions, raw check output and how to re-run it: [docs/REGISTRY.md](docs/REGISTRY.md).
+
 ## What is real today, and what is not
 
 | Part | Status (28 Nov 2026) |

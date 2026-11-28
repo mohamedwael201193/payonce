@@ -608,7 +608,7 @@ async function handleConfig(req, res) {
         agent_token: OWNER_TOKEN,
         badge: 'JyP9XawpXHMjTN5ocrA5a',
         badge_url: 'https://agent-registry-mcp.concordium.com/v1/badge-check/JyP9XawpXHMjTN5ocrA5a',
-        agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card.json',
+        agent_card_url: 'https://payonce-tau.vercel.app/.well-known/registry/payonce-seller.v3.json',
       },
       {
         seller: SELLER2_ADDRESS,
@@ -662,7 +662,7 @@ async function handleConfig(req, res) {
       va_anchors: { vra: LAB_VA_ANCHORS.vra, vaa: LAB_VA_ANCHORS.vaa },
     },
     mcp: { url: MCP_URL, network: 'testnet', tools: 41, note: 'network=testnet is passed on every call; the server default is mainnet' },
-    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: BUYER_TOKEN_ID, status: 'registered', registry: '<12802,0>', agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card-buyer.json', note: 'CIS-8004 token on the official registry; owner and agentWallet are the paying account; its agent card is published and the badge check passes.' },
+    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: BUYER_TOKEN_ID, status: 'registered', registry: '<12802,0>', agent_card_url: 'https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json', note: 'CIS-8004 token on the official registry; owner and agentWallet are the paying account; its agent card is published and the badge check passes.' },
     fee_peg: { per_transaction_eur: 0.01, basis: 'Concordium fee peg (W1 §1.2): €0.01 per transaction; see the fee table on the judge page' },
     balance_watch: { ok_threshold_micro_ccd: BALANCE_OK_MICROCCD.toString(), accounts: ['payer (seller B)', 'sponsor (owner)', 'EUDemo wallet'] },
     as_of: new Date().toISOString(),

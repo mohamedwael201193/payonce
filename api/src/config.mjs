@@ -39,7 +39,7 @@ export const RESERVATION_SECS = Number(env.PAYONCE_RESERVATION_SECS ?? 3600);
 export const CO_SIGNER_MARGIN_SECS = 60;
 // The buyer agent (the demo payer's own CIS-8004 token on the official registry <12802,0>): owner and
 // agentWallet are both the payer account. Registered 2026-11-24 (V8 §4). Its agent card is
-// https://payonce-tau.vercel.app/.well-known/agent-card-buyer.json (the on-chain metadata hash matches; badge valid).
+// https://payonce-tau.vercel.app/.well-known/registry/payonce-buyer.v3.json (pinned 28 Nov, tx 1af3139e…; agentWallet bound by the payer's own signature, tx 55a3f768…). See docs/REGISTRY.md.
 export const BUYER_TOKEN_ID = Number(env.PAYONCE_BUYER_TOKEN ?? 1488);
 export const OWNER_TOKEN = Number(env.PAYONCE_OWNER_TOKEN ?? 1476);
 
@@ -52,8 +52,7 @@ export const SELLER2_TOKEN = Number(env.PAYONCE_SELLER2_TOKEN ?? 1506);
 export const SELLER2_BADGE = env.PAYONCE_SELLER2_BADGE ?? 'JyP9Y9nGU4KaM7DBDXRgm';
 export const SELLER2_AGENT_CARD_URL =
   env.PAYONCE_SELLER2_AGENT_CARD_URL ??
-  // The on-chain agent_uri of token 1506 is this gist (the badge is valid for it), not the site copy.
-  'https://gist.githubusercontent.com/mohamedwael201193/27ff98d204920b196089c76fcf208406/raw/agent-card-seller2.json';
+  'https://payonce-tau.vercel.app/.well-known/registry/payonce-seller2.v3.json';
 
 // Roles on v2 (proven live by the v2 E2E run 2026-11-24; seller 2 added 2026-11-25):
 //   seller  = owner (holds the Active agent token 1476 on <12802,0>)

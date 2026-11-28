@@ -1,5 +1,5 @@
 // Agent identity on the OFFICIAL Concordium agent registry (CIS-8004 <12802,0>, testnet).
-// The three PayOnce agents, the badge addresses the registry knows them by, and the live badge check.
+// The four PayOnce agents, the badge addresses the registry knows them by, and the live badge check.
 // "Verified by Concordium" is only ever printed from a live check that returned badge_valid: true.
 import { useCallback, useState } from 'react'
 
@@ -8,8 +8,8 @@ export const OFFICIAL_REGISTRY = { index: 12802, subindex: 0 }
 export const SITE = 'https://payonce-tau.vercel.app'
 
 export interface AgentIdentity {
-  key: 'seller1' | 'seller2' | 'buyer'
-  role: 'Seller' | 'Payer'
+  key: 'seller1' | 'seller2' | 'buyer' | 'checkpayee'
+  role: 'Seller' | 'Payer' | 'Service'
   name: string
   token: number
   /** The registry's badge (token) address, base58. */
@@ -17,6 +17,8 @@ export interface AgentIdentity {
   /** Account that owns the agent token (full address). */
   owner: string
   card: string
+  /** setAgentWallet tx: the agentWallet bound by the wallet account's own ed25519 signature (wallet nonce 0 -> 1). */
+  walletTx: string
 }
 
 export const AGENTS: AgentIdentity[] = [
@@ -27,7 +29,8 @@ export const AGENTS: AgentIdentity[] = [
     token: 1476,
     badge: 'JyP9XawpXHMjTN5ocrA5a',
     owner: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
-    card: `${SITE}/.well-known/agent-card.json`,
+    card: `${SITE}/.well-known/registry/payonce-seller.v3.json`,
+    walletTx: 'c9cf25d1b7d18d609088a76512739be210dbd94aa3001b61c5505c184ba452d8',
   },
   {
     key: 'seller2',
@@ -36,8 +39,8 @@ export const AGENTS: AgentIdentity[] = [
     token: 1506,
     badge: 'JyP9Y9nGU4KaM7DBDXRgm',
     owner: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr',
-    // On chain, token 1506's agent_uri is this gist (the badge is valid for it), not the site copy.
-    card: 'https://gist.githubusercontent.com/mohamedwael201193/27ff98d204920b196089c76fcf208406/raw/agent-card-seller2.json',
+    card: `${SITE}/.well-known/registry/payonce-seller2.v3.json`,
+    walletTx: '144c198ac84e745fa9b427e0456a8a75bb2fdcb48d7e1afad69148bc7c85a82c',
   },
   {
     key: 'buyer',
@@ -46,7 +49,18 @@ export const AGENTS: AgentIdentity[] = [
     token: 1488,
     badge: 'JyP9Xp5bhbLsQrw7yTyph',
     owner: '4MvdMEGCPL9pjbN5wMxR8geX181oXMA3adC7Z2CP6gH3NS1WDs',
-    card: `${SITE}/.well-known/agent-card-buyer.json`,
+    card: `${SITE}/.well-known/registry/payonce-buyer.v3.json`,
+    walletTx: '55a3f768a582215441d0a9f77af29d75a5ca4a462069f6e85133f54133a40712',
+  },
+  {
+    key: 'checkpayee',
+    role: 'Service',
+    name: 'PayOnce check_payee',
+    token: 1554,
+    badge: 'JyP9UE8M6sTcxSaorAr8W',
+    owner: '42jaZZgd69oXcGWPNjCjYfcbe4Z2fyewYAwyfFBHZLqVzmRjNB',
+    card: `${SITE}/.well-known/registry/payonce-check-payee.v1.json`,
+    walletTx: 'e955968e207677d37d0673c6685b4b2ea61b954cbbc17549609fb00cf18d13d3',
   },
 ]
 
