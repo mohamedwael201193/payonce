@@ -45,3 +45,13 @@ test('attack catalogue: >= 25 attacks, codes compared exactly, accepted attacks 
   assert.equal(r2.passed, 0); assert.deepEqual(r2.attacks.filter((a) => a.layer === 'chain' && a.got !== 'ACCEPTED').map((a) => [a.id, a.got]), []);
   assert.ok(serPayableKey({ seller: SELLER, payable_id: 1 }).length === 40);
 });
+
+test('retrying: node 429s are retried with backoff; other errors surface at once', async () => {
+  const { retrying } = await import('../src/vop-attacks.mjs');
+  let n = 0;
+  const v = await retrying(async () => { if (++n < 3) throw new Error('Received HTTP status code 429'); return 'ok'; }, { sleep: async () => {} });
+  assert.equal(v, 'ok'); assert.equal(n, 3);
+  let m = 0;
+  await assert.rejects(retrying(async () => { m++; throw new Error('v3 get_payable invoke failed (-3)'); }, { sleep: async () => {} }), /-3/);
+  assert.equal(m, 1);
+});

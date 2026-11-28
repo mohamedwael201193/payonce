@@ -16,6 +16,13 @@ export const CODE_NAMES = {
   '-29': 'PayeeNotMature', '-30': 'PayeeNotAcknowledged', '-31': 'PayeeChanged', '-32': 'PayeeNotProposed', '-33': 'AnchorMismatch',
   '-34': 'PayeeVersionMismatch', '-35': 'NotPayeeParty', '-36': 'VerdictNotPayable',
 };
+const transient = (e) => /429|UNAVAILABLE|unavailable|did not answer|timeout|ECONNRESET|DEADLINE/i.test(String(e?.message ?? e));
+/** Node reads are retried on rate limits (testnet nodes answer 429 under load); a refusal is never retried away. */
+export async function retrying(fn, { tries = 8, baseMs = 1000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) { if (i + 1 >= tries || !transient(e)) throw e; await sleep(Math.min(20_000, baseMs * 2 ** i)); }
+  }
+}
 const J = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 /** An alias of `address` (same first 29 bytes, last 3 bytes = n): another address string for the SAME account. */
@@ -52,13 +59,13 @@ export function createAttackCatalogue(deps) {
   async function run() {
     const t0 = now();
     const fx = deps.fixtures;
-    const inv = await getPayableV3(deps.client(), seller, fx.staleInvoice, book);
-    const paid = await getPayableV3(deps.client(), seller, fx.paidInvoice, book);
-    const open = fx.openInvoice ? await getPayableV3(deps.client(), seller, fx.openInvoice, book) : null;
-    const ownerRec = await getPayeeRecord(deps.client(), seller, seller, book);
-    const xRec = await getPayeeRecord(deps.client(), seller, fx.X, book);
-    const yRec = await getPayeeRecord(deps.client(), seller, fx.Y, book);
-    const strangerRec = await getPayeeRecord(deps.client(), seller, fx.stranger, book);
+    const R = (f) => retrying(f, deps.retry);
+    const inv = await R(() => getPayableV3(deps.client(), seller, fx.staleInvoice, book));
+    const paid = await R(() => getPayableV3(deps.client(), seller, fx.paidInvoice, book));
+    const open = fx.openInvoice ? await R(() => getPayableV3(deps.client(), seller, fx.openInvoice, book)) : null;
+    const ownerRec = await R(() => getPayeeRecord(deps.client(), seller, seller, book));
+    const xRec = await R(() => getPayeeRecord(deps.client(), seller, fx.X, book));
+    const yRec = await R(() => getPayeeRecord(deps.client(), seller, fx.Y, book));
     const ownerAlias = aliasOf(seller, 0x0a77ac);
     const evidence = sha(`attack evidence ${now()}`);
     const freshId = () => 9_000_000_000_000n + BigInt(`0x${randomBytes(4).toString('hex')}`);
@@ -120,7 +127,7 @@ export function createAttackCatalogue(deps) {
     const results = [];
     for (const a of A) {
       let got;
-      try { got = await a.fn(); } catch (e) { got = { refused: null, code: null, error: String(e?.message ?? e).slice(0, 160) }; }
+      try { got = await R(a.fn); } catch (e) { got = { refused: null, code: null, error: String(e?.message ?? e).slice(0, 160) }; }
       const pass = got.refused === true && (a.layer === 'api' ? true : a.expect.includes(got.code));
       results.push({
         id: a.id, layer: a.layer, method: a.method, title: a.title, attacker: a.attacker,
