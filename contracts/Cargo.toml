@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["payable_registry", "cis8004_mock"]
+exclude = ["payable_registry_v2", "payable_registry_v2_1", "mock-registry"]
 
 [profile.release]
 opt-level = "z"

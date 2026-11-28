@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t d">
+  <title id="t">PayOnce</title>
+  <desc id="d">PayOnce: every invoice becomes an on-chain payable that can be paid exactly once, only to the account the supplier put on chain. Concordium testnet.</desc>
+  <rect width="1280" height="320" fill="#0E1219"/>
+  <rect x="0" y="0" width="12" height="320" fill="#E8541A"/>
+  <g font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="72" y="96" font-size="20" font-weight="600" letter-spacing="3" fill="#E8541A">CONCORDIUM TESTNET  /  TRUSTED AGENTS</text>
+    <text x="72" y="178" font-size="84" font-weight="700" fill="#FFFFFF">PayOnce</text>
+    <text x="72" y="232" font-size="28" fill="#C9D1DC">Every invoice becomes an on-chain payable that can be paid</text>
+    <text x="72" y="270" font-size="28" fill="#C9D1DC">exactly once, only to the account the supplier put on chain.</text>
+  </g>
+  <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="18" fill="#8A96A6">
+    <text x="900" y="96">pay_ccd        -&gt; Paid</text>
+    <text x="900" y="126">pay_ccd (again) -&gt; -5</text>
+    <text x="900" y="156">wrong amount   -&gt; -6</text>
+    <text x="900" y="186">unlisted seller -&gt; -19</text>
+  </g>
+  <rect x="880" y="72" width="3" height="130" fill="#E8541A"/>
+</svg>

@@ -41,7 +41,8 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'out', 'target', 'dist', '.ne
 // Strip it like tx hashes (to a single '0', so the labelled-token
 // pattern's 16+ char requirement cannot match it) so the dev stub +
 // gate-g0.md prose do not trip the scan.
-const PUBLIC_VALUES = ['0100000000000000'];
+// Also two fake unit-test fixture tokens that earlier commits hold as literals (api/test; the files now build them from parts).
+const PUBLIC_VALUES = ['0100000000000000', 'agent-token-0123456789abcdef', 'unit-test-token-0000000000000000'];
 
 // Seed-phrase detection: 12+ CONSECUTIVE BIP-39 words. Plain prose of 12 lowercase words is not a seed phrase,
 // and flagging it buried real findings. The wordlist comes from the installed bip39 package

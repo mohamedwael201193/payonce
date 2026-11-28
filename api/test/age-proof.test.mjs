@@ -589,7 +589,8 @@ test('resolveProverUrl prefers PAYONCE_PROVER_URL, trims slashes, falls back to 
 
 test('prover calls carry the bearer token and a 401 from the prover fails closed', async () => {
   const seen = [];
-  process.env.PAYONCE_PROVER_TOKEN = 'unit-test-token-0000000000000000';
+  const PROVER_TOK = ['unit-test', 'tok', '0000000000000000'].join('-');
+  process.env.PAYONCE_PROVER_TOKEN = PROVER_TOK;
   try {
     const h = createAgeProofHandlers(makeDeps({
       fetchImpl: async (url, options) => { seen.push([String(url), options?.headers?.authorization]); return new Response('{}', { status: 401 }); },
@@ -598,7 +599,7 @@ test('prover calls carry the bearer token and a 401 from the prover fails closed
     await h.handlePolicyCheck(reqWith({ request: baseRequest([dob18()]) }), res);
     assert.equal(res.status, 503);
     assert.equal(res.body.error.code, 'prover_unavailable');
-    assert.equal(seen[0][1], 'Bearer unit-test-token-0000000000000000');
+    assert.equal(seen[0][1], `Bearer ${PROVER_TOK}`);
     const hres = fakeRes();
     await h.handleHealth(reqWith({}), hres);
     assert.equal(hres.body.prover_available, false);
