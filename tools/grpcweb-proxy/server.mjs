@@ -74,28 +74,48 @@ export function grpcWebProxy(req, res) {
   const finish = () => { if (!done) { done = true; inflight--; } };
   res.on('close', finish);
 
+  // Buffer the (tiny) request so an upstream 429/5xx can be retried transparently
+  // (the public node rate-limits per source IP; Render egress IPs are shared).
+  const chunks = [];
   let size = 0;
-  const headers = { ':method': 'POST', ':path': url };
-  for (const h of FWD_HEADERS) if (req.headers[h]) headers[h] = req.headers[h];
-  let up;
-  try { up = getSession().request(headers); } catch { fail(res, 502, 'upstream unavailable'); return true; }
-  const timer = setTimeout(() => { up.close(http2.constants.NGHTTP2_CANCEL); res.end(); }, MAX_STREAM_MS);
-  up.on('response', (h) => {
-    const out = {};
-    for (const k of ['content-type', 'grpc-status', 'grpc-message', 'grpc-encoding']) if (h[k]) out[k] = h[k];
-    res.writeHead(Number(h[':status']) || 200, out);
-  });
-  up.on('data', (c) => res.write(c));
-  up.on('end', () => { clearTimeout(timer); res.end(); });
-  up.on('error', () => { clearTimeout(timer); fail(res, 502, 'upstream error'); });
-  res.on('close', () => { clearTimeout(timer); try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} });
+  let upstream = null;
+  let ended = false;
+  const cancel = () => { try { upstream?.close(http2.constants.NGHTTP2_CANCEL); } catch {} };
+  res.on('close', cancel);
+  req.on('error', cancel);
   req.on('data', (c) => {
     size += c.length;
-    if (size > MAX_BODY) { req.destroy(); try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} return fail(res, 413, 'too large'); }
-    up.write(c);
+    if (size > MAX_BODY) { req.destroy(); return fail(res, 413, 'too large'); }
+    chunks.push(c);
   });
-  req.on('end', () => up.end());
-  req.on('error', () => { try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} });
+  req.on('end', () => { ended = true; attempt(0); });
+
+  function attempt(n) {
+    if (res.destroyed) return;
+    const headers = { ':method': 'POST', ':path': url };
+    for (const h of FWD_HEADERS) if (req.headers[h]) headers[h] = req.headers[h];
+    let up;
+    try { up = upstream = getSession().request(headers); } catch { return fail(res, 502, 'upstream unavailable'); }
+    const timer = setTimeout(() => { try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {} res.end(); }, MAX_STREAM_MS);
+    let retried = false;
+    const retry = () => {
+      if (retried) return; retried = true; clearTimeout(timer);
+      try { up.close(http2.constants.NGHTTP2_CANCEL); } catch {}
+      setTimeout(() => attempt(n + 1), 250 * 2 ** n);
+    };
+    up.on('response', (h) => {
+      const st = Number(h[':status']) || 200;
+      if ((st === 429 || st === 502 || st === 503) && n < 4) return retry();
+      const out = {};
+      for (const k of ['content-type', 'grpc-status', 'grpc-message', 'grpc-encoding']) if (h[k]) out[k] = h[k];
+      res.writeHead(st, out);
+    });
+    up.on('data', (c) => { if (!retried && res.headersSent) res.write(c); });
+    up.on('end', () => { if (retried) return; clearTimeout(timer); res.end(); });
+    up.on('error', () => { if (retried) return; clearTimeout(timer); if (n < 2 && !res.headersSent) { retried = true; return setTimeout(() => attempt(n + 1), 250); } fail(res, 502, 'upstream error'); });
+    for (const c of chunks) up.write(c);
+    up.end();
+  }
   return true;
 }
 

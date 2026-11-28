@@ -5,7 +5,9 @@ import http2 from 'node:http2';
 
 // Fake h2c "node": echoes the grpc-web request body back plus a trailer frame.
 const up = http2.createServer();
+let flaky = 0;
 up.on('stream', (st, h) => {
+  if (h[':path'].endsWith('/Flaky') && flaky++ === 0) { st.respond({ ':status': 429, 'content-type': 'text/html' }); return st.end('429'); }
   const chunks = [];
   st.on('data', (c) => chunks.push(c));
   st.on('end', () => {
@@ -15,7 +17,7 @@ up.on('stream', (st, h) => {
 });
 await new Promise((r) => up.listen(0, '127.0.0.1', r));
 process.env.UPSTREAM = `http://127.0.0.1:${up.address().port}`;
-process.env.BURST = '5'; process.env.RATE_PER_SEC = '0.0001';
+process.env.BURST = '6'; process.env.RATE_PER_SEC = '0.0001';
 const { grpcWebProxy } = await import('../../tools/grpcweb-proxy/server.mjs');
 const srv = http.createServer((q, s) => { if (!grpcWebProxy(q, s)) { s.writeHead(418); s.end('host'); } });
 await new Promise((r) => srv.listen(0, '127.0.0.1', r));
@@ -27,6 +29,11 @@ test('relays Queries calls and reflects an extension origin', async () => {
   assert.equal(r.status, 200);
   assert.equal(await r.text(), '/concordium.v2.Queries/GetConsensusInfo|abc');
   assert.match(r.headers.get('access-control-allow-origin'), /^chrome-extension:/);
+});
+test('retries an upstream 429 transparently', async () => {
+  const r = await post('/concordium.v2.Queries/Flaky');
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Flaky\|abc$/);
 });
 test('refuses everything outside concordium.v2.Queries and non grpc-web', async () => {
   assert.equal((await post('/concordium.v2.Other/Do')).status, 404);
