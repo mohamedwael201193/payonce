@@ -159,7 +159,7 @@ export async function runAgent({ mandate, emails, tools, planner, ageProof = nul
   }
   if (final == null) final = 'Stopped: step limit reached.';
   // Any email that never reached a decision is reported as such, not silently dropped.
-  for (const em of emails) { const d = decisionFor(em); if (d.outcome === 'pending') { d.outcome = 'not_processed'; d.reason_code = 'not_processed'; d.reason = 'The agent finished without deciding on this email.'; } }
+  for (const em of emails) { const d = decisionFor(em); if (d.outcome === 'pending') { d.outcome = 'not_processed'; d.reason_code = d.verdict === 'pay' ? 'cleared_not_paid' : 'not_processed'; d.reason = d.verdict === 'pay' ? 'The checks passed (verdict pay) but the agent finished without paying it. Nothing was sent.' : 'The agent finished without deciding on this email.'; } }
   emit({ type: 'final', text: final, source: 'model_prose_or_script' });
   const list = emails.map((e) => decisions.get(e.id));
   return {

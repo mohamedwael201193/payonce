@@ -209,15 +209,16 @@ export class NearAiPlanner {
     const prose = (msg.content ?? '').trim() || undefined;
     if (!calls.length) {
       // The model sometimes stops after reading. Nudge it (at most twice) to finish the checks it owes.
-      if ((this.reads ?? 0) > (this.checks ?? 0) && (this.nudges ?? 0) < 2) {
-        this.nudges = (this.nudges ?? 0) + 1;
+      if ((this.reads ?? 0) > (this.checks ?? 0) && (this.nudgesCheck ?? 0) < 3) {
+        this.nudgesCheck = (this.nudgesCheck ?? 0) + 1;
+        this.nudges = this.nudgesCheck;
         this.messages.push({ role: 'user', content: `You have read ${this.reads} email(s) but checked ${this.checks ?? 0} payable(s). For every email that names a PayOnce payable, call check_payable now (one call per email), then pay_payable only where the verdict is "pay". Continue with tool calls.` });
-        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudges}/2: the model stopped after reading ${this.reads} email(s) with ${this.checks ?? 0} check(s); it was told to continue.` };
+        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudgesCheck}/3: the model stopped after reading ${this.reads} email(s) with ${this.checks ?? 0} check(s); it was told to continue.` };
       }
-      if (this.owed?.size && (this.nudges ?? 0) < 2) {
-        this.nudges = (this.nudges ?? 0) + 1;
+      if (this.owed?.size && (this.nudgesPay ?? 0) < 3) {
+        this.nudgesPay = (this.nudgesPay ?? 0) + 1;
         this.messages.push({ role: 'user', content: `check_payable returned "pay" for ${this.owed.size} payable(s) that you have not paid yet. The mandate asks you to pay them. Call pay_payable for each of them now.` });
-        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudges}/2: ${this.owed.size} payable(s) were cleared to pay but no pay_payable call was made.` };
+        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudgesPay}/3: ${this.owed.size} payable(s) were cleared to pay but no pay_payable call was made.` };
       }
       return { kind: 'final', text: prose ?? 'Done.', model_text: true };
     }
