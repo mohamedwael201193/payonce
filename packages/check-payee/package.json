@@ -1,6 +1,6 @@
 {
   "name": "payonce-check-payee",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Verification of Payee for AI agents on Concordium: check who an account really is before an agent pays it. MATCH / CLOSE_MATCH / NO_MATCH / UNVERIFIED, plus a free probe of any x402 seller's payTo. Zero dependencies.",
   "type": "module",
   "main": "src/index.mjs",

@@ -1,7 +1,7 @@
 {
   "name": "payonce-mcp",
   "mcpName": "io.github.mohamedwael201193/payonce-check-payee",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stdio MCP server for PayOnce's Verification of Payee (Concordium testnet): check_payee, check_x402_seller, get_payee_card and the invoice tools. A zero-dependency bridge to the hosted /mcp endpoint. Read-only, never pays.",
   "type": "module",
   "bin": {
