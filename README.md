@@ -52,7 +52,7 @@ Live state on 2026-11-28 (from [`/api/stats`](https://payonce-api-n98a.onrender.
 
 ## Verify in 60 seconds
 
-No keys, no `.env`, read-only. Needs Node 22+ and `curl`. The hosted API is on a free tier, so the first request can take 30 to 60 seconds to wake up. The public testnet node rate-limits (HTTP 429): if a command says so, run it again.
+No keys, no `.env`, read-only. Needs Node 22+ and `curl`. The public testnet node rate-limits (HTTP 429): if a command says so, run it again.
 
 ```sh
 git clone https://github.com/mohamedwael201193/payonce && cd payonce
