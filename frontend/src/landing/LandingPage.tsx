@@ -8,6 +8,7 @@ import { Nav } from './Nav'
 import { Proof } from './Proof'
 import { Story } from './Story'
 import { Tamper } from './Tamper'
+import { TrySection } from './TryCheck'
 import { warmDemoRun } from '../demo/demoData'
 import { setLenis } from './scroll'
 import { useLandingData, type Snapshot } from './data'
@@ -43,6 +44,7 @@ export default function LandingPage({ snapshot }: { snapshot?: Snapshot }) {
         <Nav />
         <main id="main">
           <Hero data={data} />
+          <TrySection />
           <Story snapshot={data.snapshot} />
           <Tamper snapshot={data.snapshot} />
           <Proof snapshot={data.snapshot} />
