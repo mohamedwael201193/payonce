@@ -34,7 +34,7 @@ It only needs HTTPS, so it runs where gRPC is blocked. The public wallet-proxy a
 cd api && node scripts/verify-module.mjs
 # 1. sha256(committed versioned module) == 8641046e...
 # 2. the module the testnet node serves for that reference is byte-identical to the committed file
-# 3. both books <13172,0> and <13173,0> run that module reference     -> "ALL CHECKS PASS"
+# 3. both books <13172,0> and <13173,0> run that module reference     -> last line "VERIFIED: committed source build == module on chain == module both v3 books run"
 ```
 
 Source == deployed, in CI on every push: `verify-v3-module` (archive == `src/`, hash == ref, node bytes == file, both books) and `verify-v3-build`

@@ -1,6 +1,6 @@
 # PayOnce
 
-[![CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml) [![status monitor](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml) [![census](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml)
+[![CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml) [![status monitor](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml) [![census](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml) [![tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmohamedwael201193%2Fpayonce%2Fmain%2Fstatus%2Ftests-badge.json&cacheSeconds=300)](https://github.com/mohamedwael201193/payonce/blob/main/status/tests.json)
 
 **An AI agent checks that the receiving account belongs to the name on the invoice, then pays exactly once.**
 The four outcomes are Match, Close match, No match, and Not possible — the same ones EU banks show (Reg 2024/886). Concordium testnet only. No mainnet payments, no real money. Built for the Encode Club × Concordium Trusted Agents Hackathon.
@@ -38,8 +38,11 @@ Payments run in **CCD or EUDemo** (the testnet euro PLT), with the same payee ch
 | Census of the official registry (`GET /api/census`, [/app/proof/census](https://payonce-tau.vercel.app/app/proof/census)) | Snapshot 28 Nov 2026, 07:26 UTC: at most 5 of 5,501 mainnet agents, and 3 of 1,553 on testnet, meet the *preconditions* of a payee check (an upper bound). |
 | x402 services run by other teams | Listed, probed (free), and payable by a capped reference buyer on Match only. |
 | PayOnce sells `check_payee` over x402 | Live: `GET /api/x402/check-payee?payee=&name=` answers 402 (0.01 CCD, fee sponsored), then the verdict. A2A `message/send` at `/a2a`. CLI/MCP: `npx payonce-check-payee`, `npx payonce-mcp`. |
+| Two-way gate on our x402 sale | Live: `GET /api/x402/agent-check-payee` verifies the **buyer** before it settles (registry agent, `agentWallet == payer`, valid badge, plus a signed spend mandate); a refused buyer gets 403 and is not charged. First gated sale: [`4ab2fc1f…`](https://ccdexplorer.io/testnet/transaction/4ab2fc1f393443ce7260654bbaba8431298f925fdc8f162603899f478492b36f). The open route runs the gate in `optional` mode. See [VERIFY.md](VERIFY.md) §5. |
+| Spend mandate for the buyer agent #1488 | Live: a text the buyer account signed (0.1 CCD per purchase, 1 CCD total, 14 days), anchored on chain by that account ([`20532cf4…`](https://ccdexplorer.io/testnet/transaction/20532cf4ef2ce8416f5c307510ac8893f9eadc1f9039a80d81653e98fa828a68)), enforced by the agent before it builds a payment (a 2 CCD buy is refused even with a person's approval) and re-checked by the seller. Verify: `node api/scripts/verify-mandate.mjs`. It is a signed mandate, not a contract: it bounds the agent, it cannot stop a leaked key. |
+| Tests | One number, published by CI: the badge above reads [`status/tests-badge.json`](status/tests-badge.json), and [`status/tests.json`](status/tests.json) has the per-suite counts, the commit and the CI run. It is parsed from the runners' own summaries (`node --test`, vitest, `cargo concordium test`), skipped tests are shown as skipped, and only a fully green run publishes it. |
 | EUDemo rail | The guard runs in our API before the transfer. The contract cannot see tokens. |
-| 18+ check | Hosted prover with one PayOnce testnet credential, not the visitor’s wallet. Visitor wallet routes are not live. |
+| 18+ check | Two routes. **Visitor wallet (live):** `POST /api/wallet/age-proof/request` then `/verify` take a presentation from the visitor's own Concordium wallet, checked against the chain (the routes are live and answer; no outside visitor has used them yet). **Hosted prover (fallback):** one PayOnce testnet credential, not the visitor's wallet. |
 | Human approval of a Close match | Server side live: the payer's wallet signs a message naming the payee, name, amount, verdict evidence hash, invoice hash and expiry (`POST /api/approvals/request`, `/api/approvals/:id/verify`). It is checked against the account keys on chain, hash-chained into the receipt ledger and anchored. The page still shows the click until the dashboard wires the wallet signature. |
 | Red team: live attack catalogue (`GET /api/proof/attacks`, [scorecard file](docs/proof/)) | 30/30 attacks refused with the expected code, 18 distinct on-chain refusal codes (-2 … -36): node dry runs of the exact attacker transactions plus re-read finalized refusals and API attacks. Re-run with `?fresh=1`. |
 | False-green benchmark (`GET /api/proof/false-green`, [cases](docs/proof/false-green-seed-20261128.json)) | 0 false MATCH, 0 false payable in 1,011 impostor checks (lookalike names, homoglyphs, lookalike and alias addresses), seed 20261128, through the production checker with live chain facts. |
@@ -70,7 +73,7 @@ Cursor (`.cursor/mcp.json`) or Claude Desktop (`claude_desktop_config.json`):
 GitHub Action (fails the step unless the payee matches):
 
 ```yaml
-- uses: mohamedwael201193/payonce/packages/check-payee-action@main
+- uses: mohamedwael201193/payonce-check-payee-action@v1   # standalone repo, tagged v1
   with: { url: https://seller.example/api/paid, name: "Seller Name" }
 ```
 
@@ -97,11 +100,11 @@ A live payee check (expect `UNVERIFIED` unless that account has a proven name eq
 curl -s "https://payonce-api-n98a.onrender.com/api/check-payee?payee=4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin&legal_name=Nour%20Design%20Studio"
 ```
 
-Official badge check for our three agents (expect `"badge_valid":true` three times):
+Official badge check for our four agents (expect `"badge_valid":true` four times):
 
 ```sh
-for t in JyP9XawpXHMjTN5ocrA5a JyP9Y9nGU4KaM7DBDXRgm JyP9Xp5bhbLsQrw7yTyph; do
-  curl -s "https://agent-registry-mcp.concordium.com/v1/badge-check/$t?network=testnet" | grep -o '"badge_valid":[a-z]*'
+for t in JyP9XawpXHMjTN5ocrA5a JyP9Y9nGU4KaM7DBDXRgm JyP9Xp5bhbLsQrw7yTyph JyP9UE8M6sTcxSaorAr8W; do
+  curl -s "https://agent-registry-mcp.concordium.com/v1/check-badge/$t?network=testnet" | grep -o '"badge_valid":[a-z]*'
 done
 ```
 
