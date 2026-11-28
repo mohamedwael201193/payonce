@@ -140,3 +140,87 @@ export class LlmPlanner {
     return { kind: 'tool_calls', thought, calls };
   }
 }
+
+/**
+ * NEAR AI Cloud (OpenAI-compatible chat completions with tool calling). Tries each key in order and moves to
+ * the next on 401/403/429. The model's prose is recorded as prose ("model_text"); nothing in the run record
+ * takes an amount or a verdict from it: those come from the tool results the harness executed.
+ */
+export class NearAiPlanner {
+  kind = 'llm';
+  provider = 'near-ai';
+  constructor({ apiKeys, baseUrl = 'https://cloud-api.near.ai/v1', model = 'z-ai/glm-5.3-flash', fetchImpl = fetch, maxTokens = 1200, extraUserNote = null }) {
+    this.keys = (apiKeys ?? []).filter((k) => typeof k === 'string' && k.length >= 8);
+    if (!this.keys.length) throw new Error('NearAiPlanner needs at least one API key');
+    this.baseUrl = baseUrl.replace(/[/]+$/, '');
+    this.model = model;
+    this.fetchImpl = fetchImpl;
+    this.maxTokens = maxTokens;
+    this.extraUserNote = extraUserNote;
+    this.keyIndex = 0;
+    this.label = `NEAR AI (${model})`;
+  }
+
+  async start({ mandate, tools }) {
+    this.tools = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } }));
+    this.messages = [
+      { role: 'system', content: SYSTEM_PROMPT(mandate) },
+      { role: 'user', content: ['Task from the owner: ' + mandate.text, this.extraUserNote, 'Go.'].filter(Boolean).join('\n') },
+    ];
+    this.turns = 0;
+  }
+
+  async complete() {
+    let lastStatus = 0;
+    const base = this.keyIndex;
+    for (let i = 0; i < this.keys.length; i += 1) {
+      const key = this.keys[(base + i) % this.keys.length];
+      const res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model: this.model, max_tokens: this.maxTokens, temperature: 0, messages: this.messages, tools: this.tools, tool_choice: 'auto' }),
+      });
+      lastStatus = res.status;
+      const text = await res.text();
+      if ([401, 403, 429].includes(res.status)) { this.keyIndex = (base + i + 1) % this.keys.length; continue; }
+      if (!res.ok) throw new Error(`near-ai: HTTP ${res.status}: ${redact(text, this.keys).slice(0, 300)}`);
+      this.keyIndex = (base + i) % this.keys.length;
+      return JSON.parse(text);
+    }
+    throw new Error(`near-ai: every configured key was refused (last HTTP ${lastStatus})`);
+  }
+
+  async next(obs) {
+    for (const { call, result } of obs ?? []) {
+      this.messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result).slice(0, 12000) });
+      if (call.name === 'inbox_read') this.reads = (this.reads ?? 0) + 1;
+      if (call.name === 'check_payable') { this.checks = (this.checks ?? 0) + 1; this.owed ??= new Set(); const k = `${call.args?.seller}:${Number(call.args?.id)}`; if (result?.verdict === 'pay') this.owed.add(k); }
+      if (call.name === 'pay_payable') this.owed?.delete(`${call.args?.seller}:${Number(call.args?.id)}`);
+    }
+    if (++this.turns > 40) return { kind: 'final', text: 'Stopped: too many model turns.' };
+    const body = await this.complete();
+    const msg = body.choices?.[0]?.message ?? {};
+    this.messages.push({ role: 'assistant', content: msg.content ?? null, ...(msg.tool_calls?.length ? { tool_calls: msg.tool_calls } : {}) });
+    const calls = (msg.tool_calls ?? []).map((tc, i) => {
+      let args = {};
+      try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { args = {}; }
+      return { id: tc.id ?? `call_${this.turns}_${i}`, name: tc.function?.name, args };
+    });
+    const prose = (msg.content ?? '').trim() || undefined;
+    if (!calls.length) {
+      // The model sometimes stops after reading. Nudge it (at most twice) to finish the checks it owes.
+      if ((this.reads ?? 0) > (this.checks ?? 0) && (this.nudges ?? 0) < 2) {
+        this.nudges = (this.nudges ?? 0) + 1;
+        this.messages.push({ role: 'user', content: `You have read ${this.reads} email(s) but checked ${this.checks ?? 0} payable(s). For every email that names a PayOnce payable, call check_payable now (one call per email), then pay_payable only where the verdict is "pay". Continue with tool calls.` });
+        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudges}/2: the model stopped after reading ${this.reads} email(s) with ${this.checks ?? 0} check(s); it was told to continue.` };
+      }
+      if (this.owed?.size && (this.nudges ?? 0) < 2) {
+        this.nudges = (this.nudges ?? 0) + 1;
+        this.messages.push({ role: 'user', content: `check_payable returned "pay" for ${this.owed.size} payable(s) that you have not paid yet. The mandate asks you to pay them. Call pay_payable for each of them now.` });
+        return { kind: 'thought', thought: prose, model_text: true, note: `Harness nudge ${this.nudges}/2: ${this.owed.size} payable(s) were cleared to pay but no pay_payable call was made.` };
+      }
+      return { kind: 'final', text: prose ?? 'Done.', model_text: true };
+    }
+    return { kind: 'tool_calls', thought: prose, model_text: true, calls };
+  }
+}

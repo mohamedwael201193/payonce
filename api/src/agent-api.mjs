@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import { PayOnceClient } from '../../agent/src/client.mjs';
 import { buildTools } from '../../agent/src/tools.mjs';
 import { handleMcpMessage, SERVER_INFO } from '../../agent/src/mcp-core.mjs';
-import { runScenario } from '../../agent/src/scenario.mjs';
+import { runScenario, pickPlanner } from '../../agent/src/scenario.mjs';
 import { envSecrets } from '../../agent/src/util.mjs';
 
 const safeEqual = (a, b) => {
@@ -118,7 +118,7 @@ export function createAgentApi({ deps, port, env = process.env }) {
       last_error: lastError,
       running: running ? { run_id: running.run_id, started_at: running.started_at, events: running.events.slice(-40) } : null,
       limits: { runs_per_20_min: 1, runs_per_day: 4 },
-      planner: env.ANTHROPIC_API_KEY && env.PAYONCE_AGENT_PLANNER !== 'scripted' ? 'llm' : 'scripted',
+      planner: (() => { const p = pickPlanner(env); return { kind: p.kind, label: p.label }; })(),
     });
   }
 

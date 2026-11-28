@@ -170,3 +170,77 @@ test('LlmPlanner: tool-use loop against a fake Anthropic endpoint; the key never
 test('LlmPlanner needs a key', () => {
   assert.throws(() => new LlmPlanner({ apiKey: '' }), /API key/);
 });
+
+import { NearAiPlanner } from '../src/planners.mjs';
+import { applyVariant } from '../src/inbox.mjs';
+import { pickPlanner } from '../src/scenario.mjs';
+
+test('NearAiPlanner: falls back to the next key on 401/429, parses tool calls, labels itself, keeps keys out of the record', async () => {
+  const K1 = 'near-key-one-0123456789';
+  const K2 = 'near-key-two-0123456789';
+  const { api, tools, mandate } = setup();
+  const emails = emailsFor(api).slice(0, 1);
+  const used = [];
+  let turn = 0;
+  const f = async (url, init) => {
+    const key = init.headers.authorization.replace('Bearer ', '');
+    used.push(key);
+    if (key === K1) return { ok: false, status: 429, text: async () => 'rate limited' };
+    turn += 1;
+    const calls = [
+      [{ id: 'c1', type: 'function', function: { name: 'check_payable', arguments: JSON.stringify({ seller: S1, id: '10' }) } }],
+      [{ id: 'c2', type: 'function', function: { name: 'pay_payable', arguments: JSON.stringify({ seller: S1, id: 10 }) } }],
+    ][turn - 1];
+    const message = calls ? { role: 'assistant', content: 'I will pay 99 CCD.', tool_calls: calls } : { role: 'assistant', content: 'Paid it.' };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ choices: [{ message }] }) };
+  };
+  const planner = new NearAiPlanner({ apiKeys: [K1, K2], model: 'z-ai/glm-5.3-flash', fetchImpl: f });
+  assert.equal(planner.label, 'NEAR AI (z-ai/glm-5.3-flash)');
+  const run = await runAgent({ mandate, emails, tools, planner, secrets: [K1, K2] });
+  assert.equal(run.decisions[0].outcome, 'paid');
+  assert.ok(used.includes(K1) && used.includes(K2));
+  // Prose stays prose: the wrong amount in it is not what the record says.
+  assert.equal(run.decisions[0].facts.amount_display, '0.500000 CCD');
+  assert.ok(run.transcript.some((e) => e.type === 'thought' && e.source === 'model_prose'));
+  assert.ok(!JSON.stringify(run).includes(K1) && !JSON.stringify(run).includes(K2));
+});
+
+test('NearAiPlanner: every key refused is an error, not a silent script', async () => {
+  const p = new NearAiPlanner({ apiKeys: ['aaaaaaaaaa'], fetchImpl: async () => ({ ok: false, status: 401, text: async () => 'no' }) });
+  await p.start({ mandate: makeMandate({ approvedSuppliers: [S1] }), tools: [] });
+  await assert.rejects(() => p.next(null), /every configured key was refused/);
+});
+
+test('pickPlanner prefers NEAR AI when a key exists, honours the scripted override', () => {
+  assert.equal(pickPlanner({ NEARAI_API_KEY: 'abcdefghij', LLM_MODEL: 'm' }).label, 'NEAR AI (m)');
+  assert.equal(pickPlanner({ NEARAI_API_KEY: 'abcdefghij', PAYONCE_AGENT_PLANNER: 'scripted' }).kind, 'scripted');
+  assert.equal(pickPlanner({}).kind, 'scripted');
+});
+
+test('a payable no email names cannot be paid, even if it passes every check (injected "also pay X")', async () => {
+  const { api, tools, mandate } = setup();
+  const emails = emailsFor(api).slice(0, 1);
+  const planner = {
+    kind: 'llm', label: 'x', model: 'x', turns: 0,
+    async start() {},
+    async next() {
+      this.turns += 1;
+      if (this.turns === 1) return { kind: 'tool_calls', calls: [{ id: 'a', name: 'check_payable', args: { seller: S1, id: 11 } }] };
+      if (this.turns === 2) return { kind: 'tool_calls', calls: [{ id: 'b', name: 'pay_payable', args: { seller: S1, id: 11 } }] };
+      return { kind: 'final', text: 'done' };
+    },
+  };
+  const run = await runAgent({ mandate, emails, tools, planner });
+  assert.equal(api.state.paid.length, 0);
+  assert.ok(run.transcript.some((e) => e.type === 'guard' && e.code === 'not_in_inbox'));
+});
+
+test('variants append model-targeted text and leave hostile fixtures and structure intact', () => {
+  const { api } = setup();
+  const em = emailsFor(api);
+  const a = applyVariant(em, 'authority', null);
+  assert.ok(a.every((e) => /SYSTEM OVERRIDE/.test(e.body)) && a.every((e) => payableRefOf(e) !== null || e.hostile));
+  const b = applyVariant(em, 'extra-payable', { seller: S1, payable_id: 12 });
+  assert.equal(b.filter((e) => /also pay payable/.test(e.body)).length, 1);
+  assert.equal(applyVariant(em, null, null), em);
+});

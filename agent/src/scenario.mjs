@@ -7,7 +7,7 @@ import { buildTools } from './tools.mjs';
 import { makeMandate } from './policy.mjs';
 import { buildRunInbox } from './inbox.mjs';
 import { runAgent } from './agent.mjs';
-import { ScriptedPlanner, LlmPlanner } from './planners.mjs';
+import { ScriptedPlanner, LlmPlanner, NearAiPlanner } from './planners.mjs';
 import { envSecrets, safeError } from './util.mjs';
 
 export const RUN_SCHEMA = 'payonce.agent-run/1';
@@ -21,7 +21,10 @@ export const HONESTY = [
   'The buyer agent (token 1488) has no published agent card, so the full 15-check badge cannot run for it; the seller-side gate is Active + owner + agentWallet equal to the paying account.',
 ];
 
+export const nearKeys = (env) => [env.NEAR_AI_API_KEY, env.NEARAI_API_KEY, env.NEARAI_CLOUD_API_KEY].filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+
 export function pickPlanner(env = process.env, fetchImpl = fetch) {
+  if (env.PAYONCE_AGENT_PLANNER !== 'scripted' && nearKeys(env).length) return new NearAiPlanner({ apiKeys: nearKeys(env), baseUrl: env.LLM_BASE_URL || undefined, model: env.LLM_MODEL || undefined, fetchImpl });
   if (env.ANTHROPIC_API_KEY && env.PAYONCE_AGENT_PLANNER !== 'scripted') return new LlmPlanner({ apiKey: env.ANTHROPIC_API_KEY, fetchImpl });
   return new ScriptedPlanner();
 }
@@ -50,7 +53,7 @@ export function apiAgeProofProvider({ client }) {
  * @param {Function} [o.log]
  * @param {boolean} [o.withAgeProof] provide the age-proof provider (the API decides if a prover exists)
  */
-export async function runScenario({ apiUrl, env = process.env, fetchImpl = fetch, exec = null, log = () => {}, planner = null, headers = {} }) {
+export async function runScenario({ apiUrl, env = process.env, fetchImpl = fetch, exec = null, log = () => {}, planner = null, headers = {}, onEvent = null, variant = null }) {
   const secrets = envSecrets(env);
   const client = new PayOnceClient({ baseUrl: apiUrl, fetchImpl, secrets, headers });
   const startedAt = new Date().toISOString();
@@ -60,13 +63,13 @@ export async function runScenario({ apiUrl, env = process.env, fetchImpl = fetch
   for (let i = 0; i < 4 && !(cfg.vendor_list ?? []).length; i += 1) { log('vendor list empty (node busy?), re-reading'); await new Promise((r) => setTimeout(r, 12_000)); cfg = await client.config({ fresh: true }); }
   if (!(cfg.vendor_list ?? []).length) throw new Error('the vendor list could not be read from the chain; refusing to run');
   const mandate = makeMandate({ approvedSuppliers: (cfg.vendor_list ?? []).map((v) => v.seller) });
-  const { emails, setup } = await buildRunInbox({ client, log });
+  const { emails, setup } = await buildRunInbox({ client, log, variant });
   const tools = buildTools({ client, canPay: true, exec });
   const pl = planner ?? pickPlanner(env, fetchImpl);
   const payer = cfg.buyer_agent?.account ?? null;
   const ageProof = apiAgeProofProvider({ client });
   log(`agent: ${pl.label}`);
-  const result = await runAgent({ mandate, emails, tools, planner: pl, ageProof, secrets, onEvent: (e) => { if (e.type !== 'tool_result') log(`  ${e.type}${e.tool ? ' ' + e.tool : ''}${e.text ? ': ' + e.text.slice(0, 140) : e.summary ? ': ' + e.summary : ''}`); } });
+  const result = await runAgent({ mandate, emails, tools, planner: pl, ageProof, secrets, onEvent: (e) => { if (onEvent) onEvent(e); if (e.type !== 'tool_result') log(`  ${e.type}${e.tool ? ' ' + e.tool : ''}${e.text ? ': ' + e.text.slice(0, 140) : e.summary ? ': ' + e.summary : ''}`); } });
   const finishedAt = new Date().toISOString();
   return {
     schema: RUN_SCHEMA,
@@ -75,7 +78,8 @@ export async function runScenario({ apiUrl, env = process.env, fetchImpl = fetch
     api: apiUrl,
     started_at: startedAt,
     finished_at: finishedAt,
-    planner: { kind: pl.kind, label: pl.label, model: pl.model ?? null },
+    planner: { kind: pl.kind, label: pl.label, model: pl.model ?? null, provider: pl.provider ?? null },
+    variant: variant ?? 'standard',
     task: mandate.text,
     mandate: { approved_suppliers: mandate.approvedSuppliers, budget: { ccd: mandate.budget.ccd.toString(), eudemo: mandate.budget.eudemo.toString() }, rules: mandate.rules },
     registry: `<${cfg.registry?.index},${cfg.registry?.subindex}>`,

@@ -23,7 +23,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const env = { ...process.env };
 if (env.PAYONCE_AGENT_ENV_FILE && existsSync(env.PAYONCE_AGENT_ENV_FILE)) {
   const parsed = parseEnv(readFileSync(env.PAYONCE_AGENT_ENV_FILE, 'utf8'));
-  if (parsed.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = parsed.ANTHROPIC_API_KEY;
+  for (const k of ['ANTHROPIC_API_KEY', 'NEAR_AI_API_KEY', 'NEARAI_API_KEY', 'NEARAI_CLOUD_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL']) if (parsed[k]) env[k] = parsed[k];
 }
 
 const apiUrl = opt('--api', env.PAYONCE_API_URL || 'https://payonce-api-n98a.onrender.com');
@@ -34,6 +34,7 @@ const exec = flag('--no-exec-verifier') ? null : localVerifierExec({ apiBase: ap
 try {
   const record = await runScenario({
     apiUrl, env, exec,
+    variant: opt('--variant', null),
     planner: flag('--scripted') ? new ScriptedPlanner() : null,
     headers: { 'x-payonce-run': 'test' },
     log: (l) => process.stdout.write(redact(l, envSecrets(env)) + '\n'),

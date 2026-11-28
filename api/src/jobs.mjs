@@ -116,6 +116,17 @@ async function finishJob(job, state, outcome) {
   emit(job.job_id, { type: 'done', outcome, receipt_url: `/api/receipts/${job.payable_id}${job.seller && job.seller !== SELLER ? `?seller=${job.seller}` : ''}` });
 }
 
+/** Retry a read or send the public node refused with 429/UNAVAILABLE (nothing was accepted then). */
+async function busyRetry(fn, tries = 6) {
+  for (let i = 1; ; i += 1) {
+    try { return await fn(); } catch (e) {
+      const busy = /RESOURCE_EXHAUSTED|UNAVAILABLE|HTTP status code (429|502|503|504)|ECONNRESET|ETIMEDOUT/i.test(String(e?.message ?? e));
+      if (!busy || i >= tries) throw e;
+      await new Promise((r) => setTimeout(r, 3000 * i));
+    }
+  }
+}
+
 export function feeOf(status) {
   const cost = status?.summary?.cost;
   return cost != null ? (Number(cost) / 1e6).toFixed(6) : null;
@@ -412,10 +423,11 @@ async function runEudemo(job) {
     // mirrored role — in v1 the seller WAS B. The v2 E2E proves the payer
     // sends it.) The gate's request sender is the agent account too.
     await setStep(job, 'confirm', 'running', 'Co-signer gate: deciding the confirm…');
-    snapshot = await buildSnapshotV2(c, {
+    // The transfer has already moved the money: a busy public node (429) must not strand the payable in Reserved.
+    snapshot = await busyRetry(() => buildSnapshotV2(c, {
       seller, payableId: job.payable_id, agentAccount: PAYER_ADDRESS, sponsorAccount: null,
       signatureThreshold: 1, transferTxHash: transfer.txHash, reserveTxHash: reserve.txHash,
-    });
+    }));
     decision = decide(snapshot, {
       kind: 'confirm', sender: PAYER_ADDRESS, txVersion: 1, sponsor: null, nonce: snapshot.nextNonce, txHash: transfer.txHash,
     }, await ledgerForDecide(payableKey));
@@ -423,10 +435,10 @@ async function runEudemo(job) {
       await setStep(job, 'confirm', 'refused', `Co-signer refused the confirm (${decision.code}): ${decision.reasons.join('; ')}`, { layer: 'co_signer' });
       return await finishJob(job, 'refused', 'refused');
     }
-    const confirm = await sendUpdate(c, {
+    const confirm = await busyRetry(() => sendUpdate(c, {
       from: sig.sellerB, receiveName: 'confirm_plt',
       parameterHex: v2enc.encodeV2Confirm({ seller, id: job.payable_id, txHashHex: transfer.txHash }), maxEnergy: 6000n,
-    });
+    }));
     stepOf(job, 'confirm').txHash = confirm.txHash;
     stepOf(job, 'confirm').explorerUrl = txUrl(confirm.txHash);
     const confirmStatus = await waitFinalized(c, confirm.txHash);

@@ -46,6 +46,7 @@ export interface AgentEvent {
   type: string
   tool?: string
   text?: string
+  source?: string
   summary?: string
   allow?: boolean
 }
@@ -67,6 +68,8 @@ export interface AgentRun {
   totals: { paid: number; refused: number; held: number; spent: { ccd: string; eudemo: string } }
   final: string
   transcript: AgentEvent[]
+  post_run_notes?: Array<{ payable_id: number; text: string; confirm_tx?: string }>
+  variant?: string
   _source?: { kind: 'live' | 'recorded'; file?: string; note?: string }
 }
 
@@ -103,7 +106,7 @@ export function outcomeTone(o: string): 'ok' | 'bad' | 'warn' | 'neutral' {
 
 /** A plain label for the planner, never blurring a script with a language model. */
 export function plannerBadge(p: AgentRun['planner']): string {
-  return p.kind === 'llm' ? `Language model: ${p.model ?? 'Claude'}` : 'Scripted agent (not a language model)'
+  return p.kind === 'llm' ? `Language model: ${p.label}` : 'Scripted agent (not a language model)'
 }
 
 export function hostileLabel(h: string | null): string | null {

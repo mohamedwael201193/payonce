@@ -23,6 +23,8 @@ const INJECTION_PATTERNS = [
   [/ignore\s+(?:(?:all|any|the|your|my|these|those)\s+)*(?:previous|prior|above|earlier)\s+(?:instructions|rules|policy|checks)/i, 'asks the reader to ignore its instructions'],
   [/\b(system|admin|developer)\s+(note|message|override|prompt)\b/i, 'claims system or admin authority'],
   [/\b(ai|assistant|agent|llm|model|bot)\b[^.\n]{0,60}\b(must|should|shall|need to|please|now)\b[^.\n]{0,80}\b(pay|transfer|send|wire|release)\b/i, 'tells an AI agent to move money'],
+  [/\b(ai|assistant|agent|llm|model|bot)\b[\s\S]{0,160}\b(also|additionally|as well)\b[^.\n]{0,30}\b(pay|transfer|send|wire|release)\b/i, 'tells an AI agent to pay something else'],
+  [/\b(already\s+approved|pre-?approved|no\s+need\s+to\s+(check|verify))\b/i, 'claims approval so checks can be skipped'],
   [/\b(pay|send|transfer|wire)\b[^.\n]{0,40}\b(instead|to\s+(a\s+)?(new|different|another|updated))\b[^.\n]{0,40}\b(account|address|wallet|iban)\b/i, 'asks to pay a different account'],
   [/\b(do\s+not|don'?t|skip|bypass|disable)\b[^.\n]{0,30}\b(verify|check|badge|policy|co-?signer|approval|consent)\b/i, 'asks to skip a check'],
   [/\b(bank|account|payment|wallet)\s+details\s+(have\s+)?(changed|updated)\b/i, 'announces changed payment details'],

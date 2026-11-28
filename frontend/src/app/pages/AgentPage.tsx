@@ -36,7 +36,7 @@ interface AgentStatus {
   disabled_reason: string | null
   running: { run_id: string; started_at: string; events: Array<{ at: string; text: string }> } | null
   last_error?: { at: string; message: string } | null
-  planner: string
+  planner: { kind: string; label: string }
 }
 
 const recorded: AgentRun | null = isAgentRun(recordedJson) ? (recordedJson as unknown as AgentRun) : null
@@ -240,7 +240,7 @@ function RunPanel({ onDone }: { onDone: () => void }) {
           Run the agent
         </Button>
         <p className="mt-2 max-w-[64ch] text-sm text-po-grey">
-          Registers three small test invoices and pays what passes, with real testnet transactions. One run per 20 minutes for the whole server; the planner is {status.data.planner === 'llm' ? 'a language model' : 'the labelled script'}.
+          Registers three small test invoices and pays what passes, with real testnet transactions. One run per 20 minutes for the whole server; the planner is {status.data.planner.label}. The model's own wording is shown as its prose; amounts and verdicts come from the API.
         </p>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
@@ -335,6 +335,38 @@ export function AgentPage() {
               </li>
             </ol>
           </section>
+
+          {run.post_run_notes?.length ? (
+            <section aria-label="After the run" className="po-card p-5 sm:p-6" data-testid="agent-post-run">
+              <h2 className="text-xl font-medium text-po-ink">After the run</h2>
+              <ul className="mt-2 list-disc pl-5 text-[15px] text-po-ink">
+                {run.post_run_notes.map((n) => (
+                  <li key={n.payable_id} className="[overflow-wrap:anywhere]">
+                    Payable {n.payable_id}: {n.text}
+                    {n.confirm_tx ? (
+                      <span className="mt-1 block">
+                        <ExplorerTx hash={n.confirm_tx} base={explorer} />
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {run.planner.kind === 'llm' && run.transcript.some((e) => e.source === 'model_prose') ? (
+            <section aria-label="What the model said" className="po-card p-5 sm:p-6" data-testid="agent-model-prose">
+              <details>
+                <summary className="cursor-pointer text-xl font-medium text-po-ink">What the model said</summary>
+                <p className="mt-2 text-sm text-po-grey">This is the model&apos;s own wording, shown as it wrote it. It can be wrong, for example about amounts. Every amount, verdict and transaction above comes from the API, not from this text.</p>
+                <ol className="mt-3 flex flex-col gap-2 text-[15px] text-po-ink">
+                  {run.transcript.filter((e) => e.source === 'model_prose' && e.text).map((e) => (
+                    <li key={e.seq} className="[overflow-wrap:anywhere]">{e.text}</li>
+                  ))}
+                </ol>
+              </details>
+            </section>
+          ) : null}
 
           <section aria-label="Rules and limits" className="po-card p-5 sm:p-6">
             <h2 className="text-xl font-medium text-po-ink">What bounds the agent, and what does not</h2>

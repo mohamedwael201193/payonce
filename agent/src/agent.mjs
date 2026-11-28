@@ -74,7 +74,7 @@ export async function runAgent({ mandate, emails, tools, planner, ageProof = nul
       if (!tool) return { error: `unknown tool ${String(name).slice(0, 40)}` };
       if (name === 'pay_payable') {
         const v = verdicts.get(keyOf(args.seller, args.id));
-        const g = guardPay(mandate, { seller: args.seller, payableId: Number(args.id), verdictFor: (s, i) => verdicts.get(keyOf(s, i)), facts: v?.facts });
+        const g = guardPay(mandate, { seller: args.seller, payableId: Number(args.id), verdictFor: (s, i) => verdicts.get(keyOf(s, i)), facts: v?.facts, referenced: Boolean(emailFor(args.seller, args.id)) });
         if (!g.allow) {
           emit({ type: 'guard', tool: name, allow: false, code: g.code, text: g.reason });
           return { paid: false, refused: true, refused_by: 'agent mandate guard (before any transaction)', reasons: [{ code: g.code, text: g.reason }], nothing_sent: true };
@@ -143,8 +143,9 @@ export async function runAgent({ mandate, emails, tools, planner, ageProof = nul
   let final = null;
   for (let step = 0; step < maxSteps; step += 1) {
     const move = await planner.next(obs);
-    if (move.thought) emit({ type: 'thought', text: move.thought });
+    if (move.thought) emit({ type: 'thought', text: move.thought, ...(move.model_text ? { source: 'model_prose' } : {}) });
     if (move.kind === 'final') { final = move.text; break; }
+    if (move.note) emit({ type: 'harness_note', text: move.note });
     if (move.kind === 'thought') { obs = null; continue; }
     const results = [];
     for (const call of move.calls) {
@@ -159,7 +160,7 @@ export async function runAgent({ mandate, emails, tools, planner, ageProof = nul
   if (final == null) final = 'Stopped: step limit reached.';
   // Any email that never reached a decision is reported as such, not silently dropped.
   for (const em of emails) { const d = decisionFor(em); if (d.outcome === 'pending') { d.outcome = 'not_processed'; d.reason_code = 'not_processed'; d.reason = 'The agent finished without deciding on this email.'; } }
-  emit({ type: 'final', text: final });
+  emit({ type: 'final', text: final, source: 'model_prose_or_script' });
   const list = emails.map((e) => decisions.get(e.id));
   return {
     transcript,

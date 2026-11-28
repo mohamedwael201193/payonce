@@ -72,7 +72,7 @@ describe('agentRun helpers', () => {
   })
   it('labels a script as a script, never as a language model', () => {
     expect(plannerBadge({ kind: 'scripted', label: 'x', model: null })).toBe('Scripted agent (not a language model)')
-    expect(plannerBadge({ kind: 'llm', label: 'x', model: 'claude-x' })).toBe('Language model: claude-x')
+    expect(plannerBadge({ kind: 'llm', label: 'NEAR AI (m)', model: 'm' })).toBe('Language model: NEAR AI (m)')
   })
   it('groups checks by who checks whom, in a fixed order', () => {
     const g = groupChecks(run().decisions[0].checks)
@@ -95,7 +95,7 @@ describe('AgentPage', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('shows the latest run as a timeline: task, planner label, paid with a transaction, refused with its reason', async () => {
-    mockApi({ ...run(), _source: { kind: 'live' } }, { run_enabled: false, disabled_reason: 'Running the agent spends testnet funds, so it is off here.', running: null, planner: 'scripted' })
+    mockApi({ ...run(), _source: { kind: 'live' } }, { run_enabled: false, disabled_reason: 'Running the agent spends testnet funds, so it is off here.', running: null, planner: { kind: 'scripted', label: 'scripted agent' } })
     renderPage()
     await screen.findByTestId('agent-summary')
     await waitFor(() => expect(screen.getByTestId('agent-planner')).toHaveTextContent('Scripted agent (not a language model)'))
@@ -110,14 +110,14 @@ describe('AgentPage', () => {
   })
 
   it('hides the run button with a plain reason when the server has runs switched off', async () => {
-    mockApi(run(), { run_enabled: false, disabled_reason: 'Running the agent spends testnet funds, so it is off here.', running: null, planner: 'scripted' })
+    mockApi(run(), { run_enabled: false, disabled_reason: 'Running the agent spends testnet funds, so it is off here.', running: null, planner: { kind: 'scripted', label: 'scripted agent' } })
     renderPage()
     await screen.findByText(/spends testnet funds, so it is off here/)
     expect(screen.queryByRole('button', { name: /Run the agent/ })).toBeNull()
   })
 
   it('offers the run button when the server allows runs', async () => {
-    mockApi(run(), { run_enabled: true, disabled_reason: null, running: null, planner: 'scripted' })
+    mockApi(run(), { run_enabled: true, disabled_reason: null, running: null, planner: { kind: 'scripted', label: 'scripted agent' } })
     renderPage()
     expect(await screen.findByRole('button', { name: /Run the agent/ })).toBeEnabled()
   })
