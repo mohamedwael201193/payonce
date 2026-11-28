@@ -234,6 +234,7 @@ export interface PayLinkTx {
       dashApi.prepare(payer, 'acknowledge_payee', acknowledge.parameter) + sendSponsored (PayOnce pays the fee). */
   acknowledge: { entrypoint: 'acknowledge_payee'; parameter: string; book: 'demo' } | null
   invoice: { seller: string; payable_id: number; amount_micro: string; register_tx: string; book: string }
+  approval?: { approval_id: string; approval_hash: string } | null
 }
 
 /** LIVE (WS1): GET /api/record/:account */
@@ -246,6 +247,40 @@ export interface RecordItem {
   /** null when nothing reached the chain (the agent refused before sending) */
   tx_hash: string | null
   note?: string
+}
+
+/** LIVE (WS1, G11): POST /api/approvals/request -> sign `message` with the wallet:
+    Browser Wallet provider.signMessage(payer, message) (returns {credIndex: {keyIndex: hex}}); WalletConnect sign_message. */
+export interface ApprovalRequest {
+  approval_id: string
+  message: string
+  expires_at: string
+  verdict: Verdict
+  evidence_hash: string
+  invoice_hash: string
+  check: CheckPayee
+}
+/** LIVE (WS1, G11): POST /api/approvals/:id/verify { signature } and GET /api/approvals/:id */
+export interface Approval {
+  approval_id: string
+  state: 'requested' | 'approved'
+  approved: boolean
+  payer: string
+  payee: string
+  name: string
+  amount_micro: string
+  verdict: Verdict
+  evidence_hash: string
+  invoice_hash: string
+  message: string
+  signature: unknown | null
+  approval_hash: string | null
+  approved_at: string | null
+  /** position in the hash-chained receipt ledger (GET /api/vop/ledger) */
+  ledger: { seq: number; entry_hash: string; prev_hash: string } | null
+  /** the ledger head anchor sent after the approval (registerData PVOH1), or why it was deferred */
+  anchor: { seq: number | null; tx_hash: string | null; state: string | null; skipped: string | null } | null
+  expires_at: string
 }
 
 export class NotShipped extends Error {
@@ -295,8 +330,16 @@ export const dashApi = {
     planned<AgeRequest>('POST /api/wallet/age-proof/request', '/api/wallet/age-proof/request', { method: 'POST', body: { account, seller_id: sellerId } }),
   ageVerify: (requestId: string, version: string, presentation: string) =>
     planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
-  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string) =>
-    walletApi<PayLinkTx>(`/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}`),
+  /** CLOSE_MATCH needs approvalId (approvalRequest -> wallet signMessage -> approvalVerify). approved=true alone is
+      answered 409 needs_signed_approval (WS1 G11: a click is not evidence). */
+  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string, approvalId?: string | null) =>
+    walletApi<PayLinkTx>(`/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}${approvalId ? `&approval=${q(approvalId)}` : ''}`),
+  // LIVE (WS1, G11): the person's wallet signs the approval message; the server verifies it against the account keys on chain.
+  approvalRequest: (payer: string, payee: string, name: string, amountMicro: string) =>
+    walletApi<ApprovalRequest>('/api/approvals/request', { method: 'POST', body: { payer, payee, name, amount_micro: amountMicro } }),
+  approvalVerify: (id: string, signature: unknown) =>
+    walletApi<Approval>(`/api/approvals/${q(id)}/verify`, { method: 'POST', body: { signature } }),
+  approval: (id: string) => walletApi<Approval>(`/api/approvals/${q(id)}`),
   record: (account: string) => walletApi<{ items: RecordItem[] }>(`/api/record/${q(account)}`),
 }
 

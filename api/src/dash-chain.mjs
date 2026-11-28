@@ -41,13 +41,15 @@ export function createDashChain(deps) {
         throw e;
       }
     },
+    /** Poll the node until finalized; "not found" right after sending only means the node has not indexed it yet. */
     async wait(hash, ms) {
-      try {
-        const s = await deps.client().waitForTransactionFinalization(TransactionHash.fromHexString(hash), ms);
-        return outcomeOf(s?.summary);
-      } catch (e) {
-        if (/timed? ?out|timeout|deadline/i.test(String(e?.message ?? e))) return null;
-        throw e;
+      const end = Date.now() + ms;
+      for (;;) {
+        let st;
+        try { st = await this.status(hash); } catch (e) { if (!/429|UNAVAILABLE|RESOURCE_EXHAUSTED|ECONNRESET/i.test(String(e?.message ?? e))) throw e; st = { state: 'pending' }; }
+        if (st.state === 'finalized') return { ok: st.ok, reject: st.reject };
+        if (Date.now() > end) return null;
+        await new Promise((r) => setTimeout(r, 2000));
       }
     },
     async preview(invoker, entrypoint, paramHex, amountMicro) {

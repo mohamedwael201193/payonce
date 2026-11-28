@@ -13,6 +13,8 @@
 //   GET  /api/x402/check-payee?payee=&name=  PayOnce sells check_payee: 402 -> 0.01 CCD (testnet, fee sponsored) -> verdict; GET /api/x402/sales lists settled sales
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
 //   POST /api/vop/proofs/diagnose {presentation, version?, account?}   QA: verify a wallet presentation, holder account, single-credential? (stores nothing)
+//   POST /api/approvals/request {payer, payee, name, amount_micro}  -> message for the wallet's signMessage; POST /api/approvals/:id/verify {signature}; GET /api/approvals/:id
+//   GET  /api/vop/ledger/head | /api/vop/ledger?from=&limit= | /api/vop/ledger/verify   hash-chained receipts, head anchored (registerData PVOH1)
 //   POST /api/payee/propose {account}      GET /api/payee/:account     (dashboard, demo book <13173,0>; dash.mjs)
 //   POST /api/getpaid {payee, invoice}     GET /api/getpaid/:job       POST /api/getpaid/:job/redirect {to}
 //   GET  /api/badge/:account.svg?name=     embeddable payee-check badge (Match is the only green)
@@ -24,7 +26,7 @@
 //   POST /api/relay/submit      { transaction }                   sender-signed -> sponsor co-signs -> submit once
 //   GET  /api/check-payee?seller=&payee=&legal_name=               alias of /api/vop/check (+ epc_verdict lower case)
 // The MCP / npm / GitHub Action packaging wraps GET /api/vop/check (see the handoff).
-import { VerifiablePresentationV1, getEmbeddedModuleSchema, getUpdateContractParameterSchema, ContractName, EntrypointName } from '@concordium/web-sdk';
+import { VerifiablePresentationV1, AccountAddress as AccountAddressV, getEmbeddedModuleSchema, getUpdateContractParameterSchema, ContractName, EntrypointName } from '@concordium/web-sdk';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +35,9 @@ import { createRelayer, RelayError } from './relayer.mjs';
 import { V3, DEMO_V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
 import { createDashboard, DashError } from './dash.mjs';
 import { createDashChain } from './dash-chain.mjs';
+import { createLedger } from './vop-ledger.mjs';
+import { createApprovals, ApprovalError } from './approvals.mjs';
+import { sendRegisterData, txStatus } from './vop-anchor-wiring.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
 import { vClient, VERIFIER_URL } from './consent.mjs';
 import { signers } from './chain-v2.mjs';
@@ -120,12 +125,27 @@ async function payCcdSchema() {
   payCcdSchemaB64 = Buffer.from(getUpdateContractParameterSchema(Buffer.from(ms, 'base64'), ContractName.fromString(DEMO_V3.name), EntrypointName.fromString('pay_ccd'))).toString('base64');
   return payCcdSchemaB64;
 }
+// ---- G16 hash-chained receipts (anchored head) + G11 wallet-signed approvals ----
+export const ledger = createLedger({ kv: { get: kvGet, put: kvPut, list: kvList }, send: sendRegisterData, status: txStatus });
+export const approvals = createApprovals({
+  kv: { get: kvGet, put: kvPut }, vop: vopDemo, seller: OWNER_ADDRESS, ledger,
+  accountInfo: (a) => vClient().getAccountInfo(AccountAddressV.fromBase58(a)),
+  hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit),
+});
+/** Append a check_payee answer to the ledger (testnet only) and anchor the head when due; never blocks the answer. */
+function logCheck(r, input) {
+  if (!r?.evidence_hash || isMainnet(input?.network)) return r;
+  ledger.append({ kind: 'check', book: r.subject?.contract ?? null, seller: r.subject?.seller ?? null, payee: r.subject?.payee ?? null, verdict: r.verdict, payable: !!r.payable, evidence_hash: r.evidence_hash, checked_at: r.checked_at })
+    .then(() => ledger.anchorHead()).catch(() => {});
+  return r;
+}
 const dashDeps = {
   kv: { get: kvGet, put: kvPut, list: kvList },
   hitWindow: (key, windowMs, limit) => hitWindowRef(key, windowMs, limit),
   vop: vopDemo, seller: OWNER_ADDRESS, payer: null, agentToken: OWNER_TOKEN, book: DEMO_V3, bookLabel: v3Label(DEMO_V3),
   appBase: process.env.PAYONCE_APP_URL ?? 'https://payonce-tau.vercel.app',
   chain: createDashChain({ client: () => vClient(), signers, book: DEMO_V3, seller: OWNER_ADDRESS }),
+  ledger, approvals,
 };
 let dashboardP = null;
 /** Lazily built: the payer address and the pay_ccd schema load after boot. */
@@ -208,7 +228,7 @@ async function demoRun() {
 
 /** network=mainnet -> identity-only mainnet mode; anything else -> the testnet v3 check. */
 const isMainnet = (v) => String(v ?? '').toLowerCase() === 'mainnet';
-const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : isDemoBook(input?.book) ? vopDemo.check(input) : vop.check(input));
+const runCheck = async (input) => (isMainnet(input?.network) ? checkMainnet(input) : logCheck(await (isDemoBook(input?.book) ? vopDemo.check(input) : vop.check(input)), input));
 
 const nodeProbe = (getClient) => async () => { const c = await getClient(); const s = await c.getConsensusStatus(); return { detail: `finalized height ${String(s.lastFinalizedBlockHeight)}` }; };
 const statusFn = createStatus({ loadCensus, testnetNode: nodeProbe(async () => vClient()), mainnetNode: nodeProbe(async () => mainnetGrpc()) });
@@ -256,7 +276,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof AnchorError) return apiError(res, e.status, e.code, 'app', e.message, { retryable: e.retryable === true, ...(e.retry_after_s ? { retry_after_s: e.retry_after_s } : {}), ...(e.evidence_hash ? { evidence_hash: e.evidence_hash } : {}) });
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
-      if (e instanceof DashError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
+      if (e instanceof DashError || e instanceof ApprovalError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
     }
@@ -368,6 +388,14 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
+    // ---- G11 wallet-signed approvals ----
+    ['POST', /^\/api\/approvals\/request$/, wrap(async (req) => { await limited('approval:req', 6)(req); return approvals.request(await readBody(req, 8192), clientIp(req)); })],
+    ['POST', /^\/api\/approvals\/([0-9a-f]{24})\/verify$/, wrap(async (req, res, m) => { await limited('approval:verify', 12)(req); return approvals.verify(m[1], await readBody(req, 8192)); })],
+    ['GET', /^\/api\/approvals\/([0-9a-f]{24})$/, wrap(async (req, res, m) => { await limited('approval:get', 60)(req); return approvals.get(m[1]); })],
+    // ---- G16 hash-chained receipts ----
+    ['GET', /^\/api\/vop\/ledger\/head$/, wrap(async (req) => { await limited('ledger:head', 60)(req); ledger.anchorHead().catch(() => {}); return ledger.status(); })],
+    ['GET', /^\/api\/vop\/ledger\/verify$/, wrap(async (req) => { await limited('ledger:verify', 4)(req); return ledger.verify(); })],
+    ['GET', /^\/api\/vop\/ledger$/, wrap(async (req) => { await limited('ledger:list', 30)(req); const q = qs(req); return { entries: await ledger.entries({ from: q.from, limit: q.limit }) }; })],
     // ---- /app dashboard on the demo book (dash.mjs) ----
     ['POST', /^\/api\/payee\/propose$/, wrap(async (req) => { await limited('dash:propose', 6)(req); return (await dashboard()).propose(await readBody(req, 4096), clientIp(req)); })],
     ['GET', /^\/api\/payee\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('dash:payee', 60)(req); return (await dashboard()).payeeStatus(m[1]); })],

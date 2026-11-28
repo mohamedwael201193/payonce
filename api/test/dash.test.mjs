@@ -89,6 +89,7 @@ function setup({ verdicts, policy } = {}) {
     payCcdSchema: 'FAACAAAABgAAAHNlbGxlcgsKAAAAcGF5YWJsZV9pZAU=', sleep: async () => {}, appBase: 'https://app.test',
     hitWindow: async (k, ms, limit) => { const c = (hits.get(k) ?? 0) + 1; hits.set(k, c); return { allowed: c <= limit }; },
     policy: { ...DASH_POLICY, ...policy },
+    approvals: { valid: async (id, x) => ({ approval_id: id, approval_hash: 'h'.repeat(64), ...x }) },
   });
   return { d, kv, chain, vop };
 }
@@ -229,8 +230,10 @@ test('rate limits: proposals per IP per hour', async () => {
 test('pay-tx approval rules: No match never; Close match only with approved=1; Not possible never', async () => {
   const { d, chain } = setup({ verdicts: { [ME]: 'CLOSE_MATCH', [OTHER]: 'NO_MATCH', [SELLER]: 'UNVERIFIED' } });
   for (const a of [ME, OTHER, SELLER]) chain.payees.set(a, { status: 'Bound', version: 1, identity: { proof_anchor: 'c'.repeat(64) }, mature_at_ms: Date.now() - 1 });
-  await assert.rejects(d.payTx(ME, { payer: PAYER, amount_micro: '1000' }, 'ip'), (e) => e.code === 'needs_approval');
-  const ok = await d.payTx(ME, { payer: PAYER, amount_micro: '1000', approved: '1' }, 'ip');
+  await assert.rejects(d.payTx(ME, { payer: PAYER, amount_micro: '1000' }, 'ip'), (e) => e.code === 'needs_signed_approval');
+  await assert.rejects(d.payTx(ME, { payer: PAYER, amount_micro: '1000', approved: '1' }, 'ip'), (e) => e.code === 'needs_signed_approval', 'a click is not enough');
+  const ok = await d.payTx(ME, { payer: PAYER, amount_micro: '1000', approval: 'a'.repeat(24) }, 'ip');
+  assert.equal(ok.approval.approval_id, 'a'.repeat(24));
   assert.equal(ok.check.verdict, 'CLOSE_MATCH'); assert.equal(ok.transaction.amount_micro, '1000');
   await assert.rejects(d.payTx(OTHER, { payer: PAYER, amount_micro: '1000', approved: '1' }, 'ip'), (e) => e.code === 'not_payable');
   await assert.rejects(d.payTx(SELLER, { payer: PAYER, amount_micro: '1000', approved: '1' }, 'ip'), (e) => e.code === 'not_payable' && /-36/.test(e.message));

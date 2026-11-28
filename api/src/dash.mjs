@@ -87,20 +87,21 @@ export function createDashboard(deps) {
     await kv.put('dash_op', key, done);
     return done;
   }
-  async function op(key, role, build) {
+  async function op(key, role, build, onSent) {
     return withLock(`role:${role}`, async () => {
       const prev = await kv.get('dash_op', key);
       if (prev?.state === 'final') return prev;
       if (prev?.hash && prev.state === 'sent') {
         const st = await chain.status(prev.hash);
         if (st.state === 'finalized') { const done = { ...prev, state: 'final', ok: st.ok, reject: st.reject ?? null }; await kv.put('dash_op', key, done); return done; }
-        if (st.state === 'pending' || now() < Number(prev.expiry_ms ?? 0) + 60_000) return settle(key, prev, prev.hash);
+        if (st.state === 'pending' || now() < Number(prev.expiry_ms ?? 0) + 60_000) { if (onSent) await onSent(prev.hash); return settle(key, prev, prev.hash); }
         // absent from the chain after its expiry: it never executed, so a new submission cannot double-execute
       }
       for (let attempt = 0; ; attempt++) {
         const tx = await build();
         const rec = { state: 'sent', hash: tx.hash, expiry_ms: tx.expiry_ms, role, at: iso(now()) };
         await kv.put('dash_op', key, rec);
+        if (onSent) await onSent(tx.hash);
         try {
           await tx.submit();
         } catch (e) {
@@ -115,6 +116,7 @@ export function createDashboard(deps) {
 
   async function addRecord(account, item) {
     await kv.put('dash_record', `${account}:${item.at}:${randomBytes(3).toString('hex')}`, { account, ...item });
+    if (deps.ledger) await deps.ledger.append({ kind: `dash_${item.role}`, book: deps.bookLabel, account, counterparty: item.counterparty, amount: item.amount_display, verdict: item.verdict, tx_hash: item.tx_hash ?? null }).catch(() => {});
   }
 
   // ---------------- R2: become a payee ----------------
@@ -173,7 +175,7 @@ export function createDashboard(deps) {
       job_id: j.job_id, stage: j.stage, check: j.check ?? null, hold_ends_at: j.hold_ends_at ?? null, pay_tx: j.pay_tx ?? null,
       amount_display: microToDisplay(j.amount_micro), payer_label: PAYER_LABEL, error: j.error ?? null,
       payee: j.payee, invoice_name: j.name, payer: payer, book: deps.bookLabel, payable_id: j.payable_id ?? null,
-      txs: { ack: j.ack_tx ?? null, register: j.register_tx ?? null, pay: j.pay_tx ?? null }, refusal: j.refusal ?? null,
+      txs: { ack: j.ack_tx ?? null, register: j.register_tx ?? null, pay: j.pay_tx ?? j.pay_tx_pending ?? null }, refusal: j.refusal ?? null,
       redirect: j.redirect ? { to: j.redirect.to, at: j.redirect.at } : null,
     };
   }
@@ -233,7 +235,7 @@ export function createDashboard(deps) {
         }
         if (!check.buyer_ack?.current) {
           const v = check.subject.book.version;
-          const r = await op(`ack:${j.payee}:${v}:${check.evidence_hash}`, 'payer', () => chain.sign('payer', 'acknowledge_payee', check.acknowledge.parameter, 0n, 8000n));
+          const r = await op(`ack:${j.payee}:${v}:${check.evidence_hash}`, 'payer', () => chain.sign('payer', 'acknowledge_payee', check.acknowledge.parameter, 0n, 8000n), (h) => save(j, { ack_tx: h }));
           await save(j, { ack_tx: r.hash });
           if (!r.ok) throw new Error(`acknowledge_payee was refused (reject ${r.reject}, ${r.hash})`);
           continue;
@@ -250,11 +252,11 @@ export function createDashboard(deps) {
         payable_id: j.payable_id, payee: j.payee, amount: BigInt(j.amount_micro), asset: 'CCD', due_ms: due,
         doc_hash: sha256Hex(`payonce dashboard invoice ${j.job_id} ${j.name} ${j.reference ?? ''}`), agent_token: agentToken, expected_payer: payer, legal_ref: null,
       }).toString('hex');
-      const r1 = await op(`register:${j.job_id}`, 'seller', () => chain.sign('seller', 'register_payable', reg, 0n, 12000n));
+      const r1 = await op(`register:${j.job_id}`, 'seller', () => chain.sign('seller', 'register_payable', reg, 0n, 12000n), (h) => save(j, { register_tx: h }));
       await save(j, { register_tx: r1.hash, stage: 'paying' });
       if (!r1.ok) throw new Error(`register_payable was refused (reject ${r1.reject}, ${r1.hash})`);
       const key = serPayableKey({ seller, payable_id: j.payable_id }).toString('hex');
-      const r2 = await op(`pay:${j.job_id}`, 'payer', () => chain.sign('payer', 'pay_ccd', key, BigInt(j.amount_micro), policy.payEnergy + 6000n));
+      const r2 = await op(`pay:${j.job_id}`, 'payer', () => chain.sign('payer', 'pay_ccd', key, BigInt(j.amount_micro), policy.payEnergy + 6000n), (h) => save(j, { pay_tx_pending: h }));
       if (r2.ok) {
         await save(j, { stage: 'paid', pay_tx: r2.hash });
         await addRecord(j.payee, { at: iso(now()), role: 'received', counterparty: payer, amount_display: microToDisplay(j.amount_micro), verdict: 'MATCH', tx_hash: r2.hash });
@@ -338,12 +340,18 @@ export function createDashboard(deps) {
     // MATCH + payable: pay. NO_MATCH: never. CLOSE_MATCH: only when the person approved (approved=1) and the book
     // allows it (Bound, hold over); the contract's acknowledge_payee accepts Close match. UNVERIFIED cannot be
     // acknowledged on chain (the contract refuses -36), so even an approved payment would be refused: nothing to sign.
-    const approved = String(q?.approved ?? '') === '1' || q?.approved === true;
+    // A Close match needs the person's wallet-signed approval (approvals.mjs, G11), not a click.
+    let approval = null;
+    if (check.verdict === 'CLOSE_MATCH' && q?.approval) {
+      if (!deps.approvals) throw new DashError(503, 'approvals_unavailable', 'Signed approvals are not available on this server.');
+      approval = await deps.approvals.valid(String(q.approval), { payer: payerAcct, payee, amount_micro: amount.toString() });
+    }
+    const approved = !!approval;
     const bk = check.subject?.book ?? {};
     const bookOk = bk.status === 'Bound' && Number(bk.mature_at_ms ?? Infinity) <= now();
     if (check.verdict === 'NO_MATCH') throw new DashError(409, 'not_payable', check.reasons?.[0] ?? 'No match: nothing to sign.', { check });
     if (check.verdict === 'UNVERIFIED') throw new DashError(409, 'not_payable', 'Verification not possible: the book cannot record an acknowledgment for this payee, so the chain would refuse the payment (-36). Nothing to sign.', { check });
-    if (check.verdict === 'CLOSE_MATCH' && !approved) throw new DashError(409, 'needs_approval', 'Close match: a person must approve (approved=1) before this payment is built.', { check });
+    if (check.verdict === 'CLOSE_MATCH' && !approved) throw new DashError(409, 'needs_signed_approval', 'Close match: the payer must sign an approval with the wallet first (POST /api/approvals/request, then /api/approvals/:id/verify), then pass approval=<id>.', { check });
     if (!(check.payable || (check.verdict === 'CLOSE_MATCH' && approved && bookOk))) throw new DashError(409, 'not_payable', check.reasons?.[0] ?? `check_payee: ${check.verdict}; nothing to sign.`, { check });
     const key = `${payee}:${payerAcct}:${amount}`;
     let link = await kv.get('dash_paylink', key);
@@ -375,6 +383,7 @@ export function createDashboard(deps) {
       check,
       acknowledge: check.buyer_ack?.current ? null : { entrypoint: 'acknowledge_payee', parameter: check.acknowledge?.parameter ?? null, book: 'demo', how: 'POST /api/relay/prepare {sender: payer, entrypoint, parameter, book:"demo"} then sendSponsored, before sending this payment; without it the chain refuses -30 PayeeNotAcknowledged' },
       invoice: { seller, payable_id: link.payable_id, amount_micro: amount.toString(), register_tx: link.register_tx, book: deps.bookLabel },
+      approval: approval ? { approval_id: approval.approval_id, approval_hash: approval.approval_hash } : null,
     };
   }
 
