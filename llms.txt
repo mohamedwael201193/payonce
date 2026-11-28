@@ -1,0 +1,37 @@
+# PayOnce
+
+> Verification of Payee for AI agents, on Concordium testnet only. No mainnet payments, no real money.
+
+An agent checks that the receiving account belongs to the name on the invoice before any money moves, and pays exactly once. Outcomes: Match, Close match, No match, Not possible (EU VoP, Reg 2024/886). The agent itself pays only on Match.
+
+Others (VeriFlow, x402-doctor) check that a payTo is the agent's registered wallet. PayOnce checks a different object: the name on the invoice.
+
+## Live
+
+- Site: https://payonce-tau.vercel.app
+- 60-second demo (no wallet): https://payonce-tau.vercel.app/demo
+- Dashboard (wallet): https://payonce-tau.vercel.app/app?dash=1
+- Run-it (v2 registry): https://payonce-tau.vercel.app/app
+- Census (upper bound): https://payonce-tau.vercel.app/app/proof/census
+- Payee card: https://payonce-tau.vercel.app/p/{account}
+- Badge: https://payonce-api-n98a.onrender.com/api/badge/{account}.svg?name={invoice name}
+- API: https://payonce-api-n98a.onrender.com/api/vop/config
+- Repo: https://github.com/mohamedwael201193/payonce
+
+## Docs
+
+- README.md — live state, what is and is not real
+- JUDGES.md — 60-second path, five-minute tour, ten hard questions
+- THREAT_MODEL.md — attackers, defences, what the chain does not verify
+- docs/DETAILS.md — longer limits and verify steps
+- tools/census/METHOD.md — census wording and definitions
+
+## Rules for claims
+
+- Testnet names are self-asserted mock identities. "PayOnce Labs" is a labelled stand-in.
+- The chain does not verify the ZK name proof. It enforces payee signature, cooling-off, version, pay-once.
+- Do not say "no rival checks the receiving account". Say: we check the account belongs to the name on the invoice.
+- Do not say agents are verified, safe, legitimate or fraudulent. The census is an upper bound on preconditions.
+- acknowledge_payee accepts Close match; the agent pays only on Match. Not possible cannot be overridden. No match cannot be overridden.
+- The 90 s hold is the demo book; a production book would be 24 h+, set at init.
+- No funds are held for refund. Recourse is prevention (check, cooling-off, void_payable before pay).

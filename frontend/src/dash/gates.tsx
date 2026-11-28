@@ -41,6 +41,7 @@ export function HumanGate({
         <button className="ds-btn" disabled={!ok || busy} onClick={onApprove}>{confirmLabel}</button>
         <button className="ds-btn ds-btn--ghost" disabled={busy} onClick={onDecline}>Don’t pay</button>
       </div>
+      <p className="ds-note">This decision is a click on this page, not a signature from your wallet.</p>
     </section>
   )
 }

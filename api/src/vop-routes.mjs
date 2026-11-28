@@ -15,6 +15,7 @@
 //   POST /api/vop/proofs/diagnose {presentation, version?, account?}   QA: verify a wallet presentation, holder account, single-credential? (stores nothing)
 //   POST /api/payee/propose {account}      GET /api/payee/:account     (dashboard, demo book <13173,0>; dash.mjs)
 //   POST /api/getpaid {payee, invoice}     GET /api/getpaid/:job       POST /api/getpaid/:job/redirect {to}
+//   GET  /api/badge/:account.svg?name=     embeddable payee-check badge (Match is the only green)
 //   GET  /api/p/:account/pay-tx?payer=&amount_micro=[&name=]          GET /api/record/:account
 //   book=demo on /api/vop/check, /api/check-payee, /api/relay/config and in the /api/relay/prepare body selects the demo book
 //   GET  /api/relay/config                                        what the relayer sponsors
@@ -40,6 +41,7 @@ import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
 import { createA2A } from './a2a.mjs';
 import { createX402Seller, SellerError, TESTNET_CAIP2 as X402_CAIP2 } from './x402-seller.mjs';
 import { createPayeeCards } from './payee-card.mjs';
+import { badgeKind, badgeSvg } from './badge-svg.mjs';
 import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
 import { loadAndVerify } from './census-verify.mjs';
@@ -232,6 +234,16 @@ export const x402Seller = createX402Seller({
 
 const a2a = createA2A({ check: (i) => runCheck(i) });
 
+async function badgeFor(account, q) {
+  const name = String(q?.name ?? q?.legal_name ?? '').trim();
+  if (name) {
+    const r = await cards.check(account, name);
+    return badgeSvg(badgeKind({ verdict: r.verdict }));
+  }
+  const c = await cards.card(account);
+  return badgeSvg(badgeKind({ verified: c.verified, named: Boolean(c.name) }));
+}
+
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
   let anchorP = null;
@@ -247,6 +259,22 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (e instanceof DashError) return apiError(res, e.status, e.code, 'app', e.message, e.extra);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
+    }
+  };
+  const wrapSvg = (fn) => async (req, res, m) => {
+    const send = (status, svg) => {
+      res.statusCode = status;
+      res.setHeader('content-type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('cache-control', 'public, max-age=60');
+      res.setHeader('access-control-allow-origin', '*');
+      res.end(svg);
+    };
+    try {
+      send(200, await fn(req, m));
+    } catch (e) {
+      // An <img> cannot show JSON: always return a badge, even on a bad address or a node error.
+      const status = (e instanceof VopError && e.status) || 502;
+      send(status >= 500 ? 502 : status, badgeSvg('UNVERIFIED'));
     }
   };
   const limited = (key, perMin) => async (req) => {
@@ -335,6 +363,8 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     // ---- payee links ----
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('p:card', 60)(req); return cards.card(m[1]); })],
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/check$/, wrap(async (req, res, m) => { await limited('vop:check', 30)(req); const q = qs(req); return cards.check(m[1], q.name ?? q.legal_name, { country: q.country, buyer: q.buyer }); })],
+    ['GET', /^\/api\/badge\/([1-9A-HJ-NP-Za-km-z]{50})(?:\.svg)?$/, wrapSvg(async (req, m) => { await limited('p:badge', 60)(req); return badgeFor(m[1], qs(req)); })],
+    ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/badge\.svg$/, wrapSvg(async (req, m) => { await limited('p:badge', 60)(req); return badgeFor(m[1], qs(req)); })],
     ['GET', /^\/api\/demo\/run$/, wrap(async (req) => { await limited('demo:run', 30)(req); return demoRun(); })],
     ['GET', /^\/api\/relay\/config$/, wrap((req) => (isDemoBook(qs(req).book) ? relayerDemo : relayer).config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],

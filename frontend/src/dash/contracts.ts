@@ -271,15 +271,16 @@ export const dashApi = {
   relayConfig: () => walletApi<RelayConfig>('/api/relay/config'),
   prepare: (sender: string, entrypoint: string, parameterHex: string, amountMicro?: string) =>
     walletApi<PreparedSponsored>('/api/relay/prepare', { method: 'POST', body: { sender, entrypoint, parameter: parameterHex, book: 'demo', ...(amountMicro ? { amount_micro_ccd: amountMicro } : {}) } }),
-  // PLANNED
-  propose: (account: string) => planned<ProposedPayee>('POST /api/payee/propose', '/api/payee/propose', { method: 'POST', body: { account } }),
-  payeeStatus: (account: string) => planned<PayeeStatus>('GET /api/payee/:account', `/api/payee/${q(account)}`),
+  // LIVE (WS1, demo book)
+  propose: (account: string) =>
+    walletApi<ProposedPayee>('/api/payee/propose', { method: 'POST', body: { account } }),
+  payeeStatus: (account: string) => walletApi<PayeeStatus>(`/api/payee/${q(account)}`),
   parseInvoice: (text: string) => planned<ParsedInvoice>('POST /api/invoices/parse', '/api/invoices/parse', { method: 'POST', body: { text } }),
   startGetPaid: (payee: string, invoice: ParsedInvoice | null) =>
-    planned<{ job_id: string }>('POST /api/getpaid', '/api/getpaid', { method: 'POST', body: { payee, invoice } }),
-  getPaidJob: (job: string) => planned<GetPaidJob>('GET /api/getpaid/:job', `/api/getpaid/${q(job)}`),
+    walletApi<{ job_id: string }>('/api/getpaid', { method: 'POST', body: { payee, invoice } }),
+  getPaidJob: (job: string) => walletApi<GetPaidJob>(`/api/getpaid/${q(job)}`),
   redirect: (job: string, to: string) =>
-    planned<RedirectResult>('POST /api/getpaid/:job/redirect', `/api/getpaid/${q(job)}/redirect`, { method: 'POST', body: { to } }),
+    walletApi<RedirectResult>(`/api/getpaid/${q(job)}/redirect`, { method: 'POST', body: { to } }),
   // EXISTS (WS3)
   x402Sellers: () => walletApi<X402SellersResponse>('/api/x402/sellers'),
   x402Probe: (s: X402Seller) =>
@@ -295,8 +296,8 @@ export const dashApi = {
   ageVerify: (requestId: string, version: string, presentation: string) =>
     planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
   payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string) =>
-    planned<PayLinkTx>('GET /api/p/:account/pay-tx', `/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}`),
-  record: (account: string) => planned<{ items: RecordItem[] }>('GET /api/record/:account', `/api/record/${q(account)}`),
+    walletApi<PayLinkTx>(`/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}`),
+  record: (account: string) => walletApi<{ items: RecordItem[] }>(`/api/record/${q(account)}`),
 }
 
 /** Bank wording for the four outcomes (EU VoP, Reg 2024/886). */

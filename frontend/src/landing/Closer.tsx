@@ -18,8 +18,12 @@ export function faqItems(s: Snapshot): { q: string; a: string }[] {
       a: 'No. The payment goes straight to the registered payee in the same transaction, and the verifier checks that the registry holds nothing afterwards.',
     },
     {
+      q: 'What if the money already went to the wrong account?',
+      a: 'We stop the payment before it is sent. The contract does not keep funds to give back later: a payment goes straight to the payee in the same transaction. The controls are the name check, a cooling-off wait after the payee is bound, and void_payable, which cancels a reserved invoice before it is paid. After a payment has landed, getting it back is a matter for the payee and, if needed, the courts.',
+    },
+    {
       q: 'What decides Match or No match?',
-      a: 'Code, not the language model. The agent may read and plan, but the checks run against the chain: approved seller, registered payee account, document hash, invoice status. Today one server key both checks and signs; a second, independent signer is planned and not live yet.',
+      a: 'Code, not the language model. The agent checks that the receiving account belongs to the name on the invoice, and returns Match, Close match, No match, or Not possible. Other checks still run against the chain: approved seller, document hash, invoice status. Today one server key both checks and signs; a second, independent signer is planned and not live yet.',
     },
     {
       q: 'What if someone edits the invoice?',
@@ -72,7 +76,7 @@ export function Closer() {
         <motion.div className="po-final__card" style={still ? undefined : { clipPath: clip }} data-dark>
           <div className="po-final__in">
             <Rise as="h2" text={'Check who it pays.\nThen pay once.'} className="po-final__h" />
-            <p className="po-final__p">Testnet only. Get a real invoice, watch the agent decide Match or No match, and pay it once.</p>
+            <p className="po-final__p">Testnet only. Watch the agent check that the receiving account belongs to the name on the invoice, and pay once on a Match.</p>
             <div className="po-cta-row">
               <Magnetic>
                 <Link to="/app" className="po-btn po-btn--light">

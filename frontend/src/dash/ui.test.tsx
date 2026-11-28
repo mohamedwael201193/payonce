@@ -8,6 +8,7 @@ import { CensusPage, headline } from './CensusPage'
 import { HumanGate, AgeGate } from './gates'
 import { Services } from './Services'
 import { lookalike, sharedEnds, validChecksum } from './lookalike'
+import { badgeColors, badgeKind, badgeMarkdown, badgeSvg } from './badge'
 
 const A = '4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin'
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } })
@@ -96,4 +97,20 @@ describe('lookalike', () => {
     expect(tail).toBeGreaterThanOrEqual(2)
   })
   it('returns null for a bad address', () => expect(lookalike('nope')).toBeNull())
+})
+
+describe('badge svg', () => {
+  it('only Match uses the green pass colour', () => {
+    expect(badgeColors('MATCH').bg).toBe('#e8f6ee')
+    for (const k of ['CLOSE_MATCH', 'NO_MATCH', 'UNVERIFIED', 'PROVEN', 'UNPROVEN'] as const) {
+      expect(badgeColors(k).bg).not.toBe('#e8f6ee')
+      expect(badgeSvg(k)).toContain(k === 'CLOSE_MATCH' ? 'Close match' : k === 'NO_MATCH' ? 'No match' : k === 'UNVERIFIED' ? 'Not possible' : k === 'PROVEN' ? 'Name proven' : 'Unverified payee')
+    }
+  })
+  it('a name-proven badge is never labelled Match, and the snippet points at /p/', () => {
+    expect(badgeKind({ verified: true, named: true })).toBe('PROVEN')
+    expect(badgeSvg('PROVEN')).not.toContain('>Match<')
+    expect(badgeMarkdown(A)).toContain(`/p/${A}`)
+    expect(badgeMarkdown(A)).toContain('/api/badge/')
+  })
 })

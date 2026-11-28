@@ -7,6 +7,7 @@ import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
 import { dashApi, type CheckPayee } from './contracts'
 import { VerdictBlock } from './DashPage'
+import { badgeHtml, badgeMarkdown, badgeSrc } from './badge'
 import { dashEnabled } from './flag'
 import './dash.css'
 
@@ -57,8 +58,24 @@ export function PayeePage() {
           {c ? <button className="ds-btn ds-btn--ghost" onClick={() => setJson((v) => !v)} aria-expanded={json}>{json ? 'Hide' : 'Show'} check_payee JSON</button> : null}
           {json && c ? <pre className="ds-json">{JSON.stringify(c, null, 2)}</pre> : null}
           <p className="ds-note">Testnet. Names are mock identities. The chain enforces the payee’s signature, the hold and pay-once; the name proof is checked by a keyless verifier anyone can re-run.</p>
+          <BadgeEmbed account={account} name={asked} />
         </section>
       </div>
+    </div>
+  )
+}
+
+function BadgeEmbed({ account, name }: { account: string; name: string }) {
+  const src = badgeSrc(account, name || undefined)
+  const md = badgeMarkdown(account, name || undefined)
+  const html = badgeHtml(account, name || undefined)
+  return (
+    <div className="ds-embed" data-testid="payee-badge">
+      <h2 className="ds-h2" style={{ fontSize: 20 }}>Embed a badge</h2>
+      <p className="ds-note">Shows the current check of this account{name ? ` against “${name}”` : ''}. Match is the only green mark. Not possible and Unverified are never shown as a pass.</p>
+      <a href={src}><img src={src} alt="PayOnce payee check" height={28} /></a>
+      <label className="ds-field"><span>Markdown</span><input readOnly value={md} onFocus={(e) => e.currentTarget.select()} /></label>
+      <label className="ds-field"><span>HTML</span><input readOnly value={html} onFocus={(e) => e.currentTarget.select()} /></label>
     </div>
   )
 }

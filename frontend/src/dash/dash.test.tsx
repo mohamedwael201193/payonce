@@ -43,10 +43,10 @@ describe('flag', () => {
 })
 
 describe('planned routes', () => {
-  it('a 404 becomes NotShipped, naming the route', async () => {
+  it('a 404 on a route that is not shipped becomes NotShipped, naming the route', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ error: { code: 'not_found', message: 'No route' } }, 404)))
-    await expect(dashApi.propose(A)).rejects.toBeInstanceOf(NotShipped)
-    await expect(dashApi.propose(A)).rejects.toThrow('POST /api/payee/propose')
+    await expect(dashApi.ageRequest(A, 'adult')).rejects.toBeInstanceOf(NotShipped)
+    await expect(dashApi.ageRequest(A, 'adult')).rejects.toThrow('POST /api/wallet/age-proof/request')
   })
   it('relay prepare sends the parameter as hex', async () => {
     const f = vi.fn(async () => json({ mode: 'sponsor-first', transaction: {}, sender: A, sponsor: S, fee_paid_by: S, expires_at: '', schema: null }))

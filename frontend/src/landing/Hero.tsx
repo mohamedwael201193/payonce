@@ -9,7 +9,7 @@ import { HeroIdentity } from './HeroIdentity'
 import { AgentInboxPanel } from './AgentInbox'
 
 export const HERO_H1 = 'Your AI agent checks\nwho it’s paying.'
-export const HERO_LEAD = 'Match or No match, before any money moves. On a match it pays exactly once, to the account the seller registered on Concordium. On no match, nothing is sent.'
+export const HERO_LEAD = 'Before any money moves, it checks that the receiving account belongs to the name on the invoice: Match, Close match, No match, or Not possible. On a match it pays exactly once. On no match, nothing is sent.'
 
 function Arrow() {
   return (

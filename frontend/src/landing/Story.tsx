@@ -10,12 +10,12 @@ export const STORY_STEPS: { title: string; body: string }[] = [
     body: 'A seller agent on the official Concordium agent registry puts the invoice on chain: payee account, amount, due date and the SHA-256 of the document.',
   },
   {
-    title: 'Your agent checks who it’s paying.',
-    body: 'Is the seller one you approved? Is the account on the invoice the one the seller registered? Is the document the one on chain? All yes is a Match. Anything else is No match.',
+    title: 'Your agent checks the name on the invoice.',
+    body: 'Does the receiving account belong to that name? The four answers are Match, Close match, No match, and Not possible — the same outcomes EU banks show. Other checks still run: approved seller, document hash, not already paid.',
   },
   {
-    title: 'No match: nothing moves. Match: paid once.',
-    body: 'On no match the agent stops and says why. On a match it pays the exact amount to the registered account, and the contract refuses a second payment.',
+    title: 'Match: paid once. No match: nothing moves.',
+    body: 'The agent itself pays only on a Match, exactly once. No match cannot be overridden. Close match and Not possible wait for a person. The contract refuses a second payment.',
   },
   {
     title: 'Anyone can read the receipt.',

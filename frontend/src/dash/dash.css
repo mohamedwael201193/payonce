@@ -245,3 +245,6 @@
 .ds-sell .po-btn::before { display: none; }
 .ds-sell input[type='text'], .ds-sell input:not([type]), .ds-sell textarea { border-radius: 12px; }
 @media (max-width: 560px) { .ds-step { grid-template-columns: 34px 1fr; gap: 10px; } .ds-step__node { width: 34px; height: 34px; font-size: 14px; } .ds-step::before { left: 16px; top: 34px; } .ds-step__card { padding: 16px; } }
+
+.ds-embed { width: 100%; display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--po-line); }
+.ds-embed img { justify-self: start; height: 28px; }

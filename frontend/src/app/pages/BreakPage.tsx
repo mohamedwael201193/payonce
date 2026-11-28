@@ -411,6 +411,10 @@ export function BreakPage() {
           </Attack>
         </ol>
       )}
+      <aside className="po-card mt-4 flex flex-col gap-2 p-5 sm:p-6" data-testid="void-note">
+        <h2 className="text-lg font-semibold tracking-tight">Cancel before it is paid</h2>
+        <p className="text-po-grey">The contract does not keep funds to give back later. A payment goes straight to the payee in the same transaction. Before that, <code>void_payable</code> can cancel a reserved invoice — the chain then refuses any later payment of it. After a payment has landed, the contract has no exit: getting the money back is a matter for the payee and, if needed, the courts. That is why the agent checks the name and waits out the cooling-off before it pays.</p>
+      </aside>
     </div>
   )
 }

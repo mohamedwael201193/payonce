@@ -2,32 +2,40 @@
 
 [![CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml) [![status monitor](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/monitor.yml) [![census](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml/badge.svg?branch=main)](https://github.com/mohamedwael201193/payonce/actions/workflows/census.yml)
 
-**An AI agent checks who it is paying (Match / No match) before any money moves, and pays each invoice exactly once.**
-Concordium testnet only. No mainnet, no real money. Built for the Encode Club × Concordium Trusted Agents Hackathon.
+**An AI agent checks that the receiving account belongs to the name on the invoice, then pays exactly once.**
+The four outcomes are Match, Close match, No match, and Not possible — the same ones EU banks show (Reg 2024/886). Concordium testnet only. No mainnet payments, no real money. Built for the Encode Club × Concordium Trusted Agents Hackathon.
 
-**Live:** [app](https://payonce-tau.vercel.app/app) · [proof](https://payonce-tau.vercel.app/app/proof) · [API](https://payonce-api-n98a.onrender.com/api/config) · [CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml)
+Others check that a payout address is the agent’s registered wallet (for example VeriFlow’s `payTo == agentWallet`, and x402-doctor’s payee check). We check a different thing: that the account belongs to the *name on the invoice*.
 
-## The 30-second story
+**Live:** [60-second demo](https://payonce-tau.vercel.app/demo) · [app](https://payonce-tau.vercel.app/app) · [census](https://payonce-tau.vercel.app/app/proof/census) · [API](https://payonce-api-n98a.onrender.com/api/vop/config) · [CI](https://github.com/mohamedwael201193/payonce/actions/workflows/ci.yml)
 
-1. An invoice is registered once on a Concordium smart contract: payee, amount, due date, the SHA-256 of the invoice text, and the seller's agent token on the official CIS-8004 registry.
-2. Before paying, the agent asks the chain, not the email: does the payee on chain match the invoice, is the seller a valid registered agent, is it already paid? **Match:** it pays. **No match:** nothing moves.
-3. On CCD the contract is the payment: it forwards the money to the stored payee in the same transaction, so a second payment, a wrong amount or an unlisted seller reverts with a code.
-4. Anyone can re-read any payment from the chain with a script that needs no keys and no account.
+A judge path, hard questions and limits: [JUDGES.md](JUDGES.md). Threats and what the chain does *not* verify: [THREAT_MODEL.md](THREAT_MODEL.md). Machine-readable: [llms.txt](llms.txt) (also at `/llms.txt` on the site).
 
-Open [/app](https://payonce-tau.vercel.app/app) and run it on a real testnet invoice: payer, invoice, check, approve, paid once, receipt.
+## 60 seconds
+
+Open [/demo](https://payonce-tau.vercel.app/demo). Six screens, one button each: a Match payment, an impostor stopped, the chain refusing a forced pay (`PayeeNotMature`, -29), and a second payment refused on chain (`WrongStatus`, -5). When `GET /api/demo/run` has a fresh run (`live:true`, less than an hour old) you are watching that run; otherwise a labelled replay of a recorded one.
+
+Then, if you have a Concordium testnet wallet (Browser Wallet 2.10+ or CryptoX Android): [/app?dash=1](https://payonce-tau.vercel.app/app?dash=1) is the dashboard (prove your name, become a payee, get paid, pay someone with a verdict). [/app](https://payonce-tau.vercel.app/app) without the flag is the original Run-it page on payable registry v2.
 
 ## What is real today, and what is not
 
-| Part | Status |
+| Part | Status (28 Nov 2026) |
 | --- | --- |
-| Payable registry v2, instance [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) | Deployed, used by the app. Not a verified build on CCDExplorer |
-| Registry v3 (payee book, cooling-off, buyer acknowledgment), instance [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) | Deployed, with a check API (`/api/vop/config`). The app does not use it yet; its first payee bindings are still to be run |
-| EUDemo rail | The guard runs in our API before the transfer. The contract cannot see tokens, so the verifier is the check to trust |
-| 18+ identity check | Real Concordium proof (V&A V1, anchored request and result), built by a hosted prover that holds one testnet credential. Not a person's own wallet |
-| Owner approval above 1 CCD | Lab only: built headlessly from a seed. No human wallet is involved yet |
-| Users | None outside us. One testnet seed derives the owner, seller 2, payer and sponsor |
+| `/demo` on the v3 demo book [`<13173,0>`](https://ccdexplorer.io/testnet/instance/13173/0) (90 s cooling-off; a production book would be 24 h+, set at init) | Live. Fresh runs up to 30/day. Stand-in invoice name: “PayOnce Labs” (labelled). |
+| Payee book v3 [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) (600 s cooling-off), verifiable module `8641046e…` | Deployed. The dashboard uses the 90 s demo book. |
+| Payable registry v2 [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) | Still serves the Run-it page (`/app` without `?dash=1`). Not a verified build on CCDExplorer. |
+| `check_payee` (`GET /api/vop/check`, `/api/check-payee`) | Live, testnet full check; `network=mainnet` is identity-only (never Match, never payable). |
+| Dashboard routes (`/api/payee/propose`, `/api/getpaid`, `/api/p/:account/pay-tx`, `/api/record/:account`) | Live on the demo book. Close match needs `approved=1`. Not possible cannot be acknowledged and is refused. |
+| Census of the official registry (`GET /api/census`, [/app/proof/census](https://payonce-tau.vercel.app/app/proof/census)) | Snapshot 28 Nov 2026, 07:26 UTC: at most 5 of 5,501 mainnet agents, and 3 of 1,553 on testnet, meet the *preconditions* of a payee check (an upper bound). |
+| x402 services run by other teams | Listed, probed (free), and payable by a capped reference buyer on Match only. |
+| PayOnce sells `check_payee` over x402 | Live: `GET /api/x402/check-payee?payee=&name=` answers 402 (0.01 CCD, fee sponsored), then the verdict. A2A `message/send` at `/a2a`. CLI/MCP: `npx payonce-check-payee`, `npx payonce-mcp`. |
+| EUDemo rail | The guard runs in our API before the transfer. The contract cannot see tokens. |
+| 18+ check | Hosted prover with one PayOnce testnet credential, not the visitor’s wallet. Visitor wallet routes are not live. |
+| Human approval of a Close match | A click on the page, with a consent box. A wallet-signed approval is not live yet. |
+| Outside users | No visitor outside us has completed “become a payee” yet. |
+| Protocol-Level Locks (PLL) | NO-GO for a live demo (DevNet-only, no public IdP, wire format still moving). See `tools/census/PLL_SPIKE.md`. |
 
-More, with reasons: [docs/DETAILS.md](docs/DETAILS.md) (Honest limits) and [VERIFY.md](VERIFY.md) (section 6).
+The chain enforces the payee’s signature, the cooling-off, the version and pay-once. It does **not** verify the name proof: a keyless verifier anyone can re-run does. Testnet names are self-asserted mock identities.
 
 ## Use check_payee in your agent (one line each)
 
@@ -61,6 +69,8 @@ Packages: [payonce-check-payee](https://www.npmjs.com/package/payonce-check-paye
 
 Needs Node 22+. Read-only, no keys. The public testnet node rate-limits (HTTP 429): run it again.
 
+A v2 payment, recorded 28 Nov, 10/10:
+
 ```sh
 git clone https://github.com/mohamedwael201193/payonce && cd payonce
 (cd backend && npm ci) && (cd api && npm ci)
@@ -68,7 +78,13 @@ cd api && node src/verify-payable-v2.mjs 10 7c204f0b1f75b5c43e655eb78e77a72205b2
 # last line, recorded 28 Nov: ALL CHECKS PASS (10/10)
 ```
 
-Ask the official registry about the three agents (expect `"badge_valid":true` three times):
+A live payee check (expect `UNVERIFIED` unless that account has a proven name equal to the one you pass):
+
+```sh
+curl -s "https://payonce-api-n98a.onrender.com/api/check-payee?payee=4gedLUopV5kUSqNBhsdeBDz3ffztkayNFe4hUpHCngEQmGjtin&legal_name=Nour%20Design%20Studio"
+```
+
+Official badge check for our three agents (expect `"badge_valid":true` three times):
 
 ```sh
 for t in JyP9XawpXHMjTN5ocrA5a JyP9Y9nGU4KaM7DBDXRgm JyP9Xp5bhbLsQrw7yTyph; do
@@ -80,15 +96,15 @@ done
 
 | What | Link |
 | --- | --- |
-| A real CCD payment (payable 10, verifier 10/10) | [`7c204f0b…d73197`](https://ccdexplorer.io/testnet/transaction/7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197) |
-| Refused by the chain: unlisted seller, code -19 | [`e8e3d588…7688b5`](https://ccdexplorer.io/testnet/transaction/e8e3d588817c80f58d20589752bf72f61896f8430e95bd880f9b06c6647688b5) |
-| 18+ check, request anchored (28 Nov) | [`0cd44ea0…be8ca2`](https://ccdexplorer.io/testnet/transaction/0cd44ea04e380c1bfd23b2fc8c79a7474ac6088d34dedf7159499320be7b8ca2) |
-| 18+ check, result anchored | [`bf5a7bf4…c1bb19`](https://ccdexplorer.io/testnet/transaction/bf5a7bf445b53d4b2e62407f55639f2f0b897bc983f223f2cb0491c605c1bb19) |
-| Payable registry v2 / v3 | [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) · [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) |
+| Fresh `/demo` Match payment (demo book, 28 Nov) | [`9017c75b…c2b08e`](https://ccdexplorer.io/testnet/transaction/9017c75b83b15c4bd19572af2ae86bf3f8ad8cf426f1de3c318d4b076cc2b08e) |
+| Impostor forced, chain refused -29 PayeeNotMature | [`6bfe195c…654ced`](https://ccdexplorer.io/testnet/transaction/6bfe195c14a8d82295b4a127fb3ab634a27761ce92f7f12aee063b9ff0654ced) |
+| Second payment refused -5 WrongStatus | [`d91e7611…ccb021`](https://ccdexplorer.io/testnet/transaction/d91e7611d894d88092d600e97c83e3c9c08cc9d94a8ca0e423348b92f9ccb021) |
+| A v2 CCD payment (payable 10, verifier 10/10) | [`7c204f0b…d73197`](https://ccdexplorer.io/testnet/transaction/7c204f0b1f75b5c43e655eb78e77a72205b21c1029261dcf889e1d7b12d73197) |
+| Demo book v3 / payee book v3 / v2 | [`<13173,0>`](https://ccdexplorer.io/testnet/instance/13173/0) · [`<13172,0>`](https://ccdexplorer.io/testnet/instance/13172/0) · [`<13150,0>`](https://ccdexplorer.io/testnet/instance/13150/0) |
 | Official CIS-8004 Agent Registry | [`<12802,0>`](https://ccdexplorer.io/testnet/instance/12802/0) |
 
 ## Where things are
 
 `contracts/` Rust contracts (v2, v2.1, v3) · `api/` HTTP API, verifier, MCP · `agent/` the agent and its safety guard · `prover/` scoped age prover ·
-`frontend/` site and app · `qa/` end-to-end runs and recorded agent runs · [`docs/`](docs): [DETAILS](docs/DETAILS.md), [VERIFIABLE_BUILD](docs/VERIFIABLE_BUILD.md).
-Run locally and tests: see `api/README.md` and the test table in DETAILS. License: Apache-2.0.
+`frontend/` site and app · `qa/` end-to-end runs · [`docs/`](docs): [DETAILS](docs/DETAILS.md), [VERIFIABLE_BUILD](docs/VERIFIABLE_BUILD.md).
+License: Apache-2.0.

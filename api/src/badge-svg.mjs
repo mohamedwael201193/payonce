@@ -1,0 +1,39 @@
+// Pure SVG for GET /api/badge/:account.svg. Match is the only green.
+// Keep in lockstep with frontend/src/dash/badge.ts (words, colours, size).
+export const BADGE_WORD = {
+  MATCH: 'Match',
+  CLOSE_MATCH: 'Close match',
+  NO_MATCH: 'No match',
+  UNVERIFIED: 'Not possible',
+  PROVEN: 'Name proven',
+  UNPROVEN: 'Unverified payee',
+};
+const COLOR = {
+  MATCH: { bg: '#e8f6ee', ink: '#0e7a4c' },
+  CLOSE_MATCH: { bg: '#fff4e0', ink: '#9a5b00' },
+  NO_MATCH: { bg: '#fdecea', ink: '#b42318' },
+  UNVERIFIED: { bg: '#eef0f3', ink: '#3d4450' },
+  PROVEN: { bg: '#eef0f3', ink: '#0e1219' },
+  UNPROVEN: { bg: '#eef0f3', ink: '#3d4450' },
+};
+
+export function badgeKind({ verdict, verified, named }) {
+  if (verdict) return verdict;
+  if (named && verified) return 'PROVEN';
+  return 'UNPROVEN';
+}
+
+export function badgeSvg(kind) {
+  const word = BADGE_WORD[kind] ?? BADGE_WORD.UNVERIFIED;
+  const c = COLOR[kind] ?? COLOR.UNVERIFIED;
+  const w = Math.max(196, 86 + word.length * 8 + 24);
+  const label = `PayOnce: ${word}. The receiving account belongs to the name on the invoice? Testnet.`;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="28" role="img" aria-label="${esc(label)}">
+  <title>${esc(label)}</title>
+  <rect width="${w}" height="28" rx="6" fill="${c.bg}"/>
+  <path d="M0 6a6 6 0 0 1 6-6h70v28H6a6 6 0 0 1-6-6z" fill="#0e1219"/>
+  <text x="10" y="19" fill="#fff" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" font-weight="650">PayOnce</text>
+  <text x="86" y="19" fill="${c.ink}" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" font-weight="650">${esc(word)}</text>
+</svg>`;
+}

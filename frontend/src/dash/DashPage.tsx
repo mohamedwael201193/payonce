@@ -178,6 +178,7 @@ function Flow() {
       if (!w.session.sendSponsored) throw new WalletTooOld()
       setBind({ s: 'busy', note: 'Asking the demo book to propose you…' })
       const p = await dashApi.propose(acct)
+      if (p.status === 'Bound') { setBind({ s: 'done', v: p.tx_hash ?? 'already-bound' }); return }
       setBind({ s: 'busy', note: 'Preparing a sponsored transaction…' })
       const prep = await dashApi.prepare(acct, 'accept_payee', acceptPayeeParamHex(p.seller, p.version, p.proof_anchor))
       setBind({ s: 'busy', note: 'Sign in your wallet. PayOnce pays the fee.' })
@@ -224,8 +225,14 @@ function Flow() {
     if (!w.session || !acct || outCheck.s !== 'done') return
     try {
       setOutPay({ s: 'busy', note: 'Building the payment…' })
-      const t = await dashApi.payLinkTx(payTo.trim(), acct, '1000000', approved)
-      setOutPay({ s: 'busy', note: 'Approve in your wallet.' })
+      const t = await dashApi.payLinkTx(payTo.trim(), acct, '1000000', approved, payName.trim() || undefined)
+      if (t.acknowledge?.parameter) {
+        if (!w.session.sendSponsored) throw new WalletTooOld()
+        setOutPay({ s: 'busy', note: 'First, acknowledge this payee in your wallet. PayOnce pays the fee.' })
+        const prep = await dashApi.prepare(acct, t.acknowledge.entrypoint, t.acknowledge.parameter)
+        await w.session.sendSponsored(prep.transaction, prep.schema)
+      }
+      setOutPay({ s: 'busy', note: 'Approve the payment in your wallet.' })
       setOutAt(Date.now())
       setOutTx(await w.session.sendUpdate(t.transaction))
       setOutPay({ s: 'done', v: true })
@@ -349,9 +356,10 @@ function Flow() {
                   <VerdictBlock check={c} />
                   {c.payable ? <button className="ds-btn" disabled={!acct || outPay.s === 'busy'} onClick={() => void payOut()}>Pay 1 CCD</button> : null}
                   {c.verdict === 'NO_MATCH' ? <p className="ds-note">The agent pays nothing. No override.</p> : null}
-                  {!c.payable && c.verdict !== 'NO_MATCH' && !declined && !outTx ? (
+                  {c.verdict === 'UNVERIFIED' && !c.payable ? <p className="ds-note">Not possible: the book cannot record an acknowledgment for this payee, so the chain would refuse the payment. Nothing to sign.</p> : null}
+                  {!c.payable && (c.verdict === 'CLOSE_MATCH' || c.verdict === 'MATCH') && !declined && !outTx ? (
                     <HumanGate
-                      outcome={c.verdict === 'CLOSE_MATCH' ? 'close_match' : c.verdict === 'MATCH' ? 'match_unbound' : 'not_possible'}
+                      outcome={c.verdict === 'CLOSE_MATCH' ? 'close_match' : 'match_unbound'}
                       why={c.reasons[0] ?? 'The agent cannot confirm this payee on its own.'}
                       facts={[
                         { label: 'Name on invoice', value: payName.trim() },
@@ -386,7 +394,7 @@ function Flow() {
           {need}
           <State a={record}>{(items) => items.length === 0 ? <p className="ds-note">Nothing yet.</p> : (
             <ul className="ds-record">{items.map((r) => (
-              <li key={r.tx_hash}><span className={`ds-dot ds-dot--${r.role}`} /><b>{r.role === 'received' ? '+' : r.role === 'paid' ? '−' : '×'}{r.amount_display}</b><span>{short(r.counterparty)}</span><span>{r.verdict.replace('_', ' ').toLowerCase()}</span>{r.tx_hash ? <Tx hash={r.tx_hash} label="tx" /> : <span>nothing sent</span>}</li>
+              <li key={`${r.at}-${r.role}-${r.counterparty}-${r.tx_hash ?? 'none'}`}><span className={`ds-dot ds-dot--${r.role}`} /><b>{r.role === 'received' ? '+' : r.role === 'paid' ? '−' : '×'}{r.amount_display}</b><span>{short(r.counterparty)}</span><span>{r.verdict.replace('_', ' ').toLowerCase()}</span>{r.tx_hash ? <Tx hash={r.tx_hash} label="tx" /> : <span>nothing sent</span>}</li>
             ))}</ul>
           )}</State>
           <p className="ds-note"><Link to="/app/proof/judges">Verify it yourself</Link>, no keys needed.</p>
