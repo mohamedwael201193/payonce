@@ -122,7 +122,7 @@ export const cards = createPayeeCards({
 // ---- /demo: fresh real runs on the 90 s demo book, at most one in flight, at most DEMO_MAX_PER_DAY a day ----
 export const DEMO_BOOK = { index: String(process.env.PAYONCE_DEMO_BOOK_INDEX ?? 13173), subindex: '0', cooling_off_secs: 90 };
 const DEMO_FRESH_MS = 50 * 60_000;
-const DEMO_MAX_PER_DAY = Number(process.env.PAYONCE_DEMO_MAX_PER_DAY ?? 12);
+const DEMO_MAX_PER_DAY = Number(process.env.PAYONCE_DEMO_MAX_PER_DAY ?? 30);
 let demoChild = null;
 async function demoRun() {
   const latest = await kvGet('demo_run', 'latest');
