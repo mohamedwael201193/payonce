@@ -35,11 +35,13 @@ async function getJson(url, { fetchImpl = fetch, timeoutMs = 60_000, retries = 2
 
 const qs = (o) => Object.entries(o).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 
-/** check_payee: who is this account, and does it match the name you were given? */
-export async function checkPayee({ payee, name, seller, country, api = DEFAULT_API, ...opts }) {
+/** check_payee: who is this account, and does it match the name you were given?
+ *  network 'testnet' (default): full check. 'mainnet': read-only identity check, never MATCH, nothing is payable from it. */
+export async function checkPayee({ payee, name, seller, country, network, api = DEFAULT_API, ...opts }) {
+  if (network != null && !['testnet', 'mainnet'].includes(String(network).toLowerCase())) throw new CheckPayeeError('network must be testnet or mainnet');
   if (!payee) throw new CheckPayeeError('payee (a Concordium account address) is required');
   if (!name) throw new CheckPayeeError('name (the payee name on the invoice or instruction) is required');
-  const r = await getJson(`${api}/api/check-payee?${qs({ payee, seller: seller ?? payee, legal_name: name, country })}`, opts);
+  const r = await getJson(`${api}/api/check-payee?${qs({ payee, seller: seller ?? payee, legal_name: name, country, network: String(network ?? '').toLowerCase() === 'mainnet' ? 'mainnet' : undefined })}`, opts);
   return { ...r, ...decide(r.verdict), verdict: r.verdict };
 }
 

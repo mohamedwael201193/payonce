@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// check-payee <account> --name "Acme ApS" [--seller <acct>] [--api <url>] [--json]
+// check-payee <account> --name "Acme ApS" [--seller <acct>] [--network testnet|mainnet] [--api <url>] [--json]
 // check-payee x402 <url> --name "Oracle Scout" [--method POST] [--body '{"a":1}'] [--json]
 // check-payee card <account> [--json]
 // Exit codes: 0 match | 1 no match | 2 close match (ask a person) | 3 verification not possible (ask a person) | 64 usage | 70 error
@@ -11,6 +11,7 @@ const HELP = `check-payee: Verification of Payee for AI agents (Concordium testn
   check-payee x402 <https url> --name "<who you meant to pay>" [--method GET|POST] [--body <json>] [--json]
   check-payee card <account> [--json]
 
+  --network     testnet (default, full check) or mainnet (read-only identity check: never a match, nothing payable)
   --api <url>   default ${DEFAULT_API}  (or env CHECK_PAYEE_API)
 
 Exit: 0 match (pay once) | 1 no match (pay nothing) | 2 close match (ask a person) | 3 verification not possible (ask a person) | 64 usage | 70 error`;
@@ -45,7 +46,7 @@ export async function main(argv, { out = (s) => process.stdout.write(`${s}\n`), 
       else out([`Seller   ${r.url}`, `Price    ${r.selected?.amount_ccd ?? '?'} CCD`, `Pay to   ${r.selected?.pay_to ?? '?'}`, `Verdict  ${r.verdict ?? 'n/a'}${r.check?.reasons?.[0] ? ` (${r.check.reasons[0]})` : ''}`, `Outcome  ${r.outcome}: ${r.text}`].join('\n'));
       return r.requires_payment === false ? 0 : r.exit;
     }
-    const r = await checkPayee({ payee: pos[0], name: flags.name, seller: flags.seller, country: flags.country, ...common });
+    const r = await checkPayee({ payee: pos[0], name: flags.name, seller: flags.seller, country: flags.country, network: flags.network ?? env.CHECK_PAYEE_NETWORK, ...common });
     if (flags.json) out(JSON.stringify(r, null, 2));
     else out([`Payee    ${pos[0]}`, `Name     ${flags.name}`, `Verdict  ${r.verdict}${r.reasons?.[0] ? ` (${r.reasons[0]})` : ''}`, `Outcome  ${r.outcome}: ${r.text}`].join('\n'));
     return r.exit;

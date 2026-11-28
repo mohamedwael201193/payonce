@@ -29,6 +29,34 @@ Open [/app](https://payonce-tau.vercel.app/app) and run it on a real testnet inv
 
 More, with reasons: [docs/DETAILS.md](docs/DETAILS.md) (Honest limits) and [VERIFY.md](VERIFY.md) (section 6).
 
+## Use check_payee in your agent (one line each)
+
+Read-only: these never sign and never pay. Concordium **testnet**; `--network mainnet` gives a read-only identity check (never a match).
+
+```sh
+npx payonce-check-payee <account> --name "Acme ApS"        # exit 0 match, 1 no match, 2 close match, 3 not possible
+npx payonce-check-payee x402 <seller url> --name "Seller"  # read a seller's 402 for free, check its payTo
+claude mcp add --transport http payonce https://payonce-api-n98a.onrender.com/mcp   # Claude Code, hosted MCP
+claude mcp add payonce -- npx -y payonce-mcp                                        # Claude Code, local stdio bridge
+```
+
+Cursor (`.cursor/mcp.json`) or Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{ "mcpServers": { "payonce": { "command": "npx", "args": ["-y", "payonce-mcp"] } } }
+```
+
+GitHub Action (fails the step unless the payee matches):
+
+```yaml
+- uses: mohamedwael201193/payonce/packages/check-payee-action@main
+  with: { url: https://seller.example/api/paid, name: "Seller Name" }
+```
+
+Agent-to-agent: `POST https://payonce-api-n98a.onrender.com/a2a` (JSON-RPC `message/send`, card at `/.well-known/agent.json`).
+Pay-per-check over x402 on testnet: `GET /api/x402/check-payee?payee=<account>&name=<name>` answers 402 (0.01 CCD, fee sponsored), then the verdict after payment.
+Packages: [payonce-check-payee](https://www.npmjs.com/package/payonce-check-payee) · [payonce-mcp](https://www.npmjs.com/package/payonce-mcp).
+
 ## Verify it yourself
 
 Needs Node 22+. Read-only, no keys. The public testnet node rate-limits (HTTP 429): run it again.

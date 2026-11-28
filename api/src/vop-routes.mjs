@@ -10,6 +10,7 @@
 //   GET  /api/status                                              public status: api, census freshness, badge continuity, registry, nodes (cached 60 s)
 //   GET  /api/census                                              VoP census of the Agent Registry (census_public.json shape)
 //   GET  /api/vop/config                                          contract, codes, verdicts
+//   GET  /api/x402/check-payee?payee=&name=  PayOnce sells check_payee: 402 -> 0.01 CCD (testnet, fee sponsored) -> verdict; GET /api/x402/sales lists settled sales
 //   GET  /api/demo/run                                            latest fresh /demo run (90 s demo book); starts a new one when >50 min old
 //   POST /api/vop/proofs/diagnose {presentation, version?, account?}   QA: verify a wallet presentation, holder account, single-credential? (stores nothing)
 //   POST /api/payee/propose {account}      GET /api/payee/:account     (dashboard, demo book <13173,0>; dash.mjs)
@@ -36,6 +37,8 @@ import { vClient, VERIFIER_URL } from './consent.mjs';
 import { signers } from './chain-v2.mjs';
 import { kvGet, kvPut, kvList } from './store.mjs';
 import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
+import { createA2A } from './a2a.mjs';
+import { createX402Seller, SellerError, TESTNET_CAIP2 as X402_CAIP2 } from './x402-seller.mjs';
 import { createPayeeCards } from './payee-card.mjs';
 import { checkMainnet } from './vop-mainnet.mjs';
 import { loadCensus } from './census.mjs';
@@ -207,6 +210,25 @@ const runCheck = (input) => (isMainnet(input?.network) ? checkMainnet(input) : i
 
 const nodeProbe = (getClient) => async () => { const c = await getClient(); const s = await c.getConsensusStatus(); return { detail: `finalized height ${String(s.lastFinalizedBlockHeight)}` }; };
 const statusFn = createStatus({ loadCensus, testnetNode: nodeProbe(async () => vClient()), mainnetNode: nodeProbe(async () => mainnetGrpc()) });
+// ---- PayOnce sells its own check over x402 (paid check_payee, 0.01 CCD, testnet, fee sponsored by PayOnce) ----
+const sellerSeen = new Set();
+let facilitatorP = null;
+const ownFacilitator = () => (facilitatorP ??= (async () => {
+  const [{ ExactConcordiumScheme }, sdk] = await Promise.all([import('@x402/concordium/exact/facilitator'), import('@x402/concordium')]);
+  const { owner } = await signers();
+  const [host, port] = sdk.parseGrpcUrl(sdk.getConcordiumGrpcUrl(X402_CAIP2));
+  const scheme = new ExactConcordiumScheme({ signer: sdk.toConcordiumFacilitatorSigner(owner.address, owner.signer, { host, port, useTls: true, network: X402_CAIP2 }), requireFinalization: true, finalizationTimeoutMs: 60_000, maxExpiryOffsetSeconds: 600 });
+  return { verify: (p, r) => scheme.verify(p, r), settle: (p, r) => scheme.settle(p, r) };
+})().catch((e) => { facilitatorP = null; throw e; }));
+const sellerBase = () => process.env.PAYONCE_PUBLIC_API ?? 'https://payonce-api-n98a.onrender.com';
+export const x402Seller = createX402Seller({
+  facilitator: { verify: async (p, r) => (await ownFacilitator()).verify(p, r), settle: async (p, r) => (await ownFacilitator()).settle(p, r) },
+  check: (i) => runCheck(i), payTo: OWNER_ADDRESS, feePayer: OWNER_ADDRESS, seen: sellerSeen,
+  resourceUrl: (q) => `${sellerBase()}/api/x402/check-payee?${new URLSearchParams({ payee: String(q.payee ?? ''), name: String(q.name ?? q.legal_name ?? '') })}`,
+  record: async (rec) => { await kvPut('x402_sale', `${rec.at}-${rec.tx_hash}`.slice(0, 120), rec); },
+});
+
+const a2a = createA2A({ check: (i) => runCheck(i) });
 
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
@@ -279,6 +301,33 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       const input = known ? { url: known.url, method: known.method, body: known.body, name: body.name ?? known.name, approved: body.approved === true } : { url: body.url, method: body.method, body: body.body, name: body.name, approved: body.approved === true };
       return x402.buy({ ...input, buyer: 'payonce_reference_buyer' });
     })],
+    ['POST', /^\/a2a$/, async (req, res) => {
+      try {
+        await limited('a2a', 30)(req);
+        let body; try { body = await readBody(req, 64 * 1024); } catch { return sendJson(res, 200, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error: the body is not JSON.' } }); }
+        return sendJson(res, 200, toPlain(await a2a.handle(body)));
+      } catch (e) {
+        if (e instanceof VopError) return apiError(res, e.status, e.code, 'app', e.message);
+        return sendJson(res, 200, { jsonrpc: '2.0', id: null, error: { code: -32603, message: 'The check could not run. Nothing was paid.' } });
+      }
+    }],
+    ['GET', /^\/a2a$/, wrap(async () => ({ protocol: 'A2A JSON-RPC 2.0', method: 'message/send', card: 'https://payonce-tau.vercel.app/.well-known/agent.json', example: { jsonrpc: '2.0', id: 1, method: 'message/send', params: { message: { kind: 'message', role: 'user', messageId: 'm1', parts: [{ kind: 'data', data: { payee: '<account>', name: '<payee name on the invoice>' } }] } } }, note: 'Free and read-only. Nothing is paid.' }))],
+    ['GET', /^\/api\/x402\/check-payee$/, async (req, res) => {
+      try {
+        const paid = Boolean(req.headers['payment-signature'] ?? req.headers['x-payment']);
+        await limited('x402:sell', 30)(req);
+        if (paid) { const d = await hitWindow('x402sell:day', 86_400_000, 40); if (!d.allowed) throw new VopError(429, 'rate_limited', 'PayOnce sells a small number of sponsored checks per day on testnet. Try again tomorrow, or use the free /api/check-payee.'); }
+        const r = await x402Seller.handle({ query: qs(req), headers: req.headers });
+        for (const [k, v] of Object.entries(r.headers)) res.setHeader(k, v);
+        res.setHeader('Access-Control-Expose-Headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
+        return sendJson(res, r.status, toPlain(r.body));
+      } catch (e) {
+        if (e instanceof SellerError) return apiError(res, e.status, e.code, 'app', e.message);
+        if (e instanceof VopError) return apiError(res, e.status, e.code, 'app', e.message);
+        return apiError(res, 502, 'x402_seller_upstream', 'node', `Could not complete the paid check (${String(e?.message ?? e).slice(0, 200)}). Nothing is charged unless a payment settled.`, { retryable: true });
+      }
+    }],
+    ['GET', /^\/api\/x402\/sales$/, wrap(async () => { const rows = (await kvList('x402_sale')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, price_ccd: '0.01', pay_to: OWNER_ADDRESS, sales: rows }; })],
     ['GET', /^\/api\/x402\/purchases$/, wrap(async () => { const rows = (await kvList('x402_purchase')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, purchases: rows }; })],
     ['POST', /^\/api\/invoices\/parse$/, wrap(async (req) => { await limited('invoice:parse', 30)(req); const b = await readBody(req, 64 * 1024); return parseInvoice(b?.text); })],
     // ---- payee links ----

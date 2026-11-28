@@ -1,0 +1,38 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mohamedwael201193/payonce-check-payee",
+  "title": "PayOnce check_payee",
+  "description": "Verification of Payee for AI agents on Concordium: check who an account is before paying it.",
+  "version": "0.1.0",
+  "websiteUrl": "https://payonce-tau.vercel.app",
+  "repository": {
+    "url": "https://github.com/mohamedwael201193/payonce",
+    "source": "github",
+    "subfolder": "packages/payonce-mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "payonce-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PAYONCE_MCP_URL",
+          "description": "Optional: another PayOnce deployment's /mcp URL. Default is the hosted endpoint.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://payonce-api-n98a.onrender.com/mcp"
+    }
+  ]
+}

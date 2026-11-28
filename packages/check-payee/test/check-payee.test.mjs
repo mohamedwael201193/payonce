@@ -53,3 +53,14 @@ test('CLI x402: prints price, payTo and outcome; --json passes through; card wor
   assert.equal(c.code, 0); assert.match(c.out, /Verified payee: Acme ApS/);
   assert.equal((await payeeCard(ACC, { api: 'http://a', fetchImpl: reply(200, { account: ACC }) })).account, ACC);
 });
+
+test('--network mainnet reaches the API as network=mainnet; testnet adds nothing; anything else is refused', async () => {
+  const f = spy(200, { verdict: 'UNVERIFIED', reasons: [] });
+  const r = await run([ACC, '--name', 'Acme ApS', '--network', 'mainnet'], f);
+  assert.equal(r.code, 3); assert.match(f.calls[0].url, /&network=mainnet$/);
+  const g = spy(200, { verdict: 'MATCH', reasons: [] });
+  await run([ACC, '--name', 'Acme ApS', '--network', 'testnet'], g);
+  assert.doesNotMatch(g.calls[0].url, /network=/);
+  assert.equal((await run([ACC, '--name', 'x', '--network', 'devnet'], g)).code, 70);
+  await assert.rejects(() => checkPayee({ payee: ACC, name: 'x', network: 'devnet' }), /testnet or mainnet/);
+});

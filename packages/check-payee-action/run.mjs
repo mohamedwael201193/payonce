@@ -10,20 +10,11 @@ if (!!e.C_URL === !!e.C_PAYEE) fail('Set exactly one of `url` (an x402 seller) o
 let body; if (e.C_BODY) { try { body = JSON.parse(e.C_BODY); } catch { fail('`body` must be JSON.'); } }
 const network = String(e.C_NETWORK || 'testnet').toLowerCase();
 if (!['testnet', 'mainnet'].includes(network)) fail('`network` is testnet or mainnet.');
-// The check-payee package has no network argument yet (another worker owns it), so a mainnet account check calls the API directly.
-// Same endpoint, same four outcomes; mainnet is identity-only: never MATCH.
-async function mainnetCheck() {
-  const api = (e.C_API || DEFAULT_API).replace(/\/$/, '');
-  const res = await fetch(`${api}/api/check-payee?network=mainnet&payee=${encodeURIComponent(e.C_PAYEE)}&legal_name=${encodeURIComponent(e.C_NAME)}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(60_000) });
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j?.error?.message ?? `HTTP ${res.status}`);
-  return { ...j, ...decide(j.verdict), verdict: j.verdict };
-}
 let r;
 try {
   r = e.C_URL
     ? await probeX402({ url: e.C_URL, name: e.C_NAME, method: e.C_METHOD || 'GET', body, api: e.C_API })
-    : network === 'mainnet' ? await mainnetCheck() : await checkPayee({ payee: e.C_PAYEE, name: e.C_NAME, api: e.C_API });
+    : await checkPayee({ payee: e.C_PAYEE, name: e.C_NAME, network, api: e.C_API });
 } catch (err) { fail(`check_payee could not run: ${err.message}`); }
 
 if (e.C_URL && r.requires_payment === false) { out('outcome', 'not_possible'); out('action', 'ask_human'); fail(`${e.C_URL} did not return an x402 payment request (HTTP ${r.status}).`); }

@@ -30,6 +30,7 @@ npx payonce-check-payee x402 https://web-gilt-phi-11.vercel.app/api/packs/rehear
 npx payonce-check-payee card 3okVZTaSqFtzNMZfbst1pyweWMQZBkgTWSp5fqnJTkDtxRLMYJ
 ```
 
+`--network mainnet` (or `CHECK_PAYEE_NETWORK=mainnet`) runs the read-only identity check of a mainnet account: it can never return a match, and nothing is payable from it. Default is `testnet` (full check).
 `--json` prints the full result. `--api <url>` or `CHECK_PAYEE_API` points at another API (default: the hosted PayOnce API).
 Exit codes: 0 match, 1 no match, 2 close match, 3 verification not possible, 64 usage, 70 error.
 
@@ -37,9 +38,14 @@ Exit codes: 0 match, 1 no match, 2 close match, 3 verification not possible, 64 
 
 ```js
 import { checkPayee, probeX402 } from 'payonce-check-payee';
-const r = await checkPayee({ payee: account, name: 'Acme ApS' });
+const r = await checkPayee({ payee: account, name: 'Acme ApS' });          // { network: 'mainnet' } for the identity-only check
 if (r.action === 'pay') { /* MATCH: pay once */ } else if (r.action === 'ask_human') { /* ask a person */ } else { /* refuse */ }
 ```
+
+## Buy the check over x402 (testnet)
+
+PayOnce sells the same check as a paid x402 resource: `GET https://payonce-api-n98a.onrender.com/api/x402/check-payee?payee=<account>&name=<name>`
+answers `402` (0.01 CCD, native, fee sponsored by PayOnce), then returns the verdict once the payment settles. The free path above is the same check.
 
 ## MCP
 

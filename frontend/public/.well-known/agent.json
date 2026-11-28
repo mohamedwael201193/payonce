@@ -1,9 +1,11 @@
 {
   "name": "PayOnce check_payee",
   "description": "Verification of Payee for AI agents on Concordium testnet. Before an agent pays, ask who the account really is: MATCH (pay once), CLOSE_MATCH (a person decides), NO_MATCH (pay nothing) or UNVERIFIED (verification not possible: a person decides). Reads any x402 seller's payTo for free. Testnet names are self-asserted mock identities; the chain does not verify the ZK proof, a keyless verifier does.",
-  "url": "https://payonce-api-n98a.onrender.com/mcp",
+  "protocolVersion": "0.3.0",
+  "url": "https://payonce-api-n98a.onrender.com/a2a",
+  "preferredTransport": "JSONRPC",
   "documentationUrl": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "provider": {
     "organization": "PayOnce",
     "url": "https://payonce-tau.vercel.app"
@@ -16,12 +18,22 @@
   ],
   "capabilities": {
     "streaming": false,
-    "pushNotifications": false
+    "pushNotifications": false,
+    "stateTransitionHistory": false
   },
   "authentication": {
     "schemes": []
   },
   "interfaces": [
+    {
+      "type": "a2a",
+      "transport": "jsonrpc",
+      "url": "https://payonce-api-n98a.onrender.com/a2a",
+      "methods": [
+        "message/send"
+      ],
+      "note": "Send a data part {payee, name, network?} or the invoice text. The reply is one agent message: advice text plus the full check result. Free, read-only, nothing is paid."
+    },
     {
       "type": "mcp",
       "transport": "streamable-http",
@@ -48,7 +60,7 @@
     {
       "type": "cli",
       "command": "npx payonce-check-payee <account> --name \"<payee name>\"",
-      "note": "npm release payonce-check-payee@0.1.0 is staged on npm and goes live when the maintainer approves it (2FA). Until then run it from the repo: node packages/check-payee/bin/cli.mjs"
+      "note": "npx payonce-check-payee <account> --name \"<payee name>\" [--network mainnet]"
     },
     {
       "type": "github-action",
@@ -57,7 +69,15 @@
     {
       "type": "mcp-stdio",
       "command": "npx -y payonce-mcp",
-      "note": "stdio bridge to the hosted /mcp; staged on npm, live after maintainer approval; source in packages/payonce-mcp"
+      "note": "stdio bridge to the hosted /mcp; source in packages/payonce-mcp"
+    },
+    {
+      "type": "x402",
+      "url": "https://payonce-api-n98a.onrender.com/api/x402/check-payee?payee={account}&name={name}",
+      "method": "GET",
+      "price": "0.01 CCD",
+      "network": "Concordium testnet",
+      "note": "Pay-per-check: 402, pay with the standard x402 v2 exact scheme (native CCD, fee sponsored), then the verdict."
     }
   ],
   "skills": [
