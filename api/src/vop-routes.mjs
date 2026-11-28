@@ -412,6 +412,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); const b = await readBody(req); return (isDemoBook(b?.book) ? relayerDemo : relayer).prepare(b); })],
     // ---- G13 live attack catalogue ----
     ['GET', /^\/api\/proof\/attacks$/, wrap(async (req) => { const fresh = qs(req).fresh === '1'; await limited(fresh ? 'attacks:fresh' : 'attacks:get', fresh ? 2 : 60)(req); return attackScorecard(fresh); })],
+    ['GET', /^\/api\/proof\/false-green$/, wrap(async (req) => { await limited('falsegreen:get', 30)(req); const r = await kvGet('proof', 'false_green:latest'); if (!r) throw new DashError(404, 'not_run', 'The benchmark has not been run yet (api/scripts/false-green.mjs).'); return qs(req).cases === '1' ? r : { ...r, cases: undefined, cases_url: '/api/proof/false-green?cases=1' }; })],
     // ---- G11 wallet-signed approvals ----
     ['POST', /^\/api\/approvals\/request$/, wrap(async (req) => { await limited('approval:req', 6)(req); return approvals.request(await readBody(req, 8192), clientIp(req)); })],
     ['POST', /^\/api\/approvals\/([0-9a-f]{24})\/verify$/, wrap(async (req, res, m) => { await limited('approval:verify', 12)(req); return approvals.verify(m[1], await readBody(req, 8192)); })],
