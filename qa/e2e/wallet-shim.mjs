@@ -51,6 +51,29 @@ async function submitUpdate(p) {
   console.log(JSON.stringify({ submitted: p.receiveName, amount_micro: p.amount, tx: j.submissionId }));
   return j.submissionId;
 }
+let idObject = null; let ipInfo = null;
+async function loadIdentity() {
+  if (idObject) return;
+  const ips = await (await fetch(`${WP}/v2/ip_info`)).json();
+  const ip = ips.find((x) => x.ipInfo.ipIdentity === 0);
+  const req = sdk.createIdentityRecoveryRequestWithKeys({ idCredSec: w.getIdCredSec(0, ID).toString('hex'), ipInfo: ip.ipInfo, globalContext: g.value, timestamp: Math.floor(Date.now() / 1000) });
+  const r = await fetch(`${ip.metadata.recoveryStart}?state=${encodeURIComponent(JSON.stringify({ idRecoveryRequest: req }))}`);
+  const j = await r.json();
+  idObject = j.value ?? j; ipInfo = ip;
+}
+/** What requestVerifiablePresentation (V0, the CryptoX / Web3 ID path) does: ZK-prove the statements for this account's credential. */
+async function proveV0(challenge, statements) {
+  await loadIdentity();
+  const credId = w.getCredentialId(0, ID, CRED, g.value);
+  const attrs = idObject.attributeList.chosenAttributes;
+  const atomic = statements.flatMap((x) => x.statement);
+  const ci = sdk.createAccountCommitmentInputWithHdWallet(atomic, 0, attrs, w, ID, CRED);
+  const pres = sdk.getVerifiablePresentation({
+    request: { challenge, credentialStatements: [{ type: 'cred', id: `did:ccd:testnet:cred:${credId}`, statement: atomic }] },
+    globalContext: g.value, commitmentInputs: [ci],
+  });
+  return JSON.parse(JSON.stringify(pres));
+}
 async function sign(msg) {
   const s = await sdk.signMessage(sdk.AccountAddress.fromBase58(address), msg, signer);
   return JSON.parse(JSON.stringify(s));
@@ -62,6 +85,7 @@ const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error') console.log('[page error]', m.text().slice(0, 200)); });
 await page.exposeFunction('__shimSubmit', async (p) => { try { return await submitUpdate(p); } catch (e) { console.log('[shim submit error]', String(e?.message ?? e).slice(0, 300)); throw e; } });
 await page.exposeFunction('__shimSign', sign);
+await page.exposeFunction('__shimProveV0', async (c, st) => { try { return await proveV0(c, st); } catch (e) { console.log('[shim prove error]', String(e?.message ?? e).slice(0, 300)); throw e; } });
 await page.addInitScript(({ address, GENESIS }) => {
   const big = (v) => (typeof v === 'bigint' ? v.toString() : v);
   window.concordium = {
@@ -79,6 +103,11 @@ await page.addInitScript(({ address, GENESIS }) => {
       };
       try { return await window.__shimSubmit(JSON.parse(JSON.stringify(p, (k, v) => big(v)))); }
       catch (e) { console.error('[shim] ' + (e?.message ?? e)); throw e; }
+    },
+    async requestVerifiablePresentation(challenge, statements) {
+      const p = await window.__shimProveV0(challenge, JSON.parse(JSON.stringify(statements)));
+      Object.defineProperty(p, 'toString', { value: () => JSON.stringify(p), enumerable: false });
+      return p;
     },
     async signMessage(acct, msg) { return window.__shimSign(typeof msg === 'string' ? msg : JSON.stringify(msg)); },
   };
@@ -116,6 +145,50 @@ try {
     await page.getByRole('button', { name: /Send the same payment again/ }).click();
     await page.getByText(/^Refused\./).waitFor({ timeout: 180_000 });
     await shot('5-refused');
+    console.log(JSON.stringify({ ok: true, flow, seconds: Math.round((Date.now() - t0) / 1000), txs: log }));
+  }
+  if (flow === 'sell') {
+    await page.goto(`${base}/app/sell`);
+    await page.locator('#connect-browser').click();
+    await page.getByTestId('wallet-connected').waitFor({ timeout: 20_000 });
+    await page.getByTestId('test-ccd').waitFor({ timeout: 30_000 });
+    await shot('1-connected');
+    await page.getByText(/Balance:/).waitFor({ timeout: 30_000 });
+    const faucet = page.locator('#get-test-ccd');
+    if (await faucet.isVisible().catch(() => false)) { await faucet.click(); await page.getByText('Enough for every step').waitFor({ timeout: 180_000 }); }
+    // 3. agent
+    const reg = page.locator('#register-agent');
+    await Promise.race([reg.waitFor({ timeout: 40_000 }), page.getByText(/Verified by Concordium badge valid/).waitFor({ timeout: 40_000 })]).catch(() => {});
+    if (await reg.isVisible().catch(() => false)) {
+      await page.getByLabel(/Business or agent name/).fill(process.env.SHIM_NAME ?? 'PayOnce QA Studio');
+      await page.getByLabel(/What you sell/).fill('QA invoices for the PayOnce wallet end-to-end test.');
+      await reg.click();
+    }
+    await page.getByText(/Verified by Concordium badge valid/).waitFor({ timeout: 300_000 });
+    console.log(JSON.stringify({ step: 'agent ok' }));
+    await shot('2-agent');
+    // 4. payee proof (V0 through the shim)
+    const prove = page.locator('#prove-name');
+    await Promise.race([prove.waitFor({ timeout: 30_000 }), page.getByTestId('payee-proof-done').waitFor({ timeout: 30_000 })]).catch(() => {});
+    if (await prove.isVisible().catch(() => false)) await prove.click();
+    await page.getByTestId('payee-proof-done').waitFor({ timeout: 120_000 });
+    console.log(JSON.stringify({ step: 'proof ok' }));
+    await shot('3-proof');
+    // 5. list
+    await Promise.race([page.locator('#list-seller').waitFor({ timeout: 30_000 }), page.getByText(/Listed\. PayOnce/).waitFor({ timeout: 30_000 })]).catch(() => {});
+    if (await page.locator('#list-seller').isVisible().catch(() => false)) await page.locator('#list-seller').click();
+    await page.getByText(/Listed\. PayOnce/).waitFor({ timeout: 180_000 });
+    console.log(JSON.stringify({ step: 'listed' }));
+    await shot('4-listed');
+    // 6. invoice
+    await page.getByLabel(/What is it for/).fill('QA invoice');
+    await page.locator('#create-invoice').click();
+    await page.locator('#agent-pay').waitFor({ timeout: 240_000 });
+    console.log(JSON.stringify({ step: 'invoice ok' }));
+    await shot('5-invoice');
+    await page.locator('#agent-pay').click();
+    await page.getByText(/Paid by PayOnce/).waitFor({ timeout: 300_000 });
+    await shot('6-paid');
     console.log(JSON.stringify({ ok: true, flow, seconds: Math.round((Date.now() - t0) / 1000), txs: log }));
   }
 } catch (e) {

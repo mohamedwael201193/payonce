@@ -122,7 +122,7 @@ export function RunFunds({ account }: { account: string }) {
           : 'Your balance is not available right now.'}
         {enough && <span className="rn-ok"> Enough for every step.</span>}
       </p>
-      {!enough && info.data?.exists !== false && (
+      {!enough && !info.isLoading && info.data?.exists !== false && (
         <>
           <div className="rn-actions"><button id="get-test-ccd" className="rn-btn" disabled={busy} onClick={() => void ask()}>{busy ? 'Asking the faucet…' : 'Get free test CCD'}</button></div>
           <p className="rn-note">Or in your wallet: open the account’s <b>Activity</b> and tap <b>Request CCD</b>. Each new testnet account can ask once.</p>

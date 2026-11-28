@@ -108,7 +108,7 @@ function AgentStep({ account, status, onChange }: { account: string; status: Sta
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-po-grey">Your invoices are issued by an AI-agent identity you own on Concordium’s official CIS-8004 registry. Two wallet approvals: mint the agent, then pin its card with the “Verified by Concordium” badge. About 1 test CCD in fees.</p>
+      <p className="text-po-grey">Your invoices are issued by an AI-agent identity you own on Concordium’s official CIS-8004 registry. Two wallet approvals: mint the agent, then pin its card with the “Verified by Concordium” badge. About 40 test CCD in testnet fees.</p>
       {unbadged && !busy ? (
         <Card className="flex flex-col gap-2">
           <p className="text-po-ink">You already own agent #{unbadged.token_id}, but its badge is not valid yet.</p>
@@ -323,7 +323,7 @@ export function SellPage() {
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Become a payee"
-          lead="Register as a seller from your own wallet, issue an invoice, and watch PayOnce’s AI agent pay it exactly once. Testnet, about 2 test CCD in fees."
+          lead="Register as a seller from your own wallet, issue an invoice, and watch PayOnce’s AI agent pay it exactly once. Testnet only. Testnet fees are several test CCD per transaction (this takes about 100), and Concordium’s faucet covers it."
           actions={<StatusPill tone="neutral">Testnet</StatusPill>}
         />
         <SellFlow />

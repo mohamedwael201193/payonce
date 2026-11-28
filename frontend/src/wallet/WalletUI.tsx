@@ -151,7 +151,7 @@ export function TestCcdHelper({ account, minCcd = 100 }: { account: string; minC
         </div>
         {enough ? <StatusPill tone="ok">Enough for every step</StatusPill> : <StatusPill tone="warn">Needs test CCD</StatusPill>}
       </div>
-      {!enough ? (
+      {!enough && !info.isLoading ? (
         <>
           <Button id="get-test-ccd" variant="primary" busy={busy} onClick={() => void ask()}>Get free test CCD</Button>
           <p className="text-sm text-po-grey">Or use the faucet in your wallet: open your account’s <strong>Activity</strong> and tap <strong>Request CCD</strong>. Each new testnet account can ask once.</p>
