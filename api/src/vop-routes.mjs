@@ -15,11 +15,16 @@ import { VerifiablePresentationV1, getEmbeddedModuleSchema } from '@concordium/w
 import { readFileSync } from 'node:fs';
 import { createVopService, VopError } from './vop-service.mjs';
 import { createRelayer, RelayError } from './relayer.mjs';
-import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3 } from './vop-chain.mjs';
+import { V3, v3Label, V3_ERRORS, getPayeeRecord, getConfigV3, getPayableV3, accountIdentity } from './vop-chain.mjs';
 import { VERDICT, BUSINESS_IDPS } from './vop.mjs';
 import { vClient, VERIFIER_URL } from './consent.mjs';
 import { signers } from './chain-v2.mjs';
-import { kvGet, kvPut } from './store.mjs';
+import { kvGet, kvPut, kvList } from './store.mjs';
+import { createX402Client, X402Error, X402_POLICY } from './x402-client.mjs';
+import { createPayeeCards } from './payee-card.mjs';
+import { BACKEND_DIR } from './backend.mjs';
+import { pathToFileURL } from 'node:url';
+import { OWNER_ADDRESS } from './config.mjs';
 
 const toPlain = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
@@ -71,12 +76,46 @@ export const relayer = createRelayer({
 });
 let hitWindowRef = async () => ({ allowed: true });
 
+// ---- x402 buyer (VoP on every payTo) and payee links ----
+const BOOK_SELLERS = (process.env.PAYONCE_BOOK_SELLERS ?? OWNER_ADDRESS).split(',').map((x) => x.trim()).filter(Boolean);
+const APP_BASE = process.env.PAYONCE_APP_URL ?? 'https://payonce-tau.vercel.app';
+const API_BASE = process.env.PAYONCE_API_URL ?? 'https://payonce-api-n98a.onrender.com';
+
+/** Sellers built by other teams that answer a real x402 402 on Concordium testnet (tiny prices). Purchases are recorded. */
+export const X402_SELLERS = [
+  { id: 'oracle-scout', name: 'Oracle Scout', team: 'Oracle Scout (agent #1253)', url: 'https://web-gilt-phi-11.vercel.app/api/packs/rehearsal-btc-150k', method: 'GET', price_ccd: '2', note: 'Evidence pack for a prediction market.' },
+  { id: 'mainsmarker', name: 'MainsMarker', team: 'MainsMarker (agent #990)', url: 'https://mainsmarker.sites.tab.bot/x402/review', method: 'POST', body: { question: 'Explain why the sky appears blue during the day.', answer: 'Sunlight is scattered by air molecules, and short blue wavelengths scatter far more than red ones (Rayleigh scattering), so blue light reaches us from every direction.', marks: 10, mode: 'cloud' }, price_ccd: '0.5', note: 'AI answer review.' },
+];
+
+async function buildPayload({ requirement, resource }) {
+  const mod = await import(pathToFileURL(`${BACKEND_DIR}src/facilitator/client.mjs`).href);
+  const { seller2 } = await signers();
+  const base = await mod.buildCcdPaymentPayload({ buyer: seller2, requirements: requirement });
+  return { x402Version: base.x402Version, resource: resource ?? undefined, accepted: requirement, payload: base.payload };
+}
+
+export const x402 = createX402Client({
+  checkPayee: (i) => vop.check(i),
+  buildPayload,
+  record: async (rec) => { await kvPut('x402_purchase', `${rec.at}-${rec.tx_hash ?? 'none'}`.slice(0, 120), rec); },
+});
+
+export const cards = createPayeeCards({
+  kv: { get: kvGet },
+  vop,
+  readBook: (seller, payee) => getPayeeRecord(vClient(), seller, payee),
+  readAccount: async (a) => { const id = await accountIdentity(vClient(), a); return { exists: !!id?.exists }; },
+  bookSellers: BOOK_SELLERS,
+  appBase: APP_BASE, apiBase: API_BASE,
+});
+
 export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }) {
   hitWindowRef = hitWindow;
   const wrap = (fn) => async (req, res, m) => {
     try {
       return sendJson(res, 200, toPlain(await fn(req, res, m)));
     } catch (e) {
+      if (e instanceof X402Error) return apiError(res, e.status, e.code, 'app', e.message);
       if (e instanceof VopError || e instanceof RelayError) return apiError(res, e.status, e.code, 'app', e.message);
       if (/body too large|invalid JSON/.test(e?.message ?? '')) return apiError(res, 400, 'bad_request', 'app', e.message);
       return apiError(res, 502, 'vop_upstream', 'node', `The chain did not answer (${String(e?.message ?? e).slice(0, 200)}).`, { retryable: true });
@@ -115,6 +154,23 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
       if (!/^[1-9A-HJ-NP-Za-km-z]{50}$/.test(q.seller ?? '') || !/^\d{1,19}$/.test(q.id ?? '')) throw new VopError(400, 'bad_key', 'seller (account) and id (integer) are required.');
       return { contract: v3Label(), payable: await getPayableV3(vClient(), q.seller, q.id) };
     })],
+    // ---- x402 buyer with check_payee on every payTo ----
+    ['GET', /^\/api\/x402\/sellers$/, wrap(async () => ({ sellers: X402_SELLERS, policy: { network: 'Concordium testnet', max_ccd_per_purchase: '2.5', asset: 'CCD', payer: 'PayOnce reference buyer agent (labelled; a person approves anything that is not a Match)', outcomes: ['match: pay once', 'close_match: a person decides', 'no_match: pay nothing', 'not_possible: a person decides'] } }))],
+    ['GET', /^\/api\/x402\/probe$/, wrap(async (req) => { await limited('x402:probe', 12)(req); const q = qs(req); return x402.probe({ url: q.url, method: q.method, name: q.name }); })],
+    ['POST', /^\/api\/x402\/probe$/, wrap(async (req) => { await limited('x402:probe', 12)(req); return x402.probe(await readBody(req, 16 * 1024)); })],
+    ['POST', /^\/api\/x402\/buy$/, wrap(async (req) => {
+      const w = await hitWindow(`x402buy:${clientIp(req)}`, 3_600_000, X402_POLICY.perIpPerHour);
+      const d = await hitWindow('x402buy:day', 86_400_000, X402_POLICY.perDay);
+      if (!w.allowed || !d.allowed) throw new VopError(429, 'rate_limited', 'Purchase limit reached (a few per hour per visitor, a small daily total). Try the probe, which is free, or come back later.');
+      const body = await readBody(req, 16 * 1024);
+      const known = X402_SELLERS.find((s) => s.id === body.seller_id);
+      const input = known ? { url: known.url, method: known.method, body: known.body, name: body.name ?? known.name, approved: body.approved === true } : { url: body.url, method: body.method, body: body.body, name: body.name, approved: body.approved === true };
+      return x402.buy({ ...input, buyer: 'payonce_reference_buyer' });
+    })],
+    ['GET', /^\/api\/x402\/purchases$/, wrap(async () => { const rows = (await kvList('x402_purchase')).map((r) => r.value).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50); return { count: rows.length, purchases: rows }; })],
+    // ---- payee links ----
+    ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('p:card', 60)(req); return cards.card(m[1]); })],
+    ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/check$/, wrap(async (req, res, m) => { await limited('vop:check', 30)(req); const q = qs(req); return cards.check(m[1], q.name ?? q.legal_name, { country: q.country, buyer: q.buyer }); })],
     ['GET', /^\/api\/relay\/config$/, wrap(() => relayer.config())],
     ['POST', /^\/api\/relay\/prepare$/, wrap(async (req) => { await relayLimited(req); return relayer.prepare(await readBody(req)); })],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],

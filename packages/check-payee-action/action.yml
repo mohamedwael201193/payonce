@@ -1,0 +1,63 @@
+name: PayOnce check_payee
+description: Before an agent pays, check who the account really is. Verification of Payee on Concordium (match, close match, no match, verification not possible). Reads an x402 seller's payTo or checks an account you name. Nothing is paid, no wallet needed.
+author: PayOnce
+branding:
+  icon: user-check
+  color: green
+inputs:
+  url:
+    description: An x402 seller's paid https URL. Its 402 is read without paying and the payTo account is checked. Use this OR payee.
+    default: ""
+  method:
+    description: HTTP method that gets the 402 (GET or POST)
+    default: GET
+  body:
+    description: JSON body for a POST seller
+    default: ""
+  payee:
+    description: A Concordium account address to check (instead of url)
+    default: ""
+  name:
+    description: Who you meant to pay (the name on the invoice or in your instructions)
+    required: true
+  fail-on:
+    description: Comma list of outcomes that fail the step (match is never a failure). Outcomes are no_match, close_match, not_possible.
+    default: no_match,close_match,not_possible
+  api:
+    description: PayOnce API base URL
+    default: https://payonce-api-n98a.onrender.com
+outputs:
+  verdict:
+    description: MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED
+    value: ${{ steps.check.outputs.verdict }}
+  outcome:
+    description: match, close_match, no_match or not_possible
+    value: ${{ steps.check.outputs.outcome }}
+  action:
+    description: pay, ask_human or refuse
+    value: ${{ steps.check.outputs.action }}
+  pay-to:
+    description: The account the seller asked to be paid (url mode) or the payee you named
+    value: ${{ steps.check.outputs.pay_to }}
+  price-ccd:
+    description: Price in CCD (url mode)
+    value: ${{ steps.check.outputs.price_ccd }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+    - id: check
+      shell: bash
+      # Inputs go through the environment, never into the script text. The CLI lives next to this action in the repo.
+      env:
+        C_URL: ${{ inputs.url }}
+        C_METHOD: ${{ inputs.method }}
+        C_BODY: ${{ inputs.body }}
+        C_PAYEE: ${{ inputs.payee }}
+        C_NAME: ${{ inputs.name }}
+        C_FAIL: ${{ inputs.fail-on }}
+        C_API: ${{ inputs.api }}
+        C_DIR: ${{ github.action_path }}
+      run: node "$C_DIR/run.mjs"

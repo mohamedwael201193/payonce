@@ -1,0 +1,16 @@
+{
+  "name": "payonce-check-payee",
+  "version": "0.1.0",
+  "description": "Verification of Payee for AI agents on Concordium: check who an account really is before an agent pays it. MATCH / CLOSE_MATCH / NO_MATCH / UNVERIFIED, plus a free probe of any x402 seller's payTo. Zero dependencies.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": { ".": "./src/index.mjs" },
+  "bin": { "check-payee": "bin/cli.mjs" },
+  "files": ["src", "bin", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/" },
+  "keywords": ["concordium", "x402", "ai-agents", "verification-of-payee", "zero-knowledge", "payments"],
+  "repository": { "type": "git", "url": "git+https://github.com/mohamedwael201193/payonce.git", "directory": "packages/check-payee" },
+  "homepage": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee",
+  "license": "Apache-2.0"
+}

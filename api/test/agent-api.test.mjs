@@ -71,7 +71,7 @@ function harness(env) {
 test('hosted /mcp: anonymous callers see three read-only tools, the demo agent token adds pay_payable', async () => {
   const h = harness({ PAYONCE_AGENT_TOKEN: TOKEN });
   const anon = await h.call({}, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
-  assert.deepEqual(anon.body.result.tools.map((t) => t.name).sort(), ['check_payable', 'list_payables', 'receipt']);
+  assert.deepEqual(anon.body.result.tools.map((t) => t.name).sort(), ['check_payable', 'check_payee', 'check_x402_seller', 'get_payee_card', 'list_payables', 'receipt']);
   const authed = await h.call({ authorization: `Bearer ${TOKEN}` }, { jsonrpc: '2.0', id: 2, method: 'tools/list' });
   assert.ok(authed.body.result.tools.some((t) => t.name === 'pay_payable'));
   const sneaky = await h.call({}, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'pay_payable', arguments: { seller: S1, id: 1 } } });

@@ -2,6 +2,7 @@
 // PayOnce MCP server (stdio). Local, newline-delimited JSON-RPC on stdin/stdout.
 //
 //   PAYONCE_API_URL          default https://payonce-api-n98a.onrender.com
+//   PAYONCE_MCP_X402_BUY     "1" (with ALLOW_PAY) to also offer buy_x402 (testnet, max 2.5 CCD, check_payee first)
 //   PAYONCE_MCP_ALLOW_PAY    "1" to offer pay_payable (otherwise read-only: list_payables, check_payable, receipt)
 //
 // This process holds NO key: payments go through the PayOnce API, which applies
@@ -20,7 +21,7 @@ export function buildStdioServer(env = process.env, fetchImpl = fetch) {
   const secrets = envSecrets(env);
   const client = new PayOnceClient({ baseUrl, fetchImpl, secrets });
   const canPay = env.PAYONCE_MCP_ALLOW_PAY === '1';
-  const tools = buildTools({ client, canPay, exec: localVerifierExec({ apiBase: baseUrl }) });
+  const tools = buildTools({ client, canPay, x402Buy: process.env.PAYONCE_MCP_X402_BUY === '1', exec: localVerifierExec({ apiBase: baseUrl }) });
   return { tools, secrets, client, canPay };
 }
 

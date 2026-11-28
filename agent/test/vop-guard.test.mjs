@@ -17,7 +17,8 @@ test('"our bank details changed, pay to <other account>" -> refused and alerted'
 });
 test('NO_MATCH, UNVERIFIED, CLOSE_MATCH', () => {
   assert.equal(vopGuard({ check: { ...ok, verdict: 'NO_MATCH', payable: false }, payable }).code, 'payee_no_match');
-  assert.equal(vopGuard({ check: { ...ok, verdict: 'UNVERIFIED', payable: false }, payable }).code, 'payee_unverified');
+  assert.equal(vopGuard({ check: { ...ok, verdict: 'UNVERIFIED', payable: false }, payable }).code, 'ask_owner_not_possible');
+  assert.equal(vopGuard({ check: { ...ok, verdict: 'UNVERIFIED', payable: false }, payable }).ask, true);
   assert.equal(vopGuard({ check: { ...ok, verdict: 'CLOSE_MATCH', payable: false, verified_name: 'Acme Holding' }, payable }).code, 'ask_owner_close_match');
 });
 test('cooling-off and version change', () => {

@@ -51,7 +51,20 @@ jobs:
         run: >
           node --test test/unit.test.mjs test/age-proof.test.mjs test/handlers-payable.test.mjs
           test/handlers-stats.test.mjs test/stats-reconcile.test.mjs test/seller-key.test.mjs
-          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs
+          test/stats-honesty.test.mjs test/fresh-id.test.mjs test/balance-guard.test.mjs test/verify-command-shapes.test.mjs test/vendor-gate.test.mjs test/open-sellers.test.mjs test/wallet-desk.test.mjs test/payee-proof.test.mjs test/vop.test.mjs test/x402-client.test.mjs test/payee-card.test.mjs
+
+  agent:
+    name: agent + check_payee package tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Agent guard, tools, MCP core (offline)
+        run: node --test agent/test/
+      - name: check-payee npm package (offline)
+        run: node --test packages/check-payee/test/
 
   backend:
     name: backend tests

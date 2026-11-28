@@ -130,7 +130,7 @@ test('pay_payable: a refused verdict sends nothing', async () => {
 
 test('pay_payable: not offered at all when the caller may not pay', async () => {
   const { tools } = mk({}, false);
-  assert.deepEqual(tools.map((x) => x.name).sort(), ['check_payable', 'list_payables', 'receipt']);
+  assert.deepEqual(tools.map((x) => x.name).sort(), ['check_payable', 'check_payee', 'check_x402_seller', 'get_payee_card', 'list_payables', 'receipt']);
 });
 
 test('receipt: returns the keyless verifier command with the right shape per seller', async () => {
@@ -167,7 +167,7 @@ test('MCP core: initialize, tools/list, tools/call, errors, notifications', asyn
   assert.equal(init.result.serverInfo.name, 'payonce-mcp');
   assert.equal(await handleMcpMessage({ jsonrpc: '2.0', method: 'notifications/initialized' }, server), null);
   const list = await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, server);
-  assert.deepEqual(list.result.tools.map((x) => x.name).sort(), ['check_payable', 'list_payables', 'pay_payable', 'receipt']);
+  assert.deepEqual(list.result.tools.map((x) => x.name).sort(), ['check_payable', 'check_payee', 'check_x402_seller', 'get_payee_card', 'list_payables', 'pay_payable', 'receipt']);
   const call = await handleMcpMessage({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'check_payable', arguments: { seller: S1, id: 10 } } }, server);
   assert.equal(call.result.isError, false);
   assert.equal(call.result.structuredContent.verdict, 'pay');

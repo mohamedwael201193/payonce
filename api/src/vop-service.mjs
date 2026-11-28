@@ -82,7 +82,7 @@ export function createVopService(deps) {
   }
 
   async function check(input) {
-    const seller = String(input?.seller ?? ''); const payee = String(input?.payee ?? '');
+    const payee = String(input?.payee ?? ''); const seller = String(input?.seller || payee);
     const legalName = String(input?.legal_name ?? input?.name ?? '').trim();
     const buyer = input?.buyer ? String(input.buyer) : null;
     if (!ADDR.test(seller) || !ADDR.test(payee)) throw new VopError(400, 'bad_address', 'seller and payee must be Concordium account addresses.');

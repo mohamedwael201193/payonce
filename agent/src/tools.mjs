@@ -70,7 +70,7 @@ const chk = (id, label, status, detail, side) => ({ id, label, status, detail, s
  * Build the tool set. `client` is a PayOnceClient. `canPay` decides whether
  * pay_payable is offered at all. `exec` (optional) runs the local keyless verifier.
  */
-export function buildTools({ client, canPay = false, exec = null, buyerTokenId = null }) {
+export function buildTools({ client, canPay = false, exec = null, buyerTokenId = null, x402Buy = false }) {
   const tools = [];
 
   async function sellerOf(sellerArg) {
@@ -301,6 +301,51 @@ export function buildTools({ client, canPay = false, exec = null, buyerTokenId =
     },
     handler: receiptTool,
   });
+
+
+  // ---------------------------------------------------------------- Verification of Payee tools
+  // check_payee, check_x402_seller and get_payee_card are public and read-only. buy_x402 exists only when the caller may pay AND x402Buy is switched on (the scenario agent and the hosted /mcp never get it).
+  // Outcomes an agent handles: match -> pay once; close_match -> a person decides; no_match -> pay nothing; not_possible -> a person decides.
+  const q = (o) => Object.entries(o).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const adviceFor = (verdict) => ({
+    MATCH: 'match: pay once, to this account only.',
+    CLOSE_MATCH: 'close match: stop and ask the person. Pay only if they confirm.',
+    NO_MATCH: 'no match: pay nothing.',
+    UNVERIFIED: 'verification not possible: stop and ask the person. This is not a match.',
+  }[verdict] ?? 'unknown verdict: pay nothing.');
+  tools.push({
+    name: 'check_payee',
+    description: 'Verification of Payee for an AI agent about to pay. Given the account the money would go to and the name the invoice or instruction gave, answers MATCH, CLOSE_MATCH, NO_MATCH or UNVERIFIED (verification not possible), from the account\'s on-chain identity and zero-knowledge name proof. Pay only on MATCH. A person decides on CLOSE_MATCH and UNVERIFIED. Never pay on NO_MATCH. Concordium testnet; testnet names are self-asserted mock identities.',
+    inputSchema: { type: 'object', properties: { payee: { type: 'string', description: 'Concordium account that would receive the payment' }, legal_name: { type: 'string', description: 'the payee name the invoice or the user gave' }, seller: { type: 'string', description: 'optional: whose payee book to read (default: the payee itself)' }, country: { type: 'string' } }, required: ['payee', 'legal_name'], additionalProperties: false },
+    async handler(args = {}) {
+      const r = (await client.request('GET', `/api/check-payee?${q({ payee: args.payee, seller: args.seller ?? args.payee, legal_name: args.legal_name, country: args.country })}`)).body;
+      return { ...r, epc_verdict: String(r.verdict).toLowerCase(), agent_advice: adviceFor(r.verdict) };
+    },
+  });
+  tools.push({
+    name: 'check_x402_seller',
+    description: 'Read an x402 seller\'s 402 payment request WITHOUT paying, then run check_payee on its payTo. Returns the price, payTo, verdict and what the agent may do. Nothing is sent.',
+    inputSchema: { type: 'object', properties: { url: { type: 'string', description: 'https URL of the paid resource' }, name: { type: 'string', description: 'who you meant to pay' }, method: { type: 'string', enum: ['GET', 'POST'] } }, required: ['url', 'name'], additionalProperties: false },
+    async handler(args = {}) { return (await client.request('GET', `/api/x402/probe?${q({ url: args.url, name: args.name, method: args.method })}`)).body; },
+  });
+  tools.push({
+    name: 'get_payee_card',
+    description: 'The public payee card for a Concordium account: the legal name its owner proved from their own wallet (if any), whether it is bound by its own signature, hold status and version, and links to check it.',
+    inputSchema: { type: 'object', properties: { account: { type: 'string' } }, required: ['account'], additionalProperties: false },
+    async handler(args = {}) { return (await client.request('GET', `/api/p/${encodeURIComponent(args.account)}`)).body; },
+  });
+  if (canPay && x402Buy) {
+    tools.push({
+      name: 'buy_x402',
+      description: 'Buy from an x402 seller on Concordium testnet (max 2.5 CCD). It runs check_payee on the payTo first. MATCH: pays once. CLOSE_MATCH or UNVERIFIED: pays only if `approved` is true, and set that ONLY when a person said so in this conversation. NO_MATCH: never pays. It sends the signed payment once and never retries.',
+      inputSchema: { type: 'object', properties: { url: { type: 'string' }, name: { type: 'string', description: 'who you meant to pay' }, method: { type: 'string', enum: ['GET', 'POST'] }, body: { type: 'object' }, approved: { type: 'boolean', description: 'a person approved this purchase after seeing the verdict' } }, required: ['url', 'name'], additionalProperties: false },
+      async handler(args = {}) {
+        // A purchase is never retried: a lost answer must not become a second payment.
+        const once = Object.assign(Object.create(client), { backoffMs: [] });
+        return (await once.request('POST', '/api/x402/buy', { body: { url: args.url, name: args.name, method: args.method, body: args.body, approved: args.approved === true } })).body;
+      },
+    });
+  }
 
   // ---------------------------------------------------------------- pay_payable
   if (canPay) {

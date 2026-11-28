@@ -1,0 +1,31 @@
+{
+  "name": "PayOnce check_payee",
+  "description": "Verification of Payee for AI agents on Concordium testnet. Before an agent pays, ask who the account really is: MATCH (pay once), CLOSE_MATCH (a person decides), NO_MATCH (pay nothing) or UNVERIFIED (verification not possible: a person decides). Reads any x402 seller's payTo for free. Testnet names are self-asserted mock identities; the chain does not verify the ZK proof, a keyless verifier does.",
+  "url": "https://payonce-api-n98a.onrender.com/mcp",
+  "documentationUrl": "https://github.com/mohamedwael201193/payonce/tree/main/packages/check-payee",
+  "version": "1.0.0",
+  "provider": { "organization": "PayOnce", "url": "https://payonce-tau.vercel.app" },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": { "streaming": false, "pushNotifications": false },
+  "authentication": { "schemes": [] },
+  "interfaces": [
+    { "type": "mcp", "transport": "streamable-http", "url": "https://payonce-api-n98a.onrender.com/mcp", "tools": ["check_payee", "check_x402_seller", "get_payee_card", "check_payable", "list_payables", "receipt"] },
+    { "type": "http", "url": "https://payonce-api-n98a.onrender.com/api/check-payee?payee={account}&legal_name={name}", "method": "GET" },
+    { "type": "http", "url": "https://payonce-api-n98a.onrender.com/api/x402/probe", "method": "POST" },
+    { "type": "cli", "command": "npx payonce-check-payee <account> --name \"<payee name>\"", "note": "prepared in the public repo, not yet published to npm" },
+    { "type": "github-action", "uses": "mohamedwael201193/payonce/packages/check-payee-action@main" }
+  ],
+  "skills": [
+    { "id": "check-payee", "name": "Check a payee before paying", "description": "Compare the name an invoice or instruction gave with the proven legal name of the account that would be paid.", "tags": ["payments", "verification-of-payee", "concordium", "x402"], "examples": ["Check 3okVZT… as Acme ApS before paying"] },
+    { "id": "check-x402-seller", "name": "Check an x402 seller without paying", "description": "Read the seller's 402, then run check_payee on its payTo.", "tags": ["x402", "agents"] },
+    { "id": "payee-card", "name": "Public payee card", "description": "The proven name, bound status and hold of a Concordium account (the /p/<account> link).", "tags": ["identity"] }
+  ],
+  "rules": {
+    "match": "pay once, to this account only",
+    "close_match": "a person decides",
+    "no_match": "pay nothing",
+    "not_possible": "a person decides",
+    "note": "An agent pays only the account whose proven name matches."
+  }
+}

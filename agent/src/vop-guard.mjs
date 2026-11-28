@@ -18,9 +18,13 @@ export const VOP_RULES = Object.freeze([
   'the payee must be bound by its own signature and past its cooling-off (payable=true)',
   'the payee-book version checked must be the version the payable was registered against',
   'a message that names another account or announces changed bank details is refused and reported to the owner',
-  'CLOSE_MATCH stops and asks the owner; NO_MATCH and UNVERIFIED are refused',
+  'only MATCH pays: CLOSE_MATCH and UNVERIFIED (verification not possible) stop and ask the owner; NO_MATCH pays nothing',
   'testnet stand-in names are refused unless the owner allowed them for the demo',
 ]);
+
+/** The four outcomes an agent handles. Derived from the raw verdict, never from server advice. */
+export const OUTCOMES = Object.freeze({ MATCH: 'match', CLOSE_MATCH: 'close_match', NO_MATCH: 'no_match', UNVERIFIED: 'not_possible' });
+export const outcomeOf = (verdict) => OUTCOMES[String(verdict ?? '').toUpperCase()] ?? 'not_possible';
 
 export function vopGuard({ check, payable, message = '', mandate = {} }) {
   if (!check || !payable) return { allow: false, code: 'vop_not_checked', reason: 'check_payee was not run for this payment.' };
@@ -38,7 +42,7 @@ export function vopGuard({ check, payable, message = '', mandate = {} }) {
     return { allow: false, code: 'vop_wrong_subject', reason: 'The VoP check was for another seller or payee than the payable.' };
   }
   if (check.verdict === 'NO_MATCH') return { allow: false, code: 'payee_no_match', alert: true, reason: `No match: ${check.reasons?.[0] ?? 'the payee account does not belong to the invoiced name.'}` };
-  if (check.verdict === 'UNVERIFIED') return { allow: false, code: 'payee_unverified', reason: `Verification not possible: ${check.reasons?.[0] ?? 'no identity proof for this payee.'}` };
+  if (check.verdict === 'UNVERIFIED') return { allow: false, code: 'ask_owner_not_possible', ask: true, reason: `Verification not possible: ${check.reasons?.[0] ?? 'no identity proof for this payee.'} The owner decides.` };
   if (check.verdict === 'CLOSE_MATCH') return { allow: false, code: 'ask_owner_close_match', ask: true, reason: `Close match: the verified name is "${check.verified_name}". The owner must confirm.` };
   if (check.verdict !== 'MATCH') return { allow: false, code: 'vop_unknown', reason: `Unknown verdict ${check.verdict}.` };
   if (check.standin && !mandate.allowStandin) return { allow: false, code: 'standin_not_allowed', reason: 'The payee name is a labelled testnet stand-in, not a proven business identity.' };
