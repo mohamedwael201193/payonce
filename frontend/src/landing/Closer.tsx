@@ -22,7 +22,7 @@ export function faqItems(s: Snapshot): { q: string; a: string }[] {
       a: 'They show the two ways a payment can be tied to an invoice. With CCD, the contract is the payment. With the EUDemo token, a co-signed transfer makes the payment, and only after the chain has reserved the invoice.',
     },
     {
-      q: 'What can the co-signer do, and what can it not do?',
+      q: 'What can the policy gate do, and what can it not do?',
       a: 'It decides whether to sign a EUDemo transfer. It signs only for a reserved invoice, to the payee stored on chain, from the vendor list. It cannot pay an invoice the chain has not reserved. It runs inside the API server, so on this rail the guard is enforced by a key holder, not by the contract.',
     },
     {

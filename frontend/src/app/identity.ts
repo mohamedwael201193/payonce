@@ -36,7 +36,8 @@ export const AGENTS: AgentIdentity[] = [
     token: 1506,
     badge: 'JyP9Y9nGU4KaM7DBDXRgm',
     owner: '3ARQvcVD68vDEkHLcNjfec3G7GVtAPMTqZ3uhcy33PLya2uExr',
-    card: `${SITE}/.well-known/agent-card-seller2.json`,
+    // On chain, token 1506's agent_uri is this gist (the badge is valid for it), not the site copy.
+    card: 'https://gist.githubusercontent.com/mohamedwael201193/27ff98d204920b196089c76fcf208406/raw/agent-card-seller2.json',
   },
   {
     key: 'buyer',

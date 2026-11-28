@@ -153,7 +153,7 @@ export function jobFailureReason(job: JobSnapshot): string {
 const STEP_WORDS: Record<string, string> = {
   check_status: 'Check the invoice status', check_agent: 'Check the seller agent', submit: 'Submit the payment',
   wait_finality: 'Wait for the chain to finalize', read_back: 'Read the payment back', verify: 'Run the verifier',
-  check_wallet: 'Check the wallet', reserve: 'Reserve the invoice', co_sign_decide: 'Co-signer decision',
+  check_wallet: 'Check the wallet', reserve: 'Reserve the invoice', co_sign_decide: 'Policy gate decision',
   submit_transfer: 'Submit the transfer', confirm: 'Confirm the payment',
 }
 

@@ -641,7 +641,7 @@ async function handleConfig(req, res) {
       named_payer_on_invoice: true,
       confirm_by: 'payer (the reserving payer)',
       header_expiry_bound: true,
-      co_signer_runs_as: 'decision gate inside this API server (no separate service)',
+      co_signer_runs_as: 'pre-sign policy gate inside this API server, same key as the payer (no second signature yet)',
     },
     limits: {
       new_invoices_per_hour: LIMITS.newInvoicesPerHour,
@@ -660,7 +660,7 @@ async function handleConfig(req, res) {
       va_anchors: { vra: LAB_VA_ANCHORS.vra, vaa: LAB_VA_ANCHORS.vaa },
     },
     mcp: { url: MCP_URL, network: 'testnet', tools: 41, note: 'network=testnet is passed on every call; the server default is mainnet' },
-    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: BUYER_TOKEN_ID, status: 'registered', registry: '<12802,0>', note: 'CIS-8004 token on the official registry; owner and agentWallet are the paying account; no agent card is published for it.' },
+    buyer_agent: (await loadBuyerAgent()) ?? { account: BUYER_ACCOUNT, token_id: BUYER_TOKEN_ID, status: 'registered', registry: '<12802,0>', agent_card_url: 'https://payonce-tau.vercel.app/.well-known/agent-card-buyer.json', note: 'CIS-8004 token on the official registry; owner and agentWallet are the paying account; its agent card is published and the badge check passes.' },
     fee_peg: { per_transaction_eur: 0.01, basis: 'Concordium fee peg (W1 §1.2): €0.01 per transaction; see the fee table on the judge page' },
     balance_watch: { ok_threshold_micro_ccd: BALANCE_OK_MICROCCD.toString(), accounts: ['payer (seller B)', 'sponsor (owner)', 'EUDemo wallet'] },
     as_of: new Date().toISOString(),

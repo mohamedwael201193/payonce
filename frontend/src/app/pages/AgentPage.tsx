@@ -415,7 +415,7 @@ export function AgentPage() {
       <section aria-label="Use it from your own agent" className="po-card flex flex-col gap-3 p-5 sm:p-6">
         <h2 className="text-xl font-medium text-po-ink">Use PayOnce from your own agent</h2>
         <p className="max-w-[64ch] text-[15px] text-po-grey">
-          The same four tools are a hosted, read-only MCP endpoint (list_payables, check_payable, receipt) and a local MCP server that can also pay, through the API, under the vendor list, the caps and the co-signer.
+          The same four tools are a hosted, read-only MCP endpoint (list_payables, check_payable, receipt) and a local MCP server that can also pay, through the API, under the vendor list, the caps and the policy gate.
         </p>
         <pre className="overflow-x-auto rounded-[8px] bg-po-surface p-3 font-mono text-[12.5px] text-po-ink">{mcpCurl}</pre>
         <div>

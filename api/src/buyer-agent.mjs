@@ -14,9 +14,9 @@
 //      the MCP agents_by_owner list for the payer.
 //   2. merchantCheckBuyer: the fulfilment gate. The merchant agent checks
 //      the buyer token via the MCP tool protocol (agent_of + is_active —
-//      the buyer agent carries no card yet, so the 15-check badge (which
-//      requires a card + URI) is NOT the gate here; the gate is Active +
-//      owner == the payer account). An unknown/revoked token, or a token
+//      the gate is Active + owner == the payer account; the 15-check badge
+//      also runs whenever the registry returns an agent_uri, which token 1488
+//      now has: agent-card-buyer.json on the site, badge_valid:true). An unknown/revoked token, or a token
 //      owned by someone else, is refused fulfilment. The check is recorded
 //      with its evidence; a refusal names the failing check.
 //
@@ -208,7 +208,7 @@ export async function merchantCheckBuyer({ grpcClient, tokenId, expectedOwner = 
       push('badge', 'Full badge check passes (15 checks, card + URI)', 'not_run', `MCP check_badge failed: ${String(e?.message ?? e).slice(0, 200)}`);
     }
   } else {
-    push('badge', 'Full badge check passes (15 checks, card + URI)', 'not_run', 'buyer agent has no published card/URI yet, so the card checks cannot run — Active + owner is the gate, stated plainly');
+    push('badge', 'Full badge check passes (15 checks, card + URI)', 'not_run', 'the registry returned no agent_uri for this token, so the card checks cannot run; Active + owner is the gate');
   }
   const failed = checks.filter((c) => c.status === 'fail');
   return {

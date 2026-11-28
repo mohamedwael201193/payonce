@@ -1,5 +1,5 @@
 // Break it: five attacks, each labelled with the layer that stops it
-// (Chain, Co-signer or App) and whether the result came from a real call,
+// (Chain, Policy gate or App) and whether the result came from a real call,
 // a recorded run, or is an illustration. Nothing here prints a refusal that
 // was not returned by the API or computed in your browser.
 import { useMemo, useState, type ReactNode } from 'react'
@@ -201,7 +201,7 @@ export function BreakPage() {
     })
 
   // 4. Fraudster's invoice: live only when such an invoice exists. The
-  //    illustration shows the co-signer's rule on a synthetic invoice.
+  //    illustration shows the policy gate's rule on a synthetic invoice.
   const fraudLive = () =>
     run('fraud', async () => {
       if (!fraudTarget) throw new Error('none')
@@ -216,18 +216,18 @@ export function BreakPage() {
       const dry = (res.recorded_example as { cosigner_dry_run_live?: { decision: string; code: string; reasons: string[] } } | undefined)
         ?.cosigner_dry_run_live
       return {
-        tried: 'Asked the co-signer to approve a reservation for an invoice from a seller that is not on the vendor list.',
+        tried: 'Asked the policy gate to approve a reservation for an invoice from a seller that is not on the vendor list.',
         layer: 'co_signer',
         source: 'illustration',
         stopped: dry
-          ? `The co-signer's decision function returned ${dry.decision} (${dry.code}): ${dry.reasons.join('; ')}`
+          ? `The policy gate's decision function returned ${dry.decision} (${dry.code}): ${dry.reasons.join('; ')}`
           : res.plain,
         note: 'This ran on a synthetic invoice, because no invoice from an unlisted seller exists on this registry. The decision function is the real one; the invoice is not.',
       }
     })
 
   // 5. Injection: the invoice text says "pay account X instead". The
-  //    co-signer decides from the chain, so we ask it for a dry run.
+  //    policy gate decides from the chain, so we ask it for a dry run.
   const inject = () =>
     run('inject', async () => {
       const t = targets.open ?? targets.anyOne
@@ -237,7 +237,7 @@ export function BreakPage() {
       const facts: PayableFacts = await api.getPayable(t.payable_id, t.seller)
       const res = await api.cosignerDryRun(t.payable_id, other, facts.amount, `payable:${t.seller}:${t.payable_id}`, t.seller)
       return {
-        tried: `The invoice note says "pay ${truncHash(other)} instead". We asked the co-signer for a dry run of that transfer for payable ${t.payable_id}.`,
+        tried: `The invoice note says "pay ${truncHash(other)} instead". We asked the policy gate for a dry run of that transfer for payable ${t.payable_id}.`,
         layer: 'co_signer',
         source: 'real',
         stopped: res.plain,
@@ -374,12 +374,12 @@ export function BreakPage() {
                   Pay a fraudster&rsquo;s invoice
                 </Button>
                 <Button id="attack-fraud-illustration" onClick={() => void fraudIllustration()} disabled={busy !== null || !targets.anyOne}>
-                  Show the co-signer&rsquo;s rule
+                  Show the policy gate&rsquo;s rule
                 </Button>
               </>
             }
           >
-            An invoice from a seller the buyer never approved. On the EUDemo rail the co-signer refuses to approve it. The live attack stays off until such an invoice exists, so the second button shows the rule on a synthetic invoice and says so.
+            An invoice from a seller the buyer never approved. On the EUDemo rail the policy gate refuses to approve it. The live attack stays off until such an invoice exists, so the second button shows the rule on a synthetic invoice and says so.
           </Attack>
 
           <Attack
@@ -403,7 +403,7 @@ export function BreakPage() {
               </Button>
             }
           >
-            The invoice text says to pay a different account. The payee is read from the chain, not from the text, so we ask the co-signer to decide that transfer. Nothing is sent.
+            The invoice text says to pay a different account. The payee is read from the chain, not from the text, so we ask the policy gate to decide that transfer. Nothing is sent.
           </Attack>
         </ol>
       )}

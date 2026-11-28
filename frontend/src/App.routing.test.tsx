@@ -109,7 +109,7 @@ function mockApi() {
       else if (u.pathname === '/api/health') body = HEALTH
       else if (u.pathname === '/api/judges/files') body = { files: [] }
       else if (u.pathname === '/api/age-proof/health') return { ok: false, status: 503, json: async () => ({ error: { code: 'prover_unavailable', layer: 'server', message: 'not provisioned', retryable: false } }) }
-      else if (u.pathname === '/api/cosigner/dry-run') body = { decision: 'REFUSE', reason: 'wrong-recipient', plain: 'The co-signer would refuse this transfer. Nothing was sent.', tx_sent: false }
+      else if (u.pathname === '/api/cosigner/dry-run') body = { decision: 'REFUSE', reason: 'wrong-recipient', plain: 'The policy gate would refuse this transfer. Nothing was sent.', tx_sent: false }
       else if (m && m[2] === '/verify') body = CHECKS(JSON.parse(init!.body as string).mode)
       else if (m && m[2] === '/pay') body = { job_id: 'job1', payable_id: Number(m[1]), rail: 'ccd', steps: ['check_status', 'submit'] }
       else if (m && !m[2]) body = facts(seller, Number(m[1]))
@@ -341,7 +341,7 @@ describe('pay flow', () => {
 })
 
 describe('break it', () => {
-  it('the injection attack is a real co-signer dry-run call, labelled as such', async () => {
+  it('the injection attack is a real policy gate dry-run call, labelled as such', async () => {
     const user = userEvent.setup()
     renderAt('/app/break')
     const btn = await screen.findByRole('button', { name: 'Try the injected instruction' })
@@ -350,7 +350,7 @@ describe('break it', () => {
     const out = await screen.findByTestId('attack-outcome')
     expect(calls.some((c) => c.url.includes('/api/cosigner/dry-run'))).toBe(true)
     expect(out).toHaveTextContent('REAL CALL')
-    expect(out).toHaveTextContent('Co-signer')
+    expect(out).toHaveTextContent('Policy gate')
   })
 
   it('the fraudster button is disabled when no fraud payable exists', async () => {

@@ -18,7 +18,7 @@ const STEP_LABELS: Record<string, string> = {
   verify: 'Run the verifier',
   check_wallet: 'Check the wallet',
   reserve: 'Reserve the invoice on chain',
-  co_sign_decide: 'Co-signer decision',
+  co_sign_decide: 'Policy gate decision',
   submit_transfer: 'Submit the transfer',
   confirm: 'Confirm the payment on chain',
 }
@@ -90,7 +90,7 @@ export function RefusalNotice({ job, explorerBase }: { job: JobSnapshot; explore
         {layer === 'chain'
           ? COPY.chainRefused(reject?.code ?? 0, reject?.name ?? 'Rejected', reject?.plain ?? 'The chain refused this payment.', fee ?? null)
           : layer === 'co_signer'
-            ? COPY.coSignerRefused(failed?.detail ?? 'The co-signer refused this transfer.')
+            ? COPY.coSignerRefused(failed?.detail ?? 'The policy gate refused this transfer.')
             : COPY.appRefused(failed?.detail ?? 'This app refused the payment.')}
       </p>
       {failed?.txHash ? (

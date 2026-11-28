@@ -16,12 +16,13 @@ export const BANNED_WORDS: Array<{ word: string; reason: string }> = [
   { word: 'audited', reason: 'no audit exists' },
   { word: 'secure', reason: 'unproven claim; say what was checked instead' },
   { word: 'instant', reason: 'only with a measured number' },
-  { word: 'fully on-chain', reason: 'Rail B has a co-signer' },
+  { word: 'fully on-chain', reason: 'Rail B has a policy gate' },
+  { word: 'co-signer', reason: 'no second key signs today; say policy gate' },
   { word: 'Verified by Concordium', reason: 'only when badge.official === true (today it never is)' },
 ]
 
 // P3 §2 rule 2 — "the chain refuses" only for a transaction the chain
-// actually reverted. Co-signer refusals use this sentence.
+// actually reverted. Policy gate refusals use this sentence.
 export const COPY = {
   heroH1: 'Every invoice becomes a payable: an invoice on chain that can be paid exactly once, and only to the account the supplier put there.',
   heroSub:
@@ -56,10 +57,10 @@ export const COPY = {
       fee ? ` The chain still charged a fee of ${fee} testnet CCD.` : ''
     }`,
   coSignerRefused: (plain: string) =>
-    `Refused by the co-signer before signing: ${plain} No transaction was sent.`,
+    `Refused by the policy gate before signing: ${plain} No transaction was sent.`,
   appRefused: (plain: string) =>
     `Refused by this app: ${plain} Nothing was sent to the chain.`,
-  reserved: 'Reserved for this payment. The co-signer approved the reservation and the transfer.',
+  reserved: 'Reserved for this payment. The policy gate approved the reservation and the transfer.',
   labInvoiceLabel: 'Lab invoice (testnet, not a real invoice)',
 } as const
 
@@ -86,12 +87,12 @@ function formatRunDate(iso: string): string | null {
   return `${String(d.getUTCDate()).padStart(2, '0')} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
-// The build-status card used to print the raw config fragment ("Co-signer
+// The build-status card used to print the raw config fragment ("Policy gate
 // runs as: decision gate inside the API service (no service)") — a sentence
-// no reader can parse. The co-signer runs in-process as a decision gate;
-// no separate co-signer service exists.
+// no reader can parse. The policy gate runs in-process as a decision gate;
+// no separate policy gate service exists.
 export function coSignerRunsAsSentence(): string {
-  return 'Decision gate inside the API service — no separate co-signer service runs.'
+  return 'A policy check inside the API service. The same process holds the payer key, so there is no second signature yet.'
 }
 
 // Glossary (P3 §2 rule 15 + §16.13 item 8) — plain words first, technical
@@ -107,7 +108,7 @@ export function coSignerRunsAsSentence(): string {
 export const GLOSSARY: Array<[string, string]> = [
   ['Payable', 'invoice on chain'],
   ['Reservation', 'the payable is reserved for one payer for 3600 s (60 minutes)'],
-  ['Co-signer', 'second approver of the agent wallet'],
+  ['Policy gate', 'a rule check that runs before the payer signs (same key, not a second signature)'],
   ['Sponsor', 'pays the fee for a transaction'],
   ['Fingerprint', 'SHA-256 of the document bytes'],
   ['Verify & Pay', 'Concordium’s name for the flow: verify the seller and the invoice first, then pay once'],
@@ -144,7 +145,7 @@ export function buildStatusString(loading: boolean, error: boolean, value: strin
 // Layer badges — P3 §2 rule 1: every refusal carries exactly one badge.
 export const LAYER_LABEL: Record<string, string> = {
   chain: 'Chain',
-  co_signer: 'Co-signer',
+  co_signer: 'Policy gate',
   app: 'This app',
   node: 'Node',
   server: 'Server',

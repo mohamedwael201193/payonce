@@ -536,7 +536,7 @@ function PayFlowLoaded({ k, facts, dir }: { k: PayableKey; facts: PayableFacts; 
           <p className="mt-1 text-[15px] text-po-grey">
             {rail === 'ccd'
               ? 'CCD rail: one transaction. The contract checks the invoice and sends the full amount to the payee.'
-              : 'EUDemo rail: three steps. Reserve the invoice, a co-signer approves one exact transfer, then confirm it on chain.'}
+              : 'EUDemo rail: three steps. Reserve the invoice, a policy gate approves one exact transfer, then confirm it on chain.'}
           </p>
           <div className="mt-4 flex flex-wrap items-start gap-4">
             <Button

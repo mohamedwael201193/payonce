@@ -65,8 +65,8 @@ describe('BANNED_WORDS (P3 §2 rule 3)', () => {
   it('receipt footer disclaims legal status', () => {
     expect(COPY.receiptFooter).toContain('not a legal invoice')
   })
-  it('co-signer sentence is a plain sentence, not a raw config fragment', () => {
-    expect(coSignerRunsAsSentence()).toBe('Decision gate inside the API service — no separate co-signer service runs.')
+  it('policy gate sentence is a plain sentence, not a raw config fragment', () => {
+    expect(coSignerRunsAsSentence()).toBe('A policy check inside the API service. The same process holds the payer key, so there is no second signature yet.')
     expect(coSignerRunsAsSentence()).not.toContain('(no service)')
   })
   it('refusedCaption states the live chain total and its basis (date derived from the last run)', () => {

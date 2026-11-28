@@ -90,7 +90,7 @@ export function Stage({ data }: { data: LandingData }) {
           <p className="po-p">
             Pay an invoice twice, change the amount, point it at an invoice that does not exist. In our recorded run the
             registry contract refused all {RECORDED_REFUSALS.length} attempts and nothing moved. Some attacks are stopped
-            earlier by the co-signer; the break page says which layer refused each one.
+            earlier by the policy gate; the break page says which layer refused each one.
           </p>
           <p className="po-stage__count">
             <span className="po-mono">{stats.refused_on_chain_since_deploy}</span> refusals counted by the API since its

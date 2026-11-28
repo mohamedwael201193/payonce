@@ -41,12 +41,12 @@ const CONSENT_TXS: Array<{ label: string; hash: string }> = [
 ]
 
 const KNOWN_LIMITS = [
-  'Only the CCD route moves money inside the contract’s own transaction. The EUDemo route depends on the co-signer’s decision and on the node’s 2-of-3 rule. The contract cannot see PLT transfers.',
-  'Strict vendor-list mode is on by default. The vendor list is on chain, and an unlisted seller is refused on both rails. EUDemo: the co-signer refuses it and so does the chain (-19: reserve_plt always needs an approval row). CCD: the buyer’s on-chain strict flag (set_strict) is now on, so the contract reverts a payment to an unlisted seller with -19 (recorded: revert tx e8e3d588…88b5), and the API also refuses before it signs. You can see the co-signer’s rule on Break it.',
+  'Only the CCD route moves money inside the contract’s own transaction. The EUDemo route depends on the policy gate’s decision and on the node’s 2-of-3 rule. The contract cannot see PLT transfers.',
+  'Strict vendor-list mode is on by default. The vendor list is on chain, and an unlisted seller is refused on both rails. EUDemo: the policy gate refuses it and so does the chain (-19: reserve_plt always needs an approval row). CCD: the buyer’s on-chain strict flag (set_strict) is now on, so the contract reverts a payment to an unlisted seller with -19 (recorded: revert tx e8e3d588…88b5), and the API also refuses before it signs. You can see the policy gate’s rule on Break it.',
   'On the EUDemo route the seller names the expected payer at registration, and only the reserving payer can confirm: a confirm from any other account reverts (-17). The contract still cannot see the PLT transfer itself, so the verifier, not the status, is the check to trust: it re-reads the transfer (payee, amount, memo) from the chain.',
-  'Race: the co-signer co-signs only while at least 60 s of the reservation remain, and binds the transfer’s header expiry to the reservation expiry minus 60 s.',
+  'Race: the policy gate approves only while at least 60 s of the reservation remain, and binds the transfer’s header expiry to the reservation expiry minus 60 s.',
   'Seller identity: the sellers and the payer hold Active agent tokens on the official registry <12802,0>, and the seller token is cross-checked by the contract at registration and at payment. The accountable human is a testnet identity: the owner of seller 1 has a published 18+ and EU proof from the testnet identity provider, with test attribute values. There is no LEI and no company proof: the seller is the owner’s own identity, not a company. Seller 2’s owner has no proof of its own.',
-  'One testnet seed holds the keys (in-process, testnet only). The co-signer is a decision gate inside this API server, not a separate service on a separate host.',
+  'One testnet seed holds the keys (in-process, testnet only). The policy gate is a decision gate inside this API server, not a separate service on a separate host.',
   'The demo payer signs payments for both sellers; each seller signs only its own invoice registrations. The demo payer refills its testnet fees from a treasury account when it runs low, and says so while it does.',
   'Refused transactions still cost a fee. Fees vary per transaction. These are testnet fees, not mainnet estimates.',
   'Payables expire at their due date (about 24 hours after registration). Demo invoices must be fresh on the day.',
@@ -135,17 +135,17 @@ export function JudgesPage() {
           <KeyValue label="Keys">
             One testnet seed, loaded in-process on the API host only. It derives the seller 1 owner, seller 2, the demo payer (which signs payments for both sellers) and the fee sponsor. It is never in the repo, the site or a response; the CI secret scan checks the tree and the history.
           </KeyValue>
-          <KeyValue label="The co-signer">
-            {coSignerRunsAsSentence()} It decides, and the same process then signs, so on the EUDemo rail the gate is a policy we run, not a second party. A separate co-signer service with its own key exists in the repo (backend/src/cosigner) but is not what this site runs.
+          <KeyValue label="The policy gate">
+            {coSignerRunsAsSentence()} It decides, and the same process then signs, so on the EUDemo rail the gate is a policy we run, not a second party. A separate policy gate service with its own key exists in the repo (backend/src/cosigner) but is not what this site runs.
           </KeyValue>
           <KeyValue label="Vendor list">
             Strict mode is on by default: an unlisted seller is refused on both rails, by the chain on both (-19). The buyer's on-chain strict flag was switched on (testnet tx 0076d6f9…48d9), and the API also refuses before signing. A real unlisted-seller payment reverted with -19 (tx e8e3d588…88b5) and a payment to a listed seller still succeeded (tx adfc7de2…bc23).
           </KeyValue>
           <KeyValue label="What the chain enforces alone">
-            Pay once, only to the payee on chain, and only the exact amount (CCD rail, inside the contract&apos;s own transaction). Contract refusals carry a code (-5, -6, -19 and so on). The co-signer and API refusals do not: they are our policy, labelled as such.
+            Pay once, only to the payee on chain, and only the exact amount (CCD rail, inside the contract&apos;s own transaction). Contract refusals carry a code (-5, -6, -19 and so on). The policy gate and API refusals do not: they are our policy, labelled as such.
           </KeyValue>
           <KeyValue label="Path to production">
-            Separate seeds and identities per role, a co-signer on its own host with its own key, a company identity for the seller. None of that is claimed here.
+            Separate seeds and identities per role, a policy gate on its own host with its own key, a company identity for the seller. None of that is claimed here.
           </KeyValue>
         </dl>
       </Section>
@@ -301,7 +301,7 @@ export function JudgesPage() {
 
       <Section id="build-status" title="Build status, read live">
         <dl className="divide-y divide-po-line">
-          <KeyValue label="Vendor list enforced by the co-signer">
+          <KeyValue label="Vendor list enforced by the policy gate">
             {buildStatusText(config.isLoading, config.isError, build?.vendor_list_enforced_by_co_signer)}
           </KeyValue>
           <KeyValue label="Named payer on invoice">{buildStatusText(config.isLoading, config.isError, build?.named_payer_on_invoice)}</KeyValue>
@@ -309,7 +309,7 @@ export function JudgesPage() {
           <KeyValue label="Transaction expiry bounded by the reservation">
             {buildStatusText(config.isLoading, config.isError, build?.header_expiry_bound)}
           </KeyValue>
-          <KeyValue label="Co-signer runs as">{coSignerRunsAsSentence()}</KeyValue>
+          <KeyValue label="Policy gate runs as">{coSignerRunsAsSentence()}</KeyValue>
         </dl>
       </Section>
 

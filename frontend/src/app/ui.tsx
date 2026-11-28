@@ -151,7 +151,7 @@ export function IllustrationTag() {
 
 const LAYER_NAME: Record<Layer, string> = {
   chain: 'Chain',
-  co_signer: 'Co-signer',
+  co_signer: 'Policy gate',
   app: 'App',
   node: 'Node',
   server: 'Server',
