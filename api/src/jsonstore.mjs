@@ -193,3 +193,28 @@ export async function loadScan() {
 export async function saveScan(scan) {
   saveJson('scan.json', scan);
 }
+
+// ---- generic namespaced records (open sellers, their documents, hosted agent cards) ----
+function kvAll() { return loadJson('kv.json', {}); }
+export async function kvGet(ns, key) {
+  return kvAll()[ns]?.[key] ?? null;
+}
+export async function kvPut(ns, key, payload) {
+  const all = kvAll();
+  all[ns] = { ...(all[ns] ?? {}), [key]: payload };
+  saveJson('kv.json', all);
+}
+export async function kvPutIfAbsent(ns, key, payload) {
+  const all = kvAll();
+  if (all[ns]?.[key] !== undefined) return false;
+  all[ns] = { ...(all[ns] ?? {}), [key]: payload };
+  saveJson('kv.json', all);
+  return true;
+}
+export async function kvList(ns) {
+  return Object.entries(kvAll()[ns] ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => ({ key, value }));
+}
+export async function kvDelete(ns, key) {
+  const all = kvAll();
+  if (all[ns]) { delete all[ns][key]; saveJson('kv.json', all); }
+}

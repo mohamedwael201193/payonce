@@ -52,6 +52,8 @@ import { listableRows, scanIsComplete, statsBody, kindCounts, invoiceItem, demoK
 import { reconcile } from './reconcile.mjs';
 import { registerWithFreshId, foldDiscoveredIds } from './fresh-id.mjs';
 import { ledgerForDecide } from './ledger.mjs';
+import { open as openSellers, openRoutes, initSchemas as initOpenSchemas, setOpenRowRefresher } from './open-wiring.mjs';
+import { setOpenDocResolver } from './docs.mjs';
 import {
   createAgeProofHandlers, ageGateCheck, findFreshAgeProof,
 } from './age-proof.mjs';
@@ -248,7 +250,8 @@ function resolveSellerStrict(req, res) {
   if (!q) return SELLER;
   if (q === SELLER2_ADDRESS) return SELLER2;
   if (q === SELLER) return SELLER;
-  badRequest(res, `unknown seller "${q.slice(0, 32)}": expected seller 1 (${SELLER}) or seller 2 (${SELLER2_ADDRESS}).`);
+  if (openSellers.isListedSync(q)) return q; // a listed open seller (see open-sellers.mjs)
+  badRequest(res, `unknown seller "${q.slice(0, 32)}": expected seller 1 (${SELLER}), seller 2 (${SELLER2_ADDRESS}) or a listed open seller.`);
   return null;
 }
 
@@ -280,7 +283,8 @@ function resolveWriteSeller(req, res, body = null) {
   const named = q ?? (typeof body?.seller === 'string' ? body.seller : null);
   if (!named || named === SELLER) return SELLER;
   if (named === SELLER2_ADDRESS) return SELLER2;
-  badRequest(res, `unknown seller "${String(named).slice(0, 32)}": expected seller 1 (${SELLER}) or seller 2 (${SELLER2_ADDRESS}).`);
+  if (openSellers.isListedSync(named)) return named; // pay flow signs with the demo payer; the seller registered from its own wallet
+  badRequest(res, `unknown seller "${String(named).slice(0, 32)}": expected seller 1 (${SELLER}), seller 2 (${SELLER2_ADDRESS}) or a listed open seller.`);
   return null;
 }
 
@@ -432,6 +436,11 @@ async function scanOnce(c) {
     }
     if (found2.length) await foldDiscoveredIds(found2, 2);
   }
+  // Open sellers' recorded invoices (registered from the sellers' own wallets).
+  for (const { seller, id } of await openSellers.invoiceKeys()) {
+    const { view, ok } = await readPayableWithRetry(c, id, seller);
+    if (ok) { if (view) rows.push(view); } else skipped.push(id);
+  }
   return { rows, skipped, complete: scanIsComplete(skipped) };
 }
 
@@ -548,6 +557,10 @@ async function liveConfig(c) {
     const list = [];
     if (approval1) list.push({ seller: OWNER_ADDRESS, label: 'Lab seller account (demo seller)' });
     if (approval2) list.push({ seller: SELLER2_ADDRESS, label: 'Second seller account (PayOnce Seller 2)' });
+    // Open sellers: listed only while their on-chain approval row exists (re-read here, never assumed).
+    for (const o of openSellers.allListed()) {
+      try { if (await getVendor(c, PAYER_ADDRESS, o.account)) list.push({ seller: o.account, label: `Open seller (agent ${o.agent_token})`, kind: 'open' }); } catch { /* skip on a node error */ }
+    }
     configCache.vendorList = list;
     vendorReadOk = true;
     configCache.onChainStrict = await onChainStrict(c);
@@ -603,6 +616,16 @@ async function handleConfig(req, res) {
         badge_url: `https://agent-registry-mcp.concordium.com/v1/badge-check/${SELLER2_BADGE}`,
         agent_card_url: SELLER2_AGENT_CARD_URL,
       },
+      ...openSellers.allListed().map((o) => ({
+        seller: o.account,
+        label: `Open seller — agent ${o.agent_token}`,
+        agent_token: o.agent_token,
+        badge: o.badge,
+        badge_url: `https://agent-registry-mcp.concordium.com/v1/badge-check/${o.badge}`,
+        agent_wallet: o.agent_wallet ?? null,
+        kind: 'open',
+        listing_tx: o.listing_tx,
+      })),
     ],
     build: {
       // Which sellers' invoices this server can register and pay through the
@@ -1747,6 +1770,7 @@ const routes = [
   ['POST', /^\/api\/balance-watch\/top-up$/, handleTopUp],
   ['GET', /^\/api\/cis8\/status$/, handleCis8Status],
   ['POST', /^\/api\/cis8\/request$/, handleCis8Request],
+  ...openRoutes({ sendJson, apiError, readBody, clientIp, hitWindow }),
 ];
 
 const server = createServer(async (req, res) => {
@@ -1777,7 +1801,9 @@ const server = createServer(async (req, res) => {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Warm the served scan from the persisted copy BEFORE listening, so the very
   // first request already gets the last complete scan (no warming_up window).
-  ready().then(() => warmScanFromStore()).then(() => {
+  ready().then(() => openSellers.load()).then(() => initOpenSchemas()).then(() => warmScanFromStore()).then(() => {
+    setOpenRowRefresher((seller, id) => upsertServedRow(seller, id));
+    setOpenDocResolver((seller, id) => openSellers.documentFor(seller, id), (seller) => openSellers.isListedSync(seller));
     server.listen(PORT, HOST, () => {
       void startScanLoop();
       startGuardLoop();

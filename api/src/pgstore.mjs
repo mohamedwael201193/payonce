@@ -90,6 +90,13 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS payonce_ledger_key_idx ON payonce_ledger (payable_key)`,
+    `CREATE TABLE IF NOT EXISTS payonce_kv (
+      ns TEXT NOT NULL,
+      key TEXT NOT NULL,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL,
+      PRIMARY KEY (ns, key)
+    )`,
     `CREATE TABLE IF NOT EXISTS payonce_documents (
       payable_id INTEGER PRIMARY KEY,
       content TEXT NOT NULL,
@@ -380,4 +387,31 @@ export async function saveScan(scan) {
     'INSERT INTO payonce_scan (id, payload, updated_at) VALUES (1, $1, now()) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
     [scan],
   );
+}
+
+// ---- generic namespaced records (open sellers, their documents, hosted agent cards) ----
+export async function kvGet(ns, key) {
+  const r = await getPool().query('SELECT payload FROM payonce_kv WHERE ns = $1 AND key = $2', [ns, key]);
+  return r.rows[0]?.payload ?? null;
+}
+export async function kvPut(ns, key, payload) {
+  await getPool().query(
+    'INSERT INTO payonce_kv (ns, key, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (ns, key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()',
+    [ns, key, payload],
+  );
+}
+/** Insert only when absent. Returns true when this call created the row. */
+export async function kvPutIfAbsent(ns, key, payload) {
+  const r = await getPool().query(
+    'INSERT INTO payonce_kv (ns, key, payload, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (ns, key) DO NOTHING',
+    [ns, key, payload],
+  );
+  return r.rowCount > 0;
+}
+export async function kvList(ns) {
+  const r = await getPool().query('SELECT key, payload FROM payonce_kv WHERE ns = $1 ORDER BY key', [ns]);
+  return r.rows.map((x) => ({ key: x.key, value: x.payload }));
+}
+export async function kvDelete(ns, key) {
+  await getPool().query('DELETE FROM payonce_kv WHERE ns = $1 AND key = $2', [ns, key]);
 }

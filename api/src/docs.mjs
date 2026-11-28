@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { BACKEND_DIR } from './backend.mjs';
-import { SELLER2_ADDRESS, SELLER2_FRESH_ID_START, FRESH_ID_START } from './config.mjs';
+import { SELLER2_ADDRESS, SELLER2_FRESH_ID_START, FRESH_ID_START, OWNER_ADDRESS } from './config.mjs';
 import { storeDocumentRecord, storedDocumentRecord } from './store.mjs';
 
 const sha256Hex = (b) => createHash('sha256').update(b).digest('hex');
@@ -73,6 +73,7 @@ const SELLER2_INVOICE_FILES = {
 export async function docForPayableForSeller(seller, id) {
   const found = await docForPayableForSellerStored(seller, id);
   if (found) return found;
+  if (seller && seller !== SELLER2_ADDRESS && seller !== OWNER_ADDRESS && isOpen(seller)) return null;
   return regenerateLabDocument(seller, id);
 }
 
@@ -96,7 +97,14 @@ async function regenerateLabDocument(seller, id) {
   } catch { return null; }
 }
 
+// Open sellers (registered from their own wallets) keep their documents in the open-seller store.
+// Resolved through a hook so this module does not import the chain wiring.
+let openDoc = null;
+let isOpen = () => false;
+export function setOpenDocResolver(resolver, isOpenSeller) { openDoc = resolver; isOpen = isOpenSeller; }
+
 async function docForPayableForSellerStored(seller, id) {
+  if (seller !== SELLER2_ADDRESS && seller !== OWNER_ADDRESS && seller && isOpen(seller)) return openDoc ? openDoc(seller, id) : null;
   if (seller === SELLER2_ADDRESS && SELLER2_INVOICE_FILES[id]) {
     const p = join(BACKEND_DIR, SELLER2_INVOICE_FILES[id]);
     if (existsSync(p)) return readFileSync(p);

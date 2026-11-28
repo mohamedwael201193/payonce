@@ -174,3 +174,10 @@ export async function saveScan(scan) {
   await initStore();
   return impl().saveScan(scan);
 }
+
+// ---- generic namespaced records (open sellers, their documents, hosted agent cards) ----
+export async function kvGet(ns, key) { await initStore(); return impl().kvGet(ns, key); }
+export async function kvPut(ns, key, payload) { await initStore(); return impl().kvPut(ns, key, payload); }
+export async function kvPutIfAbsent(ns, key, payload) { await initStore(); return impl().kvPutIfAbsent(ns, key, payload); }
+export async function kvList(ns) { await initStore(); return impl().kvList(ns); }
+export async function kvDelete(ns, key) { await initStore(); return impl().kvDelete(ns, key); }

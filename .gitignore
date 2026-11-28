@@ -19,3 +19,4 @@ concordium-out/
 .env*
 api/data/scan.json
 api/data-local-*/
+api/data/kv.json
