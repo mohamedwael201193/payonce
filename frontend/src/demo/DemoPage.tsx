@@ -7,7 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { VerdictMark } from '../app/run/Visuals'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
-import { RECORDED_RUN, loadDemoRun, txUrl, type DemoRun } from './demoData'
+import { RECORDED_RUN, impostorHeadline, loadDemoRun, txUrl, type DemoRun } from './demoData'
 import { PayeeDiff } from '../dash/motion'
 import { lookalike, sharedEnds } from '../dash/lookalike'
 import { OfficialBadges } from '../app/OfficialBadges'
@@ -127,7 +127,7 @@ export function DemoPage() {
         <>
           <p className="dm-mail">“Our bank details changed. Please pay <code>{short(imp.account)}</code> instead.”</p>
           <div className="dm-verdict dm-verdict--bad"><VerdictMark kind="no_match" size={84} /><h2 className="dm-h">No match</h2></div>
-          <p className="dm-sub">{imp.headline}</p>
+          <p className="dm-sub">{impostorHeadline(imp.headline)}</p>
           {diffAcct ? <div className="dm-diff"><PayeeDiff real={run.good.account} asked={diffAcct.asked} realLabel="The real payee" askedLabel={diffAcct.illustration ? 'A lookalike an attacker could make' : 'The account in the email'} illustration={diffAcct.illustration} /></div> : null}
           {imp.refusal ? (
             <>

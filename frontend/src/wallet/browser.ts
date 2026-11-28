@@ -16,6 +16,34 @@ export async function browserWalletPresent(timeoutMs = 1200): Promise<boolean> {
   }
 }
 
+
+/**
+ * ContractSchema for sendSponsoredTransaction. The wallet popup (2.12.x SendSponsoredTransaction.tsx) rebuilds it as
+ * new Uint8Array(Object.values(schema.value)), so `value` must be bytes. A base64 string turns into garbage bytes there,
+ * deserialising the parameters throws "Missing Schema Version" while rendering, and popup.html stays blank.
+ */
+export function moduleSchemaArg(schemaBase64: string | null): { type: 'ModuleSchema'; value: Uint8Array } | undefined {
+  if (!schemaBase64) return undefined
+  const bin = atob(schemaBase64)
+  const value = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) value[i] = bin.charCodeAt(i)
+  return { type: 'ModuleSchema', value }
+}
+
+export function sponsoredCall(api: Api, account: string, transaction: unknown, schemaBase64: string | null): Promise<string> {
+  const send = (api as { sendSponsoredTransaction?: unknown }).sendSponsoredTransaction
+  if (typeof send !== 'function') throw new WalletTooOld()
+  // Wallet 2.12.x runIfAccountIsAllowlisted does allowlist[origin].includes(payload.accountAddress).
+  // sendSponsoredTransaction (unlike sendTransaction / signMessage) does not call AccountAddress.toBase58,
+  // so an AccountAddress object never matches the stored base58 strings and the wallet returns
+  // "Site is not whitelisted" with no popup. Always pass the base58 string.
+  return (api.sendSponsoredTransaction as unknown as (a: unknown, t: unknown, s?: unknown) => Promise<string>)(
+    account,
+    Transaction.signableFromJSON(transaction),
+    moduleSchemaArg(schemaBase64),
+  )
+}
+
 function session(api: Api, account: string, chainOk: boolean | null): WalletSession {
   return {
     kind: 'browser',
@@ -36,17 +64,7 @@ function session(api: Api, account: string, chainOk: boolean | null): WalletSess
       )
     },
     async sendSponsored(transaction: unknown, schemaBase64: string | null) {
-      const send = (api as { sendSponsoredTransaction?: unknown }).sendSponsoredTransaction
-      if (typeof send !== 'function') throw new WalletTooOld()
-      // Wallet 2.12.x runIfAccountIsAllowlisted does allowlist[origin].includes(payload.accountAddress).
-      // sendSponsoredTransaction (unlike sendTransaction / signMessage) does not call AccountAddress.toBase58,
-      // so an AccountAddress object never matches the stored base58 strings and the wallet returns
-      // "Site is not whitelisted" with no popup. Always pass the base58 string.
-      return (api.sendSponsoredTransaction as (a: unknown, t: unknown, s?: unknown) => Promise<string>)(
-        account,
-        Transaction.signableFromJSON(transaction),
-        schemaBase64 ? { type: 'ModuleSchema', value: schemaBase64 } : undefined,
-      )
+      return sponsoredCall(api, account, transaction, schemaBase64)
     },
     async signMessage(text: string) {
       return api.signMessage(AccountAddress.fromBase58(account), text)

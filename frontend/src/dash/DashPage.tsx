@@ -96,6 +96,15 @@ export function stampFor(check: CheckPayee): { verdict: CheckPayee['verdict']; w
   return { verdict: check.verdict, sub: check.verified_name ?? undefined, shown: check.verdict }
 }
 
+/** One sentence under the stamp. The API's "Match: the account belongs to…" is about the name only; it must not sit
+    under a "Not bound" stamp. */
+export function reasonFor(check: CheckPayee): string | null {
+  if (check.verdict === 'MATCH' && !check.payable) {
+    return 'The name matches, but this account is not a payee yet. It must sign the payee book and finish the hold before PayOnce will pay it.'
+  }
+  return check.reasons[0] ?? null
+}
+
 export function VerdictBlock({ check }: { check: CheckPayee }) {
   const st = stampFor(check)
   return (
@@ -461,7 +470,7 @@ function Flow() {
                   {!c.payable && (c.verdict === 'CLOSE_MATCH' || c.verdict === 'MATCH') && !declined && !outTx ? (
                     <HumanGate
                       outcome={c.verdict === 'CLOSE_MATCH' ? 'close_match' : 'match_unbound'}
-                      why={c.reasons[0] ?? 'The agent cannot confirm this payee on its own.'}
+                      why={reasonFor(c) ?? 'The agent cannot confirm this payee on its own.'}
                       facts={[
                         { label: 'Name on invoice', value: payName.trim() },
                         { label: 'Proven name', value: c.verified_name ?? 'none' },

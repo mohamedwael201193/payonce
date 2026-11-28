@@ -65,6 +65,12 @@ export function parseLiveRun(raw: unknown, now = Date.now()): DemoRun | null {
   return r as DemoRun
 }
 
+/** The run's sentence counts shared characters of the real impostor; the diagram under it may show a different,
+    clearly labelled lookalike. Keep the counts in the diagram only so the two never disagree. */
+export function impostorHeadline(h: string): string {
+  return h.replace(/a lookalike account \(same first \d+ and last \d+ characters as the real payee,\s*/i, 'a different account (')
+}
+
 /** Give up on a fresh run quickly: the page must always be clickable. */
 export const DEMO_LOAD_MS = 5_000
 

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { midTruncate } from '../app/Address'
 import { useDocumentTitle } from '../app/hooks'
 import { dashApi, type CheckPayee } from './contracts'
-import { VerdictBlock } from './DashPage'
+import { VerdictBlock, reasonFor } from './DashPage'
 import { badgeHtml, badgeMarkdown, badgeSrc } from './badge'
 import { dashEnabled } from './flag'
 import './dash.css'
@@ -54,7 +54,7 @@ export function PayeePage() {
           {checkQ.isLoading ? <p className="ds-busy" role="status"><span className="rn-spin" aria-hidden />Checking…</p> : null}
           {checkQ.isError ? <p className="ds-err" role="alert">{checkQ.error instanceof Error ? checkQ.error.message : 'The check did not answer. Try again.'}</p> : null}
           {c ? <VerdictBlock check={c} /> : null}
-          {c && c.reasons[0] ? <p className="ds-note">{c.reasons[0]}</p> : null}
+          {c && reasonFor(c) ? <p className="ds-note">{reasonFor(c)}</p> : null}
           {dashEnabled() && c?.payable ? <Link className="ds-btn" to={`/app?dash=1&payee=${account}`}>Pay with wallet</Link> : null}
           {c ? <button className="ds-btn ds-btn--ghost" onClick={() => setJson((v) => !v)} aria-expanded={json}>{json ? 'Hide' : 'Show'} check_payee JSON</button> : null}
           {json && c ? <pre className="ds-json">{JSON.stringify(c, null, 2)}</pre> : null}

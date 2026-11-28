@@ -92,7 +92,7 @@ describe('/p/<account>', () => {
       if (u.includes('/api/payee/')) return json({ account: A, seller: S, status: 'NotBound', version: 0, hold_secs: 90, hold_ends_at: null, link: '' })
       if (/\/api\/p\/[^/]+$/.test(u)) return json({ account: A, exists: true, verified: true, name: 'Elin Berglund', kind: 'person', proof: { version: 'v1' }, bound: { status: 'NotBound' }, label: 'Elin Berglund', testnet_note: '', links: {} })
       return json({
-        verdict: 'MATCH', payable: false, verified_name: 'Elin Berglund', identity_kind: 'person', standin: true, reasons: ['Name matches; payee is not bound.'],
+        verdict: 'MATCH', payable: false, verified_name: 'Elin Berglund', identity_kind: 'person', standin: true, reasons: ['Match: the payee account belongs to the verified person "Elin Berglund" (DK).'],
         checks: [{ id: 'name_match', ok: true, detail: '' }, { id: 'payee_book_bound', ok: false, detail: '' }, { id: 'cooling_off_over', ok: false, detail: '' }],
         subject: { contract: '<13173,0>', seller: S, payee: A, invoice_name: 'Elin Berglund', book: { status: 'NotBound' }, proof_anchor: null }, evidence_hash: 'e', checked_at: '',
       })
@@ -109,5 +109,8 @@ describe('/p/<account>', () => {
     expect(screen.queryByText('Match', { selector: '.ds-stamp__word' })).toBeNull()
     expect(screen.getByText('NotBound')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Pay with wallet' })).toBeNull()
+    // the sentence under the stamp must not contradict it
+    expect(screen.queryByText(/^Match: the payee account belongs/)).toBeNull()
+    expect(screen.getByText(/not a payee yet/i)).toBeInTheDocument()
   })
 })

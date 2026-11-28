@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { DemoPage } from './DemoPage'
-import { RECORDED_RUN, parseLiveRun, loadDemoRun, type DemoRun } from './demoData'
+import { RECORDED_RUN, parseLiveRun, loadDemoRun, impostorHeadline, type DemoRun } from './demoData'
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404 })))
@@ -62,4 +62,14 @@ describe('/demo loading', () => {
     // The page uses a 5 s timeout; advance by stubbing load via a short wait is covered in loadDemoRun.
     // Here we only assert the first paint is not a hung blank screen.
   })
+})
+
+describe('impostorHeadline', () => {
+  const h = 'No match: a lookalike account (same first 1 and last 4 characters as the real payee, 0 CCD, brand-new) claims "PayOnce Labs". Nothing sent.'
+  it('drops the character counts so they cannot contradict the diagram beneath', () => {
+    const t = impostorHeadline(h)
+    expect(t).not.toMatch(/same first|last 4|first 1/i)
+    expect(t).toContain('a different account (0 CCD, brand-new) claims "PayOnce Labs"')
+  })
+  it('leaves other headlines alone', () => expect(impostorHeadline(RECORDED_RUN.impostor.headline)).toBe(RECORDED_RUN.impostor.headline))
 })
