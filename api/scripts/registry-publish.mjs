@@ -11,13 +11,14 @@ import { AccountAddress, ContractAddress, ReceiveName, Parameter, CcdAmount, Ene
 import { vClient } from '../src/consent.mjs';
 import { signers } from '../src/chain-v2.mjs';
 import { kvGet, kvPut } from '../src/store.mjs';
+import { retryingReads } from '../src/node-retry.mjs';
 
 const MCP = 'https://agent-registry-mcp.concordium.com/mcp';
 const REG = { index: 12802n, subindex: 0n };
 const SITE = 'https://payonce-tau.vercel.app/.well-known/registry';
 const PHASE = process.env.PHASE ?? 'read';
 const J = (o) => JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
-const c = vClient();
+const c = retryingReads(vClient(), { tries: 8, maxMs: 15000 }); // reads only; sendTransaction is never retried
 const S = await signers();
 const byAddr = Object.fromEntries(Object.values(S).map((s) => [s.address, s.signer]));
 
@@ -104,6 +105,7 @@ if (PHASE === 'pin') {
     if (!okLayout) { out.steps.push({ token: p.token, skipped: 'canonical bytes layout mismatch' }); continue; }
     const sig = (await byAddr[p.wallet].sign(bytes))[0][0];
     const b = await mcp('build_set_agent_wallet', { token_id: p.token, new_wallet: p.wallet, deadline_unix_ms: deadline, signature_hex: sig, sender: p.owner });
+    await kvPut('registry_publish', 'pin_latest', out);
     out.steps.push({ token: p.token, step: 'setAgentWallet', wallet: p.wallet, nonce_before: 0, ...(await call(p.owner, b.receive_name, b.parameter_hex, `setAgentWallet ${p.token}`)) });
   }
   await kvPut('registry_publish', 'pin_latest', out);
