@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Keep-alive + badge-continuity monitor (runs every 10 min from .github/workflows/monitor.yml; also usable by hand).
 // 1. Wakes the API (a free Render service sleeps after 15 idle minutes) and the site, with retries.
-// 2. Reads GET /api/status: API, census freshness, the three PayOnce badges (official check), registry, nodes.
+// 2. Reads GET /api/status: API, census freshness, the four PayOnce badges (1476, 1506, 1488, 1554; official check), registry, nodes.
 // 3. Prints a table, writes the step summary, appends a line to status/history.jsonl ONLY when the state changed (so the
 //    history is a list of incidents, not 144 lines a day), exits 1 when a required check fails (GitHub then emails the owner).
 //   node tools/census/monitor.mjs [--api URL] [--site URL] [--history status/history.jsonl] [--no-history]

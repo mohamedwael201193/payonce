@@ -1,5 +1,5 @@
 # Keep-alive + badge-continuity monitor. Every 10 minutes: wake the API and the site, read GET /api/status
-# (API, census freshness, the three PayOnce badges via the official check, registry, nodes). A red run means a required check failed
+# (API, census freshness, the four PayOnce badges (1476, 1506, 1488, 1554) via the official check, registry, nodes). A red run means a required check failed
 # (GitHub emails the repo owner). status/history.jsonl records only state CHANGES (incidents), committed with [skip render] [skip ci].
 name: monitor
 on:

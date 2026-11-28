@@ -2,7 +2,7 @@
 // Used by the status page, the keep-alive/monitor Action (.github/workflows/monitor.yml) and judges.
 //   api            this process answers
 //   census         the census data is fresh (refreshed within 14 h)
-//   badges         the three PayOnce agents still hold a valid official Concordium badge (badge continuity)
+//   badges         the four PayOnce agents still hold a valid official Concordium badge (1476, 1506, 1488, and 1554 the check_payee service) (badge continuity)
 //   registry       the official registry indexer answers
 //   testnet_node / mainnet_node   the public nodes answer and are finalizing blocks
 // Pure over injected readers (tests), cached 60 s so a status page cannot hammer the nodes or the registry.
@@ -10,6 +10,7 @@ export const AGENTS = Object.freeze([
   { token_id: 1476, token_address: 'JyP9XawpXHMjTN5ocrA5a', role: 'seller' },
   { token_id: 1506, token_address: 'JyP9Y9nGU4KaM7DBDXRgm', role: 'seller 2' },
   { token_id: 1488, token_address: 'JyP9Xp5bhbLsQrw7yTyph', role: 'buyer agent' },
+  { token_id: 1554, token_address: 'JyP9UE8M6sTcxSaorAr8W', role: 'check_payee service' },
 ]);
 const CHECK_BADGE = (t) => `https://agent-registry-mcp.concordium.com/v1/check-badge/${t}?network=testnet`;
 const INDEXER = 'https://agent-registry-indexer.concordium.com/status';

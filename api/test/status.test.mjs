@@ -7,7 +7,7 @@ const deps = (over = {}) => ({ fetchImpl: okFetch(), loadCensus: async () => ({ 
 
 test('status: everything up -> ok, not degraded, three badges valid', async () => {
   const s = await createStatus(deps())();
-  assert.equal(s.ok, true); assert.equal(s.degraded, false); assert.equal(s.badges.length, AGENTS.length); assert.ok(s.badges.every((b) => b.valid));
+  assert.equal(s.ok, true); assert.equal(s.degraded, false); assert.equal(s.badges.length, AGENTS.length); assert.ok(s.badges.every((b) => b.valid)); assert.equal(AGENTS.length, 4); assert.ok(AGENTS.some((a) => a.token_id === 1554 && a.token_address === 'JyP9UE8M6sTcxSaorAr8W'));
 });
 test('status: a lost badge makes it NOT ok and names the issue (badge continuity)', async () => {
   const s = await createStatus(deps({ fetchImpl: okFetch(false) }))();

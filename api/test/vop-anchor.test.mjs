@@ -45,3 +45,20 @@ test('budget, mainnet, tampered evidence and bad hash are refused', async () => 
   const { svc } = mk({ perDay: 0 });
   await assert.rejects(svc.anchor({ payee: 'P', name: 'x' }), (e) => e.code === 'daily_budget_used');
 });
+
+import { dataHexFromExplorerHtml, resolveTxStatus } from '../src/vop-anchor-wiring.mjs';
+const PVOP = '50564f5031' + 'c8ce36f9d7ea033fdc5038fb46239dee4c349ea3c70df2fe619c1d1038d95309';
+test('explorer HTML parser finds the PVOP1 registered data', () => {
+  assert.equal(dataHexFromExplorerHtml(`<td>Registered Data</td><td>${PVOP.toUpperCase()}</td>`), PVOP);
+  assert.equal(dataHexFromExplorerHtml('<html>no data</html>'), null);
+});
+test('tx status: node first; explorer fallback is labelled and used only after node 429s', async () => {
+  const fromNode = async () => ({ status: 'finalized', dataHex: PVOP });
+  const r = await resolveTxStatus('ab', { fromNode, fromExplorer: async () => { throw new Error('must not'); } });
+  assert.equal(r.source, 'node'); assert.equal(r.dataHex, PVOP);
+  let n = 0;
+  const flaky = async () => { n++; throw new Error('Received HTTP status code 429'); };
+  const ex = await resolveTxStatus('ab', { fromNode: flaky, fromExplorer: async () => ({ status: 'finalized', dataHex: PVOP, source: 'ccdexplorer' }) });
+  assert.equal(ex.source, 'ccdexplorer'); assert.equal(ex.dataHex, PVOP); assert.equal(n, 4);
+  await assert.rejects(resolveTxStatus('ab', { fromNode: async () => { throw new Error('NOT_FOUND'); }, fromExplorer: async () => ({ status: 'finalized', dataHex: PVOP, source: 'ccdexplorer' }) }));
+});

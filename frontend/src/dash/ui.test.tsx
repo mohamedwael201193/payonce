@@ -27,8 +27,9 @@ describe('census page', () => {
     expect(screen.getByText(/Accounts, not people or companies/)).toBeTruthy()
     expect(screen.getByText(/Read from CCDExplorer/)).toBeTruthy()
     const text = document.body.textContent ?? ''
-    for (const bad of [/\bsafe\b/i, /legitimate/i, /fraudulent/i, /nobody can be trusted/i]) expect(text).not.toMatch(bad)
+    for (const bad of [/\bsafe\b/i, /legitimate/i, /fraudulent/i, /dishonest/i, /\bunsafe\b/i, /nobody can be trusted/i]) expect(text).not.toMatch(bad)
     expect(text).not.toMatch(/are verified/i)
+    expect(text).toMatch(/no name proof exists yet/i)
   })
   it('switches to testnet and shows the live check result', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json(census)))

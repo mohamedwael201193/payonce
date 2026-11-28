@@ -130,7 +130,7 @@ export function CensusPage() {
                   </li>
                 ))}
               </ul>
-              <p className="ds-note">{c.x402_sellers.payTo_with_business_identity} of these receive on a business identity.</p>
+              <p className="ds-note">{c.x402_sellers.payTo_with_business_identity} of these receive on a business identity. {c.x402_sellers.unverified_means ?? c.wording?.x402_sellers_wording ?? 'For these sellers, no name proof exists yet for the payTo account. That is not a statement about the seller: every Concordium seller we found is in the same position.'}</p>
             </section>
 
             <Definitions c={c} net={net} />

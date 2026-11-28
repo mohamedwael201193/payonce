@@ -212,7 +212,9 @@ export interface Census {
     endpoints_probed: number
     answering_402: number
     non_concordium_402_networks: Record<string, number>
+    unverified_means?: string
   }
+  wording?: { x402_sellers_wording?: string; sample_verification?: string; headline?: string; upper_bound?: string }
   served: { source: string; served_at: string; age_hours: number | null; stale: boolean; refresh: string }
 }
 

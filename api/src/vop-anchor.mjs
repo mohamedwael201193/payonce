@@ -33,7 +33,7 @@ export function createAnchorService(deps) {
     evidence_hash: rec.evidence_hash, anchored: rec.state === 'finalized' || live?.status === 'finalized',
     state: rec.state, tx_hash: rec.tx_hash ?? null, explorer_url: rec.tx_hash ? deps.explorer?.(rec.tx_hash) ?? null : null,
     registered_data_hex: rec.data_hex, format: 'registerData = "PVOP1" (5 bytes) + evidence_hash (32 bytes)',
-    anchored_at: rec.at, network: 'testnet', chain_status: live?.status ?? null,
+    anchored_at: rec.at, network: 'testnet', chain_status: live?.status ?? null, chain_source: live?.source ?? null,
     chain_data_matches: live?.dataHex != null ? live.dataHex.toLowerCase() === rec.data_hex : null,
     evidence: rec.evidence, recomputed_hash_matches: recomputeEvidenceHash(rec.evidence) === rec.evidence_hash,
     how_to_verify: 'sha256 of the canonical JSON (keys sorted, no spaces) of `evidence` must equal evidence_hash, and the transaction must carry registered_data_hex. GET /api/vop/anchor/<evidence_hash> does both and shows the result.',
