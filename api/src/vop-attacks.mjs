@@ -86,7 +86,8 @@ export function createAttackCatalogue(deps) {
     chain('self-pay', 'Seller pays its own invoice (wash / fake volume)', 'seller', [-27], () => dry(seller, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'A seller cannot pay itself.');
     chain('changed-bank-details', 'Payee details changed after the invoice was issued, then the old invoice is paid', 'buyer agent (victim)', [-31], () => dry(buyer, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'The payee was re-bound after this invoice; the invoice carries the old version, so the chain refuses it (the "changed bank details" fraud).');
     chain('strict-buyer-unapproved-vendor', 'A strict buyer pays a seller it never approved', 'strict buyer', [-19], () => dry(fx.X, 'pay_ccd', serPayableKey({ seller, payable_id: fx.openInvoice }), BigInt(open?.amount ?? 0)), 'A buyer that set strict mode pays only approved sellers.');
-    chain('wrong-payer', 'Someone else pays an invoice locked to the buyer agent', 'outsider', [-21], () => dry(fx.stranger, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'An invoice issued to one payer cannot be settled by another account.');
+    // the invoker must hold the invoice amount, or the node fails the dry run on balance before the contract runs
+    chain('wrong-payer', 'Someone else pays an invoice locked to the buyer agent', 'outsider with funds', [-21], () => dry(fx.X, 'pay_ccd', serPayableKey({ seller, payable_id: fx.staleInvoice }), BigInt(inv?.amount ?? 0)), 'An invoice issued to one payer cannot be settled by another account.');
     // --- invoices to the wrong payee ---
     chain('lookalike-address-invoice', 'Invoice to a lookalike address of the real payee (alias, same first 29 bytes)', 'seller (compromised)', [-28], () => dry(seller, 'register_payable', reg(ownerAlias)), `The lookalike ${ownerAlias.slice(0, 6)}…${ownerAlias.slice(-6)} is not the bound payee address; an invoice to it is refused.`);
     chain('unbound-payee-invoice', 'Invoice to an account that was never proposed', 'seller (compromised)', [-28], () => dry(seller, 'register_payable', reg(fx.stranger)), 'Only a payee that accepted the binding can be invoiced.');
@@ -132,7 +133,7 @@ export function createAttackCatalogue(deps) {
       results.push({
         id: a.id, layer: a.layer, method: a.method, title: a.title, attacker: a.attacker,
         expected: a.expect.map((c) => (typeof c === 'number' ? `${c} ${CODE_NAMES[String(c)] ?? ''}`.trim() : c)),
-        got: got.code == null ? (got.refused === false ? 'ACCEPTED' : got.error ?? null) : typeof got.code === 'number' ? `${got.code} ${CODE_NAMES[String(got.code)] ?? ''}`.trim() : got.code,
+        got: got.code == null ? (got.refused === false ? 'ACCEPTED' : got.error ?? (got.reason_tag ? `node: ${got.reason_tag}` : null)) : typeof got.code === 'number' ? `${got.code} ${CODE_NAMES[String(got.code)] ?? ''}`.trim() : got.code,
         refused: got.refused, pass, plain: a.plain, ...(got.used_energy != null ? { used_energy: got.used_energy } : {}), ...(got.tx_hash ? { tx_hash: got.tx_hash, block: got.block } : {}),
       });
     }

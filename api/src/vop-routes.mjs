@@ -155,7 +155,7 @@ function attackCatalogue() {
       X: ATTACK_X, Y: aliasOf(ATTACK_X, 1), stranger: '3LgPU9K2WFg3ghFHXjm2r2Mizi2eqY71ENTWqHZL98h9ueFKMt', staleInvoice: 123, paidInvoice: 122, openInvoice: 777000001,
       recorded: { notMature: '6bfe195c14a8d82295b4a127fb3ab634a27761ce92f7f12aee063b9ff0654ced', payTwice: 'd91e7611d894d88092d600e97c83e3c9c08cc9d94a8ca0e423348b92f9ccb021' },
     },
-    check: (input) => vopDemo.check(input), payTx: (payee, q, ip) => dashboard().payTx(payee, q, ip), approvals,
+    check: (input) => vopDemo.check(input), payTx: async (payee, q, ip) => (await dashboard()).payTx(payee, q, ip), approvals,
   });
 }
 async function attackScorecard(fresh) {
