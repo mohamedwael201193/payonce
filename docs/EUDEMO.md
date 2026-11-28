@@ -23,6 +23,6 @@ The transfer was read back from the node: token EUDemo, sender = buyer, recipien
 - Two things tie the transfer to the payable: the relayer co-signs only a transfer to that payable's bound payee, for that amount, while the payable is reserved by that sender; and `confirm_plt` stores the transfer hash once (a reused hash is refused, -12). If the buyer pays its own fee and skips the relayer, the receipt check still reads the transfer back from the node.
 - EUDemo is allow-listed: the payer and the payee must both be on the token's allow list. PayOnce's three accounts are (module state `allowList: true`). An outside account needs Concordium to add it first.
 
-## Not done yet
+## Dashboard
 
-The dashboard's pay step (`/app?dash=1`) still offers CCD only. Adding EUDemo there needs the same four calls through the wallet: `reserve_plt` → token transfer → `confirm_plt`. Browser Wallet 2.8+ can sign sponsored token transfers; contract updates need 2.10+. That is frontend work (WS2).
+The `/app?dash=1` pay step offers **CCD** or **EUDemo**. On EUDemo the visitor's wallet signs the same four calls as this run: `reserve_plt` → sponsored EUDemo transfer (memo `payable:<seller>:<id>`, relayer co-signs only the bound payee and amount while Reserved) → `confirm_plt` → a re-reserve, which the chain refuses (−16). Concordium Wallet (browser) 2.10+ or CryptoX (Android). Both accounts must be on the EUDemo allow list.

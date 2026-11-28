@@ -1,3 +1,4 @@
+import { OfficialBadges } from '../app/OfficialBadges'
 import { useMemo } from 'react'
 import { RECORDED_REFUSALS } from '../lib/recorded'
 import { Rise } from './bits'
@@ -71,6 +72,7 @@ export function Proof({ snapshot }: { snapshot: Snapshot }) {
         <p className="po-p po-proof__lead">
           Each chip below is a real testnet transaction. Open one on the explorer and read it yourself.
         </p>
+        <OfficialBadges />
       </div>
       <div className="po-proof__marq">
         <Marquee items={a} label="Payments and registrations on testnet" />

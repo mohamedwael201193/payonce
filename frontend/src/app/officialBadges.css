@@ -1,0 +1,19 @@
+.ob { margin: 28px 0 8px; color: inherit; }
+.ob-h { margin: 0 0 8px; font-size: clamp(20px, 3vw, 28px); font-weight: 600; letter-spacing: -.03em; }
+.ob-lead { margin: 0 0 16px; max-width: 62ch; font-size: 15px; line-height: 1.45; opacity: .86; }
+.ob-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ob-card { display: grid; gap: 4px; padding: 14px 16px 16px; border-radius: 16px; background: var(--po-surface); color: var(--po-ink); box-shadow: var(--po-shadow-1); min-width: 0; }
+.ob-card--ok { outline: 1.5px solid var(--po-ok-line); }
+.ob-role { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--po-grey); }
+.ob-name { margin: 0; font-size: 15px; font-weight: 600; }
+.ob-name b { font-variant-numeric: tabular-nums; }
+.ob-score { margin: 6px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -.04em; color: var(--po-ok); }
+.ob-res { margin: 4px 0 0; font-size: 13px; line-height: 1.35; color: var(--po-grey); }
+.ob-res--ok { color: var(--po-ok); }
+.ob-res--bad { color: var(--po-bad); }
+.ob-links { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; }
+.ob-links a { color: inherit; }
+.dm .ob { margin: 20px 0 0; max-width: 72ch; }
+.dm .ob-h { font-size: clamp(20px, 5vw, 26px); }
+@media (max-width: 900px) { .ob-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .ob-grid { grid-template-columns: 1fr; } .ob-score { font-size: 24px; } }

@@ -230,13 +230,34 @@ export interface AgeVerified { verified: boolean; vaa_tx: string | null }
     the agent itself pays only on MATCH). WS1: UNVERIFIED is refused even with approved=1 (409 not_payable): the contract
     cannot record an acknowledgment for it, so the payment would be refused -36. CLOSE_MATCH without approved=1 -> 409 needs_approval. */
 export interface PayLinkTx {
-  transaction: import('../wallet/types').UpdateTx
+  rail: 'ccd' | 'eudemo'
+  /** CCD rail only: the wallet Update (pay_ccd) the visitor signs. */
+  transaction?: import('../wallet/types').UpdateTx
   check: CheckPayee
   /** not null = the payer has not acknowledged this payee version yet: first
       dashApi.prepare(payer, 'acknowledge_payee', acknowledge.parameter) + sendSponsored (PayOnce pays the fee). */
   acknowledge: { entrypoint: 'acknowledge_payee'; parameter: string; book: 'demo' } | null
-  invoice: { seller: string; payable_id: number; amount_micro: string; register_tx: string; book: string }
+  invoice: { seller: string; payable_id: number; amount_micro: string; asset?: string; register_tx: string; book: string; memo?: string }
+  /** EUDemo rail: reserve_plt (sponsored) before the token transfer. */
+  reserve?: { entrypoint: 'reserve_plt'; parameter: string; book: 'demo' }
+  /** EUDemo rail: one sponsored EUDemo transfer; the relayer co-signs only to this payable’s bound payee, for this amount, while Reserved. */
+  transfer?: { kind: 'token'; token: 'EUDemo'; recipient: string; amount: string; memo: string; book: 'demo'; rule?: string }
+  confirm?: { entrypoint: 'confirm_plt'; how: string }
+  replay?: { entrypoint: 'reserve_plt'; parameter: string; expect_reject: number; expect_name: string }
   approval?: { approval_id: string; approval_hash: string } | null
+}
+
+export interface PltConfirm {
+  entrypoint: 'confirm_plt'
+  parameter: string
+  book: 'demo'
+  invoice: { seller: string; payable_id: number; book: string }
+}
+
+export interface PreparedSponsoredToken {
+  transaction: unknown
+  schema: null
+  sender: string
 }
 
 /** LIVE (WS1): GET /api/record/:account */
@@ -334,8 +355,12 @@ export const dashApi = {
     planned<AgeVerified>('POST /api/wallet/age-proof/verify', '/api/wallet/age-proof/verify', { method: 'POST', body: { request_id: requestId, version, presentation } }),
   /** CLOSE_MATCH needs approvalId (approvalRequest -> wallet signMessage -> approvalVerify). approved=true alone is
       answered 409 needs_signed_approval (WS1 G11: a click is not evidence). */
-  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string, approvalId?: string | null) =>
-    walletApi<PayLinkTx>(`/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}${approvalId ? `&approval=${q(approvalId)}` : ''}`),
+  payLinkTx: (payee: string, payer: string, amountMicro: string, approved = false, name?: string, approvalId?: string | null, rail: 'ccd' | 'eudemo' = 'ccd') =>
+    walletApi<PayLinkTx>(`/api/p/${q(payee)}/pay-tx?payer=${q(payer)}&amount_micro=${q(amountMicro)}&asset=${rail}${approved ? '&approved=1' : ''}${name ? `&name=${q(name)}` : ''}${approvalId ? `&approval=${q(approvalId)}` : ''}`),
+  prepareToken: (sender: string, transfer: { recipient: string; amount: string; memo: string }) =>
+    walletApi<PreparedSponsored>('/api/relay/prepare', { method: 'POST', body: { sender, kind: 'token', recipient: transfer.recipient, amount: transfer.amount, memo: transfer.memo, book: 'demo' } }),
+  pltConfirm: (payee: string, payableId: number, txHash: string) =>
+    walletApi<PltConfirm>(`/api/p/${q(payee)}/plt-confirm`, { method: 'POST', body: { payable_id: payableId, tx_hash: txHash } }),
   // LIVE (WS1, G11): the person's wallet signs the approval message; the server verifies it against the account keys on chain.
   approvalRequest: (payer: string, payee: string, name: string, amountMicro: string) =>
     walletApi<ApprovalRequest>('/api/approvals/request', { method: 'POST', body: { payer, payee, name, amount_micro: amountMicro } }),

@@ -12,7 +12,7 @@
 // once, and a later call with the same key looks the hash up on chain instead of sending again. A send is repeated
 // only when the node refused it before acceptance (duplicate nonce) or its hash is absent after expiry.
 import { randomBytes } from 'node:crypto';
-import { V3_ERRORS, serProposePayee, serRegisterPayable, serPayableKey } from './vop-chain.mjs';
+import { V3_ERRORS, serProposePayee, serRegisterPayable, serPayableKey, serConfirmPlt } from './vop-chain.mjs';
 import { legalNameHash, presentationAnchor, sha256Hex } from './vop.mjs';
 import { factsFromPresentation } from './vop-service.mjs';
 
@@ -21,7 +21,7 @@ export const DASH_POLICY = Object.freeze({
   getpaidPerIpPerHour: 4, getpaidPerPayeePerDay: 3, getpaidPerDay: 60,
   redirectPerIpPerHour: 6, redirectPerDay: 60,
   payTxPerIpPerHour: 6, payTxPerPayerPerDay: 5, payTxPerDay: 60,
-  getpaidMicro: 1_000_000n, payTxMaxMicro: 5_000_000n, payerFloorMicro: 100_000_000n,
+  getpaidMicro: 1_000_000n, payTxMaxMicro: 5_000_000n, payTxMaxEudemoMicro: 100_000n, payerFloorMicro: 100_000_000n,
   waitMs: 90_000, staleJobMs: 180_000, maxHoldMs: 30 * 60_000, payEnergy: 6000n, refusedEnergy: 6000n,
 });
 export const PAYER_LABEL = 'reference payer run by PayOnce';
@@ -33,9 +33,9 @@ const TERMINAL = new Set(['paid', 'refused', 'failed']);
 export class DashError extends Error {
   constructor(status, code, message, extra) { super(message); this.status = status; this.code = code; this.extra = extra; }
 }
-export const microToDisplay = (m) => {
+export const microToDisplay = (m, unit = 'CCD') => {
   const v = BigInt(m); const whole = v / 1_000_000n; const frac = (v % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '');
-  return `${whole}${frac ? `.${frac}` : ''} CCD`;
+  return `${whole}${frac ? `.${frac}` : ''} ${unit}`;
 };
 const randomPayableId = () => 1_000_000_000 + Number(BigInt(`0x${randomBytes(5).toString('hex')}`)); // < 2^41, unique per call
 
@@ -339,9 +339,12 @@ export function createDashboard(deps) {
     const payee = addr(payeeIn, 'payee');
     const payerAcct = addr(q?.payer, 'payer');
     if (payee === payerAcct) throw new DashError(400, 'self_payment', 'You cannot pay yourself.');
-    if (!/^\d{1,13}$/.test(String(q?.amount_micro ?? ''))) throw new DashError(400, 'bad_amount', 'amount_micro is a whole number of micro CCD.');
+    const rail = String(q?.asset ?? q?.rail ?? 'ccd').toLowerCase() === 'eudemo' ? 'eudemo' : 'ccd';
+    const asset = rail === 'eudemo' ? 'EUDemo' : 'CCD';
+    const maxMicro = rail === 'eudemo' ? policy.payTxMaxEudemoMicro : policy.payTxMaxMicro;
+    if (!/^\d{1,13}$/.test(String(q?.amount_micro ?? ''))) throw new DashError(400, 'bad_amount', `amount_micro is a whole number of micro ${asset} (6 decimals).`);
     const amount = BigInt(q.amount_micro);
-    if (amount < 1n || amount > policy.payTxMaxMicro) throw new DashError(400, 'bad_amount', `Demo payments are 1 micro CCD to ${microToDisplay(policy.payTxMaxMicro)}.`);
+    if (amount < 1n || amount > maxMicro) throw new DashError(400, 'bad_amount', `Demo payments are 1 micro ${asset} to ${microToDisplay(maxMicro, asset)}.`);
     const proof = await kv.get('payee_proof', payee);
     const name = String(q?.name ?? q?.legal_name ?? '').trim() || null;
     const check = await vop.check({ seller, payee, legal_name: name ?? proof?.name ?? '', buyer: payerAcct });
@@ -361,7 +364,7 @@ export function createDashboard(deps) {
     if (check.verdict === 'UNVERIFIED') throw new DashError(409, 'not_payable', 'Verification not possible: the book cannot record an acknowledgment for this payee, so the chain would refuse the payment (-36). Nothing to sign.', { check });
     if (check.verdict === 'CLOSE_MATCH' && !approved) throw new DashError(409, 'needs_signed_approval', 'Close match: the payer must sign an approval with the wallet first (POST /api/approvals/request, then /api/approvals/:id/verify), then pass approval=<id>.', { check });
     if (!(check.payable || (check.verdict === 'CLOSE_MATCH' && approved && bookOk))) throw new DashError(409, 'not_payable', check.reasons?.[0] ?? `check_payee: ${check.verdict}; nothing to sign.`, { check });
-    const key = `${payee}:${payerAcct}:${amount}`;
+    const key = `${payee}:${payerAcct}:${amount}:${rail}`;
     let link = await kv.get('dash_paylink', key);
     if (link?.payable_id != null) {
       const p = await chain.getPayable(link.payable_id);
@@ -373,25 +376,60 @@ export function createDashboard(deps) {
       await budget('dash:paytx:day', DAY, policy.payTxPerDay, 'Daily limit for payment links reached; try again tomorrow.');
       const pid = randomPayableId();
       const reg = serRegisterPayable({
-        payable_id: pid, payee, amount, asset: 'CCD', due_ms: now() + DAY,
-        doc_hash: sha256Hex(`payonce dashboard pay link ${payee} ${payerAcct} ${amount} ${pid}`), agent_token: agentToken, expected_payer: payerAcct, legal_ref: null,
+        payable_id: pid, payee, amount, asset, due_ms: now() + DAY,
+        doc_hash: sha256Hex(`payonce dashboard pay link ${payee} ${payerAcct} ${amount} ${asset} ${pid}`), agent_token: agentToken, expected_payer: payerAcct, legal_ref: null,
       }).toString('hex');
       const r = await op(`paylink:${key}:${pid}`, 'seller', () => chain.sign('seller', 'register_payable', reg, 0n, 12000n));
       if (!r.ok) throw new DashError(502, 'chain_rejected', `The book refused the invoice for this payment (reject ${r.reject}).`, { tx_hash: r.hash, reject: r.reject });
-      link = { payable_id: pid, register_tx: r.hash, payee, payer: payerAcct, amount_micro: amount.toString(), verdict: check.verdict, at: iso(now()) };
+      link = { payable_id: pid, register_tx: r.hash, payee, payer: payerAcct, amount_micro: amount.toString(), asset, verdict: check.verdict, at: iso(now()) };
       await kv.put('dash_paylink', key, link);
       await kv.put('dash_paylink_by_payer', `${payerAcct}:${pid}`, link);
     }
+    const acknowledge = check.buyer_ack?.current ? null : { entrypoint: 'acknowledge_payee', parameter: check.acknowledge?.parameter ?? null, book: 'demo', how: 'POST /api/relay/prepare {sender: payer, entrypoint, parameter, book:"demo"} then sendSponsored, before sending this payment; without it the chain refuses -30 PayeeNotAcknowledged' };
+    const invoice = { seller, payable_id: link.payable_id, amount_micro: amount.toString(), asset, register_tx: link.register_tx, book: deps.bookLabel };
+    const approvalOut = approval ? { approval_id: approval.approval_id, approval_hash: approval.approval_hash } : null;
+    if (rail === 'eudemo') {
+      const memo = `payable:${seller}:${link.payable_id}`;
+      return {
+        rail: 'eudemo',
+        check,
+        acknowledge,
+        invoice: { ...invoice, memo },
+        reserve: { entrypoint: 'reserve_plt', parameter: serPayableKey({ seller, payable_id: link.payable_id }).toString('hex'), book: 'demo' },
+        transfer: { kind: 'token', token: 'EUDemo', recipient: payee, amount: amount.toString(), memo, book: 'demo', rule: 'The relayer co-signs only a transfer to this payable’s bound payee, for this amount, while it is Reserved by this sender.' },
+        confirm: { entrypoint: 'confirm_plt', how: 'POST /api/p/:payee/plt-confirm { payable_id, tx_hash } then prepare + sendSponsored' },
+        replay: { entrypoint: 'reserve_plt', parameter: serPayableKey({ seller, payable_id: link.payable_id }).toString('hex'), expect_reject: -16, expect_name: 'WrongStatus' },
+        approval: approvalOut,
+      };
+    }
     if (!deps.payCcdSchema) throw new DashError(503, 'schema_unavailable', 'The wallet parameter schema is not loaded on this server.');
     return {
+      rail: 'ccd',
       transaction: {
         type: 'Update', contract: { index: Number(deps.book.index), subindex: Number(deps.book.subindex) }, receive_name: `${deps.book.name}.pay_ccd`,
         amount_micro: amount.toString(), parameter_json: { seller, payable_id: link.payable_id }, schema: { type: 'parameter', value: deps.payCcdSchema }, max_energy: Number(policy.payEnergy),
       },
       check,
-      acknowledge: check.buyer_ack?.current ? null : { entrypoint: 'acknowledge_payee', parameter: check.acknowledge?.parameter ?? null, book: 'demo', how: 'POST /api/relay/prepare {sender: payer, entrypoint, parameter, book:"demo"} then sendSponsored, before sending this payment; without it the chain refuses -30 PayeeNotAcknowledged' },
-      invoice: { seller, payable_id: link.payable_id, amount_micro: amount.toString(), register_tx: link.register_tx, book: deps.bookLabel },
-      approval: approval ? { approval_id: approval.approval_id, approval_hash: approval.approval_hash } : null,
+      acknowledge,
+      invoice,
+      approval: approvalOut,
+    };
+  }
+
+  /** After the EUDemo transfer is finalized: the confirm_plt parameter that records its hash once. */
+  async function pltConfirm(payeeIn, body) {
+    const payee = addr(payeeIn, 'payee');
+    const pid = Number(body?.payable_id);
+    const hash = String(body?.tx_hash ?? '').toLowerCase();
+    if (!Number.isInteger(pid) || pid < 1) throw new DashError(400, 'bad_payable', 'payable_id is required.');
+    if (!/^[0-9a-f]{64}$/.test(hash)) throw new DashError(400, 'bad_hash', 'tx_hash must be a 32-byte hex transaction hash.');
+    const links = (await kv.list('dash_paylink')).map((r) => r.value).filter((v) => v?.payee === payee && Number(v?.payable_id) === pid);
+    if (!links.length) throw new DashError(404, 'no_paylink', 'No EUDemo payment link for that payable.');
+    return {
+      entrypoint: 'confirm_plt',
+      parameter: serConfirmPlt({ seller, payable_id: pid, tx_hash: hash }).toString('hex'),
+      book: 'demo',
+      invoice: { seller, payable_id: pid, book: deps.bookLabel },
     };
   }
 
@@ -404,12 +442,12 @@ export function createDashboard(deps) {
       const p = await chain.getPayable(l.payable_id).catch(() => null);
       if (p?.status?.tag !== 'Paid') continue;
       const tx = p.status.tx_hash ?? (chain.findPayTx ? await chain.findPayTx(a, p.status.paid_at_ms).catch(() => null) : null);
-      rows.push({ at: iso(p.status.paid_at_ms), role: 'paid', counterparty: l.payee, amount_display: microToDisplay(l.amount_micro), verdict: l.verdict, tx_hash: tx });
+      rows.push({ at: iso(p.status.paid_at_ms), role: 'paid', counterparty: l.payee, amount_display: microToDisplay(l.amount_micro, l.asset === 'EUDemo' ? 'EUDemo' : 'CCD'), verdict: l.verdict, tx_hash: tx });
     }
     const items = rows.map(({ at, role, counterparty, amount_display, verdict, tx_hash, note }) => ({ at, role, counterparty, amount_display, verdict, tx_hash: tx_hash ?? null, ...(note ? { note } : {}) }))
       .sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 50);
     return { account: a, book: deps.bookLabel, items };
   }
 
-  return { propose, payeeStatus, startGetPaid, getJob, redirect, payTx, record, _op: op, _running: running };
+  return { propose, payeeStatus, startGetPaid, getJob, redirect, payTx, pltConfirm, record, _op: op, _running: running };
 }

@@ -239,6 +239,42 @@ test('pay-tx: refuses unless payable; registers the invoice once and reuses it; 
   assert.equal(rec.items[0].role, 'paid'); assert.equal(rec.items[0].counterparty, ME); assert.equal(rec.items[0].tx_hash, 'f'.repeat(64));
 });
 
+
+test('pay-tx EUDemo: registers an EUDemo payable and returns reserve + transfer + replay, not pay_ccd', async () => {
+  const { d, chain } = setup();
+  chain.payees.set(ME, { status: 'Bound', version: 1, identity: { proof_anchor: 'c'.repeat(64) }, mature_at_ms: Date.now() - 1 });
+  await assert.rejects(d.payTx(ME, { payer: OTHER, amount_micro: '1000000', asset: 'eudemo' }, 'ip'), (e) => e.code === 'bad_amount');
+  const t = await d.payTx(ME, { payer: OTHER, amount_micro: '10000', asset: 'eudemo', name: 'Ada Lovelace' }, 'ip');
+  assert.equal(t.rail, 'eudemo');
+  assert.equal(t.transaction, undefined);
+  assert.equal(t.invoice.asset, 'EUDemo');
+  assert.equal(t.invoice.amount_micro, '10000');
+  assert.equal(t.reserve.entrypoint, 'reserve_plt');
+  assert.match(t.reserve.parameter, /^[0-9a-f]+$/i);
+  assert.equal(t.transfer.kind, 'token');
+  assert.equal(t.transfer.token, 'EUDemo');
+  assert.equal(t.transfer.recipient, ME);
+  assert.equal(t.transfer.amount, '10000');
+  assert.equal(t.transfer.memo, `payable:${SELLER}:${t.invoice.payable_id}`);
+  assert.equal(t.replay.expect_reject, -16);
+  assert.equal(chain.sent.filter((s) => s.entrypoint === 'register_payable').length, 1);
+  chain.payables.set(String(t.invoice.payable_id), { status: { tag: 'Unpaid' }, due_ms: Date.now() + 86_400_000 });
+  const t2 = await d.payTx(ME, { payer: OTHER, amount_micro: '10000', rail: 'eudemo' }, 'ip');
+  assert.equal(t2.invoice.payable_id, t.invoice.payable_id);
+  assert.equal(chain.sent.filter((s) => s.entrypoint === 'register_payable').length, 1);
+  // CCD and EUDemo links do not collide
+  const ccd = await d.payTx(ME, { payer: OTHER, amount_micro: '1000000' }, 'ip');
+  assert.equal(ccd.rail, 'ccd');
+  assert.ok(ccd.transaction.receive_name.endsWith('.pay_ccd'));
+  assert.notEqual(ccd.invoice.payable_id, t.invoice.payable_id);
+  const hash = '7ddeb8280c8e85dd42c2c691d1b308117d09cf0534cee7c02b18abb65a60eb8b';
+  const conf = await d.pltConfirm(ME, { payable_id: t.invoice.payable_id, tx_hash: hash });
+  assert.equal(conf.entrypoint, 'confirm_plt');
+  assert.match(conf.parameter, /^[0-9a-f]+$/i);
+  await assert.rejects(d.pltConfirm(ME, { payable_id: t.invoice.payable_id, tx_hash: 'nope' }), (e) => e.code === 'bad_hash');
+  await assert.rejects(d.pltConfirm(OTHER, { payable_id: t.invoice.payable_id, tx_hash: hash }), (e) => e.code === 'no_paylink');
+});
+
 test('getJob: a run interrupted by a restart is reported failed, nothing resent', async () => {
   const { d, kv, chain } = setup();
   await kv.put('dash_job', 'a'.repeat(24), { job_id: 'a'.repeat(24), payee: ME, name: 'Ada', amount_micro: '1000000', stage: 'paying', register_tx: 'b'.repeat(64), updated_at: new Date(Date.now() - 600_000).toISOString() });

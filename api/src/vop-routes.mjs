@@ -18,7 +18,8 @@
 //   POST /api/payee/propose {account}      GET /api/payee/:account     (dashboard, demo book <13173,0>; dash.mjs)
 //   POST /api/getpaid {payee, invoice}     GET /api/getpaid/:job       POST /api/getpaid/:job/redirect {to}
 //   GET  /api/badge/:account.svg?name=     embeddable payee-check badge (Match is the only green)
-//   GET  /api/p/:account/pay-tx?payer=&amount_micro=[&name=]          GET /api/record/:account
+//   GET  /api/p/:account/pay-tx?payer=&amount_micro=[&name=][&asset=eudemo]
+//   POST /api/p/:account/plt-confirm { payable_id, tx_hash }          GET /api/record/:account
 //   book=demo on /api/vop/check, /api/check-payee, /api/relay/config and in the /api/relay/prepare body selects the demo book
 //   GET  /api/relay/config                                        what the relayer sponsors
 //   POST /api/relay/prepare     { sender, entrypoint, parameter } sponsor-first: tx co-signed by the sponsor, wallet signs + submits
@@ -428,6 +429,7 @@ export function vopRoutes({ sendJson, apiError, readBody, clientIp, hitWindow })
     ['GET', /^\/api\/getpaid\/([0-9a-f]{24})$/, wrap(async (req, res, m) => { await limited('dash:job', 90)(req); return (await dashboard()).getJob(m[1]); })],
     ['POST', /^\/api\/getpaid\/([0-9a-f]{24})\/redirect$/, wrap(async (req, res, m) => { await limited('dash:redirect', 6)(req); return (await dashboard()).redirect(m[1], await readBody(req, 4096), clientIp(req)); })],
     ['GET', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/pay-tx$/, wrap(async (req, res, m) => { await limited('dash:paytx', 12)(req); return (await dashboard()).payTx(m[1], qs(req), clientIp(req)); })],
+    ['POST', /^\/api\/p\/([1-9A-HJ-NP-Za-km-z]{50})\/plt-confirm$/, wrap(async (req, res, m) => { await limited('dash:paytx', 12)(req); return (await dashboard()).pltConfirm(m[1], await readBody(req, 4096)); })],
     ['GET', /^\/api\/record\/([1-9A-HJ-NP-Za-km-z]{50})$/, wrap(async (req, res, m) => { await limited('dash:record', 30)(req); return (await dashboard()).record(m[1]); })],
     ['POST', /^\/api\/relay\/build$/, wrap(async (req) => { await relayLimited(req); return relayer.build(await readBody(req)); })],
     ['POST', /^\/api\/relay\/submit$/, wrap(async (req) => { await relayLimited(req); return relayer.submit(await readBody(req, 128 * 1024)); })],

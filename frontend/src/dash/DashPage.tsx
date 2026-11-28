@@ -7,7 +7,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { WalletProvider, useWallet } from '../wallet/WalletContext'
-import { walletApi, WalletApiError } from '../wallet/api'
+import { walletApi, waitForTx, WalletApiError } from '../wallet/api'
 import { WalletTooOld, walletErrorText } from '../wallet/types'
 import { useAccountInfo } from '../wallet/WalletUI'
 import { RunConnect } from '../app/run/RunWallet'
@@ -27,6 +27,21 @@ import './dash.css'
 export const DEMO_SELLER = AGENTS[0].owner
 const EXPLORER_TX = 'https://ccdexplorer.io/testnet/transaction/'
 const short = (a: string) => midTruncate(a, 6, 6)
+const CCD_MICRO = '1000000'
+const EUDEMO_MICRO = '10000'
+type PayRail = 'ccd' | 'eudemo'
+const amountMicro = (rail: PayRail) => (rail === 'eudemo' ? EUDEMO_MICRO : CCD_MICRO)
+const amountLabel = (rail: PayRail) => (rail === 'eudemo' ? '0.01 EUDemo' : '1 CCD')
+/** First completed EUDemo VoP run, 28 Nov 2026. Re-reserve was refused -16. */
+const EUDEMO_REPLAY_TX = '5fac785d9174277ef182a427242c3fb6fc8fadfaa0e8d68799f075d48c012fbd'
+const EUDEMO_EVIDENCE = '/evidence/eudemo-vop-run-2026-11-28.json'
+
+function rejectOf(e: unknown): { code: number; name?: string } | null {
+  const msg = e instanceof Error ? e.message : String(e)
+  const m = /reject(?: code)?\s+(-?\d+)/i.exec(msg)
+  return m ? { code: Number(m[1]) } : null
+}
+type OutLegs = { reserve?: string; transfer?: string; confirm?: string; replay?: string; replayCode?: number | null; replayName?: string; replayMsg?: string }
 
 export const STEPS = [
   { key: 'connect', label: 'Connect', group: 'get' },
@@ -138,6 +153,8 @@ function Flow() {
   const [outAt, setOutAt] = useState(0)
   const outSt = useTxStatus(outTx)
   const [outPay, setOutPay] = useState<Async<true>>({ s: 'idle' })
+  const [payRail, setPayRail] = useState<PayRail>('ccd')
+  const [outLegs, setOutLegs] = useState<OutLegs>({})
   const [declined, setDeclined] = useState(false)
   const [record, setRecord] = useState<Async<RecordItem[]>>({ s: 'idle' })
   const alive = useRef(true)
@@ -221,17 +238,65 @@ function Flow() {
     } catch (e) { setOutCheck(errOf(e)) }
   }
 
+  async function sponsoredCall(entrypoint: string, parameter: string) {
+    const session = w.session
+    if (!session?.sendSponsored || !acct) throw new WalletTooOld()
+    const prep = await dashApi.prepare(acct, entrypoint, parameter)
+    const hash = await session.sendSponsored(prep.transaction, prep.schema)
+    const st = await waitForTx(hash)
+    if (st.status === 'finalized' && st.reject) {
+      const err = new Error(`The chain refused (${st.reject.name ?? 'reject'}, ${st.reject.code}).`)
+      ;(err as Error & { reject: typeof st.reject }).reject = st.reject
+      throw err
+    }
+    if (st.status !== 'finalized') throw new Error('Still waiting for the chain.')
+    return hash
+  }
+
   async function payOut(approved = false) {
     if (!w.session || !acct || outCheck.s !== 'done') return
     try {
       setOutPay({ s: 'busy', note: 'Building the payment…' })
-      const t = await dashApi.payLinkTx(payTo.trim(), acct, '1000000', approved, payName.trim() || undefined)
+      setOutLegs({})
+      const t = await dashApi.payLinkTx(payTo.trim(), acct, amountMicro(payRail), approved, payName.trim() || undefined, undefined, payRail)
       if (t.acknowledge?.parameter) {
         if (!w.session.sendSponsored) throw new WalletTooOld()
         setOutPay({ s: 'busy', note: 'First, acknowledge this payee in your wallet. PayOnce pays the fee.' })
         const prep = await dashApi.prepare(acct, t.acknowledge.entrypoint, t.acknowledge.parameter)
         await w.session.sendSponsored(prep.transaction, prep.schema)
       }
+      if (payRail === 'eudemo' || t.rail === 'eudemo') {
+        if (!t.reserve || !t.transfer) throw new Error('The API did not return the EUDemo steps.')
+        if (!w.session.sendSponsored) throw new WalletTooOld()
+        setOutPay({ s: 'busy', note: 'Reserve this payable in your wallet. PayOnce pays the fee.' })
+        const reserve = await sponsoredCall(t.reserve.entrypoint, t.reserve.parameter)
+        setOutLegs((l) => ({ ...l, reserve }))
+        setOutPay({ s: 'busy', note: 'Approve the EUDemo transfer. The memo names this payable. PayOnce pays the fee.' })
+        const prep = await dashApi.prepareToken(acct, { recipient: t.transfer.recipient, amount: t.transfer.amount, memo: t.transfer.memo })
+        const transfer = await w.session.sendSponsored(prep.transaction, prep.schema)
+        const st = await waitForTx(transfer)
+        if (st.reject) throw new Error(`The transfer was refused (${st.reject.name ?? 'reject'}, ${st.reject.code}).`)
+        if (st.status !== 'finalized') throw new Error('Still waiting for the transfer.')
+        setOutLegs((l) => ({ ...l, transfer }))
+        setOutAt(Date.now())
+        setOutTx(transfer)
+        setOutPay({ s: 'busy', note: 'Confirm the transfer on the book. PayOnce pays the fee.' })
+        const conf = await dashApi.pltConfirm(payTo.trim(), t.invoice.payable_id, transfer)
+        const confirm = await sponsoredCall(conf.entrypoint, conf.parameter)
+        setOutLegs((l) => ({ ...l, confirm }))
+        setOutPay({ s: 'busy', note: 'Trying to reserve it again — the chain should refuse.' })
+        try {
+          const again = await sponsoredCall(t.replay?.entrypoint ?? 'reserve_plt', t.replay?.parameter ?? t.reserve.parameter)
+          setOutLegs((l) => ({ ...l, replay: again, replayMsg: 'The chain accepted a second reserve. That should not happen; please report it.' }))
+        } catch (e) {
+          const r = (e as { reject?: { code: number; name?: string } }).reject ?? rejectOf(e)
+          const msg = e instanceof Error ? e.message : String(e)
+          setOutLegs((l) => ({ ...l, replayCode: r?.code ?? null, replayName: r?.name, replayMsg: msg }))
+        }
+        setOutPay({ s: 'done', v: true })
+        return
+      }
+      if (!t.transaction) throw new Error('The API did not return a CCD payment to sign.')
       setOutPay({ s: 'busy', note: 'Approve the payment in your wallet.' })
       setOutAt(Date.now())
       setOutTx(await w.session.sendUpdate(t.transaction))
@@ -348,13 +413,23 @@ function Flow() {
           <div className="ds-two">
             <div className="ds-pane">
               <h3>A payee link</h3>
+              <div className="ds-toggle" role="radiogroup" aria-label="Pay in">
+                {(['ccd', 'eudemo'] as const).map((r) => (
+                  <button key={r} type="button" role="radio" aria-checked={payRail === r} className={payRail === r ? 'is-on' : ''} onClick={() => { setPayRail(r); setOutPay({ s: 'idle' }); setOutLegs({}); setOutTx(null) }}>{r === 'ccd' ? 'CCD' : 'EUDemo'}</button>
+                ))}
+              </div>
+              {payRail === 'eudemo' ? (
+                <p className="ds-note">0.01 EUDemo, once. Reserve, then a token transfer whose memo names the payable, then confirm. PayOnce pays the fees. Both accounts must be on Concordium’s EUDemo allow list (lab accounts are; a new wallet needs to be added first). <a href={EUDEMO_EVIDENCE} target="_blank" rel="noreferrer">A completed run</a> was refused on re-reserve (−16).</p>
+              ) : (
+                <p className="ds-note">1 CCD, once, paid from your wallet.</p>
+              )}
               <label className="ds-field"><span>Account</span><input value={payTo} onChange={(e) => setPayTo(e.target.value)} placeholder="Paste a Concordium account" spellCheck={false} /></label>
               <label className="ds-field"><span>Name on the invoice</span><input value={payName} onChange={(e) => setPayName(e.target.value)} placeholder="Nour Design Studio" /></label>
               <button className="ds-btn" disabled={!payTo.trim() || !payName.trim() || outCheck.s === 'busy'} onClick={() => void checkOut()}>Check payee</button>
               <State a={outCheck}>{(c) => (
                 <>
                   <VerdictBlock check={c} />
-                  {c.payable ? <button className="ds-btn" disabled={!acct || outPay.s === 'busy'} onClick={() => void payOut()}>Pay 1 CCD</button> : null}
+                  {c.payable ? <button className="ds-btn" disabled={!acct || outPay.s === 'busy'} onClick={() => void payOut()}>Pay {amountLabel(payRail)}</button> : null}
                   {c.verdict === 'NO_MATCH' ? <p className="ds-note">The agent pays nothing. No override.</p> : null}
                   {c.verdict === 'UNVERIFIED' && !c.payable ? <p className="ds-note">Not possible: the book cannot record an acknowledgment for this payee, so the chain would refuse the payment. Nothing to sign.</p> : null}
                   {!c.payable && (c.verdict === 'CLOSE_MATCH' || c.verdict === 'MATCH') && !declined && !outTx ? (
@@ -365,16 +440,24 @@ function Flow() {
                         { label: 'Name on invoice', value: payName.trim() },
                         { label: 'Proven name', value: c.verified_name ?? 'none' },
                         { label: 'Account', value: short(payTo.trim()) },
-                        { label: 'Amount', value: '1 CCD, once' },
+                        { label: 'Amount', value: `${amountLabel(payRail)}, once` },
                       ]}
-                      confirmLabel="Pay 1 CCD anyway"
+                      confirmLabel={`Pay ${amountLabel(payRail)} anyway`}
                       busy={outPay.s === 'busy' || !acct}
                       onApprove={() => void payOut(true)}
                       onDecline={() => setDeclined(true)}
                     />
                   ) : null}
                   {declined ? <p className="ds-note">You decided not to pay. Nothing was sent.</p> : null}
-                  {outTx ? <><ChainBar phase={outSt.phase} startedAt={outAt} /><Tx hash={outTx} label="Payment" /></> : null}
+                  {outTx ? <><ChainBar phase={outSt.phase} startedAt={outAt} /><Tx hash={outTx} label={payRail === 'eudemo' ? 'EUDemo transfer' : 'Payment'} /></> : null}
+                  {outLegs.reserve ? <Tx hash={outLegs.reserve} label="reserve_plt" /> : null}
+                  {outLegs.confirm ? <Tx hash={outLegs.confirm} label="confirm_plt" /> : null}
+                  {outLegs.replayCode === -16 || (outLegs.replayMsg && outLegs.replayCode != null) ? (
+                    <p className="ds-note" data-testid="eudemo-replay">{outLegs.replay ? <Tx hash={outLegs.replay} label={`Re-reserve refused (${outLegs.replayCode}${outLegs.replayName ? `, ${outLegs.replayName}` : ''})`} /> : <>Re-reserve refused{outLegs.replayCode != null ? ` (${outLegs.replayCode}${outLegs.replayName ? `, ${outLegs.replayName}` : ''})` : ''}. The payable is already paid.</>}</p>
+                  ) : outLegs.replayMsg ? <p className="ds-err">{outLegs.replayMsg}</p> : null}
+                  {payRail === 'eudemo' && outPay.s === 'done' && outLegs.replayCode !== -16 ? (
+                    <p className="ds-note">The first completed run was refused on re-reserve (−16): <Tx hash={EUDEMO_REPLAY_TX} label="recorded refusal" />.</p>
+                  ) : null}
                   <State a={outPay} />
                 </>
               )}</State>

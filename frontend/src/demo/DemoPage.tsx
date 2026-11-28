@@ -10,6 +10,7 @@ import { useDocumentTitle } from '../app/hooks'
 import { RECORDED_RUN, loadDemoRun, txUrl, type DemoRun } from './demoData'
 import { PayeeDiff } from '../dash/motion'
 import { lookalike, sharedEnds } from '../dash/lookalike'
+import { OfficialBadges } from '../app/OfficialBadges'
 import '../dash/dash.css'
 import './demo.css'
 
@@ -159,6 +160,7 @@ export function DemoPage() {
             <Link className="dm-btn dm-btn--ghost" to="/app/proof/agent">Add the check to your agent</Link>
           </div>
           <p className="dm-note"><Link to="/app/proof/judges">Verify it yourself</Link>, no keys needed.</p>
+          <OfficialBadges title="Four official badges, checked live" />
         </>
       )
   }
