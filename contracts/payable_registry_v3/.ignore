@@ -1,0 +1,6 @@
+# cargo-concordium verifiable build: keep build artifacts out of the source archive
+*.wasm
+*.wasm.v1
+*.tar
+*.tar.gz
+verifiable/
